@@ -284,12 +284,25 @@ export default async () => {
 
   await describe('hostsToRelease', async () => {
     const pattern = (o: string) => `${new URL(o).protocol}//${new URL(o).hostname}/*`;
-    await it('gives the wildcard back once no live wildcard grant is left', async () => {
+    await it('gives the wildcard back once no live wildcard grant is left and no site needs it', async () => {
       const held = { wildcard: true, origins: [] };
       const live: Grant[] = [{ scope: '*', level: 'read', until: NOW + HOUR }];
-      expect(hostsToRelease(held, policy, live, NOW, pattern).wildcard).toBe(false);
-      expect(hostsToRelease(held, policy, live, NOW + HOUR, pattern).wildcard).toBe(true);
-      expect(hostsToRelease({ wildcard: false, origins: [] }, policy, [], NOW, pattern).wildcard).toBe(false);
+      expect(hostsToRelease(held, EMPTY_POLICY, live, NOW, pattern).wildcard).toBe(false);
+      expect(hostsToRelease(held, EMPTY_POLICY, live, NOW + HOUR, pattern).wildcard).toBe(true);
+      expect(hostsToRelease({ wildcard: false, origins: [] }, EMPTY_POLICY, [], NOW, pattern).wildcard).toBe(
+        false,
+      );
+    });
+    // Measured in Chromium (see policy.ts): permissions.remove(['http://*/*', 'https://*/*'])
+    // strips every host permission those patterns cover, not only ones requested with them — so a
+    // site's OWN, separately-granted permission would go with it. Holding the wildcard back while
+    // the policy still needs a site is what keeps that from happening.
+    await it('does not release the wildcard while the policy still needs a site', async () => {
+      const held = { wildcard: true, origins: [] };
+      expect(hostsToRelease(held, policy, [], NOW, pattern).wildcard).toBe(false);
+      // Once nothing needs it any more (the person's last allowed site set to None or removed),
+      // the same held wildcard is released: `storage.onChanged` on the policy re-checks this.
+      expect(hostsToRelease(held, EMPTY_POLICY, [], NOW, pattern).wildcard).toBe(true);
     });
     await it('keeps a site the policy allows and one a live grant needs', async () => {
       const held = {
