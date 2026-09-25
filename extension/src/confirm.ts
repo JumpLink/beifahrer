@@ -24,8 +24,8 @@ export interface ConfirmRequest {
 export interface ConfirmAnswer {
   allow: boolean;
   /**
-   * "Don't ask again on this site" — turns `confirmWrites` off for the origin. For `close`:
-   * "don't ask again before closing tabs" — turns `confirmClose` off.
+   * "Always allow": turns `confirmWrites` off for the origin. For `close` it turns
+   * `confirmClose` off.
    */
   remember: boolean;
 }
@@ -59,6 +59,14 @@ export async function askPerson(req: Omit<ConfirmRequest, 'id'>): Promise<Confir
       })
       .catch(() => settle({ allow: false, remember: false }));
   });
+}
+
+/**
+ * E2E builds only (e2e-seed.ts): a request that waits forever and opens no window, so the test
+ * can open confirm.html on it and see the window as the person would.
+ */
+export function holdForPreview(req: ConfirmRequest): void {
+  pending.set(req.id, { req, resolve: () => undefined });
 }
 
 /** Messages from confirm.html. Returns undefined for messages that are not ours. */

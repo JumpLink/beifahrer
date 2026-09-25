@@ -3,13 +3,16 @@
     "message": "beifahrer"
   },
   "extDescription": {
-    "message": "Lass einen KI-Agenten in deinem Browser mitfahren: Tabs sehen, freigegebene Seiten lesen und bearbeiten, Seite für Seite."
+    "message": "Lass einen KI-Agenten diesen Browser nutzen. Du legst für jede Seite fest, was er lesen und ändern darf."
   },
   "commandTogglePause": {
-    "message": "beifahrer pausieren oder fortsetzen (pausiert bekommt der Agent nichts)"
+    "message": "Agent pausieren oder fortsetzen"
   },
   "action_resume": {
     "message": "Fortsetzen"
+  },
+  "action_pause": {
+    "message": "Pausieren"
   },
   "action_restore": {
     "message": "Wiederherstellen"
@@ -17,70 +20,95 @@
   "action_delete": {
     "message": "Löschen"
   },
+  "action_undo": {
+    "message": "Rückgängig"
+  },
   "action_settings": {
     "message": "Einstellungen"
   },
-  "status_connected_one": {
-    "message": "Mit 1 Agenten-Sitzung verbunden (Ports $RANGE$).",
-    "placeholders": {
-      "range": {
-        "content": "$1"
-      }
-    }
+  "action_pair": {
+    "message": "Koppeln…"
   },
-  "status_connected_other": {
-    "message": "Mit $COUNT$ Agenten-Sitzungen verbunden (Ports $RANGE$).",
-    "placeholders": {
-      "count": {
-        "content": "$1"
-      },
-      "range": {
-        "content": "$2"
-      }
-    }
+  "action_disconnect": {
+    "message": "Trennen"
   },
-  "status_offline": {
-    "message": "Keine Agenten-Sitzung auf den Ports $RANGE$ – jede startet mit deinem Agenten. Suche alle paar Sekunden.",
-    "placeholders": {
-      "range": {
-        "content": "$1"
-      }
-    }
+  "action_info": {
+    "message": "Mehr Informationen"
   },
-  "status_unauthorized": {
-    "message": "Eine Agenten-Sitzung hat das Kopplungs-Token abgelehnt. Füge das aktuelle in den Einstellungen ein."
+  "action_grant": {
+    "message": "Erlauben"
   },
-  "status_protocol": {
-    "message": "Eine Agenten-Sitzung und die Erweiterung passen nicht zusammen. Aktualisiere die ältere."
+  "state_ready": {
+    "message": "Bereit"
   },
-  "status_protocol_detail": {
-    "message": "Eine Agenten-Sitzung und die Erweiterung passen nicht zusammen: $DETAIL$. Aktualisiere die ältere.",
-    "placeholders": {
-      "detail": {
-        "content": "$1"
-      }
-    }
+  "state_working": {
+    "message": "Arbeitet"
   },
-  "status_unpaired": {
-    "message": "Noch nicht gekoppelt – öffne die Einstellungen und füge das Token aus `beifahrer token` ein."
+  "state_paused": {
+    "message": "Pausiert"
   },
-  "banner_unpaired": {
-    "message": "Noch mit keinem Agenten gekoppelt"
+  "state_offline": {
+    "message": "Kein Agent"
+  },
+  "state_unpaired": {
+    "message": "Nicht gekoppelt"
+  },
+  "state_unauthorized": {
+    "message": "Token abgelehnt"
+  },
+  "state_protocol": {
+    "message": "Update nötig"
   },
   "banner_unauthorized": {
-    "message": "Eine Agenten-Sitzung lehnt das Kopplungs-Token ab"
+    "message": "Der Agent hat das Token abgelehnt"
   },
   "banner_protocol": {
-    "message": "Agenten-Sitzung und Erweiterung passen nicht zusammen"
+    "message": "Erweiterung und Agent haben verschiedene Versionen"
+  },
+  "onboard_title": {
+    "message": "Mit deinem Agenten koppeln"
+  },
+  "onboard_description": {
+    "message": "Führe beifahrer token aus und füge die Ausgabe ein."
+  },
+  "site_title": {
+    "message": "Diese Seite"
+  },
+  "site_none": {
+    "message": "Keine Webseite"
+  },
+  "level_group_label": {
+    "message": "Zugriff für diese Seite"
+  },
+  "level_none": {
+    "message": "Nichts"
+  },
+  "level_read": {
+    "message": "Lesen"
+  },
+  "level_write": {
+    "message": "Bearbeiten"
+  },
+  "level_none_tip": {
+    "message": "Nur der Host ist sichtbar"
+  },
+  "level_read_tip": {
+    "message": "Seite lesen, nichts ändern"
+  },
+  "level_write_tip": {
+    "message": "Lesen, Felder ausfüllen und klicken"
+  },
+  "access_denied": {
+    "message": "Der Browser hat den Zugriff nicht erlaubt"
+  },
+  "confirm_writes": {
+    "message": "Vor Änderungen fragen"
   },
   "agents_title": {
-    "message": "Agenten-Sitzungen"
-  },
-  "agents_none": {
-    "message": "Keine verbunden."
+    "message": "Agenten"
   },
   "agent_since": {
-    "message": "seit $TIME$",
+    "message": "Seit $TIME$",
     "placeholders": {
       "time": {
         "content": "$1"
@@ -112,111 +140,35 @@
       }
     }
   },
-  "agent_disconnect": {
-    "message": "Trennen"
-  },
-  "agent_disconnect_tooltip": {
-    "message": "Die Verbindung dieser Sitzung schließen. Sie bleibt geschlossen, bis die Agenten-Sitzung neu startet."
-  },
-  "pause_title": {
-    "message": "Agent darf diesen Browser nutzen"
-  },
-  "pause_running": {
-    "message": "Der Agent darf diesen Browser in den Grenzen unten nutzen."
-  },
-  "pause_paused": {
-    "message": "Pausiert. Der Agent bekommt nichts aus diesem Browser, nicht einmal die Liste der Tabs."
-  },
-  "pause_tooltip": {
-    "message": "Tastenkürzel: Alt+Umschalt+B"
-  },
-  "pause_banner": {
-    "message": "Pausiert – der Agent bekommt nichts"
-  },
-  "site_heading": {
-    "message": "Diese Seite"
-  },
-  "site_none": {
-    "message": "keine Webseite – hier gibt es nichts freizugeben"
-  },
-  "level_group_label": {
-    "message": "Was der Agent auf dieser Seite darf"
-  },
-  "level_none": {
-    "message": "Nichts"
-  },
-  "level_read": {
-    "message": "Lesen"
-  },
-  "level_write": {
-    "message": "Lesen + ändern"
-  },
-  "hint_none": {
-    "message": "Der Agent sieht nur, dass ein Tab mit dieser Seite offen ist."
-  },
-  "hint_read": {
-    "message": "Der Agent darf diese Seite und ihre Gliederung lesen (und einen Screenshot machen, wenn du das erlaubst). Ändern kann er nichts."
-  },
-  "hint_write": {
-    "message": "Der Agent darf hier außerdem Felder ausfüllen und klicken."
-  },
-  "hint_denied": {
-    "message": "Der Browser hat den Zugriff nicht gewährt, daher bleibt die Stufe, wie sie war."
-  },
-  "confirm_writes": {
-    "message": "Vor jeder Änderung fragen"
-  },
-  "features_title": {
-    "message": "Was der Agent nutzen darf"
-  },
-  "features_count": {
-    "message": "$ON$ von $TOTAL$ an",
-    "placeholders": {
-      "on": {
-        "content": "$1"
-      },
-      "total": {
-        "content": "$2"
-      }
-    }
-  },
-  "features_description": {
-    "message": "Ein Schalter pro Fähigkeit, für den ganzen Browser. Die Stufe, die du für jede Seite setzt, gilt zusätzlich."
-  },
   "activity_title": {
     "message": "Aktivität"
   },
   "activity_empty": {
-    "message": "Noch nichts. Was der Agent hier tut, steht hier, bis der Browser schließt."
+    "message": "Noch keine Aktivität"
   },
-  "popup_options": {
-    "message": "Kopplung und alle Seiten"
+  "activity_show_all": {
+    "message": "Alle anzeigen"
   },
   "reason_paused": {
-    "message": "abgelehnt: pausiert"
+    "message": "Pausiert"
   },
   "reason_feature_disabled": {
-    "message": "abgelehnt: Funktion aus"
+    "message": "Aus"
   },
   "reason_forbidden": {
-    "message": "abgelehnt: Stufe der Seite"
+    "message": "Gesperrt"
   },
   "reason_denied": {
-    "message": "von dir abgelehnt"
+    "message": "Abgelehnt"
   },
   "reason_failed": {
-    "message": "fehlgeschlagen: $REASON$",
-    "placeholders": {
-      "reason": {
-        "content": "$1"
-      }
-    }
+    "message": "Fehlgeschlagen"
   },
   "method_tabs_list": {
     "message": "Tabs aufgelistet"
   },
   "method_tabs_active": {
-    "message": "Aktiven Tab nachgeschlagen"
+    "message": "Aktiven Tab abgefragt"
   },
   "method_page_read": {
     "message": "Seite gelesen"
@@ -228,7 +180,7 @@
     "message": "Element gesucht"
   },
   "method_page_wait": {
-    "message": "Auf eine Seite gewartet"
+    "message": "Auf Seite gewartet"
   },
   "method_page_screenshot": {
     "message": "Screenshot gemacht"
@@ -264,178 +216,136 @@
     "message": "Sitzung gespeichert"
   },
   "method_sessions_list": {
-    "message": "Gespeicherte Sitzungen aufgelistet"
+    "message": "Sitzungen aufgelistet"
   },
   "method_sessions_restore": {
     "message": "Sitzung wiederhergestellt"
   },
   "method_sessions_delete": {
-    "message": "Gespeicherte Sitzung gelöscht"
+    "message": "Sitzung gelöscht"
   },
   "method_sessions_define": {
-    "message": "Sitzung zusammengestellt"
+    "message": "Sitzung angelegt"
   },
   "method_sessions_recentlyClosed": {
-    "message": "Kürzlich geschlossene Fenster aufgelistet"
+    "message": "Geschlossene Fenster aufgelistet"
   },
   "method_sessions_restoreClosed": {
-    "message": "Geschlossenes Fenster wieder geöffnet"
+    "message": "Fenster wieder geöffnet"
+  },
+  "features_title": {
+    "message": "Funktionen"
+  },
+  "features_info": {
+    "message": "Die Stufe jeder Seite gilt weiterhin."
   },
   "feature_tabs_label": {
-    "message": "Offene Tabs sehen"
-  },
-  "feature_tabs_detail": {
-    "message": "tabs_list, tab_active – Seiten unter „Lesen“ zeigen nur ihren Host"
+    "message": "Tabs sehen"
   },
   "feature_read_label": {
-    "message": "Seitentext lesen"
-  },
-  "feature_read_detail": {
-    "message": "page_read"
+    "message": "Seiten lesen"
   },
   "feature_outline_label": {
-    "message": "Seiten gliedern"
-  },
-  "feature_outline_detail": {
-    "message": "page_outline, page_find, page_wait – Links, Schaltflächen, Felder"
+    "message": "Elemente finden"
   },
   "feature_screenshot_label": {
-    "message": "Screenshots machen"
-  },
-  "feature_screenshot_detail": {
-    "message": "page_screenshot – nur vom sichtbaren Tab; Chromium braucht zusätzlich die Freigabe für alle Seiten unten"
+    "message": "Screenshots"
   },
   "feature_fill_label": {
     "message": "Felder ausfüllen"
   },
-  "feature_fill_detail": {
-    "message": "page_fill – braucht weiterhin „Lesen + ändern“ auf der Seite"
-  },
   "feature_click_label": {
     "message": "Klicken"
-  },
-  "feature_click_detail": {
-    "message": "page_click – braucht weiterhin „Lesen + ändern“ auf der Seite"
   },
   "feature_open_label": {
     "message": "Tabs öffnen"
   },
-  "feature_open_detail": {
-    "message": "tab_open – nur Seiten ab „Lesen“"
-  },
   "feature_manageTabs_label": {
     "message": "Tabs und Fenster verwalten"
-  },
-  "feature_manageTabs_detail": {
-    "message": "tabs_move, tabs_pin, tabs_close, tabs_group, tabs_ungroup, window_create"
   },
   "feature_sessions_label": {
     "message": "Gespeicherte Sitzungen"
   },
-  "feature_sessions_detail": {
-    "message": "sessions_save/list/restore/delete/define, kürzlich geschlossene Fenster"
+  "screenshots_denied": {
+    "message": "Screenshots brauchen Zugriff auf alle Seiten"
+  },
+  "screenshots_missing": {
+    "message": "Screenshots fehlt der Browserzugriff"
   },
   "toolbar_paused": {
-    "message": "beifahrer ist pausiert – der Agent bekommt nichts aus diesem Browser. Klicke zum Fortsetzen."
+    "message": "beifahrer ist pausiert"
   },
   "toolbar_active": {
-    "message": "beifahrer – ein Agent nutzt gerade diesen Browser. Klicke, um zu sehen, was er tut, oder um ihn anzuhalten."
+    "message": "beifahrer arbeitet"
   },
   "toolbar_idle": {
-    "message": "beifahrer – mit einem Agenten verbunden, untätig. Klicke für die Aktivität oder zum Pausieren."
+    "message": "beifahrer ist bereit"
   },
   "toolbar_offline_unpaired": {
-    "message": "beifahrer – noch nicht gekoppelt. Kein Agent erreicht diesen Browser."
+    "message": "beifahrer ist nicht gekoppelt"
   },
   "toolbar_offline_connecting": {
-    "message": "beifahrer – verbinde mit der Bridge …"
+    "message": "beifahrer verbindet sich"
   },
   "toolbar_offline_offline": {
-    "message": "beifahrer – kein Agent läuft. Nichts erreicht diesen Browser."
+    "message": "beifahrer hat keinen Agenten"
   },
   "toolbar_offline_unauthorized": {
-    "message": "beifahrer – die Bridge hat das Kopplungs-Token abgelehnt. Kein Agent erreicht diesen Browser."
+    "message": "Der Agent hat das Token abgelehnt"
   },
   "toolbar_offline_protocol": {
-    "message": "beifahrer – die Versionen von Bridge und Erweiterung passen nicht zusammen. Kein Agent erreicht diesen Browser."
+    "message": "Erweiterung und Agent haben verschiedene Versionen"
   },
   "options_title": {
-    "message": "beifahrer – Einstellungen"
+    "message": "beifahrer-Einstellungen"
+  },
+  "pause_title": {
+    "message": "Agent pausieren"
   },
   "pairing_title": {
-    "message": "Kopplung"
+    "message": "Verbindung"
   },
-  "pairing_description": {
-    "message": "Führe `beifahrer token` auf diesem Computer aus und füge die Ausgabe ein. Das Token beweist der Bridge, dass sie mit dieser Erweiterung spricht und nicht mit einer Webseite."
+  "pairing_info": {
+    "message": "Führe beifahrer token im Terminal aus und füge die Ausgabe ein."
   },
   "token_title": {
     "message": "Kopplungs-Token"
   },
-  "port_title": {
-    "message": "Erster Port"
-  },
-  "port_count_title": {
-    "message": "Anzahl Ports"
-  },
-  "ports_description": {
-    "message": "Jede Agenten-Sitzung lauscht auf einem eigenen Port dieses Bereichs, und beifahrer verbindet sich mit jeder, die es findet. Die Sitzungen müssen denselben Bereich (BEIFAHRER_PORT, BEIFAHRER_PORT_COUNT) und dasselbe Token nutzen."
-  },
   "pairing_save": {
-    "message": "Speichern und verbinden"
+    "message": "Verbinden"
   },
   "pairing_need_token": {
-    "message": "Füge zuerst das Token ein."
-  },
-  "pairing_connecting": {
-    "message": "Gespeichert – verbinde …"
+    "message": "Erst das Token einfügen"
   },
   "pairing_connected": {
     "message": "Verbunden"
   },
   "pairing_saved_offline": {
-    "message": "Gespeichert. Noch läuft keine Agenten-Sitzung – jede startet mit deinem Agenten, dann verbindet sich die Erweiterung."
-  },
-  "pause_group_title": {
-    "message": "Pause"
-  },
-  "pause_group_description": {
-    "message": "Auch über das Toolbar-Popup, den Stopp-Knopf auf einer Seite, an der der Agent arbeitet, oder Alt+Umschalt+B. Fortsetzen kannst nur du, nicht der Agent."
-  },
-  "screenshots_title": {
-    "message": "Screenshots"
-  },
-  "screenshots_description": {
-    "message": "Chromium macht Screenshots nur mit Zugriff auf alle Seiten. beifahrer macht trotzdem nur auf Seiten ab „Lesen“ einen."
-  },
-  "screenshots_allow": {
-    "message": "Screenshots erlauben"
+    "message": "Gespeichert. Es läuft kein Agent."
   },
   "tabs_title": {
     "message": "Tabs und Fenster"
   },
   "tabs_confirm_close": {
-    "message": "Fragen, bevor der Agent Tabs schließt"
+    "message": "Vor dem Schließen von Tabs fragen"
   },
   "tabs_autosave": {
-    "message": "Automatische Schnappschüsse meiner Fenster behalten"
+    "message": "Automatische Schnappschüsse"
   },
   "tabs_autosave_detail": {
-    "message": "Die letzten 20, nur in diesem Browser"
+    "message": "Die letzten 20"
   },
   "sessions_title": {
     "message": "Gespeicherte Sitzungen"
   },
   "session_name_title": {
-    "message": "Name, z. B. Steuern 2025"
+    "message": "Name"
   },
   "session_save": {
-    "message": "Aktuelle Fenster speichern"
-  },
-  "sessions_empty": {
-    "message": "Noch nichts gespeichert."
+    "message": "Offene Fenster speichern"
   },
   "session_saved": {
-    "message": "„$NAME$“ gespeichert",
+    "message": "\"$NAME$\" gespeichert",
     "placeholders": {
       "name": {
         "content": "$1"
@@ -443,7 +353,7 @@
     }
   },
   "session_deleted": {
-    "message": "„$NAME$“ gelöscht",
+    "message": "\"$NAME$\" gelöscht",
     "placeholders": {
       "name": {
         "content": "$1"
@@ -451,16 +361,16 @@
     }
   },
   "session_nothing_open": {
-    "message": "Keine Webseite ist offen – nichts zu speichern."
+    "message": "Keine Webseite offen"
   },
   "session_name_empty": {
-    "message": "Gib der Sitzung zuerst einen Namen."
+    "message": "Gib einen Namen ein"
   },
   "session_name_whitespace": {
-    "message": "Der Name darf nicht mit einem Leerzeichen beginnen oder enden."
+    "message": "Entferne die Leerzeichen am Anfang oder Ende"
   },
   "session_name_too_long": {
-    "message": "Der Name ist länger als $MAX$ Zeichen.",
+    "message": "Höchstens $MAX$ Zeichen",
     "placeholders": {
       "max": {
         "content": "$1"
@@ -468,10 +378,10 @@
     }
   },
   "session_name_control": {
-    "message": "Der Name darf keine Steuerzeichen enthalten."
+    "message": "Entferne die Steuerzeichen"
   },
   "session_name_reserved": {
-    "message": "Namen, die mit „$PREFIX$“ beginnen, sind für die automatischen Schnappschüsse – wähle einen anderen.",
+    "message": "Namen, die mit \"$PREFIX$\" beginnen, sind reserviert",
     "placeholders": {
       "prefix": {
         "content": "$1"
@@ -479,7 +389,7 @@
     }
   },
   "session_by_agent": {
-    "message": "vom Agenten zusammengestellt"
+    "message": "Vom Agenten"
   },
   "windows_one": {
     "message": "1 Fenster"
@@ -507,43 +417,69 @@
     "message": "Automatische Schnappschüsse"
   },
   "autos_empty": {
-    "message": "Noch keiner – einer entsteht ein paar Sekunden, nachdem sich deine Tabs geändert haben."
+    "message": "Noch keine"
   },
   "closed_title": {
     "message": "Kürzlich geschlossene Fenster"
   },
   "closed_empty": {
-    "message": "Der Browser erinnert sich gerade an kein geschlossenes Fenster."
+    "message": "Keine"
   },
   "sites_title": {
     "message": "Seiten"
   },
   "sites_empty": {
-    "message": "Noch keine Seite freigegeben. Öffne eine Seite und nutze den Knopf in der Symbolleiste."
+    "message": "Noch keine Seiten"
   },
   "site_level_write_ask": {
-    "message": "Lesen + ändern (fragen)"
+    "message": "Bearbeiten, vorher fragen"
   },
   "site_level_write_silent": {
-    "message": "Lesen + ändern (nicht fragen)"
+    "message": "Bearbeiten"
   },
   "site_level_remove": {
     "message": "Entfernen"
   },
-  "confirm_window_title": {
-    "message": "beifahrer – diese Änderung erlauben?"
+  "advanced_title": {
+    "message": "Erweitert"
+  },
+  "ports_title": {
+    "message": "Portbereich"
+  },
+  "ports_range": {
+    "message": "$FROM$ bis $TO$",
+    "placeholders": {
+      "from": {
+        "content": "$1"
+      },
+      "to": {
+        "content": "$2"
+      }
+    }
+  },
+  "port_title": {
+    "message": "Erster Port"
+  },
+  "port_count_title": {
+    "message": "Anzahl Ports"
+  },
+  "ports_env_title": {
+    "message": "Agent-Variablen"
+  },
+  "methods_title": {
+    "message": "Methoden je Funktion"
   },
   "confirm_heading_change": {
-    "message": "Dein Agent möchte eine Seite ändern"
+    "message": "Diese Änderung erlauben?"
   },
   "confirm_heading_close": {
-    "message": "Dein Agent möchte Tabs schließen"
+    "message": "Tabs schließen?"
   },
   "confirm_site": {
     "message": "Seite"
   },
   "confirm_fill": {
-    "message": "Diesen Text in $TARGET$ eintragen:",
+    "message": "In $TARGET$ schreiben",
     "placeholders": {
       "target": {
         "content": "$1"
@@ -551,7 +487,7 @@
     }
   },
   "confirm_click": {
-    "message": "$TARGET$ anklicken.",
+    "message": "$TARGET$ anklicken",
     "placeholders": {
       "target": {
         "content": "$1"
@@ -559,7 +495,7 @@
     }
   },
   "confirm_close": {
-    "message": "$TARGET$ schließen:",
+    "message": "$TARGET$ schließen",
     "placeholders": {
       "target": {
         "content": "$1"
@@ -589,37 +525,28 @@
     }
   },
   "tab_not_website": {
-    "message": "eine Browserseite (keine Website)"
-  },
-  "confirm_remember_site": {
-    "message": "Auf dieser Seite nicht mehr fragen"
-  },
-  "confirm_remember_close": {
-    "message": "Vor dem Schließen von Tabs nicht mehr fragen"
-  },
-  "confirm_timeout": {
-    "message": "Keine Antwort in zwei Minuten gilt als Nein."
+    "message": "eine Browserseite"
   },
   "confirm_deny": {
-    "message": "Nicht erlauben"
+    "message": "Ablehnen"
   },
   "confirm_allow": {
     "message": "Erlauben"
   },
-  "confirm_gone": {
-    "message": "Diese Anfrage wartet nicht mehr"
+  "confirm_allow_always": {
+    "message": "Immer erlauben"
   },
-  "confirm_gone_description": {
-    "message": "Sie wurde schon beantwortet, oder der Agent wartet nicht mehr. Du kannst dieses Fenster schließen."
+  "confirm_gone": {
+    "message": "Diese Anfrage ist beendet"
   },
   "pill_reading": {
-    "message": "beifahrer liest"
+    "message": "Agent liest"
   },
   "pill_editing": {
-    "message": "beifahrer bearbeitet"
+    "message": "Agent bearbeitet"
   },
   "pill_reading_session": {
-    "message": "beifahrer ($SESSION$) liest",
+    "message": "$SESSION$ liest",
     "placeholders": {
       "session": {
         "content": "$1"
@@ -627,7 +554,7 @@
     }
   },
   "pill_editing_session": {
-    "message": "beifahrer ($SESSION$) bearbeitet",
+    "message": "$SESSION$ bearbeitet",
     "placeholders": {
       "session": {
         "content": "$1"
@@ -635,12 +562,12 @@
     }
   },
   "pill_paused": {
-    "message": "beifahrer pausiert"
+    "message": "Pausiert"
   },
   "pill_stop": {
     "message": "Stopp"
   },
   "pill_stop_tooltip": {
-    "message": "beifahrer pausieren: Der Agent bekommt nichts aus diesem Browser, bis du ihn in der Symbolleiste fortsetzt"
+    "message": "Agent pausieren"
   }
 }

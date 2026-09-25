@@ -40,7 +40,6 @@ export const methodWords = (method: Method): string =>
   t(`method_${method.replace(/\./g, '_') as Underscored<Method>}`);
 
 export const featureLabel = (feature: Feature): string => t(`feature_${feature}_label`);
-export const featureDetail = (feature: Feature): string => t(`feature_${feature}_detail`);
 
 /** The browser's UI language, for dates and times next to translated text. */
 export const uiLanguage = (): string => browser.i18n.getUILanguage();

@@ -1,22 +1,41 @@
-import { describeRange } from '@beifahrer/core';
-import type { Status } from '../bridge-client.ts';
-import { t } from '../i18n.ts';
+/**
+ * One word of state for the popup's hero and the options header: what the person needs to know
+ * at a glance, nothing about ports or processes (those are in the options' Advanced section and
+ * the session rows' hover text).
+ */
 
-export function describeStatus(status: Status | undefined): string {
-  switch (status?.state) {
-    case 'connected': {
-      const n = status.sessions.length;
-      const range = describeRange(status.range);
-      return n === 1 ? t('status_connected_one', range) : t('status_connected_other', n, range);
-    }
-    case 'offline':
-      return t('status_offline', describeRange(status.range));
-    case 'unauthorized':
-      return t('status_unauthorized');
-    case 'protocol':
-      return status.detail ? t('status_protocol_detail', status.detail) : t('status_protocol');
-    case 'unpaired':
-    default:
-      return t('status_unpaired');
-  }
+import { isActive, type ToolbarIcon } from '@beifahrer/core';
+import type { Status } from '../bridge-client.ts';
+import type { MessageKey } from '../i18n.ts';
+
+export type UiState = 'ready' | 'working' | 'paused' | 'offline' | 'unpaired' | 'unauthorized' | 'protocol';
+
+export const STATE_WORDS: Record<UiState, MessageKey> = {
+  ready: 'state_ready',
+  working: 'state_working',
+  paused: 'state_paused',
+  offline: 'state_offline',
+  unpaired: 'state_unpaired',
+  unauthorized: 'state_unauthorized',
+  protocol: 'state_protocol',
+};
+
+/** Paused wins over everything: it is the person's own switch, and the agent gets nothing. */
+export function stateOf(
+  status: Status | undefined,
+  paused: boolean,
+  activity: { inFlight: number; lastActivityAt: number } = { inFlight: 0, lastActivityAt: 0 },
+): UiState {
+  if (paused) return 'paused';
+  const s = status?.state ?? 'unpaired';
+  if (s !== 'connected') return s;
+  return isActive({ ...activity, now: Date.now() }) ? 'working' : 'ready';
+}
+
+/** The toolbar's own sparkles, so the hero and the toolbar button always look alike. */
+export function heroIcon(state: UiState): ToolbarIcon {
+  if (state === 'paused') return 'paused';
+  if (state === 'working') return 'active';
+  if (state === 'ready') return 'idle';
+  return 'offline';
 }

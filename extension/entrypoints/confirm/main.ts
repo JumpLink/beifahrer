@@ -1,5 +1,5 @@
 import { browser } from '@wxt-dev/browser';
-import type { Adw, Gtk } from '@gjsify/adwaita-web';
+import type { Gtk } from '@gjsify/adwaita-web';
 import type { ConfirmRequest } from '../../src/confirm.ts';
 import { t } from '../../src/i18n.ts';
 
@@ -23,7 +23,6 @@ async function main(): Promise<void> {
   if (req.action === 'close') {
     $('heading').textContent = t('confirm_heading_close');
     $('where-group').hidden = true;
-    $('remember').setAttribute('title', t('confirm_remember_close'));
     // Closing is the one answer here that cannot be taken back from this window.
     $('allow').removeAttribute('suggested');
     $('allow').toggleAttribute('destructive', true);
@@ -38,16 +37,16 @@ async function main(): Promise<void> {
     $('text').hidden = false;
     $('text').textContent = req.text;
   }
-  const answer = (allow: boolean) => async () => {
-    await browser.runtime.sendMessage({
-      type: 'confirm:answer',
-      id,
-      allow,
-      remember: allow && $<Adw.SwitchRow>('remember').active,
-    });
-    window.close();
-  };
+  // "Always allow" is the old "don't ask again" as a third answer: on a site it switches the
+  // confirmation off for that origin, before closing tabs it switches that question off.
+  const answer =
+    (allow: boolean, remember = false) =>
+    async () => {
+      await browser.runtime.sendMessage({ type: 'confirm:answer', id, allow, remember });
+      window.close();
+    };
   $('allow').addEventListener('click', answer(true));
+  $('always').addEventListener('click', answer(true, true));
   $('deny').addEventListener('click', answer(false));
   // Deny has the focus: Enter on a window that popped up unexpectedly must not approve anything.
   $<Gtk.Button>('deny').button.focus();

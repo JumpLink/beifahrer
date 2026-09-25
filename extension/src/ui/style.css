@@ -43,17 +43,53 @@ adw-preferences-group.empty .adw-preferences-group-listbox {
   padding: var(--spacing-m) var(--spacing-m) var(--spacing-l);
 }
 
-.page-head {
+/* A group and what belongs right under it (its button, its warning) sit closer than two groups. */
+.stack {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--spacing-s);
+}
+
+/* The hero: the toolbar's own sparkles, the name, one word of state. */
+.hero {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-m);
   padding: 0 2px;
 }
 
-.page-head .title-1,
-.page-head .title-2,
-.page-head .title-4 {
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hero h1 {
   margin: 0;
+}
+
+.hero-icon {
+  flex: none;
+  transition: transform 0.3s ease;
+}
+
+/* While the agent works the sparkles breathe, the same signal the toolbar gives by colour. */
+.hero-icon.working {
+  animation: sparkle 1.6s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  50% {
+    transform: scale(1.08) rotate(-6deg);
+    filter: brightness(1.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-icon.working {
+    animation: none;
+  }
 }
 
 .monospace {
@@ -61,9 +97,8 @@ adw-preferences-group.empty .adw-preferences-group-listbox {
   word-break: break-all;
 }
 
-p.note {
-  margin: 0;
-  padding: 0 2px;
+.monospace-subtitle .adw-row-subtitle {
+  font-family: var(--monospace-font-family);
 }
 
 .actions {
@@ -73,13 +108,48 @@ p.note {
   align-items: center;
 }
 
-.actions .note {
+.actions .spacer {
   flex: 1 1 auto;
 }
 
-/* Inline feedback after a click: coloured by Adwaita's own .success / .warning / .error. */
-.note:empty {
-  display: none;
+/* The info affordance: a header button whose popover holds one line. */
+.info {
+  position: relative;
+  display: inline-flex;
+}
+
+.info gtk-popover {
+  top: calc(100% + 6px);
+  right: 0;
+  width: max-content;
+  max-width: 280px;
+}
+
+.info-text {
+  margin: 0;
+  padding: var(--spacing-xs) var(--spacing-s);
+}
+
+adw-toast-overlay#toasts {
+  position: static;
+}
+
+adw-toast-overlay#toasts .adw-toast-overlay-toasts {
+  position: fixed;
+}
+
+.activity-reason {
+  color: var(--warning-color);
+}
+
+/* See switchRowIcon (features.ts): the prefix icon a switch row cannot slot. */
+adw-switch-row > .switch-row-prefix {
+  flex: none;
+  margin-inline-end: 12px;
+}
+
+adw-action-row.warning gtk-image {
+  color: var(--warning-color);
 }
 
 /* ---- popup ---------------------------------------------------------------------------- */
@@ -89,18 +159,24 @@ body.popup {
 }
 
 .popup .page {
-  gap: var(--spacing-m);
+  gap: var(--spacing-l);
+}
+
+.popup .hero {
+  padding-top: var(--spacing-xs);
 }
 
 .site-level {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-s);
 }
 
 .group-head {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-s);
   padding: 0 2px;
 }
 
@@ -109,6 +185,14 @@ body.popup {
   margin: 0;
   font-size: var(--font-size-base);
   font-weight: 700;
+}
+
+.site-host {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
 }
 
 .site-level adw-toggle-group {
@@ -121,39 +205,69 @@ body.popup {
 
 .site-level adw-toggle-group .adw-toggle {
   white-space: nowrap;
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  justify-content: center;
+  gap: 6px;
 }
 
-#activity .adw-preferences-group-listbox {
-  max-height: 232px;
+/* An empty activity list: the status page, sized for a popup rather than a window. */
+adw-status-page.empty-state {
+  padding: var(--spacing-s) 0 0;
+}
+
+adw-status-page.empty-state .adw-status-page-icon {
+  width: 32px;
+  height: 32px;
+  margin-bottom: var(--spacing-xs);
+  opacity: var(--dim-opacity);
+}
+
+adw-status-page.empty-state .adw-status-page-title {
+  font-size: var(--font-size-base);
+  font-weight: normal;
+  opacity: var(--dim-opacity);
+}
+
+.options #activity .adw-preferences-group-listbox {
+  max-height: 290px;
   overflow-y: auto;
-}
-
-.activity-reason {
-  color: var(--warning-color);
 }
 
 /* ---- options -------------------------------------------------------------------------- */
 
+/* Centred by the body, not by the page's own auto margins: Firefox shows the options tab with
+   the page pushed to the right edge otherwise (measured in the e2e's Firefox screenshots). */
+body.options {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .options .page {
+  box-sizing: border-box;
+  width: 100%;
   max-width: 640px;
-  margin: 0 auto;
   padding: var(--spacing-xl) var(--spacing-m) 48px;
   gap: 30px;
 }
 
-adw-toast-overlay#toasts {
-  position: static;
-}
-
-adw-toast-overlay#toasts .adw-toast-overlay-toasts {
-  position: fixed;
+.options adw-banner {
+  align-self: stretch;
 }
 
 /* ---- confirm window ------------------------------------------------------------------- */
 
 .confirm .page {
   gap: var(--spacing-m);
+}
+
+.confirm h1 {
+  margin: 0;
+}
+
+p.note {
+  margin: 0;
+  padding: 0 2px;
 }
 
 .preview {

@@ -7,48 +7,76 @@
     <link rel="stylesheet" href="../../src/ui/style.css" />
   </head>
   <body class="adw-root popup">
+    <adw-banner id="banner"></adw-banner>
     <main class="page">
-      <header class="page-head">
-        <h1 class="title-4">beifahrer</h1>
-        <span id="status" class="caption dimmed" role="status"></span>
+      <header class="hero">
+        <img id="hero-icon" class="hero-icon" src="/icons/offline-48.png" alt="" width="40" height="40" />
+        <div class="hero-text">
+          <h1 class="title-4" data-i18n="extName"></h1>
+          <span id="state" class="caption dimmed" role="status"></span>
+        </div>
+        <gtk-button id="pause" circular icon-name="media-playback-pause-symbolic"></gtk-button>
       </header>
 
-      <adw-banner id="problem" data-i18n-button-label="action_settings"></adw-banner>
+      <adw-status-page
+        id="onboard"
+        class="compact"
+        icon-name="dialog-password-symbolic"
+        data-i18n-title="onboard_title"
+        data-i18n-description="onboard_description"
+        hidden
+      >
+        <gtk-button id="pair" pill suggested data-i18n-label="action_pair"></gtk-button>
+      </adw-status-page>
+
+      <div id="main" class="stack">
+        <section class="site-level">
+          <div class="group-head">
+            <h2 class="heading" data-i18n="site_title"></h2>
+            <span id="site" class="caption dimmed site-host"></span>
+          </div>
+          <adw-toggle-group id="levels" data-i18n-aria-label="level_group_label">
+            <adw-toggle
+              name="none"
+              icon-name="view-conceal-symbolic"
+              data-i18n-label="level_none"
+            ></adw-toggle>
+            <adw-toggle
+              name="read"
+              icon-name="view-reveal-symbolic"
+              data-i18n-label="level_read"
+            ></adw-toggle>
+            <adw-toggle
+              name="write"
+              icon-name="document-edit-symbolic"
+              data-i18n-label="level_write"
+            ></adw-toggle>
+          </adw-toggle-group>
+          <adw-preferences-group id="confirm-group" hidden>
+            <adw-switch-row id="confirm" data-i18n-title="confirm_writes"></adw-switch-row>
+          </adw-preferences-group>
+        </section>
+
+        <adw-preferences-group id="agents" data-i18n-title="agents_title" hidden></adw-preferences-group>
+
+        <adw-preferences-group id="activity" data-i18n-title="activity_title"></adw-preferences-group>
+        <adw-status-page
+          id="activity-empty"
+          class="compact empty-state"
+          icon-name="document-open-recent-symbolic"
+          data-i18n-title="activity_empty"
+          hidden
+        ></adw-status-page>
+      </div>
 
       <adw-preferences-group>
-        <adw-switch-row id="pause" data-i18n-title="pause_title"></adw-switch-row>
-      </adw-preferences-group>
-
-      <section class="site-level">
-        <div class="group-head">
-          <h2 class="heading" data-i18n="site_heading"></h2>
-          <span id="site" class="caption dimmed"></span>
-        </div>
-        <adw-toggle-group id="levels" data-i18n-aria-label="level_group_label">
-          <adw-toggle name="none" data-i18n-label="level_none"></adw-toggle>
-          <adw-toggle name="read" data-i18n-label="level_read"></adw-toggle>
-          <adw-toggle name="write" data-i18n-label="level_write"></adw-toggle>
-        </adw-toggle-group>
-        <p id="hint" class="note caption dimmed" role="status"></p>
-        <adw-preferences-group id="confirm-group" hidden>
-          <adw-switch-row id="confirm" data-i18n-title="confirm_writes"></adw-switch-row>
-        </adw-preferences-group>
-      </section>
-
-      <adw-preferences-group>
-        <adw-expander-row id="features" data-i18n-title="features_title"></adw-expander-row>
-      </adw-preferences-group>
-
-      <adw-preferences-group id="agents" data-i18n-title="agents_title"></adw-preferences-group>
-
-      <adw-preferences-group id="activity" data-i18n-title="activity_title"></adw-preferences-group>
-
-      <adw-preferences-group>
-        <adw-action-row id="options" data-i18n-title="popup_options" activatable>
-          <gtk-image slot="suffix" icon-name="go-next"></gtk-image>
+        <adw-action-row id="options" data-i18n-title="action_settings" activatable>
+          <gtk-image slot="prefix" icon-name="emblem-system-symbolic"></gtk-image>
+          <gtk-image slot="suffix" icon-name="go-next-symbolic"></gtk-image>
         </adw-action-row>
       </adw-preferences-group>
     </main>
+    <adw-toast-overlay id="toasts"></adw-toast-overlay>
     <script src="../../src/ui/kit.ts"></script>
     <script type="module" src="./main.ts"></script>
   </body>

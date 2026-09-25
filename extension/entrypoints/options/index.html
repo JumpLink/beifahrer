@@ -3,56 +3,45 @@
   <head>
     <meta charset="utf-8" />
     <meta name="color-scheme" content="light dark" />
-    <title data-i18n="options_title">beifahrer — settings</title>
+    <title data-i18n="options_title">beifahrer settings</title>
     <meta name="manifest.open_in_tab" content="true" />
     <link rel="stylesheet" href="../../src/ui/style.css" />
   </head>
   <body class="adw-root options">
-    <adw-banner id="paused" data-i18n-button-label="action_resume"></adw-banner>
+    <adw-banner id="banner"></adw-banner>
     <main class="page">
-      <header class="page-head">
-        <h1 class="title-1">beifahrer</h1>
-        <span id="status" class="dimmed" role="status"></span>
+      <header class="hero">
+        <img id="hero-icon" class="hero-icon" src="/icons/offline-48.png" alt="" width="48" height="48" />
+        <div class="hero-text">
+          <h1 class="title-1" data-i18n="extName"></h1>
+          <span id="state" class="dimmed" role="status"></span>
+        </div>
       </header>
 
-      <adw-preferences-group data-i18n-title="pairing_title" data-i18n-description="pairing_description">
-        <adw-password-entry-row id="token" data-i18n-title="token_title"></adw-password-entry-row>
-        <adw-spin-row
-          id="port"
-          data-i18n-title="port_title"
-          adjustment='{"lower":1024,"upper":65535,"stepIncrement":1,"pageIncrement":10}'
-        ></adw-spin-row>
-        <adw-spin-row
-          id="port-count"
-          data-i18n-title="port_count_title"
-          adjustment='{"lower":1,"upper":64,"stepIncrement":1,"pageIncrement":5}'
-        ></adw-spin-row>
-      </adw-preferences-group>
-      <p class="note caption dimmed" data-i18n="ports_description"></p>
-      <div class="actions">
-        <span id="saved" class="note" role="status" aria-live="polite"></span>
-        <gtk-button id="save" suggested data-i18n-label="pairing_save"></gtk-button>
-      </div>
-
-      <adw-preferences-group
-        data-i18n-title="pause_group_title"
-        data-i18n-description="pause_group_description"
-      >
+      <adw-preferences-group>
         <adw-switch-row id="pause" data-i18n-title="pause_title"></adw-switch-row>
       </adw-preferences-group>
 
-      <adw-preferences-group
-        id="features"
-        data-i18n-title="features_title"
-        data-i18n-description="features_description"
-      ></adw-preferences-group>
+      <section class="stack">
+        <adw-preferences-group id="pairing" data-i18n-title="pairing_title">
+          <adw-password-entry-row id="token" data-i18n-title="token_title"></adw-password-entry-row>
+        </adw-preferences-group>
+        <div class="actions">
+          <gtk-button id="save" suggested data-i18n-label="pairing_save"></gtk-button>
+        </div>
+      </section>
 
-      <adw-preferences-group
-        data-i18n-title="screenshots_title"
-        data-i18n-description="screenshots_description"
-      >
-        <adw-switch-row id="shots" data-i18n-title="screenshots_allow"></adw-switch-row>
-      </adw-preferences-group>
+      <section class="stack">
+        <adw-preferences-group id="features" data-i18n-title="features_title"></adw-preferences-group>
+        <adw-preferences-group id="shots-warning" hidden>
+          <adw-action-row id="shots-missing" class="warning" data-i18n-title="screenshots_missing">
+            <gtk-image slot="prefix" icon-name="dialog-warning-symbolic"></gtk-image>
+            <gtk-button id="shots-grant" slot="suffix" flat data-i18n-label="action_grant"></gtk-button>
+          </adw-action-row>
+        </adw-preferences-group>
+      </section>
+
+      <adw-preferences-group id="sites" data-i18n-title="sites_title"></adw-preferences-group>
 
       <adw-preferences-group data-i18n-title="tabs_title">
         <adw-switch-row id="confirm-close" data-i18n-title="tabs_confirm_close"></adw-switch-row>
@@ -63,20 +52,48 @@
         ></adw-switch-row>
       </adw-preferences-group>
 
-      <adw-preferences-group data-i18n-title="sessions_title">
-        <adw-entry-row id="session-name" data-i18n-title="session_name_title">
-          <gtk-button id="session-save" slot="suffix" flat data-i18n-label="session_save"></gtk-button>
-        </adw-entry-row>
-      </adw-preferences-group>
-      <p id="session-note" class="note error" role="status" aria-live="polite"></p>
-      <adw-preferences-group id="sessions"></adw-preferences-group>
-      <adw-preferences-group>
-        <adw-expander-row id="autos" data-i18n-title="autos_title"></adw-expander-row>
-      </adw-preferences-group>
+      <section class="stack">
+        <adw-preferences-group id="sessions" data-i18n-title="sessions_title">
+          <adw-entry-row id="session-name" data-i18n-title="session_name_title">
+            <gtk-button
+              id="session-save"
+              slot="suffix"
+              flat
+              circular
+              icon-name="document-save-symbolic"
+              data-i18n-tooltip-text="session_save"
+            ></gtk-button>
+          </adw-entry-row>
+        </adw-preferences-group>
+        <adw-preferences-group>
+          <adw-expander-row id="autos" data-i18n-title="autos_title"></adw-expander-row>
+        </adw-preferences-group>
+      </section>
 
       <adw-preferences-group id="closed" data-i18n-title="closed_title"></adw-preferences-group>
 
-      <adw-preferences-group id="sites" data-i18n-title="sites_title"></adw-preferences-group>
+      <adw-preferences-group id="activity" data-i18n-title="activity_title"></adw-preferences-group>
+
+      <adw-preferences-group data-i18n-title="advanced_title">
+        <adw-expander-row id="ports" data-i18n-title="ports_title">
+          <adw-spin-row
+            id="port"
+            data-i18n-title="port_title"
+            adjustment='{"lower":1024,"upper":65535,"stepIncrement":1,"pageIncrement":10}'
+          ></adw-spin-row>
+          <adw-spin-row
+            id="port-count"
+            data-i18n-title="port_count_title"
+            adjustment='{"lower":1,"upper":64,"stepIncrement":1,"pageIncrement":5}'
+          ></adw-spin-row>
+          <adw-action-row
+            data-i18n-title="ports_env_title"
+            subtitle="BEIFAHRER_PORT, BEIFAHRER_PORT_COUNT"
+            class="monospace-subtitle"
+          ></adw-action-row>
+        </adw-expander-row>
+        <adw-expander-row id="methods" data-i18n-title="methods_title"></adw-expander-row>
+      </adw-preferences-group>
     </main>
     <adw-toast-overlay id="toasts"></adw-toast-overlay>
     <script src="../../src/ui/kit.ts"></script>

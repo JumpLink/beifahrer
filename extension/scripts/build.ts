@@ -19,7 +19,7 @@ import { zipSync } from 'fflate';
 
 import { TARGETS, manifestFor } from '../manifest.ts';
 import { copyIcons, renderIcons } from './icons.ts';
-import { checkLocales } from './locales.ts';
+import { checkLocales, sourceFiles } from './locales.ts';
 
 // The bundle runs from extension/dist/, the source from extension/scripts/ — one level down either way.
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -105,6 +105,7 @@ function collect(
 // A missing or stray translation fails the build before anything is bundled.
 const localeErrors = checkLocales(ROOT, {
   pages: Object.values(PAGES),
+  code: [...sourceFiles(ROOT, 'src'), ...sourceFiles(ROOT, 'entrypoints')],
   manifest: TARGETS.map((target) => JSON.stringify(manifestFor(target, { version: pkg.version }))).join('\n'),
 });
 if (localeErrors.length) throw new Error(`_locales is inconsistent:\n  ${localeErrors.join('\n  ')}`);

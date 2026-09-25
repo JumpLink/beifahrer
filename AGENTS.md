@@ -61,7 +61,9 @@ generic recipes only: company domains and processes go in the operator's own dir
 |**Fixtures are synthetic.** Never commit a captured page or a screenshot of a real site. What the
 extension reads is the person's private data.
 |**Every string the PERSON reads goes through i18n; what the AGENT reads stays English**
-([ADR 0008](docs/adr/0008-ui-on-adwaita-web.md)). Pages, confirm window, pill, toolbar tooltip and
+([ADR 0008](docs/adr/0008-ui-on-adwaita-web.md)). The pages say only what is not normal
+([ADR 0009](docs/adr/0009-quiet-pages.md)); the build refuses unused keys and dashes, `!` or curly
+quotes in the copy. Pages, confirm window, pill, toolbar tooltip and
 any error shown in them: `t('key')` (`extension/src/i18n.ts`) or `data-i18n*` in the HTML, with the
 key in EVERY `extension/_locales/*/messages.json` (the build fails otherwise). MCP tool
 descriptions and wire error messages are never translated. A new method needs `method_<name>`
@@ -104,7 +106,8 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
 - **MV3 service workers sleep.** Every socket pings every 20 s. With no session connected, a
   30-second alarm (Chromium's minimum) wakes the worker to probe the range again.
 - **Chromium's `captureVisibleTab` wants `<all_urls>`.** A per-origin grant is not enough, which is
-  why screenshots are a separate opt-in in the options page. Firefox does not even *define*
+  why the Screenshots switch in the options page asks the browser for all sites in the same click
+  (ADR 0009). Firefox does not even *define*
   `tabs.captureVisibleTab` until `<all_urls>` is granted, so it is looked up per call, never at
   hello time.
 - **Firefox ignores the port in a host permission.** It reports `http://127.0.0.1:8080/*` as granted
@@ -153,7 +156,9 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   service worker (Chromium) and the browser window in BiDi's chrome scope (Firefox).
 - **Chromium has component extensions with a `background.js` worker too.** Pick beifahrer's by
   its manifest (`default_locale`), not by the worker's file name.
-- **An Adwaita row's `title` attribute is its heading**, not a tooltip, and a `<adw-switch-row>`
+- **An Adwaita row's `title` attribute is its heading**, not a tooltip; hover text goes on its
+  label column, `.adw-action-row-text` in an action row but `.adw-row-text` in a switch row
+  (`hoverText`, features.ts: looking for the second only left every action row bare), and a `<adw-switch-row>`
   notifies `notify::active` for a programmatic change too. Renders go through `setQuietly`
   (`src/ui/features.ts`), or redrawing a switch writes the value straight back.
 
@@ -175,6 +180,11 @@ Fix them in gjsify, never around them (werkstatt AGENTS.md § Core deps). Found 
 | `@gjsify/adwaita-web`: the `--font-family` fallback names `Segoe UI` but no macOS face (`system-ui`/`-apple-system`), so macOS falls back to Helvetica | style.css re-declares the stack with both |
 | `@gjsify/adwaita-web`: rows have no `tooltip-text`, and `<adw-toggle-group>` no `sensitive` / per-toggle `enabled` | tooltips go on the row's `.adw-row-text`; the level group is hidden, not greyed, on a non-web page |
 | `@gjsify/adwaita-web`: no API to follow the browser's `AccentColor` — [gjsify#1821](https://github.com/gjsify/gjsify/issues/1821) | the fallback when no bridge reported the desktop accent is a shim in `extension/src/accent.ts` (`accentColors`), marked `gjsify gap (unfixed, gjsify#1821)` |
+| `@gjsify/adwaita-web`: `<adw-switch-row>` replaces its children at upgrade and has no prefix slot (AdwSwitchRow is an AdwActionRow in libadwaita) | `switchRowIcon` (src/ui/features.ts) prepends the icon after upgrade |
+| `@gjsify/adwaita-web`: `<adw-toggle>` has no tooltip | the popup sets `title` on each rendered `button.adw-toggle` (popup/main.ts) |
+| `@gjsify/adwaita-web`: `<gtk-popover>` knows only the roles `menu` / `listbox`; a popover holding a sentence has no fitting one | `src/ui/info.ts` sets `role="dialog"`, which the element keeps |
+| `@gjsify/adwaita-web`: the stylesheet compiles a subset of the icons (no `media-playback-*`, `dialog-information`, `web-browser`, …) | `src/ui/icons.ts` registers the missing ones from `@gjsify/adwaita-icons` via `registerIcon`, in `ui.js` only |
+| `@gjsify/adwaita-web`: the `.compact` status page (96 px icon) is libadwaita's size for a sidebar, too large for an empty list in a 360 px popup | `adw-status-page.empty-state` in style.css shrinks it |
 
 ## Conventions
 
