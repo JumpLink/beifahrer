@@ -2,16 +2,17 @@
  * The page agent: injected on demand into a tab the policy allows, in the extension's isolated
  * world. It sees the page's DOM but not the page's JavaScript, and the page cannot see it.
  *
- * It does exactly five things — read, outline, describe, fill, click — and answers messages
- * from the background. The policy was already checked there; this script trusts its caller and
- * nothing else. While it works, it shows the person a pill with a Stop button
- * (src/page-indicator.ts), and it hides that pill on request before a screenshot.
+ * It does exactly eight things — read, outline, find, meta, wait, describe, fill, click — and
+ * answers messages from the background. The policy was already checked there; this script
+ * trusts its caller and nothing else. While it works, it shows the person a pill with a Stop
+ * button (src/page-indicator.ts), and it hides that pill on request before a screenshot.
  *
  * Refs (`e1`, `e2`, …) are handed out by `outline` and stay valid for the life of the document:
  * an element keeps its ref across outlines, so an agent can outline, think, and act later.
  */
 
 import { browser } from '@wxt-dev/browser';
+import { metaMatches, queryMatches, type ElementQuery, type MetaQuery } from '@beifahrer/core';
 import { afterRepaint, hideNow, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
@@ -107,16 +108,18 @@ function kindOf(el: Element): Kind | null {
     if (TEXT_INPUTS.has(type)) return { role: 'textbox' };
     return null;
   }
+  const html = el as HTMLElement;
+  // The editing HOST only — every descendant of a contenteditable is editable too, and listing
+  // each paragraph of a comment box as its own textbox would bury the one thing that matters.
+  // Checked before role=textbox: CKEditor 5 and ProseMirror put that role on their editable,
+  // and "richtext" is what tells the agent (and a recipe) that as=html will keep formatting.
+  if (html.isContentEditable && !html.parentElement?.isContentEditable) return { role: 'richtext' };
   if (tag === 'TEXTAREA' || role === 'textbox') return { role: 'textbox' };
   if (tag === 'SELECT' || role === 'combobox') return { role: 'combobox' };
   if (role === 'checkbox') return { role: 'checkbox' };
   if (role === 'tab') return { role: 'tab' };
   if (role === 'menuitem') return { role: 'menuitem' };
   if (role === 'link') return { role: 'link' };
-  const html = el as HTMLElement;
-  // The editing HOST only — every descendant of a contenteditable is editable too, and listing
-  // each paragraph of a comment box as its own textbox would bury the one thing that matters.
-  if (html.isContentEditable && !html.parentElement?.isContentEditable) return { role: 'richtext' };
   return null;
 }
 
@@ -176,9 +179,11 @@ function describe(el: Element, kind: Kind): string {
   }
 }
 
-function outline(maxItems: number): PageResponse {
-  const lines: string[] = [];
-  let truncated = false;
+/**
+ * Every visible element the outline shows, in document order. `page.outline`, `page.find` and
+ * `page.wait` all walk THIS, so an element find returns is one the outline shows, with the same ref.
+ */
+function* elements(): Generator<{ el: Element; kind: Kind }> {
   const walker = document.createTreeWalker(
     document.body ?? document.documentElement,
     NodeFilter.SHOW_ELEMENT,
@@ -190,7 +195,14 @@ function outline(maxItems: number): PageResponse {
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const el = node as Element;
     const kind = kindOf(el);
-    if (!kind || !visible(el)) continue;
+    if (kind && visible(el)) yield { el, kind };
+  }
+}
+
+function outline(maxItems: number): PageResponse {
+  const lines: string[] = [];
+  let truncated = false;
+  for (const { el, kind } of elements()) {
     if (lines.length >= maxItems) {
       truncated = true;
       break;
@@ -222,6 +234,89 @@ function read(maxChars: number): PageResponse {
       ...(selection ? { selection: selection.slice(0, maxChars) } : {}),
     },
   };
+}
+
+/** Elements matching a query, in document order; `nth` narrows to one. */
+function matching(query: ElementQuery, maxResults: number): { matches: Element[]; truncated: boolean } {
+  const matches: Element[] = [];
+  let seen = 0;
+  for (const { el, kind } of elements()) {
+    const facts = {
+      role: kind.role,
+      name: labelFor(el),
+      text: (el as HTMLElement).innerText ?? el.textContent ?? '',
+    };
+    if (!queryMatches(query, facts)) continue;
+    if (query.nth !== undefined) {
+      if (seen++ === query.nth) return { matches: [el], truncated: false };
+      continue;
+    }
+    if (matches.length >= maxResults) return { matches, truncated: true };
+    matches.push(el);
+  }
+  return { matches, truncated: false };
+}
+
+function found(el: Element): { ref: string; description: string } {
+  const kind = kindOf(el)!;
+  return { ref: refOf(el), description: describe(el, kind) };
+}
+
+function find(query: ElementQuery, maxResults: number): PageResponse {
+  const { matches, truncated } = matching(query, maxResults);
+  return {
+    ok: true,
+    data: { url: location.href, matches: matches.map(found), count: matches.length, truncated },
+  };
+}
+
+/** A `<meta>` check. Answers a count, never a content (a csrf-token is a meta too). */
+function meta(query: MetaQuery): PageResponse {
+  let count = 0;
+  for (const m of document.querySelectorAll('meta[name]')) {
+    const name = m.getAttribute('name') ?? '';
+    if (metaMatches(query, { name, content: m.getAttribute('content') ?? '' })) count++;
+  }
+  return { ok: true, data: { url: location.href, matches: [], count, truncated: false } };
+}
+
+/**
+ * Wait until an element matching `query` is there — a comment box that becomes an editor after a
+ * click, a dialog that opens. A MutationObserver wakes the check on DOM changes; a slow poll
+ * covers what it cannot see (an element that becomes visible through a stylesheet or layout
+ * alone). Bounded by `timeoutMs`, which the background caps.
+ */
+function waitFor(query: ElementQuery, timeoutMs: number): Promise<PageResponse> {
+  const started = Date.now();
+  const hit = () => matching(query, 1).matches[0];
+  const first = hit();
+  if (first) return Promise.resolve({ ok: true, data: { waitedMs: 0, match: found(first) } });
+  return new Promise((resolve) => {
+    let queued = false;
+    const done = (res: PageResponse) => {
+      observer.disconnect();
+      clearInterval(poll);
+      clearTimeout(timer);
+      resolve(res);
+    };
+    const check = () => {
+      queued = false;
+      const el = hit();
+      if (el) done({ ok: true, data: { waitedMs: Date.now() - started, match: found(el) } });
+    };
+    // Coalesce bursts of mutations (an editor mounting fires hundreds) into one check per frame.
+    const observer = new MutationObserver(() => {
+      if (queued) return;
+      queued = true;
+      setTimeout(check, 50);
+    });
+    observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true });
+    const poll = setInterval(check, 250);
+    const timer = setTimeout(
+      () => done({ ok: false, code: 'timeout', message: `nothing matched within ${timeoutMs / 1000} s` }),
+      timeoutMs,
+    );
+  });
 }
 
 function notFound(ref: string): PageResponse {
@@ -335,21 +430,33 @@ function click(ref: string): PageResponse {
   return { ok: true, data: { ref } };
 }
 
-/** The pill says what is happening: reading for read/outline, editing for describe/fill/click. */
+/**
+ * The pill says what is happening: reading for read/outline/find/meta/wait, editing for
+ * describe/fill/click.
+ */
 const VERB: Partial<Record<PageRequest['beifahrer'], 'reading' | 'editing'>> = {
   read: 'reading',
   outline: 'reading',
+  find: 'reading',
+  meta: 'reading',
+  wait: 'reading',
   describe: 'editing',
   fill: 'editing',
   click: 'editing',
 };
 
-function handle(req: PageRequest): PageResponse {
+function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
   const verb = VERB[req.beifahrer];
   // Shown BEFORE reading: `read` takes body.innerText, and the pill lives outside <body> in a
   // closed shadow root, so it never shows up in what the agent gets.
   if (verb) show(verb);
   switch (req.beifahrer) {
+    case 'find':
+      return find(req.query, req.maxResults);
+    case 'meta':
+      return meta(req.meta);
+    case 'wait':
+      return waitFor(req.query, req.timeoutMs);
     case 'read':
       return read(req.maxChars);
     case 'outline':

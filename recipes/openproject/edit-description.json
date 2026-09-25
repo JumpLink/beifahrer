@@ -1,0 +1,41 @@
+{
+  "id": "openproject/edit-description",
+  "title": "Replace the description of an OpenProject work package",
+  "description": "On a work package page: clicks the description (a button until clicked), waits for the rich-text editor, replaces its content, and saves. Saving is the last step and runs only when the person asked for exactly this change; without it the edited text stays in the open editor for the person to review. Matched on any domain by OpenProject's page metadata.",
+  "version": "1.0.0",
+  "match": {
+    "fingerprint": [{ "meta": { "name": "app_base_path" } }, { "meta": { "name": "app_title" } }]
+  },
+  "params": [
+    {
+      "name": "text",
+      "type": "string",
+      "description": "The new description. HTML is allowed (headings, lists, bold, links) and lands formatted. It REPLACES the old one.",
+      "required": true
+    }
+  ],
+  "steps": [
+    {
+      "id": "open-editor",
+      "action": "click",
+      "target": { "role": "button", "name": ["Beschreibung", "Description"] },
+      "note": "The description is a button until clicked."
+    },
+    { "id": "wait-editor", "action": "wait", "for": { "role": "richtext" }, "timeoutMs": 10000 },
+    {
+      "id": "fill",
+      "action": "fill",
+      "target": { "role": "richtext" },
+      "param": "text",
+      "as": "html",
+      "mode": "replace"
+    },
+    {
+      "id": "save",
+      "action": "submit",
+      "target": { "role": "button", "name": ["Beschreibung: Speichern", "Description: Save"] },
+      "requiresExplicitRequest": true,
+      "note": "Saves the new description."
+    }
+  ]
+}

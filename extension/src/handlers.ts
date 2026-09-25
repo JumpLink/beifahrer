@@ -13,10 +13,14 @@
 
 import { browser } from '@wxt-dev/browser';
 import {
+  MAX_WAIT_MS,
   decide,
   originOf,
   preflight,
   preflightMessage,
+  parseElementQuery,
+  parseMetaQuery,
+  type ElementQuery,
   toTabInfo,
   withRule,
   type Method,
@@ -130,6 +134,33 @@ async function confirmWrite(
   }
 }
 
+/** A query from the agent, validated with the same rules a recipe's queries are (find.ts). */
+function queryOf(raw: unknown): ElementQuery {
+  const query = parseElementQuery(raw);
+  return typeof query === 'string' ? fail('invalid', query) : query;
+}
+
+/** Only the query keys of a `page.find` call — tabId and the options are not part of it. */
+function findQueryOf(params: Record<string, unknown>): ElementQuery {
+  const { tabId: _t, maxResults: _m, meta: _meta, browser: _b, ...query } = params;
+  return queryOf(query);
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Wait until the tab's document has loaded. Polls `tabs.get`: Epiphany fires no
+ * `tabs.onUpdated`, so polling is the one path that works everywhere (issue #2).
+ */
+async function waitForLoad(tabId: number, deadline: number): Promise<void> {
+  for (;;) {
+    const tab = await getTab(tabId);
+    if (tab.status === 'complete') return;
+    if (Date.now() >= deadline) fail('timeout', `tab ${tabId} did not finish loading in time`);
+    await sleep(200);
+  }
+}
+
 type Handler<M extends Method> = (params: Params<M>, policy: Policy) => Promise<Result<M>>;
 
 const handlers: { [M in Method]: Handler<M> } = {
@@ -165,6 +196,45 @@ const handlers: { [M in Method]: Handler<M> } = {
     await gate('page.outline', tab.url, policy);
     const maxItems = Math.min(Math.max(Number(params.maxItems) || 400, 10), 2_000);
     return (await page(tabId, { beifahrer: 'outline', maxItems })) as unknown as Result<'page.outline'>;
+  },
+
+  async 'page.find'(params, policy) {
+    const tabId = tabIdOf(params);
+    const raw = params as unknown as Record<string, unknown>;
+    const tab = await getTab(tabId);
+    await gate('page.find', tab.url, policy);
+    if (raw.meta !== undefined) {
+      const meta = parseMetaQuery(raw.meta);
+      if (typeof meta === 'string') return fail('invalid', meta);
+      return (await page(tabId, { beifahrer: 'meta', meta })) as unknown as Result<'page.find'>;
+    }
+    const query = findQueryOf(raw);
+    const maxResults = Math.min(Math.max(Number(params.maxResults) || 20, 1), 200);
+    return (await page(tabId, { beifahrer: 'find', query, maxResults })) as unknown as Result<'page.find'>;
+  },
+
+  async 'page.wait'(params, policy) {
+    const tabId = tabIdOf(params);
+    const started = Date.now();
+    const timeoutMs = Math.min(Math.max(Number(params.timeoutMs) || 10_000, 100), MAX_WAIT_MS);
+    const deadline = started + timeoutMs;
+    const query = params.for === 'load' ? null : queryOf(params.for);
+    const tab = await getTab(tabId);
+    // Chromium: a tab still loading has an empty `url` and its target in `pendingUrl`. Firefox
+    // shows `about:blank` until the first response arrives: there is no site to ask the policy
+    // about yet, so the load is awaited first — and the gate asked for where the tab landed.
+    // Waiting reveals nothing about a page; the answer is only "loaded", after the gate.
+    const blank = tab.status !== 'complete' && (!tab.url || tab.url === 'about:blank') && !tab.pendingUrl;
+    if (!blank) await gate('page.wait', tab.url || tab.pendingUrl, policy);
+    await waitForLoad(tabId, deadline);
+    if (blank) await gate('page.wait', (await getTab(tabId)).url, policy);
+    if (!query) return { waitedMs: Date.now() - started };
+    // The document may have navigated while it loaded: the gate is asked again for where it is NOW.
+    const loaded = await getTab(tabId);
+    await gate('page.wait', loaded.url, policy);
+    const left = Math.max(deadline - Date.now(), 100);
+    const data = await page(tabId, { beifahrer: 'wait', query, timeoutMs: left });
+    return { waitedMs: Date.now() - started, match: data.match as Result<'page.wait'>['match'] };
   },
 
   async 'page.screenshot'(params, policy) {

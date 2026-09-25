@@ -9,11 +9,15 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import type { Method, Params } from '@beifahrer/core';
+import type { Method, Params, Result } from '@beifahrer/core';
 
 import { BridgeError, browserLabel } from '../../bridge/bridge.ts';
 import type { BrowserAccess } from '../../bridge/shared.ts';
+import { registerFindTools } from './find-tools.ts';
+import { registerRecipeTools, type RecipeToolOptions } from './recipe-tools.ts';
 import { registerTabTools } from './tab-tools.ts';
+
+export type Call = <M extends Method>(method: M, params: Params<M>, browser?: string) => Promise<Result<M>>;
 
 export interface BridgeHandle {
   /** Hub or peer (bridge/shared.ts) — the tools do not care which. */
@@ -55,8 +59,12 @@ export function failure(err: unknown): CallToolResult {
   };
 }
 
-export function registerTools(server: McpServer, handle: BridgeHandle): void {
-  const call = async <M extends Method>(method: M, params: Params<M>, browser?: string) => {
+export function registerTools(
+  server: McpServer,
+  handle: BridgeHandle,
+  recipes: RecipeToolOptions = {},
+): void {
+  const call: Call = async <M extends Method>(method: M, params: Params<M>, browser?: string) => {
     if (!handle.bridge)
       throw new BridgeError({ code: 'failed', message: handle.unavailable ?? 'the bridge is not running' });
     return handle.bridge.call(method, params, browser);
@@ -289,4 +297,6 @@ export function registerTools(server: McpServer, handle: BridgeHandle): void {
   );
 
   registerTabTools(server, call);
+  registerFindTools(server, call);
+  registerRecipeTools(server, call, recipes);
 }

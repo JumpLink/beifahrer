@@ -13,6 +13,10 @@ const READ = [
   'page_screenshot',
   'sessions_list',
   'sessions_recently_closed',
+  'page_find',
+  'page_wait',
+  'recipes_list',
+  'recipes_for_tab',
 ];
 const WRITE = [
   'page_fill',
@@ -29,6 +33,7 @@ const WRITE = [
   'sessions_delete',
   'sessions_define',
   'sessions_restore_closed',
+  'recipe_run',
 ];
 
 export default async () => {
@@ -57,6 +62,10 @@ export default async () => {
         'page_outline',
         'page_fill',
         'page_click',
+        'page_find',
+        'page_wait',
+        'recipes_for_tab',
+        'recipe_run',
         ...WRITE.filter((n) => n.startsWith('tabs_') || n.startsWith('sessions_')),
         'sessions_list',
       ]) {
