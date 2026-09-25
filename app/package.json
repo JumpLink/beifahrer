@@ -1,0 +1,71 @@
+{
+  "name": "beifahrer-cli",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "description": "The `beifahrer` binary: the loopback bridge the extension connects to, exposed as an MCP server and a small CLI. Bundled to one .gjs.mjs and run on GJS via gjsify.",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "check": "gjsify tsc --noEmit",
+    "format": "gjsify format --write .",
+    "format:check": "gjsify format --check .",
+    "lint": "gjsify lint .",
+    "lint:fix": "gjsify lint --fix .",
+    "build": "gjsify build src/index.ts --app gjs --outfile dist/beifahrer.gjs.mjs",
+    "start": "gjsify run dist/beifahrer.gjs.mjs",
+    "test": "gjsify test",
+    "test:mcp": "node tests/integration/mcp-gjs-smoke.mjs"
+  },
+  "gjsify": {
+    "excludeGlobals": [
+      "document",
+      "navigator",
+      "HTMLElement",
+      "location",
+      "Image",
+      "HTMLCanvasElement",
+      "HTMLImageElement",
+      "FontFace",
+      "matchMedia",
+      "MutationObserver",
+      "ResizeObserver",
+      "IntersectionObserver"
+    ],
+    "test": {
+      "entry": "tests/test.mts",
+      "outdir": "dist",
+      "runtimes": [
+        "gjs",
+        "node"
+      ]
+    }
+  },
+  "dependencies": {
+    "@beifahrer/core": "*",
+    "@gjsify/ws": "0.52.0",
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    "ws": "^8.21.3",
+    "yargs": "^18.2.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@gjsify/cli": "0.52.0",
+    "@gjsify/node-globals": "0.52.0",
+    "@gjsify/rolldown-native": "0.52.0",
+    "@gjsify/runtime": "0.52.0",
+    "@gjsify/unit": "0.52.0",
+    "@types/node": "^26.6.2",
+    "@types/ws": "^8.18.1",
+    "@types/yargs": "^17.0.35",
+    "oxfmt": "^0.70.0",
+    "oxlint": "^1.85.0",
+    "typescript": "^6.0.3"
+  }
+}
