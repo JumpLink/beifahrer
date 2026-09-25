@@ -11,7 +11,13 @@
     </style>
   </head>
   <body>
-    <h1>beifahrer</h1>
+    <div class="head">
+      <h1>beifahrer</h1>
+      <button id="pause" class="switch" role="switch" aria-checked="true" title="Shortcut: Alt+Shift+B">
+        …
+      </button>
+    </div>
+    <p id="state">…</p>
     <p id="status" class="muted">…</p>
     <h2>This site</h2>
     <p id="site" class="mono">…</p>
@@ -24,10 +30,15 @@
       <input type="checkbox" id="confirm" /> Ask me before every change
     </label>
     <p id="hint" class="muted"></p>
-    <h2>This browser</h2>
-    <label class="row"
-      ><input type="checkbox" id="manage-tabs" /> Let the agent manage tabs and windows</label
-    >
+    <details id="features-box">
+      <summary>What the agent may use</summary>
+      <div id="features"></div>
+    </details>
+    <h2>Activity</h2>
+    <p id="activity-empty" class="muted">
+      Nothing yet. What the agent does here is listed until the browser closes.
+    </p>
+    <ol id="activity" class="activity"></ol>
     <p><a href="#" id="options">Pairing and all sites…</a></p>
     <script type="module" src="./main.ts"></script>
   </body>

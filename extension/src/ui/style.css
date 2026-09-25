@@ -7,6 +7,7 @@
   --accent-fg: #ffffff;
   --warn: #c64600;
   --ok: #26a269;
+  --danger: #c01c28;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -19,10 +20,16 @@
     --accent-fg: #0b1b2e;
     --warn: #ffa348;
     --ok: #8ff0a4;
+    --danger: #e01b24;
   }
 }
 * {
   box-sizing: border-box;
+}
+/* `label.row { display: flex }` below outranks the browser's own `[hidden] { display: none }`, so
+   the popup's "Ask me before every change" showed at level Read although it was hidden. */
+[hidden] {
+  display: none !important;
 }
 body {
   margin: 0;
@@ -149,4 +156,62 @@ ul.preview {
 .mini {
   padding: 3px 9px;
   font-size: 13px;
+}
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.head h1 {
+  margin: 0;
+}
+.switch {
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ok);
+  background: transparent;
+  color: var(--ok);
+  cursor: pointer;
+}
+.switch.paused {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #ffffff;
+}
+.actions.start {
+  justify-content: flex-start;
+  align-items: center;
+}
+details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+  margin: 12px 0 4px;
+}
+label.feature {
+  margin: 4px 0;
+  align-items: flex-start;
+}
+.detail {
+  font-size: 12.5px;
+}
+ol.activity {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+  max-height: 200px;
+  overflow: auto;
+  font-size: 12.5px;
+}
+ol.activity li {
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+ol.activity time {
+  font-family: ui-monospace, monospace;
+  color: var(--muted);
 }

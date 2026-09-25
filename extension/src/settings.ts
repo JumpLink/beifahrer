@@ -9,9 +9,10 @@ import { browser } from '@wxt-dev/browser';
 import {
   DEFAULT_PORT,
   EMPTY_POLICY,
-  parseGrants,
+  parseFeatures,
+  parsePaused,
   parsePolicy,
-  type Grants,
+  type Features,
   type Policy,
 } from '@beifahrer/core';
 
@@ -19,8 +20,13 @@ export interface Settings {
   token: string;
   port: number;
   policy: Policy;
-  /** Browser-level switches, e.g. "Let the agent manage tabs and windows". Off unless literally true. */
-  grants: Grants;
+  /**
+   * One switch per capability (features.ts in core). Replaces PR #8's `grants`, which is read as
+   * the fallback until the person sets a switch here.
+   */
+  features: Features;
+  /** The kill switch: set from the popup, the in-page Stop button or the shortcut, never the bridge. */
+  paused: boolean;
   /** Ask before the agent closes tabs. Only a literal false switches asking off. */
   confirmClose: boolean;
   /** Keep automatic snapshots of the windows (ADR 0004). Only a literal false switches them off. */
@@ -32,7 +38,9 @@ export async function loadSettings(): Promise<Settings> {
     'token',
     'port',
     'policy',
+    'features',
     'grants',
+    'paused',
     'confirmClose',
     'autosave',
   ]);
@@ -41,7 +49,9 @@ export async function loadSettings(): Promise<Settings> {
     token: typeof raw.token === 'string' ? raw.token.trim() : '',
     port: Number.isInteger(port) && port > 0 && port < 65536 ? port : DEFAULT_PORT,
     policy: raw.policy ? parsePolicy(raw.policy) : EMPTY_POLICY,
-    grants: parseGrants(raw.grants),
+    // `grants` is the stored switch of PR #8, read only to carry `manageTabs: true` over.
+    features: parseFeatures(raw.features, raw.grants),
+    paused: parsePaused(raw.paused),
     confirmClose: raw.confirmClose !== false,
     autosave: raw.autosave !== false,
   };

@@ -2,12 +2,7 @@ import { describe, expect, it } from '@gjsify/unit';
 
 import {
   EMPTY_POLICY,
-  NO_GRANTS,
-  REQUIRED_GRANT,
-  REQUIRED_LEVEL,
   decide,
-  decideGrant,
-  parseGrants,
   levelFor,
   originOf,
   parsePolicy,
@@ -98,50 +93,10 @@ export default async () => {
     });
   });
 
-  await describe('decideGrant (the browser-level "manage tabs" switch)', async () => {
-    const TAB_METHODS = [
-      'tabs.move',
-      'tabs.pin',
-      'tabs.close',
-      'tabs.group',
-      'tabs.ungroup',
-      'windows.create',
-      'sessions.save',
-      'sessions.list',
-      'sessions.restore',
-      'sessions.delete',
-      'sessions.define',
-      'sessions.recentlyClosed',
-      'sessions.restoreClosed',
-    ] as const;
-    await it('refuses every tab-management method while the switch is off', async () => {
-      for (const m of TAB_METHODS)
-        expect(decideGrant(NO_GRANTS, m)).toStrictEqual({ allow: false, grant: 'manageTabs' });
-    });
-    await it('allows them once the person switched it on', async () => {
-      for (const m of TAB_METHODS) expect(decideGrant({ manageTabs: true }, m).allow).toBe(true);
-    });
-    await it('leaves the page and listing methods to the per-site policy', async () => {
-      for (const m of ['tabs.list', 'tabs.active', 'page.read', 'page.fill', 'tabs.open'] as const)
-        expect(decideGrant(NO_GRANTS, m).allow).toBe(true);
-    });
-    await it('classifies every method, and no more', async () => {
-      expect(Object.keys(REQUIRED_GRANT).sort()).toEqualArray(Object.keys(REQUIRED_LEVEL).sort());
-    });
-    await it('refuses a method missing from the table instead of waving it on', async () => {
-      expect(decideGrant({ manageTabs: true }, 'tabs.evaluate' as never).allow).toBe(false);
-    });
+  await describe('tab management and sessions', async () => {
     await it('still needs read on every NEW URL a window or workspace opens', async () => {
       expect(decide(policy, 'windows.create', 'https://attacker.example/?q=1').allow).toBe(false);
       expect(decide(policy, 'sessions.define', 'https://bank.example/').allow).toBe(true);
-    });
-  });
-
-  await describe('parseGrants', async () => {
-    await it('switches on only for a literal true', async () => {
-      expect(parseGrants({ manageTabs: true }).manageTabs).toBe(true);
-      for (const raw of [undefined, null, {}, { manageTabs: 'true' }, { manageTabs: 1 }, 'x'])
-        expect(parseGrants(raw).manageTabs).toBe(false);
     });
   });
 

@@ -23,6 +23,7 @@
  *   hub → peer   agent-reply     { id, ok, result | error } — the hub's answer, unchanged
  */
 
+import type { Feature } from './features.ts';
 import { isMethod, type Level, type Method } from './policy.ts';
 import type { ClosedSummary, GroupColor, SessionSummary } from './sessions.ts';
 
@@ -159,7 +160,11 @@ export type ErrorCode =
   | 'unsupported'
   | 'invalid'
   | 'timeout'
-  | 'failed';
+  | 'failed'
+  /** The person paused beifahrer in the browser. Every method answers this until they resume. */
+  | 'paused'
+  /** The person switched off the feature this method belongs to. `feature` names it. */
+  | 'feature_disabled';
 
 export interface WireError {
   code: ErrorCode;
@@ -167,6 +172,7 @@ export interface WireError {
   origin?: string | null;
   have?: Level;
   need?: Level;
+  feature?: Feature | null;
 }
 
 export type Response =

@@ -15,6 +15,7 @@ import {
   updateSessions,
 } from '../../src/sessions-store.ts';
 import { loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
+import { renderFeatures, renderPause, wirePause } from '../../src/ui/features.ts';
 import { describeStatus } from '../../src/ui/status.ts';
 import type { Status } from '../../src/bridge-client.ts';
 
@@ -139,16 +140,10 @@ async function renderClosed(): Promise<void> {
 
 async function setupTabs(): Promise<void> {
   const settings = await loadSettings();
-  const manage = $('manage-tabs') as HTMLInputElement;
   const confirmClose = $('confirm-close') as HTMLInputElement;
   const autosave = $('autosave') as HTMLInputElement;
-  manage.checked = settings.grants.manageTabs;
   confirmClose.checked = settings.confirmClose;
   autosave.checked = settings.autosave;
-  manage.addEventListener('change', async () => {
-    const { grants } = await loadSettings();
-    await saveSettings({ grants: { ...grants, manageTabs: manage.checked } });
-  });
   confirmClose.addEventListener('change', () => void saveSettings({ confirmClose: confirmClose.checked }));
   autosave.addEventListener('change', () => void saveSettings({ autosave: autosave.checked }));
 
@@ -226,6 +221,15 @@ async function main(): Promise<void> {
   await renderStatus();
   await renderSites();
   await setupTabs();
+  const pause = $<HTMLButtonElement>('pause');
+  wirePause(pause, $('state'));
+  await renderPause(pause, $('state'));
+  await renderFeatures($('features'), false);
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.paused) void renderPause(pause, $('state'));
+    if (changes.features || changes.grants) void renderFeatures($('features'), false);
+  });
   setInterval(() => void renderStatus(), 3000);
 }
 

@@ -39,16 +39,59 @@ Firefox / Chromium
   | Level | The agent may |
   |---|---|
   | **Nothing** (default) | see that a tab on that site is open (host only: no title, no path) |
-  | **Read** | read the text, get an outline of links, buttons and fields, take a screenshot |
+  | **Read** | read the text, get an outline of links, buttons and fields, take a screenshot (if screenshots are on) |
   | **Read + edit** | also fill fields and click. You confirm each change in a browser window unless you switch that off for the site. |
 
   When you raise a site's level, the browser asks you to grant access to that site. beifahrer has
   no host access until you do.
 
+## Seeing it, and stopping it
+
+**The toolbar button tells you what is going on.** Its icon is a set of sparkles:
+
+| Icon | Means |
+|---|---|
+| grey sparkles | connected to an agent, nothing happening |
+| **coloured** sparkles | an agent is using this browser right now (and for 5 s after its last request) |
+| grey + **red dot** | paused: the agent gets nothing |
+| grey + **amber dot** | not paired, or no agent running: nothing can reach the browser |
+
+Hover it for the same in words. Click it for the popup: the pause switch at the top, the level of
+the site you are on, the list of features, and the **activity** of the last 20 requests (time,
+what, which site by host, and why a request was refused). The activity list holds no page text
+and is gone when the browser closes.
+
+**While the agent reads or edits a page, the page shows it**: a small pill, "beifahrer is
+reading" or "is editing", with a **Stop** button, top right. It disappears a few seconds after
+the last action, never appears in a screenshot, and the page itself cannot read it.
+
+**Pause stops everything at once.** Press *Stop* on that pill, flip the switch in the popup or the
+options, or press **Alt+Shift+B**. While paused, every tool the agent calls, even listing tabs,
+answers `paused`, and the agent is told to ask you. Only you can resume, in the popup, the options
+or with the shortcut: nothing the agent sends can.
+
+**Features.** On top of the per-site levels, you choose which capabilities the agent may use at
+all (popup and options):
+
+| Feature | Tools | Default |
+|---|---|---|
+| See open tabs | `tabs_list`, `tab_active` (sites below *Read* show their host only) | on |
+| Read page text | `page_read` | on |
+| Outline pages | `page_outline` | on |
+| Take screenshots | `page_screenshot` (Chromium also needs the all-sites grant in the options) | **off** |
+| Fill fields | `page_fill`, still only at *Read + edit*, and you confirm | on |
+| Click | `page_click`, still only at *Read + edit*, and you confirm | on |
+| Open tabs | `tab_open`, only sites at *Read* or higher | on |
+| Manage tabs and windows | `tabs_move`, `tabs_pin`, `tabs_close`, `tabs_group`, `tabs_ungroup`, `window_create` | **off** |
+| Saved sessions | `sessions_*` | **off** |
+
+A tool whose feature is off answers `feature_disabled` and names the feature. Why and how:
+[ADR 0005](docs/adr/0005-the-person-sees-and-stops-the-agent.md).
+
 ## Tabs, windows and saved sessions
 
-A separate switch, **"Let the agent manage tabs and windows"** (popup and options, off by
-default), lets the agent tidy up your browser for you:
+Two features, **"Manage tabs and windows"** and **"Saved sessions"** (popup and options, both off
+by default), let the agent tidy up your browser for you:
 
 | Tool | Does |
 |---|---|
@@ -77,8 +120,9 @@ only, and it can only put URLs of sites at *Read* or higher into a new window or
 - **Send anything off your computer.** The only channel is the loopback socket to the bridge you
   run yourself.
 - **Switch your tab behind your back.** A screenshot is only taken of the tab you are showing.
-- **Rearrange or close your tabs unless you let it.** Managing tabs and windows is a separate
-  switch, off by default, and closing tabs asks you first.
+- **Rearrange or close your tabs unless you let it.** Managing tabs and windows is a feature,
+  off by default, and closing tabs asks you first.
+- **Keep going after you press Stop.** Paused means every request is refused until you resume.
 
 Page text is written by whoever runs the site, and an agent reading it can be steered by it
 (prompt injection). That is the reason for the per-site levels: keep your bank at *Read*, and an

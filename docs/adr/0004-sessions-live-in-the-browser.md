@@ -1,6 +1,7 @@
 # 0004 — Saved sessions live in the browser, behind a browser-level switch
 
-- **Status:** accepted
+- **Status:** accepted. § 1's single switch is now two features, "Manage tabs and windows" and
+  "Saved sessions", in the feature table of [ADR 0005](0005-the-person-sees-and-stops-the-agent.md).
 - **Date:** 2026-09-25
 
 ## Context

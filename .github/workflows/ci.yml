@@ -18,11 +18,12 @@ jobs:
     steps:
       # The bridge serves WebSockets through libsoup (@gjsify/ws → Soup.Server), so the test run
       # needs gjs and libsoup3 — nothing GTK: the bundle excludes the DOM-ish globals that would
-      # pull Gdk/Pango in at load.
+      # pull Gdk/Pango in at load. The extension build renders its toolbar icons from SVG through
+      # GdkPixbuf and librsvg's loader (extension/scripts/icons.ts).
       - name: Install system prerequisites
         run: >
           dnf install -y --setopt=install_weak_deps=False
-          git tar xz findutils gjs libsoup3
+          git tar xz findutils gjs libsoup3 gdk-pixbuf2 librsvg2
 
       - uses: actions/checkout@v4
 

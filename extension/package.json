@@ -4,7 +4,7 @@
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
-  "description": "The beifahrer WebExtension: connects to the local bridge and serves the agent's requests under the per-origin policy the person sets. One source, bundled by gjsify on GJS as MV3 for Chromium and MV2 for Firefox \u2014 no Node, no Vite.",
+  "description": "The beifahrer WebExtension: connects to the local bridge and serves the agent's requests under the per-origin policy the person sets. One source, bundled by gjsify on GJS as MV3 for Chromium and MV2 for Firefox — no Node, no Vite.",
   "scripts": {
     "check": "gjsify tsc --noEmit",
     "lint": "gjsify lint .",
@@ -17,6 +17,7 @@
     "@wxt-dev/browser": "^0.3.0"
   },
   "devDependencies": {
+    "@girs/gdkpixbuf-2.0": "5.4.0",
     "@gjsify/cli": "0.52.0",
     "@gjsify/node-globals": "0.52.0",
     "@gjsify/rolldown-native": "0.52.0",

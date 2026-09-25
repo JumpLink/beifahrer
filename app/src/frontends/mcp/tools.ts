@@ -33,7 +33,8 @@ const tabIdParam = z.number().int().describe('Tab id from tabs_list or tab_activ
 
 const POLICY_NOTE =
   'The person sets, per site, what you may do: nothing, read, or read + edit — in the beifahrer toolbar popup of their browser. ' +
-  'A "forbidden" error is their decision, not a malfunction: tell them which site and which level it needs, and let them decide.';
+  'A "forbidden" error is their decision, not a malfunction: tell them which site and which level it needs, and let them decide. ' +
+  'They can also switch single features off ("feature_disabled") or pause beifahrer altogether ("paused"): then ask them, and do not retry until they say so.';
 
 export function text(value: unknown): CallToolResult {
   return {

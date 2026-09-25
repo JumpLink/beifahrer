@@ -42,6 +42,18 @@ let backoff = 1_000;
 
 export const currentStatus = (): Status => status;
 
+const statusListeners = new Set<() => void>();
+
+/** Called on every status change; the toolbar button repaints from it (toolbar.ts). */
+export function onStatusChange(fn: () => void): void {
+  statusListeners.add(fn);
+}
+
+function setStatus(next: Status): void {
+  status = next;
+  for (const fn of statusListeners) fn();
+}
+
 function send(frame: unknown): void {
   if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(frame));
 }
@@ -77,7 +89,7 @@ function scheduleRetry(port: number): void {
   clearTimeout(retryTimer);
   const wait = backoff;
   backoff = Math.min(backoff * 2, 30_000);
-  status = { state: 'offline', port, retryInMs: wait };
+  setStatus({ state: 'offline', port, retryInMs: wait });
   retryTimer = setTimeout(() => void connect(), wait);
 }
 
@@ -86,10 +98,10 @@ export async function connect(): Promise<void> {
   clearTimeout(retryTimer);
   const { token, port } = await loadSettings();
   if (!token) {
-    status = { state: 'unpaired' };
+    setStatus({ state: 'unpaired' });
     return;
   }
-  status = { state: 'connecting', port };
+  setStatus({ state: 'connecting', port });
   const ws = new WebSocket(`ws://127.0.0.1:${port}/`);
   socket = ws;
 
@@ -114,12 +126,12 @@ export async function connect(): Promise<void> {
     }
     if (frame.type === 'welcome') {
       backoff = 1_000;
-      status = {
+      setStatus({
         state: 'connected',
         port,
         connectionId: frame.connectionId,
         bridgeVersion: frame.bridge.version,
-      };
+      });
       clearInterval(pingTimer);
       pingTimer = setInterval(() => send({ type: 'ping' }), PING_MS);
     } else if (frame.type === 'request') {
@@ -132,11 +144,11 @@ export async function connect(): Promise<void> {
     if (socket === ws) socket = null;
     if (event.code === CLOSE.unauthorized) {
       // Retrying with the same token cannot succeed; wait for the person to paste a new one.
-      status = { state: 'unauthorized', port };
+      setStatus({ state: 'unauthorized', port });
       return;
     }
     if (event.code === CLOSE.protocol) {
-      status = { state: 'protocol', port, reason: event.reason };
+      setStatus({ state: 'protocol', port, reason: event.reason });
       return;
     }
     scheduleRetry(port);

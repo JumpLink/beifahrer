@@ -1,6 +1,13 @@
 import { browser } from '@wxt-dev/browser';
 import { originOf, withRule, type Level } from '@beifahrer/core';
 import { loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
+import {
+  loadActivity,
+  renderActivity,
+  renderFeatures,
+  renderPause,
+  wirePause,
+} from '../../src/ui/features.ts';
 import { describeStatus } from '../../src/ui/status.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -8,7 +15,7 @@ const buttons = [...document.querySelectorAll<HTMLButtonElement>('.levels button
 
 const HINTS: Record<Level, string> = {
   none: 'The agent sees only that a tab on this site is open.',
-  read: 'The agent may read this page, its outline and a screenshot. It cannot change anything.',
+  read: 'The agent may read this page and its outline (and take a screenshot, if you allow those). It cannot change anything.',
   write: 'The agent may also fill fields and click here.',
 };
 
@@ -67,11 +74,21 @@ async function main(): Promise<void> {
     });
   });
 
-  const manage = $('manage-tabs') as HTMLInputElement;
-  manage.checked = (await loadSettings()).grants.manageTabs;
-  manage.addEventListener('change', async () => {
-    const { grants } = await loadSettings();
-    await saveSettings({ grants: { ...grants, manageTabs: manage.checked } });
+  const pause = $<HTMLButtonElement>('pause');
+  wirePause(pause, $('state'));
+  await renderPause(pause, $('state'));
+  await renderFeatures($('features'), true);
+  const refreshActivity = async () => {
+    const { log } = await loadActivity();
+    renderActivity($('activity'), $('activity-empty'), log);
+  };
+  await refreshActivity();
+  // While the popup is open: follow the agent live, and a pause set from the page or shortcut.
+  setInterval(() => void refreshActivity(), 1000);
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.paused) void renderPause(pause, $('state'));
+    if (changes.features || changes.grants) void renderFeatures($('features'), true);
   });
 
   $('options').addEventListener('click', (e) => {
