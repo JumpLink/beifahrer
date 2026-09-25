@@ -33,6 +33,7 @@ import {
   type Response,
   type SessionView,
 } from '@beifahrer/core';
+import { rememberDesktop } from './accent.ts';
 import { browserInfo, manifestVersion } from './browser-info.ts';
 import { MethodError, capabilities, runMethod } from './handlers.ts';
 import { loadSettings } from './settings.ts';
@@ -147,6 +148,7 @@ function probe(port: number): void {
         port,
         setInterval(() => send(ws, { type: 'ping' }), PING_MS),
       );
+      if (welcome.desktop) void rememberDesktop(welcome.desktop);
       changed();
     } else if (frame.type === 'request') {
       void serve(ws, port, frame.id, frame.method, frame.params);
@@ -156,6 +158,8 @@ function probe(port: number): void {
         table.relabelled(port, label);
         changed();
       }
+    } else if (frame.type === 'desktop') {
+      void rememberDesktop(frame.desktop);
     }
   };
 

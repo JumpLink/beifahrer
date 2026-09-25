@@ -17,6 +17,7 @@
     "oxfmt@^0.70.0",
     "oxlint@^1.85.0",
     "typescript@^6.0.3",
+    "@gjsify/adwaita-core@0.52.0",
     "@gjsify/adwaita-web@0.52.0",
     "@wxt-dev/browser@^0.3.0",
     "@girs/gdkpixbuf-2.0@5.4.0",

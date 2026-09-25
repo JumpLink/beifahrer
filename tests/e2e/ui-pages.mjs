@@ -18,10 +18,13 @@
 
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { ADW_ACCENT_BG_COLORS } from '@gjsify/adwaita-core';
 
 const PAGES = ['popup', 'options', 'confirm'];
 const WIDTH = { popup: 360, options: 800, confirm: 520 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** What BEIFAHRER_DESKTOP_ACCENT=green (browsers.e2e.mjs) must paint, from adwaita-core's palette. */
+const ACCENT_BG = ADW_ACCENT_BG_COLORS.green;
 
 /** Evaluated in each page: what "the Adwaita UI came up" means. */
 const PROBE = `JSON.stringify({
@@ -30,6 +33,7 @@ const PROBE = `JSON.stringify({
   upgraded: !!document.querySelector('adw-switch-row .adw-row-text, adw-status-page:not([hidden]) *'),
   translated: !document.querySelector('[data-i18n]') || [...document.querySelectorAll('[data-i18n]')].every((e) => e.textContent.trim() !== ''),
   lang: document.documentElement.lang,
+  accent: getComputedStyle(document.documentElement).getPropertyValue('--accent-bg-color').trim(),
 })`;
 
 function rpc(url) {
@@ -70,6 +74,7 @@ function judge(check, browser, page, raw) {
     raw,
   );
   check(browser, `${page}.html: static text translated`, r.translated && !!r.lang, raw);
+  check(browser, `${page}.html: follows the desktop accent the bridge reported`, r.accent === ACCENT_BG, raw);
 }
 
 /** Chromium: over the DevTools endpoint the e2e already opened. */

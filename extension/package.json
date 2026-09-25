@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@beifahrer/core": "*",
+    "@gjsify/adwaita-core": "0.52.0",
     "@gjsify/adwaita-web": "0.52.0",
     "@wxt-dev/browser": "^0.3.0"
   },
