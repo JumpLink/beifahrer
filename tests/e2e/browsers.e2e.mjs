@@ -53,6 +53,8 @@ const DEVTOOLS_PORT = PORT_BASE + 3;
 const BIDI_PORT = PORT_BASE + 4;
 const ALLOWED = `http://127.0.0.1:${FIXTURE_PORT}`;
 const FORBIDDEN = `http://localhost:${FIXTURE_PORT}`;
+/** The access build sets this origin to `none` explicitly: a block no temporary grant reaches. */
+const BLOCKED = `http://[::1]:${FIXTURE_PORT}`;
 const TOKEN = `e2e-${Math.random().toString(36).slice(2)}`;
 /**
  * Every e2e bridge reports this desktop accent (BEIFAHRER_DESKTOP_ACCENT, test-only), so the run
@@ -513,6 +515,94 @@ async function multiSession(browser) {
   } finally {
     for (const s of sessions) await s.client.close().catch(() => undefined);
     old.server.close();
+    try {
+      process.kill(browser === 'firefox' ? -proc.pid : proc.pid, 'SIGTERM');
+    } catch {
+      /* already gone */
+    }
+    await sleep(1500);
+    rmSync(profile, { recursive: true, force: true });
+  }
+}
+
+/** A tool call that must NOT wait for the person: a prompt would hold it for two minutes. */
+async function quickly(client, name, args, ms = 10_000) {
+  return Promise.race([
+    tool(client, name, args),
+    sleep(ms).then(() => ({ error: true, text: `still waiting after ${ms} ms (a prompt?)` })),
+  ]);
+}
+
+/**
+ * ADR 0010, in the access build: "all sites" (read) is granted from the start, BLOCKED is set to
+ * none, FORBIDDEN has no rule. The E2E hooks stand in for the popup's End and the prompt's
+ * buttons; the browser's own permission prompt is granted up front (e2eHostOrigins).
+ */
+async function accessScenario(browser) {
+  const name = `${browser} access`;
+  const profile = mkdtempSync(join(tmpdir(), `beifahrer-e2e-access-${browser}-`));
+  const tokenFile = join(profile, 'token');
+  writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
+  const a = await startMcp(tokenFile, `${browser}-access-a.log`, { BEIFAHRER_SESSION_LABEL: 'e2e access A' });
+  const proc = launch(browser, profile);
+  const hook = (path) =>
+    tool(a.client, 'tab_open', { url: `${ALLOWED}/__beifahrer_e2e/${path}`, active: false });
+  try {
+    await until(a.client, (s) => s.browsers?.length === 1, 60);
+
+    const opened = await quickly(a.client, 'tab_open', { url: `${FORBIDDEN}/fixture`, active: false });
+    const tabId = opened.error ? null : JSON.parse(opened.text).tab?.tabId;
+    check(
+      name,
+      'all sites: a site with no rule opens without a prompt',
+      tabId != null,
+      opened.text.slice(0, 200),
+    );
+    // Firefox reports the new tab as a complete about:blank for a moment: read once it has landed.
+    let read = { error: true, text: '' };
+    for (let i = 0; i < 20; i++) {
+      await tool(a.client, 'page_wait', { tabId, for: 'load' });
+      read = await quickly(a.client, 'page_read', { tabId });
+      if (!/non-web page/.test(read.text)) break;
+      await sleep(500);
+    }
+    check(name, 'all sites: its page is readable', !read.error, read.text.slice(0, 200));
+    const blocked = await quickly(a.client, 'tab_open', { url: `${BLOCKED}/fixture`, active: false });
+    check(
+      name,
+      'an explicit none beats all sites, with no prompt',
+      blocked.error && /blocked|not a web page/.test(blocked.text),
+      blocked.text.slice(0, 200),
+    );
+
+    // The person ends it (popup's End): the same site now needs an answer.
+    await hook('end-wide');
+    await sleep(1000);
+    const asked = tool(a.client, 'page_read', { tabId });
+    await sleep(500);
+    await hook('answer?scope=session');
+    const afterSession = await asked;
+    check(
+      name,
+      'after End, a prompt answered For this session lets the read through',
+      !afterSession.error,
+      afterSession.text.slice(0, 200),
+    );
+    const again = await quickly(a.client, 'page_read', { tabId });
+    check(name, 'For this session: the next read needs no prompt', !again.error, again.text.slice(0, 200));
+
+    // Another session: A's grant is not its grant. It is asked, and Deny is forbidden.
+    const other = runTool(tokenFile, 'page_read', { tabId });
+    await hook('answer?scope=deny');
+    const denied = await other;
+    check(
+      name,
+      "a session's grant does not reach another session, whose Deny is forbidden",
+      denied.code !== 0 && /forbidden/.test(denied.out + denied.err),
+      `${denied.code} ${(denied.out + denied.err).slice(0, 200)}`,
+    );
+  } finally {
+    await a.client.close().catch(() => undefined);
     try {
       process.kill(browser === 'firefox' ? -proc.pid : proc.pid, 'SIGTERM');
     } catch {
@@ -1144,6 +1234,9 @@ const seed = {
   port: RANGE.base,
   portCount: RANGE.count,
   policy: { origins: { [ALLOWED]: { level: 'write', confirmWrites: false } } },
+  // The refusal checks below expect `forbidden` at once, not a prompt nobody answers (ADR 0010);
+  // the access build switches asking back on.
+  askOnDemand: false,
 };
 
 // Three builds: the person's switches can only be flipped in the browser's UI, which a headless
@@ -1154,10 +1247,27 @@ const BUILDS = {
   off: seed,
   on: { ...seed, grants: { manageTabs: true }, features: { screenshot: true }, confirmClose: false },
   paused: { ...seed, paused: true },
+  // ADR 0010: all sites (read) from the start, one site blocked, one reachable only by a grant.
+  access: {
+    ...seed,
+    policy: { origins: { ...seed.policy.origins, [BLOCKED]: { level: 'none' } } },
+    askOnDemand: true,
+    e2eGrants: [{ scope: '*', level: 'read' }],
+    e2eHostOrigins: [FORBIDDEN],
+  },
 };
 for (const [gate, build] of Object.entries(BUILDS)) {
   buildExtension(build);
   for (const b of browsers) {
+    if (gate === 'access') {
+      console.log(`\n${b} (temporary access)`);
+      try {
+        await accessScenario(b);
+      } catch (err) {
+        check(b, 'access scenario ran', false, err.stack ?? String(err));
+      }
+      continue;
+    }
     const label = gate === 'paused' ? 'paused' : `features ${gate}`;
     console.log(`\n${b} (${label})`);
     try {

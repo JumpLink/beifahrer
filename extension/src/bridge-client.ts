@@ -33,8 +33,10 @@ import {
   type Response,
   type SessionView,
 } from '@beifahrer/core';
+import { forgetDenials } from './access-prompt.ts';
 import { rememberDesktop } from './accent.ts';
 import { browserInfo, manifestVersion } from './browser-info.ts';
+import { endSession, liveSessions } from './grants.ts';
 import { MethodError, capabilities, runMethod } from './handlers.ts';
 import { loadSettings } from './settings.ts';
 
@@ -48,6 +50,25 @@ const PING_MS = 20_000;
 const table = new ConnectionTable(DEFAULT_PORT_RANGE);
 const sockets = new Map<number, WebSocket>();
 const pings = new Map<number, ReturnType<typeof setInterval>>();
+/**
+ * port → the extension's OWN id for the session connected there (ADR 0010). Session-bound grants
+ * name it. Not the bridge's `connectionId`: that comes from the agent's side, and a bridge could
+ * claim another session's id to borrow its grants.
+ */
+const sessionIds = new Map<number, string>();
+
+/** The id of the session on `port`, for a grant "for this agent session" set from the popup. */
+export function sessionIdOf(port: number): string | undefined {
+  return sessionIds.get(port);
+}
+
+function endSessionOn(port: number): void {
+  const id = sessionIds.get(port);
+  if (!id) return;
+  sessionIds.delete(port);
+  forgetDenials(id);
+  void endSession(id);
+}
 let token = '';
 let roundTimer: ReturnType<typeof setTimeout> | undefined;
 let probing = false;
@@ -91,7 +112,10 @@ async function serve(
     };
   } else {
     try {
-      const result = await runMethod(method, params, { session: table.labelOf(port) });
+      const result = await runMethod(method, params, {
+        session: table.labelOf(port),
+        sessionId: sessionIds.get(port),
+      });
       response = { type: 'response', id, ok: true, result };
     } catch (err) {
       response = {
@@ -143,6 +167,10 @@ function probe(port: number): void {
         ws.close(1000, 'the person disconnected this session');
         return;
       }
+      endSessionOn(port);
+      const id = crypto.randomUUID();
+      sessionIds.set(port, id);
+      liveSessions.add(id);
       clearInterval(pings.get(port));
       pings.set(
         port,
@@ -167,6 +195,8 @@ function probe(port: number): void {
     clearInterval(pings.get(port));
     pings.delete(port);
     if (sockets.get(port) !== ws) return;
+    // The session's grants end with its connection, whatever closed it.
+    endSessionOn(port);
     sockets.delete(port);
     table.closed(port, { opened, code: event.code, reason: event.reason }, Date.now());
     changed();

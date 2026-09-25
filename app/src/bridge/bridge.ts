@@ -22,8 +22,10 @@ import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import {
+  ASK_TIMEOUT_MS,
   CLOSE,
   MAX_WAIT_MS,
+  REQUIRED_LEVEL,
   PROTOCOL_VERSION,
   bindFirstFree,
   cleanSessionLabel,
@@ -101,7 +103,7 @@ export interface BridgeOptions {
 const listening = new Set<Bridge>();
 
 /** Writes can wait for the confirmation window, which gives the person two minutes. */
-export const WRITE_TIMEOUT_MS = 135_000;
+export const WRITE_TIMEOUT_MS = ASK_TIMEOUT_MS + 15_000;
 export const DEFAULT_TIMEOUT_MS = 30_000;
 export const BROWSER_WAIT_MS = 7_000;
 const WRITES: ReadonlySet<Method> = new Set(['page.fill', 'page.click', 'tabs.close']);
@@ -109,9 +111,18 @@ const WRITES: ReadonlySet<Method> = new Set(['page.fill', 'page.click', 'tabs.cl
 /** `page.wait` waits up to MAX_WAIT_MS in the browser; the call must outlive that. */
 export const WAIT_TIMEOUT_MS = MAX_WAIT_MS + 15_000;
 
+/**
+ * A method that touches a site may first wait for the person's answer to an access prompt
+ * (ADR 0010), so it gets that window's time on top of its own.
+ */
 export function timeoutFor(method: Method, readTimeoutMs = DEFAULT_TIMEOUT_MS): number {
-  if (method === 'page.wait') return Math.max(WAIT_TIMEOUT_MS, readTimeoutMs);
-  return WRITES.has(method) ? WRITE_TIMEOUT_MS : readTimeoutMs;
+  const own =
+    method === 'page.wait'
+      ? Math.max(WAIT_TIMEOUT_MS, readTimeoutMs)
+      : WRITES.has(method)
+        ? WRITE_TIMEOUT_MS
+        : readTimeoutMs;
+  return REQUIRED_LEVEL[method] === null ? own : own + ASK_TIMEOUT_MS;
 }
 
 export class Bridge extends EventEmitter implements BrowserAccess {

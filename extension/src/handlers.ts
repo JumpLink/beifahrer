@@ -4,7 +4,8 @@
  * Order for every method, and it is the whole security model:
  *   1. paused? (`preflight`, in `runMethod`) — the person's kill switch refuses everything;
  *   2. the feature switch (`preflight`, in `runMethod`) — one per capability (features.ts);
- *   3. the policy (`decide`) — the person's per-origin level;
+ *   3. the policy (`decide`) — the person's per-origin level, widened by their temporary grants
+ *      (ADR 0010); below it, the person may be asked on demand (access-prompt.ts);
  *   4. the browser's own host permission — granted by the browser's prompt when the person raised
  *      the level, so even a policy bug cannot reach an origin the browser never opened up;
  *   5. for writes, the confirmation window, unless switched off for that origin.
@@ -14,6 +15,8 @@
 import { browser } from '@wxt-dev/browser';
 import {
   MAX_WAIT_MS,
+  REQUIRED_LEVEL,
+  atLeast,
   decide,
   originOf,
   preflight,
@@ -23,16 +26,20 @@ import {
   type ElementQuery,
   toTabInfo,
   withRule,
+  type AccessContext,
+  type Level,
   type Method,
   type Params,
   type Policy,
   type Result,
   type TabInfo,
 } from '@beifahrer/core';
+import { askForAccess } from './access-prompt.ts';
 import { track } from './activity.ts';
 import { askPerson } from './confirm.ts';
 import { fail } from './errors.ts';
 import { hideIndicator } from './indicator.ts';
+import { loadGrants, settle } from './grants.ts';
 import { askPage } from './inject.ts';
 import { loadSettings, originPattern, saveSettings } from './settings.ts';
 import type { PageRequest } from './page-messages.ts';
@@ -80,39 +87,79 @@ async function hasHostPermission(origin: string): Promise<boolean> {
   return browser.permissions.contains({ origins: [originPattern(origin)] });
 }
 
-/** Steps 1 and 2 of the gate. Returns the origin and whether a write must be confirmed. */
+/** Who sent the request being served: the agent session, as the person sees it (ADR 0007). */
+export interface CallContext {
+  /** The session's label (from its bridge: untrusted text, shown only as text). */
+  session?: string;
+  /** The extension's own id for the session's connection, which session-bound grants name. */
+  sessionId?: string;
+  /** Set when an "Allow once" let this call through: its host access is given back after it. */
+  settleAfter?: boolean;
+  /**
+   * The origins an "Allow once" opened for THIS call, with their level: `page.wait` passes the
+   * gate up to three times, and one call is one "once".
+   */
+  once?: Map<string, Level>;
+}
+
+const accessOf = (ctx: CallContext): AccessContext =>
+  ctx.sessionId ? { now: Date.now(), session: ctx.sessionId } : { now: Date.now() };
+
+function refuse(
+  method: Method,
+  decision: { origin: string | null; have: Level; need: Level; askable?: boolean },
+): never {
+  const where = decision.origin ?? 'this page';
+  return fail(
+    'forbidden',
+    !decision.origin
+      ? `${method} is not possible on a non-web page (browser-internal, local file or extension page).`
+      : decision.askable === false
+        ? `the person blocked ${where} in beifahrer (level "none"); ${method} needs "${decision.need}". ` +
+          'Do not ask for it again unless the person brings it up.'
+        : `${where} is at level "${decision.have}" in beifahrer; ${method} needs "${decision.need}". ` +
+          'Ask the person to raise it in the beifahrer toolbar popup on that tab.',
+    { origin: decision.origin, have: decision.have, need: decision.need },
+  );
+}
+
+/**
+ * Steps 3 and 4 of the gate. Returns the origin and whether a write must be confirmed.
+ *
+ * Below the site's level, or without the browser's grant for it, the person may be asked
+ * (access-prompt.ts) — never for a non-web page or a site they blocked. An access that only a
+ * prompt's answer allowed always confirms its writes, like a temporary grant.
+ */
 async function gate(
   method: Method,
   url: string | undefined,
   policy: Policy,
+  ctx: CallContext,
 ): Promise<{ origin: string; confirm: boolean }> {
-  const decision = decide(policy, method, url);
-  if (!decision.allow) {
-    const where = decision.origin ?? 'this page';
-    return fail(
-      'forbidden',
-      decision.origin
-        ? `${where} is at level "${decision.have}" in beifahrer; ${method} needs "${decision.need}". ` +
-            'Ask the person to raise it in the beifahrer toolbar popup on that tab.'
-        : `${method} is not possible on a non-web page (browser-internal, local file or extension page).`,
-      { origin: decision.origin, have: decision.have, need: decision.need },
-    );
-  }
+  const decision = decide(policy, method, url, accessOf(ctx));
+  if (!decision.allow && !decision.askable) return refuse(method, decision);
   const origin = originOf(url)!;
-  if (!(await hasHostPermission(origin))) {
-    return fail(
-      'forbidden',
-      `the browser has not granted beifahrer access to ${origin} (the level is set, the browser permission is ` +
-        'missing — it was probably revoked in the browser settings). Ask the person to set the level again in the popup.',
-      { origin },
-    );
+  const granted = await hasHostPermission(origin);
+  if (decision.allow && granted) return { origin, confirm: decision.confirm };
+  const need = decision.allow ? REQUIRED_LEVEL[method]! : decision.need;
+  const onceLevel = ctx.once?.get(origin);
+  const answer =
+    onceLevel && atLeast(onceLevel, need)
+      ? 'once'
+      : await askForAccess({ label: ctx.session, sessionId: ctx.sessionId }, origin, need);
+  if (answer === 'once') {
+    ctx.settleAfter = true;
+    (ctx.once ??= new Map()).set(origin, need);
   }
-  return { origin, confirm: decision.confirm };
-}
-
-/** Who sent the request being served: the agent session, as the person sees it (ADR 0007). */
-export interface CallContext {
-  session?: string;
+  if (answer && (await hasHostPermission(origin)))
+    return { origin, confirm: decision.allow ? decision.confirm : need === 'write' };
+  if (!decision.allow) return refuse(method, decision);
+  return fail(
+    'forbidden',
+    `the browser has not granted beifahrer access to ${origin} (the level is set, the browser permission is ` +
+      'missing — it was probably revoked in the browser settings). Ask the person to set the level again in the popup.',
+    { origin },
+  );
 }
 
 async function page(tabId: number, ctx: CallContext, req: PageRequest): Promise<Record<string, unknown>> {
@@ -172,28 +219,28 @@ async function waitForLoad(tabId: number, deadline: number): Promise<void> {
 type Handler<M extends Method> = (params: Params<M>, policy: Policy, ctx: CallContext) => Promise<Result<M>>;
 
 const handlers: { [M in Method]: Handler<M> } = {
-  async 'tabs.list'(_params, policy) {
+  async 'tabs.list'(_params, policy, ctx) {
     const [tabs, focused] = await Promise.all([browser.tabs.query({}), focusedWindowId()]);
     return {
       tabs: tabs
         // Chromium: a tab still loading has an empty `url` and its target in `pendingUrl`.
-        .map((t) => toTabInfo({ ...t, url: t.url || t.pendingUrl }, policy, focused))
+        .map((t) => toTabInfo({ ...t, url: t.url || t.pendingUrl }, policy, focused, accessOf(ctx)))
         .filter((t): t is TabInfo => t !== null),
     };
   },
 
-  async 'tabs.active'(_params, policy) {
+  async 'tabs.active'(_params, policy, ctx) {
     const focused = await focusedWindowId();
     const query =
       focused !== null ? { active: true, windowId: focused } : { active: true, currentWindow: true };
     const [tab] = await browser.tabs.query(query);
-    return { tab: tab ? toTabInfo(tab, policy, focused) : null };
+    return { tab: tab ? toTabInfo(tab, policy, focused, accessOf(ctx)) : null };
   },
 
   async 'page.read'(params, policy, ctx) {
     const tabId = tabIdOf(params);
     const tab = await getTab(tabId);
-    await gate('page.read', tab.url, policy);
+    await gate('page.read', tab.url, policy, ctx);
     const maxChars = Math.min(Math.max(Number(params.maxChars) || 20_000, 100), 200_000);
     return (await page(tabId, ctx, { beifahrer: 'read', maxChars })) as unknown as Result<'page.read'>;
   },
@@ -201,7 +248,7 @@ const handlers: { [M in Method]: Handler<M> } = {
   async 'page.outline'(params, policy, ctx) {
     const tabId = tabIdOf(params);
     const tab = await getTab(tabId);
-    await gate('page.outline', tab.url, policy);
+    await gate('page.outline', tab.url, policy, ctx);
     const maxItems = Math.min(Math.max(Number(params.maxItems) || 400, 10), 2_000);
     return (await page(tabId, ctx, { beifahrer: 'outline', maxItems })) as unknown as Result<'page.outline'>;
   },
@@ -210,7 +257,7 @@ const handlers: { [M in Method]: Handler<M> } = {
     const tabId = tabIdOf(params);
     const raw = params as unknown as Record<string, unknown>;
     const tab = await getTab(tabId);
-    await gate('page.find', tab.url, policy);
+    await gate('page.find', tab.url, policy, ctx);
     if (raw.meta !== undefined) {
       const meta = parseMetaQuery(raw.meta);
       if (typeof meta === 'string') return fail('invalid', meta);
@@ -237,22 +284,22 @@ const handlers: { [M in Method]: Handler<M> } = {
     // about yet, so the load is awaited first — and the gate asked for where the tab landed.
     // Waiting reveals nothing about a page; the answer is only "loaded", after the gate.
     const blank = tab.status !== 'complete' && (!tab.url || tab.url === 'about:blank') && !tab.pendingUrl;
-    if (!blank) await gate('page.wait', tab.url || tab.pendingUrl, policy);
+    if (!blank) await gate('page.wait', tab.url || tab.pendingUrl, policy, ctx);
     await waitForLoad(tabId, deadline);
-    if (blank) await gate('page.wait', (await getTab(tabId)).url, policy);
+    if (blank) await gate('page.wait', (await getTab(tabId)).url, policy, ctx);
     if (!query) return { waitedMs: Date.now() - started };
     // The document may have navigated while it loaded: the gate is asked again for where it is NOW.
     const loaded = await getTab(tabId);
-    await gate('page.wait', loaded.url, policy);
+    await gate('page.wait', loaded.url, policy, ctx);
     const left = Math.max(deadline - Date.now(), 100);
     const data = await page(tabId, ctx, { beifahrer: 'wait', query, timeoutMs: left });
     return { waitedMs: Date.now() - started, match: data.match as Result<'page.wait'>['match'] };
   },
 
-  async 'page.screenshot'(params, policy) {
+  async 'page.screenshot'(params, policy, ctx) {
     const tabId = tabIdOf(params);
     const tab = await getTab(tabId);
-    await gate('page.screenshot', tab.url, policy);
+    await gate('page.screenshot', tab.url, policy, ctx);
     // Looked up NOW, not at hello time: Firefox only defines captureVisibleTab once `<all_urls>`
     // is granted, and the person may switch screenshots on while connected.
     if (typeof browser.tabs.captureVisibleTab !== 'function') {
@@ -294,7 +341,7 @@ const handlers: { [M in Method]: Handler<M> } = {
     const as = params.as === 'html' ? 'html' : 'text';
     const mode = params.mode === 'append' ? 'append' : 'replace';
     const tab = await getTab(tabId);
-    const { origin, confirm } = await gate('page.fill', tab.url, policy);
+    const { origin, confirm } = await gate('page.fill', tab.url, policy, ctx);
     if (confirm) await confirmWrite(ctx, tabId, origin, 'fill', ref, params.text);
     return (await page(tabId, ctx, {
       beifahrer: 'fill',
@@ -309,24 +356,42 @@ const handlers: { [M in Method]: Handler<M> } = {
     const tabId = tabIdOf(params);
     const ref = refOf(params);
     const tab = await getTab(tabId);
-    const { origin, confirm } = await gate('page.click', tab.url, policy);
+    const { origin, confirm } = await gate('page.click', tab.url, policy, ctx);
     if (confirm) await confirmWrite(ctx, tabId, origin, 'click', ref, undefined);
     return (await page(tabId, ctx, { beifahrer: 'click', ref })) as unknown as Result<'page.click'>;
   },
 
-  async 'tabs.open'(params, policy) {
+  async 'tabs.open'(params, policy, ctx) {
     if (typeof params.url !== 'string') return fail('invalid', 'url must be a string');
-    const decision = decide(policy, 'tabs.open', params.url);
-    if (!decision.allow) {
+    const decision = decide(policy, 'tabs.open', params.url, accessOf(ctx));
+    // Below read the person may be asked, as for a page call; the browser's host grant is not
+    // needed to open a tab, so an answer is enough.
+    const answer =
+      !decision.allow && decision.askable
+        ? await askForAccess(
+            { label: ctx.session, sessionId: ctx.sessionId },
+            decision.origin!,
+            decision.need,
+          )
+        : null;
+    if (answer === 'once') ctx.settleAfter = true;
+    if (!decision.allow && !answer) {
       return fail(
         'forbidden',
         `opening ${decision.origin ?? params.url} needs level "read" on that site; it is "${decision.have}". ` +
-          'Ask the person to allow the site first.',
+          (decision.askable
+            ? 'Ask the person to allow the site first.'
+            : 'The person blocked it or it is not a web page.'),
         { origin: decision.origin, have: decision.have, need: decision.need },
       );
     }
     const tab = await browser.tabs.create({ url: params.url, active: params.active !== false });
-    const info = toTabInfo({ ...tab, url: tab.url || params.url }, policy, await focusedWindowId());
+    const info = toTabInfo(
+      { ...tab, url: tab.url || params.url },
+      policy,
+      await focusedWindowId(),
+      accessOf(ctx),
+    );
     if (!info) return fail('failed', 'the browser opened no tab');
     return { tab: info };
   },
@@ -348,7 +413,13 @@ export async function runMethod(method: Method, params: unknown, ctx: CallContex
       );
     }
     const handler = handlers[method] as Handler<Method>;
-    return handler((params ?? {}) as Params<Method>, policy, ctx);
+    // The temporary grants join the stored policy here, in the background that owns them.
+    const withGrants: Policy = { ...policy, grants: await loadGrants() };
+    try {
+      return await handler((params ?? {}) as Params<Method>, withGrants, ctx);
+    } finally {
+      if (ctx.settleAfter) void settle();
+    }
   }
 }
 

@@ -2,8 +2,9 @@ import { browser } from '@wxt-dev/browser';
 import { originOf, withRule, type Level } from '@beifahrer/core';
 import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../../src/bridge-client.ts';
+import { GRANTS_MESSAGE, type WideDuration, type WideView } from '../../src/grants-messages.ts';
 import { t, type MessageKey } from '../../src/i18n.ts';
-import { loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
+import { WILDCARD_PATTERNS, loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
 import {
   loadActivity,
   onToggle,
@@ -40,11 +41,16 @@ const BANNERS: Partial<Record<UiState, { title: MessageKey; button: MessageKey }
 
 let state: UiState = 'unpaired';
 
-function renderState(status: Status | undefined, paused: boolean, activity: ActivitySnapshot): void {
+function renderState(
+  status: Status | undefined,
+  paused: boolean,
+  activity: ActivitySnapshot,
+  wide: boolean,
+): void {
   state = stateOf(status, paused, activity);
   $('state').textContent = t(STATE_WORDS[state]);
   const icon = $<HTMLImageElement>('hero-icon');
-  const src = `/icons/${heroIcon(state)}-48.png`;
+  const src = `/icons/${heroIcon(state, wide)}-48.png`;
   if (icon.getAttribute('src') !== src) icon.setAttribute('src', src);
   icon.classList.toggle('working', state === 'working');
 
@@ -78,6 +84,38 @@ async function renderSite(origin: string | null): Promise<void> {
   setQuietly(confirmRow, rule?.confirmWrites !== false);
 }
 
+// --- all sites, for a while (ADR 0010) ----------------------------------------------------
+
+const wideLevel = $<Adw.ComboRow>('wide-level');
+const wideFor = $<Adw.ComboRow>('wide-for');
+
+/** The durations offered: an hour, until the browser closes, or one connected session. */
+function renderWideChoices(status: Status | undefined): void {
+  const sessions = status && status.state !== 'unpaired' ? status.sessions : [];
+  const model = [
+    { value: 'hour', label: t('wide_for_hour') },
+    { value: 'browser', label: t('wide_for_browser') },
+    ...sessions.map((s) => ({ value: `session:${s.port}`, label: s.label })),
+  ];
+  const key = JSON.stringify(model);
+  if (wideFor.dataset.model === key) return;
+  const keep = wideFor.selectedValue;
+  wideFor.dataset.model = key;
+  wideFor.model = model;
+  wideFor.selectedValue = model.some((m) => m.value === keep) ? keep : 'hour';
+}
+
+function renderWide(view: WideView | null, status: Status | undefined): void {
+  $('wide-start').hidden = view !== null;
+  $('wide-on').hidden = view === null;
+  if (!view) return renderWideChoices(status);
+  const level = t(view.level === 'write' ? 'level_write' : 'level_read');
+  const left = view.until
+    ? t('wide_left', Math.max(1, Math.ceil((view.until - Date.now()) / 60_000)))
+    : t(view.session ? 'wide_for_session' : 'wide_for_browser');
+  $('wide-on').setAttribute('subtitle', `${level} · ${left}`);
+}
+
 async function main(): Promise<void> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   const origin = originOf(tab?.url);
@@ -94,13 +132,21 @@ async function main(): Promise<void> {
     void browser.tabs.create({ url: browser.runtime.getURL(`/options.html#${hash}`) });
   };
 
+  wideLevel.model = [
+    { value: 'read', label: t('level_read') },
+    { value: 'write', label: t('level_write') },
+  ];
+  wideLevel.selectedValue = 'read';
+
   const refresh = async () => {
-    const [status, activity, { paused }] = await Promise.all([
+    const [status, activity, { paused }, wide] = await Promise.all([
       browser.runtime.sendMessage({ type: 'status' }) as Promise<Status | undefined>,
       loadActivity(),
       loadSettings(),
+      browser.runtime.sendMessage({ type: GRANTS_MESSAGE, op: 'get' }) as Promise<WideView | null>,
     ]);
-    renderState(status, paused, activity);
+    renderState(status, paused, activity, wide !== null);
+    renderWide(wide, status);
     renderSessions($<Adw.PreferencesGroup>('agents'), status);
     const count = renderActivity($<Adw.PreferencesGroup>('activity'), activity.log, {
       limit: ACTIVITY_SHOWN,
@@ -149,6 +195,28 @@ async function main(): Promise<void> {
     if (!origin) return;
     const { policy } = await loadSettings();
     await saveSettings({ policy: withRule(policy, origin, { level: 'write', confirmWrites }) });
+  });
+
+  $('wide-allow').addEventListener('activated', async () => {
+    // permissions.request must be the FIRST await after the click (Firefox's user gesture).
+    const granted = await browser.permissions.request({ origins: WILDCARD_PATTERNS });
+    if (!granted) return toast(t('access_denied'));
+    const choice = wideFor.selectedValue;
+    const duration: WideDuration = choice.startsWith('session:') ? 'session' : (choice as WideDuration);
+    const started = await browser.runtime.sendMessage({
+      type: GRANTS_MESSAGE,
+      op: 'start',
+      level: wideLevel.selectedValue === 'write' ? 'write' : 'read',
+      duration,
+      ...(duration === 'session' ? { port: Number(choice.slice('session:'.length)) } : {}),
+    });
+    if (!started) toast(t('wide_failed'));
+    $<Adw.ExpanderRow>('wide-start').expanded = false;
+    await refresh();
+  });
+  $('wide-end').addEventListener('click', async () => {
+    await browser.runtime.sendMessage({ type: GRANTS_MESSAGE, op: 'end' });
+    await refresh();
   });
 
   const setPaused = async (paused: boolean) => {

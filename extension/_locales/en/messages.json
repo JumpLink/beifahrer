@@ -570,5 +570,86 @@
   },
   "pill_stop_tooltip": {
     "message": "Pause the agent"
+  },
+  "wide_title": {
+    "message": "All sites"
+  },
+  "wide_level": {
+    "message": "Access"
+  },
+  "wide_for": {
+    "message": "Duration"
+  },
+  "wide_for_hour": {
+    "message": "1 hour"
+  },
+  "wide_for_browser": {
+    "message": "Until the browser closes"
+  },
+  "wide_for_session": {
+    "message": "This agent session"
+  },
+  "wide_left": {
+    "message": "$MINUTES$ min left",
+    "placeholders": {
+      "minutes": {
+        "content": "$1"
+      }
+    }
+  },
+  "wide_failed": {
+    "message": "Access to all sites could not be turned on"
+  },
+  "action_end": {
+    "message": "End"
+  },
+  "toolbar_wide": {
+    "message": "beifahrer may use all sites for now"
+  },
+  "toolbar_wide_active": {
+    "message": "beifahrer is working, all sites allowed"
+  },
+  "site_level_block": {
+    "message": "Blocked"
+  },
+  "ask_sites_title": {
+    "message": "Ask for other sites"
+  },
+  "confirm_heading_access": {
+    "message": "Allow access?"
+  },
+  "confirm_access_read": {
+    "message": "$SESSION$ wants to read $ORIGIN$",
+    "placeholders": {
+      "session": {
+        "content": "$1"
+      },
+      "origin": {
+        "content": "$2"
+      }
+    }
+  },
+  "confirm_access_write": {
+    "message": "$SESSION$ wants to edit $ORIGIN$",
+    "placeholders": {
+      "session": {
+        "content": "$1"
+      },
+      "origin": {
+        "content": "$2"
+      }
+    }
+  },
+  "confirm_agent": {
+    "message": "An agent"
+  },
+  "confirm_allow_once": {
+    "message": "Allow once"
+  },
+  "confirm_for_session": {
+    "message": "For this session"
+  },
+  "confirm_always": {
+    "message": "Always"
   }
 }

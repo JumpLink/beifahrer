@@ -1,8 +1,15 @@
 import { describe, expect, it } from '@gjsify/unit';
 import { WebSocket } from 'ws';
-import { CLOSE, PROTOCOL_VERSION, PortRangeFull, type AgentSession } from '@beifahrer/core';
+import { ASK_TIMEOUT_MS, CLOSE, PROTOCOL_VERSION, PortRangeFull, type AgentSession } from '@beifahrer/core';
 
-import { Bridge, BridgeError, listenInRange } from '../../../src/bridge/bridge.ts';
+import {
+  Bridge,
+  BridgeError,
+  DEFAULT_TIMEOUT_MS,
+  WRITE_TIMEOUT_MS,
+  listenInRange,
+  timeoutFor,
+} from '../../../src/bridge/bridge.ts';
 
 const TOKEN = 'test-token-123';
 const EXT = 'moz-extension://0e1f2a3b-4c5d-6e7f-8091-a2b3c4d5e6f7';
@@ -65,6 +72,15 @@ function connect(
 }
 
 export default async () => {
+  await describe('timeoutFor', async () => {
+    await it('gives a call that touches a site the access prompt on top of its own time', async () => {
+      expect(timeoutFor('page.read')).toBe(DEFAULT_TIMEOUT_MS + ASK_TIMEOUT_MS);
+      expect(timeoutFor('page.fill')).toBe(WRITE_TIMEOUT_MS + ASK_TIMEOUT_MS);
+      expect(timeoutFor('tabs.list')).toBe(DEFAULT_TIMEOUT_MS);
+      expect(timeoutFor('tabs.close')).toBe(WRITE_TIMEOUT_MS);
+    });
+  });
+
   await describe('Bridge admission', async () => {
     await it('refuses the handshake when the Origin is a web page', async () => {
       const bridge = await startBridge();

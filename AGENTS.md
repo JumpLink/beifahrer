@@ -41,6 +41,17 @@ every screenshot. Do not make any of them optional.
 |**Host access follows the policy.** Host permissions are *optional* and requested per origin when
 the person raises that origin's level. A write needs level `write`, the browser's grant for the
 origin, and the person's confirmation, unless they switched confirmation off for that origin.
+|**Temporary access is temporary** ([ADR 0010](docs/adr/0010-temporary-access-and-asking-on-demand.md)).
+"All sites" and a prompt's "For this session" are `Grant`s (policy.ts) in `storage.session`, never
+in the stored policy; `decide` checks their end at decision time, and `grants.ts` gives the host
+access back when they end (`hostsToRelease`). An explicit rule beats the wildcard, an explicit
+`none` blocks every grant and every prompt, and a write only a grant allows ALWAYS confirms.
+Session-bound grants name the extension's own id for the connection, never the bridge's.
+|**Asking on demand fails closed.** Below the level, `gate` may open the confirm window
+(`access-prompt.ts`): not when paused, not for a switched-off feature (preflight refuses first),
+not for a blocked site or a non-web page, not when the person switched asking off. One prompt per
+site and session; timeout, close or Deny is `forbidden`. The host permission is requested in the
+answer's own click.
 |**Redact below `read`.** A tab on a `none` origin shows its host only: never title, path or query.
 |**Never fill a password field; never switch the person's tab** (screenshots refuse a tab that is not
 the active one).
@@ -143,9 +154,12 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   with `url` empty, so tab listings read both.
 - **A whole window is closed with `windows.remove`**, not tab by tab, so that the browser's
   recently-closed list holds it as one window (the e2e restores it from there).
-- **The person's switches cannot be flipped headless.** The e2e builds the extension three
+- **The person's switches cannot be flipped headless.** The e2e builds the extension four
   times: default features (the `feature_disabled` refusals), PR #8's legacy `grants.manageTabs`
-  plus screenshots (the migration, and the full tab-management run), and `paused`.
+  plus screenshots (the migration, and the full tab-management run), `paused`, and `access`
+  (ADR 0010: a seeded "all sites" grant, a blocked site, and the prompt answered through
+  `/__beifahrer_e2e/answer?scope=…` and `/end-wide`). The first three switch asking on demand
+  off, because their refusal checks expect `forbidden` at once, not a prompt nobody answers.
 - **`label.row { display: flex }` beats the `hidden` attribute.** The UA's `[hidden]` rule loses
   to any author `display`, so style.css forces `[hidden] { display: none !important }`. Without it
   the popup showed "Ask me before every change" at level Read.

@@ -7,6 +7,8 @@
  *   agent active             the sparkles in colour (a request running, and ACTIVE_MS after)
  *   paused                   monochrome + red dot — whatever the connection or activity
  *   not paired / no bridge   monochrome + amber dot
+ *   "all sites" granted      a blue dot, over the idle or active look (ADR 0010); beats no bridge,
+ *                            because the grant is live whether or not an agent is connected
  *
  * `badge` is only the fallback for a browser that cannot set the icon.
  */
@@ -15,7 +17,7 @@ export const ACTIVE_MS = 5_000;
 
 export type Connection = 'unpaired' | 'connecting' | 'connected' | 'offline' | 'unauthorized' | 'protocol';
 
-export type ToolbarIcon = 'idle' | 'active' | 'paused' | 'offline';
+export type ToolbarIcon = 'idle' | 'active' | 'paused' | 'offline' | 'wide' | 'wide-active';
 
 export interface ToolbarInput {
   connection: Connection;
@@ -25,12 +27,14 @@ export interface ToolbarInput {
   /** When the last request finished (ms since epoch), or 0. */
   lastActivityAt: number;
   now: number;
+  /** A temporary "all sites" grant is live (ADR 0010). */
+  wide?: boolean;
 }
 
 export interface ToolbarLook {
   icon: ToolbarIcon;
   /** Badge text, for a browser that has setBadgeText but no setIcon. */
-  badge: '' | 'AI' | 'II' | '!';
+  badge: '' | 'AI' | 'II' | '!' | '*';
   title: string;
 }
 
@@ -45,6 +49,19 @@ export function toolbarLook(input: ToolbarInput): ToolbarLook {
       badge: 'II',
       title: 'beifahrer is paused — the agent gets nothing from this browser. Click to resume.',
     };
+  }
+  if (input.wide) {
+    return isActive(input) && input.connection === 'connected'
+      ? {
+          icon: 'wide-active',
+          badge: '*',
+          title: 'beifahrer — an agent is working, with access to all sites for now. Click to end it.',
+        }
+      : {
+          icon: 'wide',
+          badge: '*',
+          title: 'beifahrer — access to all sites is on for now. Click to end it.',
+        };
   }
   if (input.connection !== 'connected') {
     return { icon: 'offline', badge: '!', title: `beifahrer — ${OFFLINE[input.connection]}` };

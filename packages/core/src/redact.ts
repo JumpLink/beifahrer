@@ -7,7 +7,7 @@
  * on the bank", never "Kontoauszug März — Kontostand …".
  */
 
-import { levelFor, originOf, type Policy } from './policy.ts';
+import { levelFor, originOf, type AccessContext, type Policy } from './policy.ts';
 import type { TabInfo } from './protocol.ts';
 
 export interface RawTab {
@@ -26,9 +26,18 @@ export function hostOf(url: string | undefined | null): string | null {
   return origin ? new URL(origin).host : null;
 }
 
-export function toTabInfo(tab: RawTab, policy: Policy, focusedWindowId: number | null): TabInfo | null {
+/**
+ * `ctx` lets the person's temporary grants count (a tab on a site "all sites" opened up is
+ * readable, so its title is too); without it only the stored policy does.
+ */
+export function toTabInfo(
+  tab: RawTab,
+  policy: Policy,
+  focusedWindowId: number | null,
+  ctx?: AccessContext,
+): TabInfo | null {
   if (typeof tab.id !== 'number' || typeof tab.windowId !== 'number') return null;
-  const level = levelFor(policy, tab.url);
+  const level = levelFor(policy, tab.url, ctx);
   const info: TabInfo = {
     tabId: tab.id,
     windowId: tab.windowId,

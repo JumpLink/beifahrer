@@ -8,6 +8,7 @@ import {
   sessionNameIssue,
   upsertSession,
   withRule,
+  withoutRule,
   type Level,
   type Method,
   type SavedSession,
@@ -15,6 +16,7 @@ import {
 } from '@beifahrer/core';
 import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../../src/bridge-client.ts';
+import { GRANTS_MESSAGE, type WideView } from '../../src/grants-messages.ts';
 import { featureLabel, plural, t, uiLanguage, type MessageKey } from '../../src/i18n.ts';
 import {
   capture,
@@ -57,11 +59,16 @@ const BANNERS: Partial<Record<UiState, { title: MessageKey; button?: MessageKey 
 };
 
 async function renderState(): Promise<void> {
-  const [current, activity, { paused }] = await Promise.all([status(), loadActivity(), loadSettings()]);
+  const [current, activity, { paused }, wide] = await Promise.all([
+    status(),
+    loadActivity(),
+    loadSettings(),
+    browser.runtime.sendMessage({ type: GRANTS_MESSAGE, op: 'get' }) as Promise<WideView | null>,
+  ]);
   state = stateOf(current, paused, activity);
   $('state').textContent = t(STATE_WORDS[state]);
   const icon = $<HTMLImageElement>('hero-icon');
-  const src = `/icons/${heroIcon(state)}-48.png`;
+  const src = `/icons/${heroIcon(state, wide !== null)}-48.png`;
   if (icon.getAttribute('src') !== src) icon.setAttribute('src', src);
   icon.classList.toggle('working', state === 'working');
   setQuietly($<Adw.SwitchRow>('pause'), paused);
@@ -97,11 +104,13 @@ async function setupPause(): Promise<void> {
 
 // --- sites ---------------------------------------------------------------------------------
 
+// `none` is a block that "all sites" does not reach (ADR 0010); Remove forgets the site.
 const SITE_CHOICES: [value: string, label: MessageKey][] = [
   ['read', 'level_read'],
   ['write', 'site_level_write_ask'],
   ['write-silent', 'site_level_write_silent'],
-  ['none', 'site_level_remove'],
+  ['none', 'site_level_block'],
+  ['remove', 'site_level_remove'],
 ];
 
 async function renderSites(): Promise<void> {
@@ -120,10 +129,14 @@ async function renderSites(): Promise<void> {
     // `notify::selected` fires for the person's pick only, never for the line above.
     row.addEventListener('notify::selected', async () => {
       const v = row.selectedValue;
-      if (v === 'none')
+      if (v === 'none' || v === 'remove')
         await browser.permissions.remove({ origins: [originPattern(origin)] }).catch(() => false);
-      const level: Level = v === 'write-silent' ? 'write' : (v as Level);
       const current = await loadSettings();
+      if (v === 'remove') {
+        await saveSettings({ policy: withoutRule(current.policy, origin) });
+        return renderSites();
+      }
+      const level: Level = v === 'write-silent' ? 'write' : (v as Level);
       await saveSettings({
         policy: withRule(
           current.policy,
@@ -308,6 +321,9 @@ const NAME_MESSAGES: Record<SessionNameIssue, () => string> = {
 
 async function setupTabs(): Promise<void> {
   const settings = await loadSettings();
+  const askSites = $<Adw.SwitchRow>('ask-sites');
+  setQuietly(askSites, settings.askOnDemand);
+  onToggle(askSites, (on) => void saveSettings({ askOnDemand: on }));
   const confirmClose = $<Adw.SwitchRow>('confirm-close');
   const autosave = $<Adw.SwitchRow>('autosave');
   setQuietly(confirmClose, settings.confirmClose);
@@ -384,6 +400,7 @@ async function main(): Promise<void> {
 
   switchRowIcon($('pause'), 'media-playback-pause-symbolic');
   switchRowIcon($('confirm-close'), 'window-close-symbolic');
+  switchRowIcon($('ask-sites'), 'dialog-question-symbolic');
   switchRowIcon($('autosave'), 'document-open-recent-symbolic');
   $('pairing').append(infoButton('pairing_info'));
   $('features').append(infoButton('features_info'));

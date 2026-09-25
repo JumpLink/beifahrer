@@ -45,7 +45,15 @@ Firefox / Chromium
   | **Read + edit** | also fill fields and click. You confirm each change in a browser window unless you switch that off for the site. |
 
   When you raise a site's level, the browser asks you to grant access to that site. beifahrer has
-  no host access until you do.
+  no host access until you do. Setting a site to *Nothing* blocks it: nothing below reaches it.
+- **All sites, for a while.** In the popup, *All sites* lets the agent read (or edit) every site
+  you have no rule for, for one hour, until the browser closes, or for one agent session. It is
+  never permanent, the toolbar shows a blue dot while it lasts, and *End* stops it at once. Every
+  change it allows still asks you first.
+- **Asked when needed.** When the agent needs a site it has no level for, a window asks "*session*
+  wants to read *site*": **Allow once**, **For this session**, **Always** (sets the site's level) or
+  **Deny**. No answer within two minutes is a no. You can switch the asking off in the options.
+  Why both: [ADR 0010](docs/adr/0010-temporary-access-and-asking-on-demand.md).
 
 ## Seeing it, and stopping it
 
@@ -57,6 +65,7 @@ Firefox / Chromium
 | **coloured** sparkles | an agent is using this browser right now (and for 5 s after its last request) |
 | grey + **red dot** | paused: the agent gets nothing |
 | grey + **amber dot** | not paired, or no agent running: nothing can reach the browser |
+| **blue dot** | *All sites* is on for now (the sparkles still turn coloured while the agent works) |
 
 Hover it for the same in words. Click it for the popup: one word of state and the pause button at
 the top, the level of the site you are on, the connected **agent sessions**, and the last few

@@ -1,9 +1,11 @@
 import { browser } from '@wxt-dev/browser';
-import { connect, currentStatus, disconnectSession, install } from '../src/bridge-client.ts';
+import { connect, currentStatus, disconnectSession, install, sessionIdOf } from '../src/bridge-client.ts';
 import { handleConfirmMessage, onWindowRemoved } from '../src/confirm.ts';
 import { applyE2eSeed, installE2eHooks } from '../src/e2e-seed.ts';
 import { activityLog, activityState } from '../src/activity.ts';
 import { STOP_MESSAGE, installPauseCommand, setPaused } from '../src/indicator.ts';
+import { GRANTS_MESSAGE, handleGrantsMessage } from '../src/grants-messages.ts';
+import { installGrants } from '../src/grants.ts';
 import { installAutosave } from '../src/sessions-store.ts';
 import { installToolbar } from '../src/toolbar.ts';
 import { DISCONNECT_MESSAGE } from '../src/ui/sessions.ts';
@@ -14,6 +16,7 @@ install();
 installAutosave();
 installToolbar();
 installPauseCommand();
+installGrants();
 installE2eHooks();
 browser.windows.onRemoved.addListener(onWindowRemoved);
 browser.runtime.onMessage.addListener((message: unknown, sender) => {
@@ -28,6 +31,8 @@ browser.runtime.onMessage.addListener((message: unknown, sender) => {
   const confirm = handleConfirmMessage(message);
   if (confirm) return confirm;
   if ((message as { type?: string } | null)?.type === 'status') return Promise.resolve(currentStatus());
+  if ((message as { type?: string } | null)?.type === GRANTS_MESSAGE)
+    return handleGrantsMessage(message, sessionIdOf);
   if ((message as { type?: string } | null)?.type === 'activity')
     return activityLog().then((log) => ({ log, ...activityState() }));
   const m = message as { type?: string; port?: unknown } | null;
