@@ -543,7 +543,7 @@ async function recipes(browser, client, allowed, forbidden) {
   check(
     browser,
     'page_find on a site nobody allowed is forbidden',
-    /^forbidden:/.test(deniedFind.text),
+    deniedFind.text.startsWith('forbidden:'),
     deniedFind.text,
   );
 
@@ -556,7 +556,7 @@ async function recipes(browser, client, allowed, forbidden) {
   check(
     browser,
     'page_wait gives up with timeout when nothing appears',
-    /^timeout:/.test(early.text),
+    early.text.startsWith('timeout:'),
     early.text,
   );
 
@@ -731,7 +731,7 @@ async function tabManagement(browser, client, forbidden) {
     title: 'e2e',
     color: 'blue',
   });
-  const groupsSupported = !/^unsupported:/.test(grouped.text);
+  const groupsSupported = !grouped.text.startsWith('unsupported:');
   check(
     browser,
     `tabs_group ${groupsSupported ? 'groups tabs' : 'answers unsupported'}`,
@@ -769,7 +769,7 @@ async function tabManagement(browser, client, forbidden) {
   check(
     browser,
     'sessions_define with a site nobody allowed is forbidden',
-    defineDenied.error && /^forbidden:/.test(defineDenied.text),
+    defineDenied.error && defineDenied.text.startsWith('forbidden:'),
     defineDenied.text,
   );
 
@@ -987,7 +987,7 @@ async function scenario(browser, gate) {
     check(
       browser,
       'page_read on a site nobody allowed is forbidden',
-      denied.error && /^forbidden:/.test(denied.text),
+      denied.error && denied.text.startsWith('forbidden:'),
       denied.text,
     );
 
@@ -1060,7 +1060,7 @@ async function scenario(browser, gate) {
     check(
       browser,
       'an unknown ref is not_found, not a crash',
-      badRef.error && /^not_found:/.test(badRef.text),
+      badRef.error && badRef.text.startsWith('not_found:'),
       badRef.text,
     );
 
@@ -1068,7 +1068,7 @@ async function scenario(browser, gate) {
     check(
       browser,
       'tab_open to a site nobody allowed is forbidden',
-      openDenied.error && /^forbidden:/.test(openDenied.text),
+      openDenied.error && openDenied.text.startsWith('forbidden:'),
       openDenied.text,
     );
 
@@ -1076,7 +1076,7 @@ async function scenario(browser, gate) {
     check(
       browser,
       'page_fill on a site nobody allowed is forbidden',
-      writeDenied.error && /^forbidden:/.test(writeDenied.text),
+      writeDenied.error && writeDenied.text.startsWith('forbidden:'),
       writeDenied.text,
     );
 

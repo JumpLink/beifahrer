@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "check": "gjsify foreach -A check",
-    "lint": "gjsify foreach -A lint",
+    "lint": "gjsify foreach -A lint && oxlint --deny-warnings tests",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "build": "gjsify workspace beifahrer-cli build && gjsify workspace beifahrer-extension build",

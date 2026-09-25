@@ -57,8 +57,10 @@ jobs:
       - name: Type check (every workspace)
         run: gjsify foreach -A check
 
+      # Plus tests/: it belongs to no workspace, so `foreach -A lint` never saw it and eight errors
+      # sat on main until a run on macOS linted the tree root (2026-09-25).
       - name: Lint
-        run: gjsify foreach -A lint
+        run: gjsify foreach -A lint && node_modules/.bin/oxlint --deny-warnings tests
 
       # oxfmt directly, not `gjsify format`: under GJS the latter uses oxfmt-native, which cannot
       # format HTML (that needs oxfmt's Node host) and SKIPS those files silently — a check that is
