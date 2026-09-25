@@ -4,13 +4,15 @@
  *
  * It does exactly five things — read, outline, describe, fill, click — and answers messages
  * from the background. The policy was already checked there; this script trusts its caller and
- * nothing else.
+ * nothing else. While it works, it shows the person a pill with a Stop button
+ * (src/page-indicator.ts), and it hides that pill on request before a screenshot.
  *
  * Refs (`e1`, `e2`, …) are handed out by `outline` and stay valid for the life of the document:
  * an element keeps its ref across outlines, so an agent can outline, think, and act later.
  */
 
 import { browser } from '@wxt-dev/browser';
+import { afterRepaint, hideNow, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
 interface AgentState {
@@ -333,7 +335,20 @@ function click(ref: string): PageResponse {
   return { ok: true, data: { ref } };
 }
 
+/** The pill says what is happening: reading for read/outline, editing for describe/fill/click. */
+const VERB: Partial<Record<PageRequest['beifahrer'], 'reading' | 'editing'>> = {
+  read: 'reading',
+  outline: 'reading',
+  describe: 'editing',
+  fill: 'editing',
+  click: 'editing',
+};
+
 function handle(req: PageRequest): PageResponse {
+  const verb = VERB[req.beifahrer];
+  // Shown BEFORE reading: `read` takes body.innerText, and the pill lives outside <body> in a
+  // closed shadow root, so it never shows up in what the agent gets.
+  if (verb) show(verb);
   switch (req.beifahrer) {
     case 'read':
       return read(req.maxChars);
@@ -352,6 +367,9 @@ function handle(req: PageRequest): PageResponse {
       return fill(req.ref, req.text, req.as, req.mode);
     case 'click':
       return click(req.ref);
+    case 'hide':
+      hideNow();
+      return { ok: true, data: {} };
   }
 }
 
@@ -366,7 +384,10 @@ if (!listening.__beifahrerListening) {
     // `DataTransfer` the page's CSP forbids). An exception escaping a message listener does not
     // reach the sender — it would see "no answer" and lose the reason — so it is answered.
     try {
-      return Promise.resolve(handle(req));
+      const res = handle(req);
+      // Before a screenshot: answer only once a frame without the pill is on screen.
+      if (req.beifahrer === 'hide') return afterRepaint().then(() => res);
+      return Promise.resolve(res);
     } catch (err) {
       return Promise.resolve({ ok: false, code: 'failed', message: String((err as Error)?.message ?? err) });
     }

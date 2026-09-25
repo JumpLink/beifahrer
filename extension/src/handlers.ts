@@ -1,19 +1,22 @@
 /**
  * What each protocol method does in the browser — and the gate in front of every one of them.
  *
- * Order inside every page method, and it is the whole security model:
- *   1. the policy (`decide`) — the person's per-origin level;
- *   2. the browser's own host permission — granted by the browser's prompt when the person raised
+ * Order for every method, and it is the whole security model:
+ *   1. paused? (`preflight`, in `runMethod`) — the person's kill switch refuses everything;
+ *   2. the feature switch (`preflight`, in `runMethod`) — one per capability (features.ts);
+ *   3. the policy (`decide`) — the person's per-origin level;
+ *   4. the browser's own host permission — granted by the browser's prompt when the person raised
  *      the level, so even a policy bug cannot reach an origin the browser never opened up;
- *   3. for writes, the confirmation window, unless switched off for that origin.
+ *   5. for writes, the confirmation window, unless switched off for that origin.
  * Only then is the page agent injected.
  */
 
 import { browser } from '@wxt-dev/browser';
 import {
   decide,
-  decideGrant,
   originOf,
+  preflight,
+  preflightMessage,
   toTabInfo,
   withRule,
   type Method,
@@ -22,8 +25,10 @@ import {
   type Result,
   type TabInfo,
 } from '@beifahrer/core';
+import { track } from './activity.ts';
 import { askPerson } from './confirm.ts';
 import { fail } from './errors.ts';
+import { hideIndicator } from './indicator.ts';
 import { askPage } from './inject.ts';
 import { loadSettings, originPattern, saveSettings } from './settings.ts';
 import type { PageRequest } from './page-messages.ts';
@@ -185,6 +190,8 @@ const handlers: { [M in Method]: Handler<M> } = {
         `tab ${tabId} is not the visible tab of its window; screenshots show only what is on screen`,
       );
     }
+    // The in-page pill must never end up in the picture: the agent would see beifahrer's own UI.
+    await hideIndicator(tabId);
     try {
       const dataUrl = await browser.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
       return { dataUrl };
@@ -246,19 +253,20 @@ const handlers: { [M in Method]: Handler<M> } = {
 };
 
 export async function runMethod(method: Method, params: unknown): Promise<unknown> {
-  const { policy, grants } = await loadSettings();
-  // The browser-level switch comes first and covers every method that needs it, so no handler
-  // can forget it (REQUIRED_GRANT in policy.ts).
-  const granted = decideGrant(grants, method);
-  if (!granted.allow) {
-    return fail(
-      'forbidden',
-      `${method} needs "Let the agent manage tabs and windows", which is switched off in beifahrer. ` +
-        'Ask the person to switch it on in the beifahrer toolbar popup or options — it is their decision.',
-    );
-  }
-  const handler = handlers[method] as Handler<Method>;
-  return handler((params ?? {}) as Params<Method>, policy);
+  return track(method, params, async () => {
+    const { policy, paused, features } = await loadSettings();
+    // Pause, then the feature switch: before any handler, so none can forget them (features.ts).
+    const pre = preflight({ paused, features }, method);
+    if (!pre.allow) {
+      return fail(
+        pre.code,
+        preflightMessage(pre, method),
+        pre.code === 'feature_disabled' ? { feature: pre.feature } : {},
+      );
+    }
+    const handler = handlers[method] as Handler<Method>;
+    return handler((params ?? {}) as Params<Method>, policy);
+  });
 }
 
 /**

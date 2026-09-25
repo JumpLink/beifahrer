@@ -1,5 +1,5 @@
 {
   "extends": "../tsconfig.json",
-  "compilerOptions": { "types": ["node"], "lib": ["ES2022"] },
+  "compilerOptions": { "types": ["node", "@girs/gdkpixbuf-2.0/ambient"], "lib": ["ES2022"] },
   "include": ["./**/*", "../manifest.ts"]
 }

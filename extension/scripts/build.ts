@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { zipSync } from 'fflate';
 
 import { TARGETS, manifestFor } from '../manifest.ts';
+import { copyIcons, renderIcons } from './icons.ts';
 
 // The bundle runs from extension/dist/, the source from extension/scripts/ — one level down either way.
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -91,11 +92,14 @@ function collect(
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
 for (const [name, entry] of Object.entries(SCRIPTS)) bundle(name, entry);
+const ICON_STAGE = join(OUT, '.icons');
+renderIcons(ROOT, ICON_STAGE);
 
 for (const target of TARGETS) {
   const dir = join(OUT, target);
   mkdirSync(dir, { recursive: true });
   cpSync(STAGE, dir, { recursive: true });
+  copyIcons(ICON_STAGE, dir, target);
   cpSync(join(ROOT, 'src/ui/style.css'), join(dir, 'style.css'));
   for (const [name, source] of Object.entries(PAGES))
     writeFileSync(join(dir, `${name}.html`), page(name, source));
@@ -109,5 +113,6 @@ for (const target of TARGETS) {
   console.log(`built ${dir}`);
 }
 rmSync(STAGE, { recursive: true, force: true });
+rmSync(ICON_STAGE, { recursive: true, force: true });
 // An explicit exit: the GLib main loop gjsify arms would otherwise keep the process parked.
 process.exit(0);

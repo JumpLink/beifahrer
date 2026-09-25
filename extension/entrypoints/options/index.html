@@ -31,6 +31,22 @@
       <button class="btn primary" id="save">Save and connect</button>
     </div>
 
+    <h2>Pause</h2>
+    <div class="actions start">
+      <button id="pause" class="switch" role="switch" aria-checked="true">…</button>
+      <span id="state" class="muted"></span>
+    </div>
+    <p class="muted">
+      Also from the toolbar popup, the Stop button on a page the agent is working on, or Alt+Shift+B. Only you
+      can resume: the agent cannot.
+    </p>
+
+    <h2>What the agent may use</h2>
+    <p class="muted">
+      One switch per capability, for the whole browser. The level you set for each site still applies on top.
+    </p>
+    <div id="features"></div>
+
     <h2>Screenshots</h2>
     <p class="muted">
       Chromium only takes a screenshot with access to all sites. beifahrer still takes one only on sites you
@@ -39,10 +55,6 @@
     <label class="row"><input type="checkbox" id="shots" /> Allow screenshots</label>
 
     <h2>Tabs and windows</h2>
-    <label class="row"
-      ><input type="checkbox" id="manage-tabs" /> Let the agent manage tabs and windows (move, pin, close,
-      group, saved sessions)</label
-    >
     <label class="row"
       ><input type="checkbox" id="confirm-close" /> Ask me before the agent closes tabs</label
     >

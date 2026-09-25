@@ -46,6 +46,7 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
 <div id="bare" contenteditable="true" aria-label="Bare editor"></div>
 <button id="send">Send</button>
 <p>clicks: <span id="clicks">0</span> · pastes: <span id="pastes">0</span> <span id="pasteinfo"></span></p>
+<p>indicator:<span id="ind"></span>.</p>
 <script>
   let clicks = 0, pastes = 0;
   document.getElementById('send').addEventListener('click', () => { document.getElementById('clicks').textContent = ++clicks; });
@@ -62,6 +63,17 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
     e.currentTarget.innerHTML = html;
     document.getElementById('pastes').textContent = ++pastes;
   });
+  // What the PAGE can see of beifahrer's in-page pill: a host element that comes and goes. "+closed"
+  // = it appeared and the page could not open its shadow root nor read any text; "-" = it left.
+  new MutationObserver((records) => {
+    const log = document.getElementById('ind');
+    for (const r of records) {
+      for (const n of r.addedNodes)
+        if (n.localName === 'beifahrer-indicator')
+          log.textContent += n.shadowRoot === null && n.textContent === '' ? ' +closed' : ' +OPEN';
+      for (const n of r.removedNodes) if (n.localName === 'beifahrer-indicator') log.textContent += ' -';
+    }
+  }).observe(document.documentElement, { childList: true });
 </script></body></html>`;
 
 // ---------------------------------------------------------------------------------------------
@@ -397,6 +409,51 @@ async function tabManagement(browser, client, forbidden) {
   );
 }
 
+/**
+ * Built paused, as if the person had pressed Stop: EVERY tool answers `paused`, tabs_list too,
+ * before any other check (the tab ids here do not even exist).
+ */
+async function pausedChecks(browser, client) {
+  const url = `${ALLOWED}/fixture`;
+  const calls = [
+    ['tabs_list', {}],
+    ['tab_active', {}],
+    ['page_read', { tabId: 1 }],
+    ['page_outline', { tabId: 1 }],
+    ['page_screenshot', { tabId: 1 }],
+    ['page_fill', { tabId: 1, ref: 'e1', text: 'x' }],
+    ['page_click', { tabId: 1, ref: 'e1' }],
+    ['tab_open', { url }],
+    ['tabs_move', { tabIds: [1], index: 0 }],
+    ['tabs_pin', { tabIds: [1], pinned: true }],
+    ['tabs_close', { tabIds: [1] }],
+    ['tabs_group', { tabIds: [1] }],
+    ['tabs_ungroup', { tabIds: [1] }],
+    ['window_create', { tabs: [{ url }] }],
+    ['sessions_save', { name: 'x' }],
+    ['sessions_list', {}],
+    ['sessions_restore', { name: 'x' }],
+    ['sessions_delete', { name: 'x' }],
+    ['sessions_define', { name: 'x', windows: [{ tabs: [{ url }] }] }],
+    ['sessions_recently_closed', {}],
+    ['sessions_restore_closed', { sessionId: 'x' }],
+  ];
+  const { tools } = await client.listTools();
+  const browserTools = tools.map((t) => t.name).filter((n) => n !== 'browsers_list');
+  check(
+    browser,
+    'the paused check covers every browser tool',
+    browserTools.every((n) => calls.some(([c]) => c === n)),
+    browserTools.filter((n) => !calls.some(([c]) => c === n)).join(', '),
+  );
+  const notPaused = [];
+  for (const [name, args] of calls) {
+    const r = await tool(client, name, args);
+    if (!(r.error && /^paused:.*ask them to resume/.test(r.text))) notPaused.push(`${name}: ${r.text}`);
+  }
+  check(browser, `all ${calls.length} tools answer "paused"`, notPaused.length === 0, notPaused.join(' | '));
+}
+
 async function scenario(browser, gate) {
   const profile = mkdtempSync(join(tmpdir(), `beifahrer-e2e-${browser}-`));
   const tokenFile = join(profile, 'token');
@@ -437,6 +494,7 @@ async function scenario(browser, gate) {
     }
     check(browser, 'extension connects and pairs', connected);
     if (!connected) return;
+    if (gate === 'paused') return await pausedChecks(browser, client);
     const info = JSON.parse((await tool(client, 'browsers_list')).text).browsers[0];
     check(
       browser,
@@ -459,19 +517,20 @@ async function scenario(browser, gate) {
     const forbidden = tabs.find((t) => t.host === `localhost:${FIXTURE_PORT}`);
 
     if (gate === 'off') {
-      // Built without the person's "manage tabs" switch: every tab-management tool is refused,
-      // and the refusal tells the agent to ask.
-      for (const [name, args] of [
-        ['tabs_pin', { tabIds: [allowed.tabId], pinned: true }],
-        ['tabs_move', { tabIds: [allowed.tabId], index: 0 }],
-        ['sessions_list', {}],
-        ['sessions_save', { name: 'x' }],
+      // Built with the default feature switches: tab management, sessions and screenshots are off.
+      // Every one of those tools is refused before the per-site level, naming the feature.
+      for (const [name, args, label] of [
+        ['tabs_pin', { tabIds: [allowed.tabId], pinned: true }, 'Manage tabs and windows'],
+        ['tabs_move', { tabIds: [allowed.tabId], index: 0 }, 'Manage tabs and windows'],
+        ['sessions_list', {}, 'Saved sessions'],
+        ['sessions_save', { name: 'x' }, 'Saved sessions'],
+        ['page_screenshot', { tabId: allowed.tabId }, 'Take screenshots'],
       ]) {
         const r = await tool(client, name, args);
         check(
           browser,
-          `${name} is forbidden while "manage tabs" is off`,
-          r.error && /^forbidden:.*manage tabs and windows.*Ask the person/.test(r.text),
+          `${name} is feature_disabled by default ("${label}")`,
+          r.error && new RegExp(`^feature_disabled:.*"${label}".*Ask them`).test(r.text),
           r.text,
         );
       }
@@ -499,6 +558,19 @@ async function scenario(browser, gate) {
       'page_read returns the page text',
       read.text.includes('Secret-ish body text'),
       read.text.slice(0, 300),
+    );
+
+    // The in-page pill: shown while the agent reads, gone ~3 s after; the page sees an empty,
+    // closed host element and nothing else. The first read's own "+" lands after its text was
+    // taken, so the second read shows the first read's pill coming and going.
+    await sleep(4000);
+    const reread = await tool(client, 'page_read', { tabId: allowed.tabId });
+    const pill = /indicator: ([^.]*)\./.exec(reread.text)?.[1] ?? '';
+    check(
+      browser,
+      'the in-page pill appears during a read, closed to the page, and goes away after',
+      pill.startsWith('+closed -') && !pill.includes('OPEN') && !reread.text.includes('beifahrer is reading'),
+      reread.text.slice(0, 400),
     );
 
     const denied = await tool(client, 'page_read', { tabId: forbidden.tabId });
@@ -645,17 +717,25 @@ const seed = {
   policy: { origins: { [ALLOWED]: { level: 'write', confirmWrites: false } } },
 };
 
-// Two builds: the person's "manage tabs" switch can only be flipped in the browser's UI, which a
-// headless test cannot click — so the refusal is checked on a build seeded without it.
-for (const gate of ['off', 'on']) {
-  buildExtension(gate === 'on' ? { ...seed, grants: { manageTabs: true }, confirmClose: false } : seed);
+// Three builds: the person's switches can only be flipped in the browser's UI, which a headless
+// test cannot click. `off` has the default features (tab management, sessions, screenshots off);
+// `on` carries PR #8's stored `grants.manageTabs` (which must still switch tab management AND
+// sessions on) plus screenshots; `paused` is stopped.
+const BUILDS = {
+  off: seed,
+  on: { ...seed, grants: { manageTabs: true }, features: { screenshot: true }, confirmClose: false },
+  paused: { ...seed, paused: true },
+};
+for (const [gate, build] of Object.entries(BUILDS)) {
+  buildExtension(build);
   for (const b of browsers) {
-    if (b === 'shared' && gate === 'off') continue;
-    console.log(`\n${b}${b === 'shared' ? '' : ` (manage tabs ${gate})`}`);
+    if (b === 'shared' && gate !== 'on') continue;
+    const label = gate === 'paused' ? 'paused' : `features ${gate}`;
+    console.log(`\n${b}${b === 'shared' ? '' : ` (${label})`}`);
     try {
       await (b === 'shared' ? sharedScenario() : scenario(b, gate));
     } catch (err) {
-      check(b, `scenario ran (manage tabs ${gate})`, false, err.stack ?? String(err));
+      check(b, `scenario ran (${label})`, false, err.stack ?? String(err));
     }
   }
 }

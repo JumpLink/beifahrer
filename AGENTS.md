@@ -24,12 +24,20 @@ decides, and `extension/src/handlers.ts` calls it before *every* page access.
 is refused. A malformed stored policy entry is dropped, not widened. The MCP read-only gate drops
 a tool that forgot its annotation.
 |**No `evaluate`.** No method runs agent-supplied JavaScript. Every capability is a named method in
-`REQUIRED_LEVEL` (policy.ts) with its level, and in `REQUIRED_GRANT` with the browser-level switch
-it needs. Adding a method means adding both there first.
-|**Managing tabs is the person's switch.** Move, pin, close, group, windows and saved sessions need
-"Let the agent manage tabs and windows" (off by default), checked in `runMethod` before any
-handler. A NEW URL the agent supplies still needs `read`; closing asks first. Sessions live in the
-extension's storage, never on the bridge ([ADR 0004](docs/adr/0004-sessions-live-in-the-browser.md)).
+`REQUIRED_LEVEL` (policy.ts) with its level, and in `FEATURE_OF` (features.ts) with exactly ONE
+feature. Adding a method means adding both there first.
+|**Only the person resumes.** Pause (`paused` in storage) refuses EVERY method, `tabs.list` too.
+The popup, options, the in-page Stop button and the shortcut set it; only the popup, options and
+shortcut clear it. No protocol method may touch it, and a content script may only ever set it
+([ADR 0005](docs/adr/0005-the-person-sees-and-stops-the-agent.md)).
+|**Check order, in `runMethod` + handlers:** paused → feature → per-site level → host grant →
+confirm. `preflight` (core) does the first two before any handler, so none can forget them.
+Features are the person's switches, parsed fail-closed; tab management, sessions and screenshots
+are off by default. A NEW URL the agent supplies still needs `read`; closing asks first. Sessions
+live in the extension's storage, never on the bridge ([ADR 0004](docs/adr/0004-sessions-live-in-the-browser.md)).
+|**The person sees the agent.** Toolbar icon (`toolbarLook`, core), popup activity log (host only,
+never page text), and the in-page pill in a CLOSED shadow root outside `<body>`, hidden before
+every screenshot. Do not make any of them optional.
 |**Host access follows the policy.** Host permissions are *optional* and requested per origin when
 the person raises that origin's level. A write needs level `write`, the browser's grant for the
 origin, and the person's confirmation, unless they switched confirmation off for that origin.
@@ -49,9 +57,9 @@ extension reads is the person's private data.
 
 | Path | Contains | Runs on |
 |---|---|---|
-| `packages/core` | **Pure, zero deps.** Wire protocol, policy + grants, redaction, saved-session model | GJS, Node, browser |
+| `packages/core` | **Pure, zero deps.** Wire protocol, policy, features + pause (`features.ts`), toolbar look, activity log entries, redaction, saved-session model | GJS, Node, browser |
 | `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`. The bridge (`src/bridge/`: `bridge.ts` hub, `shared.ts` hub-or-peer election + relay), MCP tools | GJS (bundled by gjsify); tests also on Node |
-| `extension/` | background, page agent, popup, options, confirm window; `manifest.ts` + `scripts/build.ts` (runs on GJS) build both targets | browser (build: GJS) |
+| `extension/` | background, page agent (+ its pill, `src/page-indicator.ts`), popup, options, confirm window; `manifest.ts` + `scripts/build.ts` (runs on GJS; `scripts/icons.ts` renders the sparkles icons from `icons/sparkles.svg`) build both targets | browser (build: GJS + GdkPixbuf/librsvg) |
 | `tests/e2e/` | Full chain in headless Chromium + Firefox | Node driver, GJS app |
 | `probes/epiphany/` | The probe that measured Epiphany (ADR 0001 § 3). Re-run it before claiming support | Epiphany |
 
@@ -103,8 +111,12 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   with `url` empty, so tab listings read both.
 - **A whole window is closed with `windows.remove`**, not tab by tab, so that the browser's
   recently-closed list holds it as one window (the e2e restores it from there).
-- **The "manage tabs" switch cannot be flipped headless.** The e2e builds the extension twice:
-  seeded without the grant (checks the refusal) and with it.
+- **The person's switches cannot be flipped headless.** The e2e builds the extension three
+  times: default features (the `feature_disabled` refusals), PR #8's legacy `grants.manageTabs`
+  plus screenshots (the migration, and the full tab-management run), and `paused`.
+- **`label.row { display: flex }` beats the `hidden` attribute.** The UA's `[hidden]` rule loses
+  to any author `display`, so style.css forces `[hidden] { display: none !important }`. Without it
+  the popup showed "Ask me before every change" at level Read.
 - **Headless Chromium takes one start URL.** A second one makes it exit with "Multiple targets are
   not supported in headless mode". The e2e opens further tabs over the DevTools endpoint.
 

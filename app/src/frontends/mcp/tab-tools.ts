@@ -1,9 +1,9 @@
 /**
  * MCP tools for tab and window management and saved sessions.
  *
- * All of them sit behind a switch the person flips in the browser, "Let the agent manage tabs
- * and windows", off by default; the extension enforces it (REQUIRED_GRANT in policy.ts), not
- * this file. Sorting is the agent's job: tabs_list gives index, pinned and group, tabs_move takes
+ * They sit behind two feature switches the person flips in the browser, "Manage tabs and
+ * windows" and "Saved sessions", both off by default; the extension enforces them (FEATURE_OF in
+ * core's features.ts), not this file. Sorting is the agent's job: tabs_list gives index, pinned and group, tabs_move takes
  * an index.
  */
 
@@ -15,9 +15,14 @@ import { browserParam, failure, text } from './tools.ts';
 
 type Call = <M extends Method>(method: M, params: Params<M>, browser?: string) => Promise<Result<M>>;
 
+const DECISION =
+  'A "feature_disabled" or "forbidden" error is their decision, not a malfunction: tell them what you want to do and let them decide.';
 const MANAGE_NOTE =
-  'Needs the person\'s switch "Let the agent manage tabs and windows" in the beifahrer popup or options — off by default. ' +
-  'A "forbidden" error is their decision, not a malfunction: tell them what you want to do and let them decide.';
+  'Needs the feature "Manage tabs and windows", which the person switches on in the beifahrer popup or options — off by default. ' +
+  DECISION;
+const SESSIONS_NOTE =
+  'Needs the feature "Saved sessions", which the person switches on in the beifahrer popup or options — off by default. ' +
+  DECISION;
 
 const tabIds = z.array(z.number().int()).min(1).describe('Tab ids from tabs_list');
 const sessionName = z.string().min(1).max(100).describe('Session name');
@@ -161,7 +166,7 @@ export function registerTabTools(server: McpServer, call: Call): void {
       description:
         "Save the person's windows — all, or the given window ids — with tab order, pinned state and tab groups, under a name, in the browser (not on this computer's disk, not with you). " +
         'Saving under an existing name replaces it. Tabs on sites below "read" are saved too; you see them as host only. ' +
-        MANAGE_NOTE,
+        SESSIONS_NOTE,
       inputSchema: {
         name: sessionName,
         windows: z
@@ -185,7 +190,7 @@ export function registerTabTools(server: McpServer, call: Call): void {
       description:
         'Saved sessions, newest first: name, kind (saved, agent, auto = automatic snapshot), time, window and tab counts, and the tabs. ' +
         'Automatic snapshots come as counts only unless you ask for one by name. Tabs on sites below "read" show their host only. ' +
-        MANAGE_NOTE,
+        SESSIONS_NOTE,
       inputSchema: {
         name: z.string().optional().describe('Only this session, with its tabs'),
         browser: browserParam,
@@ -202,7 +207,7 @@ export function registerTabTools(server: McpServer, call: Call): void {
       description:
         "Reopen a saved session: each saved window as a new window (default), or all tabs into the current window. Tabs load lazily where the browser allows. The person's own saved tabs all come back; " +
         'in a session you defined, sites that are no longer at "read" are skipped. ' +
-        MANAGE_NOTE,
+        SESSIONS_NOTE,
       inputSchema: {
         name: sessionName,
         into: z.enum(['new-windows', 'current']).optional(),
@@ -220,7 +225,7 @@ export function registerTabTools(server: McpServer, call: Call): void {
     'sessions_delete',
     {
       title: 'Delete a saved session',
-      description: 'Delete a saved session by name. ' + MANAGE_NOTE,
+      description: 'Delete a saved session by name. ' + SESSIONS_NOTE,
       inputSchema: { name: sessionName, browser: browserParam },
       annotations: { ...DESTRUCTIVE, idempotentHint: true },
     },
@@ -234,7 +239,7 @@ export function registerTabTools(server: McpServer, call: Call): void {
       description:
         'Store a session you put together for a task — windows of URLs, pinned or not — to restore later with sessions_restore. ' +
         'Every URL needs level "read" on its site. Pinned tabs are put first in each window. ' +
-        MANAGE_NOTE,
+        SESSIONS_NOTE,
       inputSchema: {
         name: sessionName,
         windows: z
@@ -261,7 +266,7 @@ export function registerTabTools(server: McpServer, call: Call): void {
       description:
         "The browser's own list of recently closed windows and tabs, newest first, with a sessionId for sessions_restore_closed. " +
         'Tabs on sites below "read" show their host only. ' +
-        MANAGE_NOTE,
+        SESSIONS_NOTE,
       inputSchema: {
         maxResults: z.number().int().min(1).max(25).optional(),
         browser: browserParam,
@@ -276,7 +281,7 @@ export function registerTabTools(server: McpServer, call: Call): void {
     {
       title: 'Reopen a closed window or tab',
       description:
-        'Reopen a window or tab from sessions_recently_closed, as the browser remembers it. ' + MANAGE_NOTE,
+        'Reopen a window or tab from sessions_recently_closed, as the browser remembers it. ' + SESSIONS_NOTE,
       inputSchema: { sessionId: z.string().min(1), browser: browserParam },
       annotations: WRITE,
     },
