@@ -1,6 +1,7 @@
 import type { CommandModule } from 'yargs';
 import { describeRange, isMethod } from '@beifahrer/core';
 
+import { desktopSource } from '../../bridge/desktop.ts';
 import { BridgeError, label, listenInRange, type Bridge } from '../../bridge/bridge.ts';
 import { rangeOf, rangeOptions, sessionLabel, type RangeArgs } from '../../bridge/session.ts';
 import { loadOrCreateToken, newToken, tokenPath, writeToken } from '../../bridge/token.ts';
@@ -69,6 +70,7 @@ export const callCommand: CommandModule<
         bridge = await listenInRange(rangeOf(argv), {
           token: loadOrCreateToken().token,
           version: VERSION,
+          desktop: desktopSource(),
           label: sessionLabel('beifahrer call'),
         });
         await waitForBrowser(bridge, argv.wait * 1000, argv.browser ? 2 : 1);
@@ -121,6 +123,7 @@ export const serveCommand: CommandModule<object, RangeArgs> = {
       const bridge = await listenInRange(range, {
         token: loadOrCreateToken().token,
         version: VERSION,
+        desktop: desktopSource(),
         label: sessionLabel('beifahrer serve'),
       });
       bridge.on('connected', (c) =>

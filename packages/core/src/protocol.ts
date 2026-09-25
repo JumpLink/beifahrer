@@ -10,6 +10,7 @@
  *   bridge → extension   pong
  *   bridge → extension   session        { label } — the session's name changed (the MCP client
  *                                        introduced itself after the extension connected)
+ *   bridge → extension   desktop        { desktop } — the desktop's accent colour changed (desktop.ts)
  *
  * Only methods named in `REQUIRED_LEVEL` (policy.ts) exist. There is deliberately no "evaluate
  * this JavaScript" method: it would make the per-origin levels meaningless.
@@ -18,6 +19,7 @@
  * extension keeps one socket per bridge (ADR 0007). A bridge never talks to another bridge.
  */
 
+import { parseDesktop, type DesktopInfo } from './desktop.ts';
 import type { Feature } from './features.ts';
 import type { ElementQuery, MetaQuery } from './find.ts';
 import type { Level, Method } from './policy.ts';
@@ -64,6 +66,8 @@ export interface Welcome {
   connectionId: string;
   /** Which agent session this bridge serves. Absent from bridges older than ADR 0007. */
   session?: AgentSession;
+  /** The person's desktop, as far as the bridge can read it. Optional: older bridges omit it. */
+  desktop?: DesktopInfo;
 }
 
 export interface TabInfo {
@@ -204,7 +208,12 @@ export type Response =
   | { type: 'response'; id: number; ok: false; error: WireError };
 
 export type ExtensionFrame = Hello | Response | { type: 'ping' };
-export type BridgeFrame = Welcome | Request | { type: 'pong' } | { type: 'session'; label: string };
+export type BridgeFrame =
+  | Welcome
+  | Request
+  | { type: 'pong' }
+  | { type: 'session'; label: string }
+  | { type: 'desktop'; desktop: DesktopInfo };
 
 const FAMILIES: BrowserFamily[] = ['firefox', 'chromium', 'epiphany', 'unknown'];
 
@@ -323,12 +332,15 @@ export function parseWelcome(raw: unknown): Welcome | null {
   if (!w.bridge || typeof w.bridge.version !== 'string') return null;
   const session = w.session === undefined ? undefined : parseAgentSession(w.session);
   if (session === null) return null;
+  // Cosmetic: a desktop the extension cannot read is dropped, never a reason to refuse the bridge.
+  const desktop = parseDesktop(w.desktop);
   return {
     type: 'welcome',
     protocol: typeof w.protocol === 'number' ? w.protocol : PROTOCOL_VERSION,
     bridge: { version: w.bridge.version },
     connectionId: w.connectionId,
     ...(session ? { session } : {}),
+    ...(desktop.accent ? { desktop } : {}),
   };
 }
 

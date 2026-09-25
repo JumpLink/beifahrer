@@ -11,7 +11,9 @@ import protocol from './unit/core/protocol.test.ts';
 import ports from './unit/core/ports.test.ts';
 import connections from './unit/core/connections.test.ts';
 import sessions from './unit/core/sessions.test.ts';
+import desktop from './unit/core/desktop.test.ts';
 import bridge from './unit/bridge/bridge.test.ts';
+import bridgeDesktop from './unit/bridge/desktop.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
 import mcpTools from './unit/mcp/tools.test.ts';
 import recipeRunner from './unit/recipes/runner.test.ts';
@@ -26,7 +28,9 @@ run({
   ports,
   connections,
   sessions,
+  desktop,
   bridge,
+  bridgeDesktop,
   mcpGate,
   mcpTools,
   recipeRunner,

@@ -35,6 +35,7 @@ import {
   type AgentSession,
   type BridgeStatus,
   type ConnectedBrowser,
+  type DesktopInfo,
   type Hello,
   type Method,
   type Params,
@@ -44,6 +45,7 @@ import {
   type WireError,
 } from '@beifahrer/core';
 
+import { followDesktop, type AccentSource } from './desktop.ts';
 import { PendingCalls } from './pending.ts';
 
 export interface BrowserConnection {
@@ -83,6 +85,11 @@ export interface BridgeOptions {
    * within one probe round (≤ 5 s), so a session's first call should not fail for being early.
    */
   browserWaitMs?: number;
+  /**
+   * Where the desktop's accent colour comes from (desktop.ts: `desktopSource()`). Omitted or null:
+   * the welcome carries none, which is what the unit tests want.
+   */
+  desktop?: AccentSource | null;
 }
 
 /**
@@ -111,6 +118,8 @@ export class Bridge extends EventEmitter implements BrowserAccess {
   #server: WebSocketServer | null = null;
   #live = new Map<string, Live>();
   #session: AgentSession;
+  #desktop: DesktopInfo = {};
+  #unfollowDesktop: () => void = () => undefined;
 
   constructor(readonly options: BridgeOptions) {
     super();
@@ -143,6 +152,7 @@ export class Bridge extends EventEmitter implements BrowserAccess {
         server.off('error', onError);
         server.on('error', (err) => this.emit('error', err));
         listening.add(this);
+        this.#unfollowDesktop = followDesktop(this.options.desktop ?? null, (d) => this.setDesktop(d));
         resolve();
       });
       server.on('connection', (socket) => this.#admit(socket));
@@ -155,6 +165,7 @@ export class Bridge extends EventEmitter implements BrowserAccess {
     const server = this.#server;
     this.#server = null;
     listening.delete(this);
+    this.#unfollowDesktop();
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 
@@ -178,6 +189,16 @@ export class Bridge extends EventEmitter implements BrowserAccess {
     for (const conn of this.#live.values()) {
       if (conn.socket.readyState === conn.socket.OPEN)
         conn.socket.send(JSON.stringify({ type: 'session', label: clean }));
+    }
+  }
+
+  /** The desktop's accent changed (or was read first): connected browsers hear it at once. */
+  setDesktop(desktop: DesktopInfo): void {
+    if (desktop.accent === this.#desktop.accent) return;
+    this.#desktop = desktop;
+    for (const conn of this.#live.values()) {
+      if (conn.socket.readyState === conn.socket.OPEN)
+        conn.socket.send(JSON.stringify({ type: 'desktop', desktop }));
     }
   }
 
@@ -285,6 +306,7 @@ export class Bridge extends EventEmitter implements BrowserAccess {
       bridge: { version: this.options.version },
       connectionId: conn.id,
       session: this.#session,
+      ...(this.#desktop.accent ? { desktop: this.#desktop } : {}),
     };
     socket.send(JSON.stringify(welcome));
     socket.on('message', (frame) => this.#onFrame(conn, frame));
