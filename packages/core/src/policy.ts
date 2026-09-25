@@ -74,12 +74,90 @@ export const REQUIRED_LEVEL = {
   // Opening a URL needs `read` on the TARGET: otherwise an agent that just read something could
   // carry it off in the query string of a URL the person never allowed.
   'tabs.open': 'read',
+  // Tab and window management. These touch no page content, so the per-site level is not their
+  // gate — the browser-level grant in REQUIRED_GRANT is. Where one opens a NEW URL the agent
+  // supplies (`windows.create` with urls, `sessions.define`), that URL needs `read`, like
+  // `tabs.open`, and the handler checks it per URL.
+  'tabs.move': null,
+  'tabs.pin': null,
+  'tabs.close': null,
+  'tabs.group': null,
+  'tabs.ungroup': null,
+  'windows.create': 'read',
+  'sessions.save': null,
+  'sessions.list': null,
+  'sessions.restore': null,
+  'sessions.delete': null,
+  'sessions.define': 'read',
+  'sessions.recentlyClosed': null,
+  'sessions.restoreClosed': null,
 } as const satisfies Record<string, Level | null>;
 
 export type Method = keyof typeof REQUIRED_LEVEL;
 
 export function isMethod(value: unknown): value is Method {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(REQUIRED_LEVEL, value);
+}
+
+/**
+ * Browser-level grants: switches that are not about one site but about the browser as a whole.
+ * The person flips them in the extension (popup, options); nothing else can.
+ *
+ * `manageTabs` — "Let the agent manage tabs and windows": move, pin, close, group, and the saved
+ * sessions. Off by default: rearranging or closing someone's tabs is not something an agent
+ * should find switched on.
+ */
+export interface Grants {
+  manageTabs: boolean;
+}
+
+export type Grant = keyof Grants;
+
+export const NO_GRANTS: Grants = { manageTabs: false };
+
+/**
+ * The browser-level grant each method needs, next to its per-site level. One entry per method —
+ * `satisfies Record<Method, …>` makes a method that forgot to say which grant it needs a type
+ * error, so the table cannot fall behind REQUIRED_LEVEL.
+ */
+export const REQUIRED_GRANT = {
+  'tabs.list': null,
+  'tabs.active': null,
+  'page.read': null,
+  'page.outline': null,
+  'page.screenshot': null,
+  'page.fill': null,
+  'page.click': null,
+  'tabs.open': null,
+  'tabs.move': 'manageTabs',
+  'tabs.pin': 'manageTabs',
+  'tabs.close': 'manageTabs',
+  'tabs.group': 'manageTabs',
+  'tabs.ungroup': 'manageTabs',
+  'windows.create': 'manageTabs',
+  'sessions.save': 'manageTabs',
+  'sessions.list': 'manageTabs',
+  'sessions.restore': 'manageTabs',
+  'sessions.delete': 'manageTabs',
+  'sessions.define': 'manageTabs',
+  'sessions.recentlyClosed': 'manageTabs',
+  'sessions.restoreClosed': 'manageTabs',
+} as const satisfies Record<Method, Grant | null>;
+
+export type GrantDecision = { allow: true } | { allow: false; grant: Grant };
+
+/** Does the person's browser-level switch allow `method` at all? Checked before the per-site level. */
+export function decideGrant(grants: Grants, method: Method): GrantDecision {
+  const grant = REQUIRED_GRANT[method] as Grant | null | undefined;
+  if (grant === null) return { allow: true };
+  // A method missing from the table (only possible past the type system) is refused, not waved on.
+  if (grant === undefined) return { allow: false, grant: 'manageTabs' };
+  return grants[grant] === true ? { allow: true } : { allow: false, grant };
+}
+
+/** Grants read back from storage: only a literal `true` switches one on. */
+export function parseGrants(raw: unknown): Grants {
+  return { manageTabs: (raw as { manageTabs?: unknown } | null)?.manageTabs === true };
 }
 
 export type Decision =

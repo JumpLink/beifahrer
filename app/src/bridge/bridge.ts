@@ -93,7 +93,7 @@ const listening = new Set<Bridge>();
 /** Writes can wait for the confirmation window, which gives the person two minutes. */
 export const WRITE_TIMEOUT_MS = 135_000;
 export const DEFAULT_TIMEOUT_MS = 30_000;
-const WRITES: ReadonlySet<Method> = new Set(['page.fill', 'page.click']);
+const WRITES: ReadonlySet<Method> = new Set(['page.fill', 'page.click', 'tabs.close']);
 
 export function timeoutFor(method: Method, readTimeoutMs = DEFAULT_TIMEOUT_MS): number {
   return WRITES.has(method) ? WRITE_TIMEOUT_MS : readTimeoutMs;

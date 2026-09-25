@@ -16,6 +16,9 @@ export interface RawTab {
   active?: boolean;
   url?: string;
   title?: string;
+  index?: number;
+  pinned?: boolean;
+  groupId?: number;
 }
 
 export function hostOf(url: string | undefined | null): string | null {
@@ -34,6 +37,10 @@ export function toTabInfo(tab: RawTab, policy: Policy, focusedWindowId: number |
     host: hostOf(tab.url),
     level,
   };
+  // Position, pin and group say nothing about a page's content; the agent needs them to sort.
+  if (typeof tab.index === 'number') info.index = tab.index;
+  if (typeof tab.pinned === 'boolean') info.pinned = tab.pinned;
+  if (typeof tab.groupId === 'number' && tab.groupId >= 0) info.groupId = tab.groupId;
   if (level !== 'none') {
     info.url = tab.url;
     info.title = tab.title ?? '';

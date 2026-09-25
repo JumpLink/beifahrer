@@ -12,15 +12,21 @@ import { browser } from '@wxt-dev/browser';
 
 export interface ConfirmRequest {
   id: string;
+  /** The site a write goes to. Empty for `close`, which is about the browser, not one site. */
   origin: string;
-  action: 'fill' | 'click';
+  action: 'fill' | 'click' | 'close';
   target: string;
   text?: string;
+  /** `close`: one line per tab — host only for a tab the agent may not see. */
+  items?: string[];
 }
 
 export interface ConfirmAnswer {
   allow: boolean;
-  /** "Don't ask again on this site" — turns `confirmWrites` off for the origin. */
+  /**
+   * "Don't ask again on this site" — turns `confirmWrites` off for the origin. For `close`:
+   * "don't ask again before closing tabs" — turns `confirmClose` off.
+   */
   remember: boolean;
 }
 

@@ -260,7 +260,144 @@ async function sharedScenario() {
   }
 }
 
-async function scenario(browser) {
+/** Order + pinned state of one window's tabs, as the agent sees them. */
+async function windowLayout(client, windowId) {
+  const { tabs } = JSON.parse((await tool(client, 'tabs_list')).text);
+  return tabs
+    .filter((t) => t.windowId === windowId)
+    .sort((a, b) => a.index - b.index)
+    .map((t) => `${t.pinned ? '*' : ''}${t.url ? new URL(t.url).search || '/' : `host:${t.host}`}`);
+}
+
+/** Poll until a window shows `expected` (restored tabs appear and commit their URL one by one). */
+async function waitForLayout(client, windowId, expected) {
+  let layout = [];
+  for (let i = 0; i < 40; i++) {
+    layout = await windowLayout(client, windowId);
+    if (JSON.stringify(layout) === JSON.stringify(expected)) break;
+    await sleep(250);
+  }
+  return layout;
+}
+
+/**
+ * Tab management, sessions and the recently-closed list. The gate is ON in this build; the
+ * gate-off run checks the refusal separately.
+ */
+async function tabManagement(browser, client, forbidden) {
+  const created = await tool(client, 'window_create', {
+    tabs: ['a', 'b', 'c'].map((q) => ({ url: `${ALLOWED}/fixture?${q}` })),
+  });
+  check(browser, 'window_create opens a window with tabs', !created.error, created.text);
+  if (created.error) return;
+  const win = JSON.parse(created.text).windowId;
+
+  // A tab on a site nobody allowed joins the window: sessions must carry it without showing it.
+  const moved = await tool(client, 'tabs_move', { tabIds: [forbidden.tabId], windowId: win, index: -1 });
+  check(browser, 'tabs_move moves a tab across windows', !moved.error, moved.text);
+  await waitForLayout(client, win, ['?a', '?b', '?c', `host:localhost:${FIXTURE_PORT}`]);
+
+  const idOf = async (search) => {
+    const { tabs } = JSON.parse((await tool(client, 'tabs_list')).text);
+    return tabs.find((t) => t.windowId === win && t.url && new URL(t.url).search === search)?.tabId;
+  };
+  const reorder = await tool(client, 'tabs_move', { tabIds: [await idOf('?c')], index: 0 });
+  const pin = await tool(client, 'tabs_pin', { tabIds: [await idOf('?b')], pinned: true });
+  const expected = ['*?b', '?c', '?a', `host:localhost:${FIXTURE_PORT}`];
+  const layout = await waitForLayout(client, win, expected);
+  check(
+    browser,
+    'tabs_move reorders and tabs_pin pins',
+    !reorder.error && !pin.error && JSON.stringify(layout) === JSON.stringify(expected),
+    `${reorder.text} | ${pin.text} | ${JSON.stringify(layout)}`,
+  );
+
+  // Tab groups, where the browser has them: c and a (adjacent, unpinned) into one named group.
+  const grouped = await tool(client, 'tabs_group', {
+    tabIds: [await idOf('?c'), await idOf('?a')],
+    title: 'e2e',
+    color: 'blue',
+  });
+  const groupsSupported = !/^unsupported:/.test(grouped.text);
+  check(
+    browser,
+    `tabs_group ${groupsSupported ? 'groups tabs' : 'answers unsupported'}`,
+    groupsSupported ? !grouped.error : grouped.error,
+    grouped.text,
+  );
+  const sameGroup = async (windowId) => {
+    const { tabs } = JSON.parse((await tool(client, 'tabs_list')).text);
+    const inWin = tabs.filter((t) => t.windowId === windowId && t.url);
+    const g = (q) => inWin.find((t) => new URL(t.url).search === q)?.groupId;
+    return g('?c') !== undefined && g('?c') === g('?a') && g('?b') === undefined;
+  };
+
+  const saved = await tool(client, 'sessions_save', { name: 'e2e', windows: [win] });
+  const savedTabs = saved.error ? [] : JSON.parse(saved.text).session.windows[0].tabs;
+  check(
+    browser,
+    'sessions_save keeps 4 tabs, the unallowed one as host only',
+    savedTabs.length === 4 &&
+      savedTabs[3].url === undefined &&
+      savedTabs[3].host === `localhost:${FIXTURE_PORT}`,
+    saved.text,
+  );
+  const listed = await tool(client, 'sessions_list');
+  check(
+    browser,
+    'sessions_list lists it',
+    !listed.error && JSON.parse(listed.text).sessions.some((x) => x.name === 'e2e' && x.tabCount === 4),
+    listed.text,
+  );
+  const defineDenied = await tool(client, 'sessions_define', {
+    name: 'leak',
+    windows: [{ tabs: [{ url: `${FORBIDDEN}/fixture?leak=1` }] }],
+  });
+  check(
+    browser,
+    'sessions_define with a site nobody allowed is forbidden',
+    defineDenied.error && /^forbidden:/.test(defineDenied.text),
+    defineDenied.text,
+  );
+
+  // The accident: the sorted window is closed.
+  const closed = await tool(client, 'tabs_close', { windowId: win });
+  check(browser, 'tabs_close closes the window', !closed.error, closed.text);
+  await sleep(500);
+
+  const restored = await tool(client, 'sessions_restore', { name: 'e2e' });
+  const restoredWin = restored.error ? null : JSON.parse(restored.text).windowIds[0];
+  const afterRestore = restoredWin ? await waitForLayout(client, restoredWin, expected) : [];
+  check(
+    browser,
+    'sessions_restore brings back order and pinned state',
+    JSON.stringify(afterRestore) === JSON.stringify(expected),
+    `${restored.text} | ${JSON.stringify(afterRestore)}`,
+  );
+
+  if (groupsSupported && restoredWin)
+    check(browser, 'sessions_restore regroups the tabs', await sameGroup(restoredWin));
+
+  if (restoredWin) await tool(client, 'tabs_close', { windowId: restoredWin });
+  await sleep(500);
+  const recent = await tool(client, 'sessions_recently_closed');
+  const entry = recent.error
+    ? null
+    : JSON.parse(recent.text).closed.find((c) => c.kind === 'window' && c.tabs.length === 4);
+  check(browser, 'sessions_recently_closed lists the closed window', !!entry, recent.text);
+  if (!entry) return;
+  const back = await tool(client, 'sessions_restore_closed', { sessionId: entry.sessionId });
+  const backWin = back.error ? null : JSON.parse(back.text).windowId;
+  const afterBack = backWin ? await waitForLayout(client, backWin, expected) : [];
+  check(
+    browser,
+    'sessions_restore_closed brings the window back as it was',
+    JSON.stringify(afterBack) === JSON.stringify(expected),
+    `${back.text} | ${JSON.stringify(afterBack)}`,
+  );
+}
+
+async function scenario(browser, gate) {
   const profile = mkdtempSync(join(tmpdir(), `beifahrer-e2e-${browser}-`));
   const tokenFile = join(profile, 'token');
   writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
@@ -320,6 +457,26 @@ async function scenario(browser) {
     }
     const allowed = tabs.find((t) => t.url?.startsWith(ALLOWED));
     const forbidden = tabs.find((t) => t.host === `localhost:${FIXTURE_PORT}`);
+
+    if (gate === 'off') {
+      // Built without the person's "manage tabs" switch: every tab-management tool is refused,
+      // and the refusal tells the agent to ask.
+      for (const [name, args] of [
+        ['tabs_pin', { tabIds: [allowed.tabId], pinned: true }],
+        ['tabs_move', { tabIds: [allowed.tabId], index: 0 }],
+        ['sessions_list', {}],
+        ['sessions_save', { name: 'x' }],
+      ]) {
+        const r = await tool(client, name, args);
+        check(
+          browser,
+          `${name} is forbidden while "manage tabs" is off`,
+          r.error && /^forbidden:.*manage tabs and windows.*Ask the person/.test(r.text),
+          r.text,
+        );
+      }
+      return;
+    }
     check(
       browser,
       'tabs_list shows the allowed tab with url + title',
@@ -451,6 +608,8 @@ async function scenario(browser) {
       gotImage || /^(forbidden|invalid):/.test(shot.text),
       shot.text,
     );
+
+    await tabManagement(browser, client, forbidden);
   } finally {
     await client.close().catch(() => undefined);
     try {
@@ -480,18 +639,24 @@ const fixture6 = createServer((req, res) => {
 });
 await new Promise((r) => fixture6.listen(FIXTURE_PORT, '::1', r)).catch(() => undefined);
 
-buildExtension({
+const seed = {
   token: TOKEN,
   port: BRIDGE_PORT,
   policy: { origins: { [ALLOWED]: { level: 'write', confirmWrites: false } } },
-});
+};
 
-for (const b of browsers) {
-  console.log(`\n${b}`);
-  try {
-    await (b === 'shared' ? sharedScenario() : scenario(b));
-  } catch (err) {
-    check(b, 'scenario ran', false, err.stack ?? String(err));
+// Two builds: the person's "manage tabs" switch can only be flipped in the browser's UI, which a
+// headless test cannot click — so the refusal is checked on a build seeded without it.
+for (const gate of ['off', 'on']) {
+  buildExtension(gate === 'on' ? { ...seed, grants: { manageTabs: true }, confirmClose: false } : seed);
+  for (const b of browsers) {
+    if (b === 'shared' && gate === 'off') continue;
+    console.log(`\n${b}${b === 'shared' ? '' : ` (manage tabs ${gate})`}`);
+    try {
+      await (b === 'shared' ? sharedScenario() : scenario(b, gate));
+    } catch (err) {
+      check(b, `scenario ran (manage tabs ${gate})`, false, err.stack ?? String(err));
+    }
   }
 }
 

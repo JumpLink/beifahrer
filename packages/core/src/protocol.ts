@@ -24,6 +24,7 @@
  */
 
 import { isMethod, type Level, type Method } from './policy.ts';
+import type { ClosedSummary, GroupColor, SessionSummary } from './sessions.ts';
 
 export const PROTOCOL_VERSION = 1;
 
@@ -72,6 +73,17 @@ export interface TabInfo {
   /** Present only when the origin's level is at least `read`. */
   url?: string;
   title?: string;
+  /** Position in its window, from 0 — what `tabs.move` takes. */
+  index?: number;
+  pinned?: boolean;
+  /** Tab group, where the browser has them; absent when the tab is in none. */
+  groupId?: number;
+}
+
+/** Tabs to act on: explicit ids, or every tab of one window. */
+export interface TabSelection {
+  tabIds?: number[];
+  windowId?: number;
 }
 
 export interface MethodMap {
@@ -92,6 +104,39 @@ export interface MethodMap {
   };
   'page.click': { params: { tabId: number; ref: string }; result: { ref: string } };
   'tabs.open': { params: { url: string; active?: boolean }; result: { tab: TabInfo } };
+  'tabs.move': {
+    /** `index` -1 = end of the window. Several tabs keep their given order from `index` on. */
+    params: { tabIds: number[]; index: number; windowId?: number };
+    result: { tabs: TabInfo[] };
+  };
+  'tabs.pin': { params: { tabIds: number[]; pinned: boolean }; result: { tabs: TabInfo[] } };
+  'tabs.close': { params: TabSelection; result: { closed: number } };
+  'tabs.group': {
+    params: { tabIds: number[]; groupId?: number; title?: string; color?: GroupColor; collapsed?: boolean };
+    result: { groupId: number };
+  };
+  'tabs.ungroup': { params: { tabIds: number[] }; result: { tabs: TabInfo[] } };
+  'windows.create': {
+    /** New tabs from `tabs` (each URL needs `read`), existing tabs moved over by `tabIds`, or both. */
+    params: { tabs?: { url: string; pinned?: boolean }[]; tabIds?: number[] };
+    result: { windowId: number; tabs: TabInfo[] };
+  };
+  'sessions.save': {
+    params: { name: string; windows?: 'all' | number[] };
+    result: { session: SessionSummary; skipped: number };
+  };
+  'sessions.list': { params: { name?: string }; result: { sessions: SessionSummary[] } };
+  'sessions.restore': {
+    params: { name: string; into?: 'new-windows' | 'current' };
+    result: { windowIds: number[]; opened: number; skipped: number };
+  };
+  'sessions.delete': { params: { name: string }; result: { deleted: boolean } };
+  'sessions.define': {
+    params: { name: string; windows: { tabs: { url: string; pinned?: boolean }[] }[] };
+    result: { session: SessionSummary };
+  };
+  'sessions.recentlyClosed': { params: { maxResults?: number }; result: { closed: ClosedSummary[] } };
+  'sessions.restoreClosed': { params: { sessionId: string }; result: { windowId?: number; tabs: TabInfo[] } };
 }
 
 export type Params<M extends Method> = MethodMap[M]['params'];

@@ -6,21 +6,44 @@
  */
 
 import { browser } from '@wxt-dev/browser';
-import { DEFAULT_PORT, EMPTY_POLICY, parsePolicy, type Policy } from '@beifahrer/core';
+import {
+  DEFAULT_PORT,
+  EMPTY_POLICY,
+  parseGrants,
+  parsePolicy,
+  type Grants,
+  type Policy,
+} from '@beifahrer/core';
 
 export interface Settings {
   token: string;
   port: number;
   policy: Policy;
+  /** Browser-level switches, e.g. "Let the agent manage tabs and windows". Off unless literally true. */
+  grants: Grants;
+  /** Ask before the agent closes tabs. Only a literal false switches asking off. */
+  confirmClose: boolean;
+  /** Keep automatic snapshots of the windows (ADR 0004). Only a literal false switches them off. */
+  autosave: boolean;
 }
 
 export async function loadSettings(): Promise<Settings> {
-  const raw = await browser.storage.local.get(['token', 'port', 'policy']);
+  const raw = await browser.storage.local.get([
+    'token',
+    'port',
+    'policy',
+    'grants',
+    'confirmClose',
+    'autosave',
+  ]);
   const port = Number(raw.port);
   return {
     token: typeof raw.token === 'string' ? raw.token.trim() : '',
     port: Number.isInteger(port) && port > 0 && port < 65536 ? port : DEFAULT_PORT,
     policy: raw.policy ? parsePolicy(raw.policy) : EMPTY_POLICY,
+    grants: parseGrants(raw.grants),
+    confirmClose: raw.confirmClose !== false,
+    autosave: raw.autosave !== false,
   };
 }
 

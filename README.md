@@ -9,7 +9,8 @@ what you see. The ones that attach to your own browser only work with Chromium.
 
 beifahrer is a WebExtension for **Firefox and Chromium-based browsers** plus a small local
 **MCP server**. The agent gets a narrow set of tools: list tabs, read a page, outline its fields,
-take a screenshot, fill a field, click, open a URL. **You decide, site by site, what it may do.**
+take a screenshot, fill a field, click, open a URL, and, if you allow it, sort, pin, close, save and
+reopen your tabs. **You decide, site by site, what it may do.**
 
 > **Status: early (0.1).** Works end-to-end in Chromium and Firefox. Not yet on the add-on stores.
 
@@ -44,6 +45,29 @@ Firefox / Chromium
   When you raise a site's level, the browser asks you to grant access to that site. beifahrer has
   no host access until you do.
 
+## Tabs, windows and saved sessions
+
+A separate switch, **"Let the agent manage tabs and windows"** (popup and options, off by
+default), lets the agent tidy up your browser for you:
+
+| Tool | Does |
+|---|---|
+| `tabs_move`, `tabs_pin` | reorder tabs (also into another window), pin and unpin |
+| `tabs_close` | close tabs or a whole window. You confirm in a window that lists them, unless you switch that off |
+| `tabs_group`, `tabs_ungroup` | tab groups, where the browser has them (Chromium, Firefox ≥ 139) |
+| `window_create` | a new window with new tabs and/or tabs moved over |
+| `sessions_save`, `sessions_list`, `sessions_restore`, `sessions_delete` | save windows (order, pins, groups) under a name and reopen them later, lazily |
+| `sessions_define` | a workspace the agent puts together for a task |
+| `sessions_recently_closed`, `sessions_restore_closed` | the browser's own list of closed windows and tabs |
+
+Sessions are stored **in your browser**, not with the agent ([ADR 0004](docs/adr/0004-sessions-live-in-the-browser.md)).
+The options page lists them with Restore and Delete, saves the current windows under a name, and
+shows your recently closed windows. It works without any agent. It also keeps automatic
+snapshots of your windows (the last 20), so a window you close by mistake comes back in one click.
+
+The per-site levels still apply: the agent sees a saved tab on a site below *Read* as its host
+only, and it can only put URLs of sites at *Read* or higher into a new window or workspace.
+
 ## What it will never do
 
 - **Run arbitrary JavaScript for the agent.** There is no `evaluate`: every action is one of the
@@ -53,6 +77,8 @@ Firefox / Chromium
 - **Send anything off your computer.** The only channel is the loopback socket to the bridge you
   run yourself.
 - **Switch your tab behind your back.** A screenshot is only taken of the tab you are showing.
+- **Rearrange or close your tabs unless you let it.** Managing tabs and windows is a separate
+  switch, off by default, and closing tabs asks you first.
 
 Page text is written by whoever runs the site, and an agent reading it can be steered by it
 (prompt injection). That is the reason for the per-site levels: keep your bank at *Read*, and an

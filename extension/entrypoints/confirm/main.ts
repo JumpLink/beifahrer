@@ -13,7 +13,22 @@ async function main(): Promise<void> {
   }
   $('origin').textContent = req.origin;
   $('what').textContent =
-    req.action === 'fill' ? `Put this text into ${req.target}:` : `Click ${req.target}.`;
+    req.action === 'fill'
+      ? `Put this text into ${req.target}:`
+      : req.action === 'click'
+        ? `Click ${req.target}.`
+        : `Close ${req.target}:`;
+  if (req.action === 'close') {
+    $('heading').textContent = 'Your agent wants to close tabs';
+    $('where').hidden = true;
+    $('remember-label').textContent = 'Don’t ask again before closing tabs';
+    $('items').hidden = false;
+    for (const line of req.items ?? []) {
+      const li = document.createElement('li');
+      li.textContent = line;
+      $('items').append(li);
+    }
+  }
   if (req.text !== undefined) {
     $('text').hidden = false;
     $('text').textContent = req.text;

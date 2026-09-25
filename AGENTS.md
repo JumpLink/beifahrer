@@ -24,7 +24,12 @@ decides, and `extension/src/handlers.ts` calls it before *every* page access.
 is refused. A malformed stored policy entry is dropped, not widened. The MCP read-only gate drops
 a tool that forgot its annotation.
 |**No `evaluate`.** No method runs agent-supplied JavaScript. Every capability is a named method in
-`REQUIRED_LEVEL` (policy.ts) with its level. Adding a method means adding its level there first.
+`REQUIRED_LEVEL` (policy.ts) with its level, and in `REQUIRED_GRANT` with the browser-level switch
+it needs. Adding a method means adding both there first.
+|**Managing tabs is the person's switch.** Move, pin, close, group, windows and saved sessions need
+"Let the agent manage tabs and windows" (off by default), checked in `runMethod` before any
+handler. A NEW URL the agent supplies still needs `read`; closing asks first. Sessions live in the
+extension's storage, never on the bridge ([ADR 0004](docs/adr/0004-sessions-live-in-the-browser.md)).
 |**Host access follows the policy.** Host permissions are *optional* and requested per origin when
 the person raises that origin's level. A write needs level `write`, the browser's grant for the
 origin, and the person's confirmation, unless they switched confirmation off for that origin.
@@ -91,6 +96,15 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
 - **Several agent sessions, one port.** Each session starts its own `beifahrer mcp`; the real
   person usually has one running while you test. Unit tests use port 0 (the election test a random
   high port), the e2e 47902: never 47813, and never kill a `beifahrer mcp` you did not start.
+- **Lazy tabs differ per engine** (from the API docs; the e2e covers the restore, not each
+  branch). Firefox creates `discarded: true` tabs with a `title`, but not pinned ones. Chromium
+  rejects the key, so its tabs are created and then discarded once the URL has committed
+  (`openLazy` in sessions-store.ts). A loading Chromium tab reports its target in `pendingUrl`
+  with `url` empty, so tab listings read both.
+- **A whole window is closed with `windows.remove`**, not tab by tab, so that the browser's
+  recently-closed list holds it as one window (the e2e restores it from there).
+- **The "manage tabs" switch cannot be flipped headless.** The e2e builds the extension twice:
+  seeded without the grant (checks the refusal) and with it.
 - **Headless Chromium takes one start URL.** A second one makes it exit with "Multiple targets are
   not supported in headless mode". The e2e opens further tabs over the DevTools endpoint.
 
