@@ -12,6 +12,7 @@ import ports from './unit/core/ports.test.ts';
 import connections from './unit/core/connections.test.ts';
 import sessions from './unit/core/sessions.test.ts';
 import desktop from './unit/core/desktop.test.ts';
+import download from './unit/core/download.test.ts';
 import toolbar from './unit/core/toolbar.test.ts';
 import bridge from './unit/bridge/bridge.test.ts';
 import bridgeDesktop from './unit/bridge/desktop.test.ts';
@@ -30,6 +31,7 @@ run({
   connections,
   sessions,
   desktop,
+  download,
   toolbar,
   bridge,
   bridgeDesktop,

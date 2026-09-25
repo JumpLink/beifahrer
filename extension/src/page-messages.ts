@@ -14,6 +14,8 @@ export type PageRequest = (
   | { beifahrer: 'describe'; ref: string }
   | { beifahrer: 'fill'; ref: string; text: string; as: 'text' | 'html'; mode: 'replace' | 'append' }
   | { beifahrer: 'click'; ref: string }
+  /** A document the page links to: by ref (a link) or by URL on the tab's own origin. */
+  | { beifahrer: 'download'; ref?: string; url?: string; maxBytes: number }
   /** Hide the in-page pill now, e.g. before a screenshot. Answers once the page has repainted. */
   | { beifahrer: 'hide' }
   | { beifahrer: 'find'; query: ElementQuery; maxResults: number }

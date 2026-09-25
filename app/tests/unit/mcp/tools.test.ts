@@ -11,6 +11,7 @@ const READ = [
   'page_read',
   'page_outline',
   'page_screenshot',
+  'page_download',
   'sessions_list',
   'sessions_recently_closed',
   'page_find',

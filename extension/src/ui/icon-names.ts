@@ -7,6 +7,7 @@ export const FEATURE_ICON: Record<Feature, string> = {
   read: 'format-justify-left-symbolic',
   outline: 'system-search-symbolic',
   screenshot: 'camera-photo-symbolic',
+  download: 'folder-download-symbolic',
   fill: 'insert-text-symbolic',
   click: 'input-mouse-symbolic',
   open: 'tab-new-symbolic',

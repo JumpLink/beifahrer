@@ -64,6 +64,7 @@ export default async () => {
         read: true,
         outline: true,
         screenshot: false,
+        download: false,
         fill: true,
         click: true,
         open: true,

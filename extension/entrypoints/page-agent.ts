@@ -12,7 +12,14 @@
  */
 
 import { browser } from '@wxt-dev/browser';
-import { metaMatches, queryMatches, type ElementQuery, type MetaQuery } from '@beifahrer/core';
+import {
+  downloadFilename,
+  metaMatches,
+  queryMatches,
+  resolveDownloadTarget,
+  type ElementQuery,
+  type MetaQuery,
+} from '@beifahrer/core';
 import { afterRepaint, hideNow, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
@@ -434,12 +441,87 @@ function click(ref: string): PageResponse {
  * The pill says what is happening: reading for read/outline/find/meta/wait, editing for
  * describe/fill/click.
  */
+/**
+ * A document the page links to, fetched in the page's own session.
+ *
+ * Bounded by what the tab already is: same origin only. A download is the one place where a
+ * string the agent supplied turns into a request, so it may not reach anywhere the person did
+ * not already browse to. The bytes travel back over the loopback bridge; nothing is written to
+ * disk here, so the person's download folder stays theirs and no file appears they did not ask
+ * for.
+ *
+ * Reading only: no click, no form, no confirmation — fetching a document must never be a way to
+ * act on the account it came from.
+ */
+async function download(
+  ref: string | undefined,
+  url: string | undefined,
+  maxBytes: number,
+): Promise<PageResponse> {
+  let target: string | undefined;
+  if (ref) {
+    const el = byRef(ref);
+    if (!el) return notFound(ref);
+    const href = (el as HTMLAnchorElement).href;
+    if (!href) return { ok: false, code: 'invalid', message: `${ref} is not a link` };
+    target = href;
+  } else {
+    target = url;
+  }
+
+  // Where it may reach is decided in core, so the bound is testable without a browser.
+  const resolved = resolveDownloadTarget(target, location.href);
+  if (!resolved.ok) return { ok: false, code: 'invalid', message: resolved.message };
+
+  let res: Response;
+  try {
+    res = await fetch(resolved.url, { credentials: 'include', redirect: 'follow' });
+  } catch (err) {
+    return { ok: false, code: 'failed', message: `the page could not fetch it: ${(err as Error).message}` };
+  }
+  if (!res.ok) return { ok: false, code: 'failed', message: `the site answered ${res.status}` };
+
+  // Content-Length is a hint, not a promise: it may be absent, and on a chunked answer it lies.
+  // It is checked first so an oversized file is refused before it is in memory, and the measured
+  // size decides afterwards.
+  const declared = Number(res.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    return { ok: false, code: 'invalid', message: `${declared} bytes, over the ${maxBytes} limit` };
+  }
+  const buf = new Uint8Array(await res.arrayBuffer());
+  if (buf.byteLength > maxBytes) {
+    return { ok: false, code: 'invalid', message: `${buf.byteLength} bytes, over the ${maxBytes} limit` };
+  }
+
+  return {
+    ok: true,
+    data: {
+      url: resolved.url,
+      filename: downloadFilename(res.headers.get('content-disposition'), resolved.url),
+      mime: (res.headers.get('content-type') ?? 'application/octet-stream').split(';')[0].trim(),
+      size: buf.byteLength,
+      base64: toBase64(buf),
+    },
+  };
+}
+
+/** `String.fromCharCode(...bytes)` blows the stack on a real document, so it goes in chunks. */
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
 const VERB: Partial<Record<PageRequest['beifahrer'], 'reading' | 'editing'>> = {
   read: 'reading',
   outline: 'reading',
   find: 'reading',
   meta: 'reading',
   wait: 'reading',
+  download: 'reading',
   describe: 'editing',
   fill: 'editing',
   click: 'editing',
@@ -461,6 +543,8 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
       return read(req.maxChars);
     case 'outline':
       return outline(req.maxItems);
+    case 'download':
+      return download(req.ref, req.url, req.maxBytes);
     case 'describe': {
       const el = byRef(req.ref);
       if (!el) return notFound(req.ref);

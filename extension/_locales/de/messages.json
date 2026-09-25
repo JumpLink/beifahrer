@@ -173,6 +173,9 @@
   "method_page_read": {
     "message": "Seite gelesen"
   },
+  "method_page_download": {
+    "message": "Ein Dokument geladen"
+  },
   "method_page_outline": {
     "message": "Seite gegliedert"
   },
@@ -244,6 +247,9 @@
   },
   "feature_read_label": {
     "message": "Seiten lesen"
+  },
+  "feature_download_label": {
+    "message": "Dokumente laden"
   },
   "feature_outline_label": {
     "message": "Elemente finden"

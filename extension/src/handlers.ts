@@ -245,6 +245,24 @@ const handlers: { [M in Method]: Handler<M> } = {
     return (await page(tabId, ctx, { beifahrer: 'read', maxChars })) as unknown as Result<'page.read'>;
   },
 
+  async 'page.download'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const tab = await getTab(tabId);
+    await gate('page.download', tab.url, policy, ctx);
+    const raw = params as unknown as Record<string, unknown>;
+    const ref = typeof raw.ref === 'string' ? raw.ref : undefined;
+    const url = typeof raw.url === 'string' ? raw.url : undefined;
+    // 10 MB covers a scanned letter or a statement; the ceiling keeps one document from filling
+    // the bridge. The page checks it again against the bytes it actually got.
+    const maxBytes = Math.min(Math.max(Number(raw.maxBytes) || 10_000_000, 1_000), 25_000_000);
+    return (await page(tabId, ctx, {
+      beifahrer: 'download',
+      ref,
+      url,
+      maxBytes,
+    })) as unknown as Result<'page.download'>;
+  },
+
   async 'page.outline'(params, policy, ctx) {
     const tabId = tabIdOf(params);
     const tab = await getTab(tabId);
