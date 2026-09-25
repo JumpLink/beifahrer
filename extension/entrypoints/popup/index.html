@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>beifahrer</title>
+    <link rel="stylesheet" href="../../src/ui/style.css" />
+    <style>body { width: 320px; }</style>
+  </head>
+  <body>
+    <h1>beifahrer</h1>
+    <p id="status" class="muted">…</p>
+    <h2>This site</h2>
+    <p id="site" class="mono">…</p>
+    <div class="levels" role="group" aria-label="What the agent may do on this site">
+      <button data-level="none" aria-pressed="false">Nothing</button>
+      <button data-level="read" aria-pressed="false">Read</button>
+      <button data-level="write" aria-pressed="false">Read + edit</button>
+    </div>
+    <label class="row" id="confirm-row" hidden>
+      <input type="checkbox" id="confirm" /> Ask me before every change
+    </label>
+    <p id="hint" class="muted"></p>
+    <p><a href="#" id="options">Pairing and all sites…</a></p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

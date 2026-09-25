@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>beifahrer — allow this change?</title>
+    <link rel="stylesheet" href="../../src/ui/style.css" />
+  </head>
+  <body>
+    <h1>Your agent wants to change a page</h1>
+    <p>On <strong class="mono" id="origin">…</strong></p>
+    <p id="what">…</p>
+    <pre class="preview" id="text" hidden></pre>
+    <label class="row"><input type="checkbox" id="remember" /> Don’t ask again on this site</label>
+    <p class="muted">No answer in two minutes counts as no.</p>
+    <div class="actions">
+      <button class="btn" id="deny">Don’t allow</button>
+      <button class="btn primary" id="allow">Allow</button>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

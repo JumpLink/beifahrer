@@ -1,0 +1,144 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1d1d1f;
+  --muted: #6e6e73;
+  --line: #d9d9de;
+  --accent: #1c71d8;
+  --accent-fg: #ffffff;
+  --warn: #c64600;
+  --ok: #26a269;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #242424;
+    --fg: #f2f2f2;
+    --muted: #a0a0a8;
+    --line: #3d3d42;
+    --accent: #78aeed;
+    --accent-fg: #0b1b2e;
+    --warn: #ffa348;
+    --ok: #8ff0a4;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--bg);
+  color: var(--fg);
+  font:
+    14px/1.45 system-ui,
+    sans-serif;
+}
+h1 {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+h2 {
+  font-size: 13px;
+  margin: 16px 0 6px;
+  color: var(--muted);
+  font-weight: 600;
+}
+p {
+  margin: 6px 0;
+}
+.muted {
+  color: var(--muted);
+}
+.warn {
+  color: var(--warn);
+}
+.ok {
+  color: var(--ok);
+}
+code,
+.mono {
+  font-family: ui-monospace, monospace;
+  font-size: 12.5px;
+  word-break: break-all;
+}
+.levels {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.levels button {
+  flex: 1;
+  padding: 7px 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.levels button + button {
+  border-left: 1px solid var(--line);
+}
+.levels button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+label.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+input[type='text'],
+input[type='number'],
+select {
+  font: inherit;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 7px;
+}
+input[type='text'] {
+  width: 100%;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+.btn {
+  font: inherit;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+}
+.btn.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+td {
+  padding: 5px 4px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+pre.preview {
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  margin: 6px 0;
+}
