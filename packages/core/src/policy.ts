@@ -348,6 +348,19 @@ export interface HeldHosts {
  * the grant it was requested for. A site the stored policy allows keeps its access, and so does a
  * site whose browser pattern (`patternOf`, per host) is still needed by another origin.
  * `grants` must already be pruned of ended sessions (`pruneGrants`).
+ *
+ * The wildcard is held back while ANY site is `needed`, not only its own origins: measured in
+ * Chromium (154.0.8037.0, Playwright's build, 2026-09-25), removing WILDCARD_PATTERNS (settings.ts)
+ * does not remove those two patterns by identity, it removes every held pattern they cover —
+ * including a site's own, separately-requested pattern, granted before the wildcard ever existed.
+ * Firefox removes exactly the listed patterns (already established when ADR 0010 was written), so
+ * this only bites Chromium.
+ * `decide` (the actual gate) already stops honouring an ended wildcard the moment it ends, with or
+ * without this; what this avoids is silently taking the browser's own host permission for a site
+ * the policy still allows down with it. The trade a held wildcard makes instead: the raw browser
+ * permission for "all sites" can outlive the grant a little longer than the popup's timer
+ * suggests, until the last site that needs it stops needing it (a policy change re-checks this,
+ * grants.ts).
  */
 export function hostsToRelease(
   held: HeldHosts,
@@ -362,7 +375,7 @@ export function hostsToRelease(
     if (rule.level !== 'none') needed.add(patternOf(origin));
   for (const g of live) if (g.scope !== '*') needed.add(patternOf(g.scope));
   return {
-    wildcard: held.wildcard && wildcardGrant(live, now) === null,
+    wildcard: held.wildcard && wildcardGrant(live, now) === null && needed.size === 0,
     origins: held.origins.filter((o) => !needed.has(patternOf(o))),
   };
 }

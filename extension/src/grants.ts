@@ -138,6 +138,10 @@ async function settleNow(): Promise<void> {
   await storeGrants(grants);
   const [{ policy }, held] = await Promise.all([loadSettings(), loadHeld()]);
   const release = hostsToRelease(held, policy, grants, now, originPattern);
+  // hostsToRelease holds `wildcard` back while any site is `needed` (see its doc comment in
+  // policy.ts): in Chromium this remove() does not act on WILDCARD_PATTERNS by identity, it
+  // revokes every host permission those two patterns cover, including a site's own that was
+  // requested separately. Calling it anyway once nothing needs it is what still ends the grant.
   if (release.wildcard) await browser.permissions.remove({ origins: WILDCARD_PATTERNS }).catch(() => false);
   if (release.origins.length > 0) {
     await browser.permissions

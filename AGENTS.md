@@ -135,6 +135,14 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   by `permissions.contains` and then refuses `executeScript` with "Missing host permission for the
   tab". Grants are therefore per host (`originPattern()`), and the policy, which compares exact
   origins including the port, stays the gate.
+- **Chromium's `permissions.remove` subtracts by URL-pattern coverage, not by identity.** Removing
+  `http://*/*` + `https://*/*` (ADR 0010's "all sites" grant) also strips any narrower host
+  permission those patterns cover — a site's own, requested long before any wildcard grant existed
+  — whether or not the wildcard was ever actually granted. `hostsToRelease` (policy.ts) holds the
+  wildcard back while any site is still `needed`, rather than release it and rely on the missing-
+  grant prompt to win it back; measured with a throwaway probe extension, since `permissions.request`
+  never resolves headless with nobody to click the browser's own bubble (had to seed the profile's
+  stored extension permissions directly). Firefox removes exactly the listed patterns.
 - **Firefox will not let an extension's synthetic paste carry data.** The page's listener receives
   the event, but `getData()` returns '' for data an extension set. This is deliberate principal
   isolation, not a bug to fix. Rich-text filling therefore uses paste in Chromium and

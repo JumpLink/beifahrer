@@ -79,9 +79,22 @@ bridge that claimed another session's id would borrow its grants.
   not let `window_create` or `sessions_define` open a URL).
 - Setting a site to *None* now leaves a row in the options' site list (Blocked). *Remove* is the
   old "back to the default".
-- **Unmeasured:** whether Chromium's `permissions.remove` of `https://*/*` also removes the
-  narrower per-site patterns it contains. If it does, a site with a level loses its browser grant
-  when "all sites" ends; the next call to it then prompts (the missing-grant case of B), and any
-  yes restores it. Firefox removes exactly the listed patterns.
+- **Measured** (Chrome for Testing 154.0.8037.0, Playwright's Chromium build, 2026-09-25, with a
+  throwaway probe extension — `permissions.request` never resolves headless with nobody to click
+  the browser's own bubble, so the granted state had to be seeded into the profile's stored
+  extension permissions directly): yes, `permissions.remove` of `http://*/*` + `https://*/*` also
+  removes any narrower host permission those two patterns cover, and it does so whether or not the
+  wildcard itself was ever actually granted — Chromium subtracts by URL-pattern coverage, not by
+  matching the removed patterns' own identity. A site's own permission, requested long before any
+  "all sites" grant existed, goes with it all the same. Firefox removes exactly the listed
+  patterns. `hostsToRelease` (policy.ts) now holds the wildcard back from `permissions.remove`
+  while the stored policy or a live grant still needs any site, so ending "all sites" no longer
+  takes a site's own browser permission down with it; the trade is that the raw browser permission
+  for "all sites" can then outlive the popup's own timer a little, until the last site that needs
+  it stops needing it — `decide` (the actual gate) already stops honouring the ended grant the
+  moment it ends, regardless of what the browser still holds. If a site's browser grant is ever
+  lost anyway (the wildcard released while nothing was thought to need it, the person having since
+  revoked it by hand in the browser's own settings, …), the missing-grant case of B still recovers
+  it with one prompt.
 - The e2e cannot click the browser's permission prompt or the confirm window; it seeds grants and
   answers prompts through E2E-only hooks, like Disconnect.
