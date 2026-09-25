@@ -40,7 +40,7 @@ const PROBE = `JSON.stringify({
   accent: getComputedStyle(document.documentElement).getPropertyValue('--accent-bg-color').trim(),
   // The copy's house style, as the person sees it (scripts/locales.ts checks the catalogue).
   copy: !/[\u2013\u2014!\u201C\u201D\u201E]/.test(document.body.innerText),
-  words: document.body.innerText.split(/\s+/).filter(Boolean).length,
+  words: document.body.innerText.split(/\\s+/).filter(Boolean).length,
 })`;
 
 function rpc(url) {
