@@ -203,6 +203,18 @@ Then open a site, click the beifahrer toolbar button, and pick a level.
 | Manifest | MV3 | MV2 | MV2 |
 | Status | ✅ | ✅ | ⏸ blocked upstream: [measured](docs/adr/0001-a-browser-extension-not-a-driven-browser.md#3-engine-support-is-measured-not-claimed) |
 
+### Without an MCP client
+
+`beifahrer tool` runs any MCP tool from the command line, through the same server and the same
+gates, joining the shared hub as a peer. That helps in a session that started before beifahrer was
+registered, and it also works from scripts:
+
+```sh
+gjsify run app/dist/beifahrer.gjs.mjs tool --list
+gjsify run app/dist/beifahrer.gjs.mjs tool tabs_list
+gjsify run app/dist/beifahrer.gjs.mjs tool --allow-write recipe_run '{"tabId": 78, "id": "openproject/add-comment", "params": {"text": "…"}}'
+```
+
 ## Development
 
 ```sh

@@ -2,6 +2,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
 import { callCommand, mcpCommand, serveCommand, tokenCommand } from './frontends/cli/commands.ts';
+import { toolCommand } from './frontends/cli/tool.ts';
 import { VERSION } from './version.ts';
 
 function reportError(err: unknown): void {
@@ -15,6 +16,7 @@ const parseArgs = () =>
     .command(tokenCommand)
     .command(serveCommand)
     .command(callCommand)
+    .command(toolCommand)
     .demandCommand(1, 'Name a command — `beifahrer --help` lists them.')
     // Unknown commands must fail: on GJS an unmatched command would leave the main loop running.
     .strictCommands()
