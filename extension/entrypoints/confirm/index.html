@@ -2,24 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>beifahrer — allow this change?</title>
+    <meta name="color-scheme" content="light dark" />
+    <title data-i18n="confirm_window_title">beifahrer — allow this change?</title>
     <link rel="stylesheet" href="../../src/ui/style.css" />
   </head>
-  <body>
-    <h1 id="heading">Your agent wants to change a page</h1>
-    <p id="where">On <strong class="mono" id="origin">…</strong></p>
-    <p id="what">…</p>
-    <pre class="preview" id="text" hidden></pre>
-    <ul class="preview" id="items" hidden></ul>
-    <label class="row"
-      ><input type="checkbox" id="remember" />
-      <span id="remember-label">Don’t ask again on this site</span></label
-    >
-    <p class="muted">No answer in two minutes counts as no.</p>
-    <div class="actions">
-      <button class="btn" id="deny">Don’t allow</button>
-      <button class="btn primary" id="allow">Allow</button>
-    </div>
+  <body class="adw-root confirm">
+    <main id="ask" class="page">
+      <h1 id="heading" class="title-2" data-i18n="confirm_heading_change"></h1>
+      <adw-preferences-group id="where-group">
+        <adw-action-row id="where" class="property" data-i18n-title="confirm_site"></adw-action-row>
+      </adw-preferences-group>
+      <p id="what" class="note"></p>
+      <pre class="preview card monospace" id="text" hidden></pre>
+      <ul class="preview card" id="items" hidden></ul>
+      <adw-preferences-group>
+        <adw-switch-row id="remember" data-i18n-title="confirm_remember_site"></adw-switch-row>
+      </adw-preferences-group>
+      <p class="note caption dimmed" data-i18n="confirm_timeout"></p>
+      <div class="actions">
+        <gtk-button id="deny" data-i18n-label="confirm_deny"></gtk-button>
+        <gtk-button id="allow" suggested data-i18n-label="confirm_allow"></gtk-button>
+      </div>
+    </main>
+    <adw-status-page
+      id="gone"
+      data-i18n-title="confirm_gone"
+      data-i18n-description="confirm_gone_description"
+      hidden
+    ></adw-status-page>
+    <script src="../../src/ui/kit.ts"></script>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

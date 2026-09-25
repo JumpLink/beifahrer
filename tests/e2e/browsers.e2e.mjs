@@ -40,6 +40,7 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { WebSocketServer } from 'ws';
+import { chromiumPages, firefoxPages } from './ui-pages.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 /** Every port of a run is derived from this, so a parallel run can pick another base. */
@@ -48,6 +49,8 @@ const FIXTURE_PORT = PORT_BASE + 1;
 /** The range the e2e bridges bind and the test browsers probe: far from the person's 47813–47822. */
 const RANGE = { base: PORT_BASE + 10, count: 10 };
 const DEVTOOLS_PORT = PORT_BASE + 3;
+/** Firefox's WebDriver BiDi, for the extension-page smoke (ui-pages.mjs). */
+const BIDI_PORT = PORT_BASE + 4;
 const ALLOWED = `http://127.0.0.1:${FIXTURE_PORT}`;
 const FORBIDDEN = `http://localhost:${FIXTURE_PORT}`;
 const TOKEN = `e2e-${Math.random().toString(36).slice(2)}`;
@@ -266,6 +269,8 @@ function launch(browser, profile) {
       '--no-reload',
       '--no-input',
       '--arg=-headless',
+      `--arg=--remote-debugging-port=${BIDI_PORT}`,
+      '--arg=-remote-allow-system-access',
       '--start-url',
       url,
       '--start-url',
@@ -935,6 +940,10 @@ async function scenario(browser, gate) {
           r.text,
         );
       }
+      // The extension's own pages, once per browser: they do not depend on the build's switches.
+      if (browser === 'chromium')
+        await chromiumPages(check, DEVTOOLS_PORT, process.env.BEIFAHRER_E2E_SCREENSHOTS);
+      else await firefoxPages(check, BIDI_PORT);
       return;
     }
     check(

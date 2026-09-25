@@ -12,6 +12,7 @@
  */
 
 import { browser } from '@wxt-dev/browser';
+import { t } from './i18n.ts';
 import { STOP_MESSAGE } from './page-messages.ts';
 
 export const HOST_TAG = 'beifahrer-indicator';
@@ -53,13 +54,13 @@ function build(): HTMLElement {
   label.className = 'label';
   const stop = document.createElement('button');
   stop.type = 'button';
-  stop.textContent = 'Stop';
-  stop.title = 'Pause beifahrer: the agent gets nothing from this browser until you resume it in the toolbar';
+  stop.textContent = t('pill_stop');
+  stop.title = t('pill_stop_tooltip');
   stop.addEventListener('click', (event) => {
     // A click the page synthesised cannot reach a closed shadow root, and would only pause anyway.
     if (!event.isTrusted) return;
     void browser.runtime.sendMessage({ type: STOP_MESSAGE });
-    if (label) label.textContent = 'beifahrer paused';
+    if (label) label.textContent = t('pill_paused');
     stop.remove();
     schedule();
   });
@@ -79,7 +80,10 @@ export function show(verb: 'reading' | 'editing', session?: string): void {
     host = build();
     document.documentElement.append(host);
   }
-  if (label) label.textContent = session ? `beifahrer (${session}) is ${verb}` : `beifahrer is ${verb}`;
+  if (label)
+    label.textContent = session
+      ? t(verb === 'reading' ? 'pill_reading_session' : 'pill_editing_session', session)
+      : t(verb === 'reading' ? 'pill_reading' : 'pill_editing');
   schedule();
 }
 

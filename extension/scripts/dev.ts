@@ -28,7 +28,7 @@ const OUT_DIR = '.output-dev';
 const PORT = Number(process.env.BEIFAHRER_DEV_PORT) || 47830;
 const chromium = process.argv.includes('--chromium');
 const headless = process.argv.includes('--headless');
-const WATCH = ['entrypoints', 'src', 'icons', 'manifest.ts', '../packages/core/src'].map((p) =>
+const WATCH = ['entrypoints', 'src', 'icons', '_locales', 'manifest.ts', '../packages/core/src'].map((p) =>
   join(ROOT, p),
 );
 
