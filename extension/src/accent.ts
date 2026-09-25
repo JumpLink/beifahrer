@@ -13,11 +13,18 @@ import { chooseAccent, parseDesktop, type AccentChoice } from '@beifahrer/core';
 
 export const ACCENT_KEY = 'desktopAccent';
 
-/** Background: a bridge said what the desktop's accent is. Unknown values change nothing. */
+/**
+ * Background: a bridge said what the desktop's accent is — or, by saying none, that it has none.
+ * Then the remembered one is forgotten, so a value a bridge once got wrong (GSettings' schema
+ * default outside GNOME, bridge desktop.ts) cannot pin the pages to it for good.
+ */
 export async function rememberDesktop(raw: unknown): Promise<void> {
   const { accent } = parseDesktop(raw);
-  if (!accent) return;
   const stored = await browser.storage.local.get(ACCENT_KEY);
+  if (!accent) {
+    if (stored[ACCENT_KEY] !== undefined) await browser.storage.local.remove(ACCENT_KEY);
+    return;
+  }
   if (stored[ACCENT_KEY] !== accent) await browser.storage.local.set({ [ACCENT_KEY]: accent });
 }
 

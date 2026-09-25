@@ -148,7 +148,7 @@ function probe(port: number): void {
         port,
         setInterval(() => send(ws, { type: 'ping' }), PING_MS),
       );
-      if (welcome.desktop) void rememberDesktop(welcome.desktop);
+      void rememberDesktop(welcome.desktop);
       changed();
     } else if (frame.type === 'request') {
       void serve(ws, port, frame.id, frame.method, frame.params);

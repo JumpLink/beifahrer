@@ -59,13 +59,28 @@ export function fixedAccentSource(value: string): AccentSource {
 }
 
 /**
+ * Whether this process runs in a GNOME session, read from `XDG_CURRENT_DESKTOP` (a colon list:
+ * `GNOME`, `ubuntu:GNOME`, `GNOME-Classic:GNOME`).
+ *
+ * Having the schema is not enough. Homebrew installs `gsettings-desktop-schemas` on macOS, and KDE
+ * or Xfce hosts carry it too, so GSettings answers there with the schema's DEFAULT, `'blue'`, not
+ * a setting anybody made. Measured on macOS 27 with the system accent set to purple: `gsettings get
+ * org.gnome.desktop.interface accent-color` said `'blue'`, the bridge sent it, and the extension
+ * painted blue over Firefox's `AccentColor`, which was purple.
+ */
+export function isGnomeSession(env: Record<string, string | undefined>): boolean {
+  return (env.XDG_CURRENT_DESKTOP ?? '').split(':').some((d) => /^GNOME/i.test(d.trim()));
+}
+
+/**
  * This process's source. `BEIFAHRER_DESKTOP_ACCENT` is a TEST-ONLY override (the e2e sets it so
- * that its result does not depend on the machine's desktop); otherwise GSettings, where there is one.
+ * that its result does not depend on the machine's desktop); otherwise GSettings, in a GNOME session.
+ * Everywhere else there is none, and the extension follows the browser's `AccentColor`.
  */
 export function desktopSource(env: Record<string, string | undefined> = process.env): AccentSource | null {
   const forced = env.BEIFAHRER_DESKTOP_ACCENT;
   if (forced) return fixedAccentSource(forced);
-  return gnomeAccentSource();
+  return isGnomeSession(env) ? gnomeAccentSource() : null;
 }
 
 export function readDesktop(source: AccentSource | null): DesktopInfo {

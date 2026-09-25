@@ -3,7 +3,13 @@ import { WebSocket } from 'ws';
 import { PROTOCOL_VERSION, type DesktopInfo } from '@beifahrer/core';
 
 import { Bridge } from '../../../src/bridge/bridge.ts';
-import { desktopSource, followDesktop, readDesktop, type AccentSource } from '../../../src/bridge/desktop.ts';
+import {
+  desktopSource,
+  followDesktop,
+  isGnomeSession,
+  readDesktop,
+  type AccentSource,
+} from '../../../src/bridge/desktop.ts';
 
 const TOKEN = 'test-token-desktop';
 const EXT = 'moz-extension://0e1f2a3b-4c5d-6e7f-8091-a2b3c4d5e6f7';
@@ -85,6 +91,18 @@ export default async () => {
     await it('BEIFAHRER_DESKTOP_ACCENT overrides the desktop (test-only)', async () => {
       expect(readDesktop(desktopSource({ BEIFAHRER_DESKTOP_ACCENT: 'green' })).accent).toBe('green');
       expect(readDesktop(desktopSource({ BEIFAHRER_DESKTOP_ACCENT: 'lime' })).accent).toBeUndefined();
+    });
+
+    await it('reads GSettings in a GNOME session only, never a schema default elsewhere', async () => {
+      for (const d of ['GNOME', 'ubuntu:GNOME', 'GNOME-Classic:GNOME', 'gnome']) {
+        expect(isGnomeSession({ XDG_CURRENT_DESKTOP: d })).toBe(true);
+      }
+      for (const d of [undefined, '', 'KDE', 'XFCE', 'X-Cinnamon', 'Unity']) {
+        expect(isGnomeSession({ XDG_CURRENT_DESKTOP: d })).toBe(false);
+      }
+      // macOS and Windows set no XDG_CURRENT_DESKTOP: no source, whatever GSettings would answer.
+      expect(desktopSource({})).toBe(null);
+      expect(desktopSource({ XDG_CURRENT_DESKTOP: 'KDE' })).toBe(null);
     });
 
     await it('followDesktop pushes now, on every change, and stops when unsubscribed', async () => {
