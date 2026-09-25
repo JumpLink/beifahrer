@@ -109,7 +109,9 @@ const localeErrors = checkLocales(ROOT, {
 });
 if (localeErrors.length) throw new Error(`_locales is inconsistent:\n  ${localeErrors.join('\n  ')}`);
 
-if (!inPlace) rmSync(OUT, { recursive: true, force: true });
+// Nothing the browser loads is touched before every bundle has built: a failed build must leave
+// the last good extension in place (a browser reloading an empty folder shows only a
+// file-not-found). Each target folder is replaced below, once the stage is complete.
 rmSync(STAGE, { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
 for (const [name, entry] of Object.entries(SCRIPTS)) bundle(name, entry);
@@ -118,6 +120,7 @@ renderIcons(ROOT, ICON_STAGE);
 
 for (const target of TARGETS) {
   const dir = join(OUT, target);
+  if (!inPlace) rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   cpSync(STAGE, dir, { recursive: true });
   copyIcons(ICON_STAGE, dir, target);
