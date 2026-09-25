@@ -8,32 +8,29 @@
  *   extension → bridge   response       { id, ok, result | error }
  *   extension → bridge   ping           keep-alive; a Chromium MV3 service worker sleeps without it
  *   bridge → extension   pong
+ *   bridge → extension   session        { label } — the session's name changed (the MCP client
+ *                                        introduced itself after the extension connected)
  *
  * Only methods named in `REQUIRED_LEVEL` (policy.ts) exist. There is deliberately no "evaluate
  * this JavaScript" method: it would make the per-origin levels meaningless.
  *
- * The same socket also admits AGENT PEERS: other `beifahrer mcp` processes on this machine that
- * found the port taken and relay their calls through the process that owns it, the hub
- * (ADR 0003). A peer sends no Origin (it is not a browser) and says `agent-hello`:
- *
- *   peer → hub   agent-hello     first frame, carries the same pairing token
- *   hub → peer   agent-welcome   or a close with one of the CLOSE codes
- *   peer → hub   agent-call      { id, method, params, browser? } — one call, routed like the hub's own
- *   peer → hub   agent-status    { id } — which browsers are connected, how many peers
- *   hub → peer   agent-reply     { id, ok, result | error } — the hub's answer, unchanged
+ * Every agent session runs its own bridge on its own port from a small range (ports.ts), and the
+ * extension keeps one socket per bridge (ADR 0007). A bridge never talks to another bridge.
  */
 
 import type { Feature } from './features.ts';
 import type { ElementQuery, MetaQuery } from './find.ts';
-import { isMethod, type Level, type Method } from './policy.ts';
+import type { Level, Method } from './policy.ts';
 import type { ClosedSummary, GroupColor, SessionSummary } from './sessions.ts';
 
 export const PROTOCOL_VERSION = 1;
 
-/** Default loopback port. Both sides let the person override it. */
-export const DEFAULT_PORT = 47813;
-
 export const CLOSE = {
+  /**
+   * The person disconnected this bridge instance in the popup (`Hello.dismissed`). The bridge
+   * refuses before it registers the connection, so no call of that session can reach the browser.
+   */
+  dismissed: 4403,
   /** Token missing or wrong. The extension shows "not paired" and stops retrying. */
   unauthorized: 4401,
   /** Protocol version mismatch. The extension shows which side is too old. */
@@ -52,6 +49,11 @@ export interface Hello {
   extension: { version: string; manifestVersion: 2 | 3 };
   /** Methods this browser can actually serve — e.g. no `page.screenshot` on Epiphany. */
   capabilities: Method[];
+  /**
+   * The `AgentSession.instance` the person disconnected on this port, if any. A bridge that IS
+   * that instance closes with `CLOSE.dismissed` instead of welcoming; any other bridge ignores it.
+   */
+  dismissed?: string;
 }
 
 export interface Welcome {
@@ -60,6 +62,8 @@ export interface Welcome {
   bridge: { version: string };
   /** The connection's id, as the agent will see it in `browsers_list`. */
   connectionId: string;
+  /** Which agent session this bridge serves. Absent from bridges older than ADR 0007. */
+  session?: AgentSession;
 }
 
 export interface TabInfo {
@@ -200,7 +204,7 @@ export type Response =
   | { type: 'response'; id: number; ok: false; error: WireError };
 
 export type ExtensionFrame = Hello | Response | { type: 'ping' };
-export type BridgeFrame = Welcome | Request | { type: 'pong' };
+export type BridgeFrame = Welcome | Request | { type: 'pong' } | { type: 'session'; label: string };
 
 const FAMILIES: BrowserFamily[] = ['firefox', 'chromium', 'epiphany', 'unknown'];
 
@@ -215,45 +219,30 @@ export function parseHello(raw: unknown): Hello | string {
   const e = h.extension;
   if (!e || (e.manifestVersion !== 2 && e.manifestVersion !== 3)) return 'bad extension';
   if (!Array.isArray(h.capabilities)) return 'bad capabilities';
+  if (h.dismissed !== undefined && typeof h.dismissed !== 'string') return 'bad dismissed';
   return h as Hello;
 }
 
-// --- agent peers (ADR 0003) ------------------------------------------------------------------
+// --- agent sessions (ADR 0007) ---------------------------------------------------------------
 
-export interface AgentHello {
-  type: 'agent-hello';
-  protocol: number;
-  token: string;
-  agent: { version: string; pid: number };
+/**
+ * Which agent session a bridge serves, as the person sees it in the popup. Every agent session
+ * runs its own bridge on its own port, so this identifies the bridge too.
+ */
+export interface AgentSession {
+  /** "claude-code · werkstatt": the MCP client's name and the working directory's basename. */
+  label: string;
+  pid: number;
+  /**
+   * Random per bridge process. A person who disconnects a session dismisses THIS instance: a new
+   * bridge on the same port has another one and is welcome again.
+   */
+  instance: string;
+  /** ISO 8601. */
+  startedAt: string;
 }
 
-export interface AgentWelcome {
-  type: 'agent-welcome';
-  protocol: number;
-  bridge: { version: string; pid: number };
-  peerId: string;
-}
-
-export interface AgentCall<M extends Method = Method> {
-  type: 'agent-call';
-  id: number;
-  method: M;
-  params: Params<M>;
-  browser?: string;
-}
-
-export interface AgentStatusRequest {
-  type: 'agent-status';
-  id: number;
-}
-
-export type AgentRequest = AgentCall | AgentStatusRequest;
-
-export type AgentReply =
-  | { type: 'agent-reply'; id: number; ok: true; result: unknown }
-  | { type: 'agent-reply'; id: number; ok: false; error: WireError };
-
-/** A connected browser as the agent sees it. The extension's token never leaves the hub. */
+/** A connected browser as the agent sees it. The extension's token never leaves the bridge. */
 export interface ConnectedBrowser {
   id: string;
   browser: Hello['browser'];
@@ -263,89 +252,84 @@ export interface ConnectedBrowser {
   connectedAt: string;
 }
 
-/** The answer to `agent-status`, and what `browsers_list` is built from. */
-export interface HubStatus {
+/** What one bridge reports about itself and its browsers: what `browsers_list` is built from. */
+export interface BridgeStatus {
   port: number;
-  hub: { pid: number; version: string; peers: number };
+  version: string;
+  session: AgentSession;
   browsers: ConnectedBrowser[];
 }
 
-/**
- * Classify the first frame on a new connection. Which role it may take is NOT decided here: the
- * hub checks the role against the handshake's Origin (`roleAllowed`).
- */
-export function parseFirstFrame(
-  raw: unknown,
-): { role: 'extension'; hello: Hello } | { role: 'agent'; hello: AgentHello } | string {
-  if ((raw as { type?: unknown } | null)?.type === 'agent-hello') {
-    const hello = parseAgentHello(raw);
-    return typeof hello === 'string' ? hello : { role: 'agent', hello };
-  }
-  const hello = parseHello(raw);
-  return typeof hello === 'string' ? hello : { role: 'extension', hello };
-}
+export const SESSION_LABEL_MAX = 80;
 
-export function parseAgentHello(raw: unknown): AgentHello | string {
-  const h = raw as Partial<AgentHello> | null;
-  if (!h || h.type !== 'agent-hello') return 'first frame must be agent-hello';
-  if (h.protocol !== PROTOCOL_VERSION) return `protocol ${String(h.protocol)} ≠ ${PROTOCOL_VERSION}`;
-  if (typeof h.token !== 'string' || h.token.length === 0) return 'missing token';
-  const a = h.agent;
-  if (!a || typeof a.version !== 'string' || typeof a.pid !== 'number') return 'bad agent';
-  return h as AgentHello;
-}
-
-export function parseAgentWelcome(raw: unknown): AgentWelcome | null {
-  const w = raw as Partial<AgentWelcome> | null;
-  if (!w || w.type !== 'agent-welcome' || w.protocol !== PROTOCOL_VERSION) return null;
-  if (typeof w.peerId !== 'string' || !w.bridge || typeof w.bridge.pid !== 'number') return null;
-  return w as AgentWelcome;
+/** C0/C1 controls, DEL and the bidi marks and overrides: one session could pose as another. */
+function isUnsafe(cp: number): boolean {
+  return (
+    cp < 0x20 ||
+    (cp >= 0x7f && cp <= 0x9f) ||
+    cp === 0x200e ||
+    cp === 0x200f ||
+    (cp >= 0x202a && cp <= 0x202e) ||
+    (cp >= 0x2066 && cp <= 0x2069)
+  );
 }
 
 /**
- * Validate a peer's request. Fail closed like everything else: a method that is not in
- * `REQUIRED_LEVEL` is not relayed, whatever the peer claims.
+ * A label fit to show in the browser: printable, one line, capped. The bridge is the agent's side,
+ * so the extension treats its label as untrusted text (and renders it as text, never markup).
+ * Null when nothing printable is left.
  */
-export function parseAgentRequest(raw: unknown): AgentRequest | null {
-  const r = raw as (Omit<Partial<AgentCall>, 'type'> & { type?: string }) | null;
-  if (!r || typeof r.id !== 'number' || !Number.isInteger(r.id)) return null;
-  if (r.type === 'agent-status') return { type: 'agent-status', id: r.id };
-  if (r.type !== 'agent-call' || !isMethod(r.method)) return null;
-  if (!r.params || typeof r.params !== 'object' || Array.isArray(r.params)) return null;
-  if (r.browser !== undefined && typeof r.browser !== 'string') return null;
-  return { type: 'agent-call', id: r.id, method: r.method, params: r.params, browser: r.browser };
-}
-
-export function parseAgentReply(raw: unknown): AgentReply | null {
-  const r = raw as Partial<AgentReply> | null;
-  if (!r || r.type !== 'agent-reply' || typeof r.id !== 'number') return null;
-  if (r.ok === true) return r as AgentReply;
-  if (r.ok === false) {
-    const err = (r as { error?: Partial<WireError> }).error;
-    if (err && typeof err.code === 'string' && typeof err.message === 'string') return r as AgentReply;
-  }
-  return null;
+export function cleanSessionLabel(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const flat = Array.from(raw, (ch) => (isUnsafe(ch.codePointAt(0)!) ? ' ' : ch))
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!flat) return null;
+  return flat.length > SESSION_LABEL_MAX ? `${flat.slice(0, SESSION_LABEL_MAX - 1)}…` : flat;
 }
 
 /**
- * Which origin a handshake carried, reduced to what admission needs:
- * - `extension`: an extension origin — may only become an extension connection;
- * - `none`: no Origin header at all — a local process, may only become an agent peer;
- * - `page`: anything else, above all a web page. Refused in the handshake already.
- *
- * Browsers always send an Origin on a WebSocket handshake, so a web page can never arrive as
- * `none`, and therefore never as an agent.
+ * The default label: who is asking (the MCP client's name, or the command) and where (the
+ * basename of the working directory), e.g. "claude-code · werkstatt".
  */
-export type OriginKind = 'extension' | 'none' | 'page';
-
-export function originKind(origin: string | undefined | null): OriginKind {
-  if (origin === undefined || origin === null || origin === '') return 'none';
-  return isExtensionOrigin(origin) ? 'extension' : 'page';
+export function defaultSessionLabel(client: string, cwd: string): string {
+  const dir =
+    cwd
+      .replace(/[\\/]+$/, '')
+      .split(/[\\/]/)
+      .pop() ||
+    cwd ||
+    '/';
+  return cleanSessionLabel(`${client} · ${dir}`) ?? 'beifahrer';
 }
 
-/** The one rule tying the first frame to the handshake. Everything not listed is refused. */
-export function roleAllowed(kind: OriginKind, role: 'extension' | 'agent'): boolean {
-  return (kind === 'extension' && role === 'extension') || (kind === 'none' && role === 'agent');
+function parseAgentSession(raw: unknown): AgentSession | null {
+  const s = raw as Partial<AgentSession> | null;
+  if (!s || typeof s !== 'object') return null;
+  const label = cleanSessionLabel(s.label);
+  if (!label || typeof s.pid !== 'number' || typeof s.instance !== 'string' || !s.instance) return null;
+  if (typeof s.startedAt !== 'string') return null;
+  return { label, pid: s.pid, instance: s.instance.slice(0, 64), startedAt: s.startedAt };
+}
+
+/**
+ * Validate a welcome (extension side). A bridge from before ADR 0007 sends no `session`; it is
+ * accepted, and the extension shows it as an unnamed session.
+ */
+export function parseWelcome(raw: unknown): Welcome | null {
+  const w = raw as Partial<Welcome> | null;
+  if (!w || w.type !== 'welcome' || typeof w.connectionId !== 'string') return null;
+  if (!w.bridge || typeof w.bridge.version !== 'string') return null;
+  const session = w.session === undefined ? undefined : parseAgentSession(w.session);
+  if (session === null) return null;
+  return {
+    type: 'welcome',
+    protocol: typeof w.protocol === 'number' ? w.protocol : PROTOCOL_VERSION,
+    bridge: { version: w.bridge.version },
+    connectionId: w.connectionId,
+    ...(session ? { session } : {}),
+  };
 }
 
 /** The bridge listens on 127.0.0.1 only; this re-checks the peer address anyway. */

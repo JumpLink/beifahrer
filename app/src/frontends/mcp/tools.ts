@@ -11,8 +11,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import type { Method, Params, Result } from '@beifahrer/core';
 
-import { BridgeError, browserLabel } from '../../bridge/bridge.ts';
-import type { BrowserAccess } from '../../bridge/shared.ts';
+import { BridgeError, browserLabel, type BrowserAccess } from '../../bridge/bridge.ts';
 import { registerFindTools } from './find-tools.ts';
 import { registerRecipeTools, type RecipeToolOptions } from './recipe-tools.ts';
 import { registerTabTools } from './tab-tools.ts';
@@ -20,10 +19,21 @@ import { registerTabTools } from './tab-tools.ts';
 export type Call = <M extends Method>(method: M, params: Params<M>, browser?: string) => Promise<Result<M>>;
 
 export interface BridgeHandle {
-  /** Hub or peer (bridge/shared.ts) — the tools do not care which. */
+  /** This session's own bridge (ADR 0007); null while no port of the range was free. */
   bridge: BrowserAccess | null;
   /** Why there is no bridge — shown on every call. */
   unavailable?: string;
+  /** Try to bind again: another session may have freed a port since. */
+  retry?: () => Promise<void>;
+  /** Rename the session after the MCP client's name (a no-op when the person set a label). */
+  relabel?: (client: string) => void;
+}
+
+async function bridgeOf(handle: BridgeHandle): Promise<BrowserAccess> {
+  if (!handle.bridge) await handle.retry?.();
+  if (!handle.bridge)
+    throw new BridgeError({ code: 'failed', message: handle.unavailable ?? 'the bridge is not running' });
+  return handle.bridge;
 }
 
 export const browserParam = z
@@ -64,11 +74,8 @@ export function registerTools(
   handle: BridgeHandle,
   recipes: RecipeToolOptions = {},
 ): void {
-  const call: Call = async <M extends Method>(method: M, params: Params<M>, browser?: string) => {
-    if (!handle.bridge)
-      throw new BridgeError({ code: 'failed', message: handle.unavailable ?? 'the bridge is not running' });
-    return handle.bridge.call(method, params, browser);
-  };
+  const call: Call = async <M extends Method>(method: M, params: Params<M>, browser?: string) =>
+    (await bridgeOf(handle)).call(method, params, browser);
 
   server.registerTool(
     'browsers_list',
@@ -76,17 +83,14 @@ export function registerTools(
       title: 'Connected browsers',
       description:
         "Which of the person's browsers are connected to beifahrer right now (Firefox, Chromium-based, …), with version, manifest version and what each can do. Empty means: the extension is not installed, not paired, or the browser is closed. " +
-        'Also says whether this session owns the browser connection (role "hub") or relays through the session that does (role "peer"), and how many sessions share it.',
+        'Every agent session has its own direct connection: this lists the browsers connected to THIS session, its port and the label the person sees for it in the beifahrer popup. ' +
+        'Empty also when the person disconnected this session in the popup — then ask them; it stays disconnected until this session restarts.',
       inputSchema: {},
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async () => {
-      if (!handle.bridge)
-        return failure(
-          new BridgeError({ code: 'failed', message: handle.unavailable ?? 'the bridge is not running' }),
-        );
       try {
-        const status = await handle.bridge.status();
+        const status = (await bridgeOf(handle)).status();
         const browsers = status.browsers.map((b) => ({
           id: b.id,
           label: browserLabel(b),
@@ -98,10 +102,7 @@ export function registerTools(
         }));
         return text({
           port: status.port,
-          role: status.role,
-          pid: status.pid,
-          hub: { pid: status.hub.pid, version: status.hub.version, peers: status.hub.peers },
-          sessions: status.hub.peers + 1,
+          session: { label: status.session.label, pid: status.session.pid, version: status.version },
           browsers,
         });
       } catch (err) {

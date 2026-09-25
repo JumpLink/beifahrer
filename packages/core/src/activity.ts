@@ -4,6 +4,7 @@
  *
  * What a line holds, and what it never holds:
  * - the time, the method in words, the outcome (and for a refusal, why);
+ * - which agent session asked (its label, ADR 0007);
  * - the HOST of the tab or URL — never a path, query or title, whatever the site's level;
  * - for a fill, the first few characters the agent typed (its own text, capped). Never page text:
  *   nothing a page returned is ever logged.
@@ -54,6 +55,8 @@ export interface ActivityEntry {
   reason?: string;
   /** For a fill: the start of the agent's text, capped at PREVIEW_CHARS. */
   preview?: string;
+  /** The label of the agent session that sent the request. */
+  session?: string;
 }
 
 const REFUSALS = new Set(['paused', 'feature_disabled', 'forbidden', 'denied']);
@@ -65,6 +68,7 @@ export function activityEntry(input: {
   /** The URL of the tab the method touched, or the URL it opened. Reduced to its host here. */
   url?: string | null;
   error?: { code: string } | null;
+  session?: string;
 }): ActivityEntry {
   const entry: ActivityEntry = {
     at: input.at,
@@ -74,6 +78,7 @@ export function activityEntry(input: {
     outcome: !input.error ? 'ok' : REFUSALS.has(input.error.code) ? 'refused' : 'failed',
   };
   if (input.error) entry.reason = input.error.code;
+  if (input.session) entry.session = input.session;
   const text = (input.params as { text?: unknown } | null)?.text;
   if (input.method === 'page.fill' && typeof text === 'string') entry.preview = preview(text);
   return entry;
