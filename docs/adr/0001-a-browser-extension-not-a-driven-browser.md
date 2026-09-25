@@ -94,7 +94,16 @@ From Epiphany's source: `tabs.executeScript` (main frame only), `tabs.query/crea
 `scripting`, `webNavigation`, `webRequest`, native messaging and `runtime.connect` do not; of the
 tab events only `onCreated`/`onRemoved` actually fire.
 
-So **Firefox and Chromium are the v1 targets**. Epiphany is a *degraded tier* — MV2, no
+Safari was measured on 2026-09-25, Safari 27.0 on macOS 27 (Apple silicon), the WebKit
+extension engine Epiphany master is moving to. As an MV3 **service worker** the background hangs
+for good on `new WebSocket('ws://127.0.0.1:…')`: no error, no CPU, no later event, and a dead
+inspector console. As a non-persistent **background page** (`background.scripts`,
+`persistent: false`) the same bundle connects at once, with no host permission for 127.0.0.1.
+`tabGroups` and `sessions` do not exist there, so `capabilities()` leaves out the four methods
+that need them. The `safari-mv3` target is built that way (PR #20). Safari counts as a supported
+engine, loaded as a temporary extension until an Xcode-packaged app exists.
+
+So **Firefox and Chromium are the v1 targets**, with Safari next to them. Epiphany is a *degraded tier* — MV2, no
 screenshots, polling instead of events — switched on only once a released Epiphany passes the
 probe (`probes/epiphany/`). Bugs found on the way are reported upstream, not worked around here.
 

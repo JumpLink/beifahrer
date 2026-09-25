@@ -41,7 +41,7 @@ export const CLOSE = {
   shutdown: 4000,
 } as const;
 
-export type BrowserFamily = 'firefox' | 'chromium' | 'epiphany' | 'unknown';
+export type BrowserFamily = 'firefox' | 'chromium' | 'epiphany' | 'safari' | 'unknown';
 
 export interface Hello {
   type: 'hello';
@@ -215,7 +215,7 @@ export type BridgeFrame =
   | { type: 'session'; label: string }
   | { type: 'desktop'; desktop: DesktopInfo };
 
-const FAMILIES: BrowserFamily[] = ['firefox', 'chromium', 'epiphany', 'unknown'];
+const FAMILIES: BrowserFamily[] = ['firefox', 'chromium', 'epiphany', 'safari', 'unknown'];
 
 /** Validate a hello frame. Returns a reason string on failure — used in the close frame. */
 export function parseHello(raw: unknown): Hello | string {

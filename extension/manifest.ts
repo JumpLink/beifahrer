@@ -3,9 +3,9 @@
  * differ in five keys, and spelling those out is shorter than learning which ones a tool converts.
  */
 
-export type Target = 'chrome-mv3' | 'firefox-mv2';
+export type Target = 'chrome-mv3' | 'firefox-mv2' | 'safari-mv3';
 
-export const TARGETS: readonly Target[] = ['chrome-mv3', 'firefox-mv2'];
+export const TARGETS: readonly Target[] = ['chrome-mv3', 'firefox-mv2', 'safari-mv3'];
 
 // Host access is OPTIONAL and granted per host, at the moment the person raises a site above
 // `none` in the popup. The browser's own permission prompt therefore mirrors beifahrer's policy: a
@@ -47,7 +47,10 @@ export function manifestFor(
   target: Target,
   { version, e2eHosts = [] }: ManifestInput,
 ): Record<string, unknown> {
-  const mv3 = target === 'chrome-mv3';
+  // Safari takes the Chromium flavour: MV3, a service worker, `scripting`. What it lacks
+  // (tab groups, the recently-closed list, per-origin optional hosts) is feature-detected at
+  // run time, like on every other engine, rather than trimmed from the manifest.
+  const mv3 = target !== 'firefox-mv2';
   // `sessions`: the browser's recently-closed list, so a window closed by mistake comes back.
   // `tabGroups`: naming and colouring tab groups (Chromium; Firefox ≥ 139). Both are used only
   // behind the person's "Let the agent manage tabs and windows" switch, and for the person's own
@@ -76,7 +79,16 @@ export function manifestFor(
     // asks for the toolbar. The icon IS the "an agent is in your browser" signal, so it must be
     // visible without the person digging for it. Chromium has no equivalent: pinning there is manual.
     ...(mv3 ? { action } : { browser_action: { ...action, default_area: 'navbar' } }),
-    background: mv3 ? { service_worker: 'background.js' } : { scripts: ['background.js'] },
+    // Safari gets a non-persistent background PAGE, not a service worker: in Safari 27's extension
+    // service worker `new WebSocket('ws://127.0.0.1:…')` blocks the worker for good — no error, no
+    // CPU, no further event, so every page waiting on it stays white. The same bundle in a
+    // background page connects at once (measured 2026-09-25, AGENTS.md "Traps").
+    background:
+      target === 'safari-mv3'
+        ? { scripts: ['background.js'], persistent: false }
+        : mv3
+          ? { service_worker: 'background.js' }
+          : { scripts: ['background.js'] },
     options_ui: { page: 'options.html', open_in_tab: true },
     // The kill switch from the keyboard. Only the person can press it; the bridge cannot.
     commands: {

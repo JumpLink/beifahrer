@@ -10,7 +10,8 @@ export interface BrowserInfo {
 /**
  * Which browser this is. `runtime.getBrowserInfo` exists in Firefox only; everything else is read
  * off the user agent. Epiphany announces itself there, and it matters: it is the one engine with
- * a smaller API surface (see ADR 0001 § 3).
+ * a smaller API surface (see ADR 0001 § 3). Safari runs on the same WebKit extension engine
+ * Epiphany is moving to.
  */
 export async function browserInfo(): Promise<BrowserInfo> {
   const rt = browser.runtime as unknown as {
@@ -37,6 +38,11 @@ export async function browserInfo(): Promise<BrowserInfo> {
       version: brand?.version ?? chrome?.[1] ?? '',
     };
   }
+  // Safari last: every engine above also says `Safari/` in its user agent. What only Safari
+  // has is `Version/<n>` without a `Chrome/` token — and Epiphany, which shares both, returned
+  // above.
+  const safari = /Version\/([\d.]+).*Safari\//.exec(ua);
+  if (safari) return { family: 'safari', name: 'Safari', version: safari[1] ?? '' };
   return { family: 'unknown', name: 'unknown', version: '' };
 }
 

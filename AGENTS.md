@@ -99,6 +99,16 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
 
 - **Chrome ≥ 137 ignores `--load-extension`.** The e2e needs Chrome for Testing / Playwright's
   Chromium, not the branded browser.
+- **Safari's extension service worker hangs on `new WebSocket('ws://127.0.0.1:…')`.** No error, no
+  CPU, no later event: every page waiting on the worker stays white, and even the Web Inspector
+  console attached to it evaluates nothing. It only bites once a token is set, because only then
+  does the worker connect. So `safari-mv3` uses a non-persistent background PAGE
+  (`background.scripts`), where the same bundle connects at once. It needs no host permission
+  for 127.0.0.1. Measured on Safari 27.0 / macOS 27, 2026-09-25, with beacons to a local HTTP
+  server, because the console was dead: skipping only the constructor kept the worker alive.
+- **Safari has neither `tabGroups` nor `sessions`.** `capabilities()` leaves out the methods that
+  need them (`NEEDS_API` in handlers.ts), so the agent never gets offered a tool the browser
+  cannot serve.
 - **Firefox's `permissions.request` must be the first `await` in the click handler.** Any earlier
   await ends the user gesture and the request silently fails (see popup/options).
 - **The confirm window is a tab too.** `sender.tab` cannot tell it from a content script;
