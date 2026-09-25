@@ -60,6 +60,12 @@ publishing step is a `submit` with `requiresExplicitRequest: true`. The public `
 generic recipes only: company domains and processes go in the operator's own directory.
 |**Fixtures are synthetic.** Never commit a captured page or a screenshot of a real site. What the
 extension reads is the person's private data.
+|**Every string the PERSON reads goes through i18n; what the AGENT reads stays English**
+([ADR 0008](docs/adr/0008-ui-on-adwaita-web.md)). Pages, confirm window, pill, toolbar tooltip and
+any error shown in them: `t('key')` (`extension/src/i18n.ts`) or `data-i18n*` in the HTML, with the
+key in EVERY `extension/_locales/*/messages.json` (the build fails otherwise). MCP tool
+descriptions and wire error messages are never translated. A new method needs `method_<name>`
+(activity words) in every locale, or `gjsify tsc` fails.
 
 ## Layout
 
@@ -67,7 +73,7 @@ extension reads is the person's private data.
 |---|---|---|
 | `packages/core` | **Pure, zero deps.** Wire protocol, the port range (`ports.ts`) and the extension's connection table (`connections.ts`), policy, features + pause (`features.ts`), toolbar look, activity log entries, redaction, saved-session model, element queries (`find.ts`), the recipe format + validator (`recipes.ts`) | GJS, Node, browser |
 | `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`, `tool`. The bridge (`src/bridge/`: `bridge.ts`, one per session, `session.ts` port range + session label), MCP tools, recipe runner + sources (`src/recipes/`) | GJS (bundled by gjsify); tests also on Node |
-| `extension/` | background, page agent (+ its pill, `src/page-indicator.ts`), popup, options, confirm window; `manifest.ts` + `scripts/build.ts` (runs on GJS; `scripts/icons.ts` renders the sparkles icons from `icons/sparkles.svg`) build both targets | browser (build: GJS + GdkPixbuf/librsvg) |
+| `extension/` | background, page agent (+ its pill, `src/page-indicator.ts`), popup, options, confirm window (on `@gjsify/adwaita-web`, shared `src/ui/kit.ts` → `ui.js`), `_locales/` (en default, de); `manifest.ts` + `scripts/build.ts` (runs on GJS; `scripts/icons.ts` renders the sparkles icons from `icons/sparkles.svg`) build both targets | browser (build: GJS + GdkPixbuf/librsvg) |
 | `recipes/` | Built-in recipes (JSON), bundled into the app via `app/src/recipes/builtin.ts` | data |
 | `tests/e2e/` | Full chain in headless Chromium + Firefox | Node driver, GJS app |
 | `probes/epiphany/` | The probe that measured Epiphany (ADR 0001 § 3). Re-run it before claiming support | Epiphany |
@@ -141,6 +147,15 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   `~/.config/beifahrer/recipes` never takes part in a test run.
 - **Headless Chromium takes one start URL.** A second one makes it exit with "Multiple targets are
   not supported in headless mode". The e2e opens further tabs over the DevTools endpoint.
+- **No remote client may navigate a tab to an extension page.** Chromium answers `/json/new` with
+  ERR_FILE_NOT_FOUND, Firefox's BiDi with "not allowed in this context", and Firefox drops
+  `--start-url moz-extension://…`. `tests/e2e/ui-pages.mjs` opens them from the extension's
+  service worker (Chromium) and the browser window in BiDi's chrome scope (Firefox).
+- **Chromium has component extensions with a `background.js` worker too.** Pick beifahrer's by
+  its manifest (`default_locale`), not by the worker's file name.
+- **An Adwaita row's `title` attribute is its heading**, not a tooltip, and a `<adw-switch-row>`
+  notifies `notify::active` for a programmatic change too. Renders go through `setQuietly`
+  (`src/ui/features.ts`), or redrawing a switch writes the value straight back.
 
 ## gjsify gaps met here
 
@@ -155,6 +170,10 @@ Fix them in gjsify, never around them (werkstatt AGENTS.md § Core deps). Found 
 | `@gjsify/ws` server: a taken port carries no `code: 'EADDRINUSE'`, only a localised Gio message | `bindFirstFree` (core) moves on to the next port after *any* bind error, so the missing code costs nothing |
 | `gjsify format` under GJS silently skips HTML (oxfmt-native cannot format it) — [gjsify#1807](https://github.com/gjsify/gjsify/issues/1807) | `oxfmt` is called directly, locally and in CI |
 | `app/src/frontends/mcp/runtime.ts` is the **third** verbatim copy (postbote, troedler) | extract to a shared `@gjsify/mcp`; until then change all three or none |
+| `@gjsify/adwaita-web` 0.52.0 has one entry: it defines every element and inlines its 200 KB stylesheet as a string, so a page cannot import only what it uses (the elements beifahrer uses measured ~45 KB by path) | `ui.js` is 520 KB (104 KB gzip), shared by the three pages; switch to per-element entries when they exist (ADR 0008) |
+| `@gjsify/adwaita-web`: row titles/subtitles are `nowrap` + ellipsis, no `title-lines`/`subtitle-lines`; libadwaita wraps by default | `:root .adw-row-subtitle { white-space: normal }` in style.css, marked `gjsify gap (unfixed, …)` |
+| `@gjsify/adwaita-web`: the `--font-family` fallback names `Segoe UI` but no macOS face (`system-ui`/`-apple-system`), so macOS falls back to Helvetica | style.css re-declares the stack with both |
+| `@gjsify/adwaita-web`: rows have no `tooltip-text`, and `<adw-toggle-group>` no `sensitive` / per-toggle `enabled` | tooltips go on the row's `.adw-row-text`; the level group is hidden, not greyed, on a non-web page |
 
 ## Conventions
 

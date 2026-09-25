@@ -1,37 +1,51 @@
 /**
- * The popup's list of connected agent sessions (ADR 0007): one line per session with its label,
+ * The popup's list of connected agent sessions (ADR 0007): one row per session with its label,
  * since when, and a Disconnect button. Disconnecting closes that session's socket and ignores its
- * bridge until it restarts. The labels come from the bridges, the agent's side, so they are set
- * as text, never as markup.
+ * bridge until it restarts. The labels come from the bridges, the agent's side, so they only ever
+ * reach the DOM as attribute values and text, never as markup.
  */
 
 import { browser } from '@wxt-dev/browser';
 import type { SessionView } from '@beifahrer/core';
+import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../bridge-client.ts';
+import { t, uiLanguage } from '../i18n.ts';
+import { markEmpty } from './features.ts';
 
 export const DISCONNECT_MESSAGE = 'disconnect-session';
 
-export function renderSessions(list: HTMLElement, empty: HTMLElement, status: Status | undefined): void {
+let shown = '';
+
+export function renderSessions(group: Adw.PreferencesGroup, status: Status | undefined): void {
   const sessions: SessionView[] = status && status.state !== 'unpaired' ? status.sessions : [];
-  list.replaceChildren();
-  empty.hidden = sessions.length > 0;
+  const key = JSON.stringify(sessions);
+  if (key === shown) return;
+  shown = key;
+  for (const old of group.querySelectorAll('adw-action-row')) old.remove();
+  markEmpty(group, sessions.length === 0 ? t('agents_none') : null);
   for (const s of sessions) {
-    const item = document.createElement('li');
-    const name = document.createElement('span');
-    name.textContent = s.label;
-    name.title = `port ${s.port}${s.pid ? `, pid ${s.pid}` : ''}, bridge ${s.bridgeVersion}`;
-    const since = document.createElement('time');
-    since.className = 'muted';
-    since.textContent = ` since ${new Date(s.since).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    const button = document.createElement('button');
-    button.className = 'btn';
-    button.textContent = 'Disconnect';
-    button.title = 'Close this session’s connection. It stays closed until the agent session restarts.';
+    const row = document.createElement('adw-action-row');
+    row.setAttribute('title', s.label);
+    const since = new Date(s.since).toLocaleTimeString(uiLanguage(), { hour: '2-digit', minute: '2-digit' });
+    row.setAttribute('subtitle', t('agent_since', since));
+    const button = document.createElement('gtk-button') as Gtk.Button;
+    button.setAttribute('slot', 'suffix');
+    button.setAttribute('label', t('agent_disconnect'));
+    button.setAttribute('tooltip-text', t('agent_disconnect_tooltip'));
+    button.toggleAttribute('flat', true);
     button.addEventListener('click', () => {
-      button.disabled = true;
+      button.toggleAttribute('disabled', true);
       void browser.runtime.sendMessage({ type: DISCONNECT_MESSAGE, port: s.port });
     });
-    item.append(name, since, ' ', button);
-    list.append(item);
+    row.append(button);
+    group.addRow(row);
+    row
+      .querySelector('.adw-row-text')
+      ?.setAttribute(
+        'title',
+        s.pid
+          ? t('agent_details_pid', s.port, s.pid, s.bridgeVersion)
+          : t('agent_details', s.port, s.bridgeVersion),
+      );
   }
 }

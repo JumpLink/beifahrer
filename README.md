@@ -63,6 +63,33 @@ the site you are on, the list of features, the connected **agent sessions**, and
 what, which site by host, and why a request was refused). The activity list holds no page text
 and is gone when the browser closes.
 
+<p>
+  <img src="docs/images/popup-dark.png" width="300" alt="The popup in dark mode: the pause switch, the site level of tickets.example set to Read + edit, and the activity list">
+  <img src="docs/images/popup-light.png" width="300" alt="The same popup in light mode">
+</p>
+
+The popup, the options page and the confirmation window are built with
+[`@gjsify/adwaita-web`](https://github.com/gjsify/gjsify), so they look like GNOME's own settings
+under GNOME and like a plain, consistent settings page elsewhere. Light and dark follow your
+system. They speak **English and German** so far, chosen by your browser's language; the store
+listing does too. Adding a language is one file, `extension/_locales/<lang>/messages.json`
+([ADR 0008](docs/adr/0008-ui-on-adwaita-web.md)).
+
+<details>
+<summary>The options page, the confirmation window, and the popup in German</summary>
+<p>
+  <img src="docs/images/options-light.png" width="400" alt="The options page in light mode: pairing, pause, feature switches, screenshots, tabs and windows, saved sessions, sites">
+  <img src="docs/images/options-dark.png" width="400" alt="The options page in dark mode">
+</p>
+<p>
+  <img src="docs/images/confirm-light.png" width="360" alt="The confirmation window: the agent wants to put a text into a comment field on tickets.example">
+  <img src="docs/images/confirm-dark.png" width="360" alt="The confirmation window in dark mode">
+  <img src="docs/images/popup-de-dark.png" width="300" alt="The popup in German, dark mode">
+</p>
+</details>
+
+The pictures show synthetic sites (`*.example`), never a real one.
+
 **While the agent reads or edits a page, the page shows it**: a small pill, "beifahrer is
 reading" or "is editing", with a **Stop** button, top right. It disappears a few seconds after
 the last action, never appears in a screenshot, and the page itself cannot read it.

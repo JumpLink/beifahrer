@@ -10,6 +10,7 @@ import { browser } from '@wxt-dev/browser';
 import { ACTIVE_MS, toolbarLook, type Connection, type ToolbarIcon } from '@beifahrer/core';
 import { activityState, onActivityChange } from './activity.ts';
 import { currentStatus, onStatusChange } from './bridge-client.ts';
+import { t } from './i18n.ts';
 import { loadSettings } from './settings.ts';
 import { ICON_SIZES } from '../manifest.ts';
 
@@ -71,7 +72,17 @@ export async function refreshToolbar(): Promise<void> {
     await api.setBadgeText({ text: look.badge });
     await api.setBadgeBackgroundColor?.({ color: BADGE_COLOUR[look.icon] });
   }
-  await api.setTitle?.({ title: look.title });
+  await api.setTitle?.({ title: titleFor(look.icon, currentStatus().state as Connection) });
+}
+
+/**
+ * The tooltip in the person's language. `toolbarLook` decides WHICH state the button shows; its
+ * English `title` is the reference wording these messages translate.
+ */
+function titleFor(icon: ToolbarIcon, connection: Connection): string {
+  if (icon === 'paused') return t('toolbar_paused');
+  if (connection !== 'connected') return t(`toolbar_offline_${connection}`);
+  return t(icon === 'active' ? 'toolbar_active' : 'toolbar_idle');
 }
 
 /** Repaint on every change that can alter the look. Registered synchronously (MV3 wake-up). */

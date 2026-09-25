@@ -1,12 +1,18 @@
 import { browser } from '@wxt-dev/browser';
 import {
+  AUTOSAVE_PREFIX,
+  MAX_NAME,
   hostOf,
-  sessionNameError,
+  sessionNameIssue,
   upsertSession,
   withRule,
   type Level,
   type SavedSession,
+  type SessionNameIssue,
 } from '@beifahrer/core';
+import type { Adw, Gtk } from '@gjsify/adwaita-web';
+import type { Status } from '../../src/bridge-client.ts';
+import { plural, t, uiLanguage, type MessageKey } from '../../src/i18n.ts';
 import {
   capture,
   loadSessions,
@@ -15,39 +21,55 @@ import {
   updateSessions,
 } from '../../src/sessions-store.ts';
 import { loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
-import { renderFeatures, renderPause, wirePause } from '../../src/ui/features.ts';
+import {
+  markEmpty,
+  onToggle,
+  renderFeatures,
+  renderPause,
+  setQuietly,
+  wirePause,
+} from '../../src/ui/features.ts';
 import { describeStatus } from '../../src/ui/status.ts';
-import type { Status } from '../../src/bridge-client.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const ALL = { origins: ['<all_urls>'] };
+const toast = (text: string) => $<Adw.ToastOverlay>('toasts').addToast(text, { timeout: 4 });
+
+/** Inline feedback next to what the person just clicked, coloured by Adwaita's own classes. */
+function note(el: HTMLElement, text: string, tone: 'success' | 'warning' | 'error' | 'dimmed'): void {
+  el.textContent = text;
+  el.className = `note ${tone}`;
+}
 
 async function renderStatus(): Promise<void> {
   $('status').textContent = describeStatus(await browser.runtime.sendMessage({ type: 'status' }));
 }
 
+// --- sites ---------------------------------------------------------------------------------
+
+const SITE_CHOICES: [value: string, label: MessageKey][] = [
+  ['read', 'level_read'],
+  ['write', 'site_level_write_ask'],
+  ['write-silent', 'site_level_write_silent'],
+  ['none', 'site_level_remove'],
+];
+
 async function renderSites(): Promise<void> {
   const { policy } = await loadSettings();
-  const table = $<HTMLTableElement>('sites');
-  table.replaceChildren();
+  const group = $<Adw.PreferencesGroup>('sites');
+  for (const old of group.querySelectorAll('adw-combo-row')) old.remove();
   const entries = Object.entries(policy.origins).sort(([a], [b]) => a.localeCompare(b));
-  $('empty').hidden = entries.length > 0;
+  markEmpty(group, entries.length === 0 ? t('sites_empty') : null);
   for (const [origin, rule] of entries) {
-    const row = table.insertRow();
-    row.insertCell().textContent = origin;
-    const select = document.createElement('select');
-    for (const [value, label] of [
-      ['read', 'Read'],
-      ['write', 'Read + edit (ask)'],
-      ['write-silent', 'Read + edit (don’t ask)'],
-      ['none', 'Remove'],
-    ]) {
-      select.add(new Option(label, value));
-    }
-    select.value =
+    const row = document.createElement('adw-combo-row') as Adw.ComboRow;
+    row.setAttribute('title', origin);
+    row.model = SITE_CHOICES.map(([value, label]) => ({ value, label: t(label) }));
+    group.addRow(row);
+    row.selectedValue =
       rule.level === 'write' ? (rule.confirmWrites === false ? 'write-silent' : 'write') : rule.level;
-    select.addEventListener('change', async () => {
-      const v = select.value;
+    // `notify::selected` fires for the person's pick only, never for the line above.
+    row.addEventListener('notify::selected', async () => {
+      const v = row.selectedValue;
       if (v === 'none')
         await browser.permissions.remove({ origins: [originPattern(origin)] }).catch(() => false);
       const level: Level = v === 'write-silent' ? 'write' : (v as Level);
@@ -61,179 +83,209 @@ async function renderSites(): Promise<void> {
       });
       await renderSites();
     });
-    row.insertCell().append(select);
   }
 }
 
 // --- tabs, windows and sessions: the person's own controls, no agent needed ------------------
 
-function button(label: string, onClick: () => Promise<void>): HTMLButtonElement {
-  const b = document.createElement('button');
-  b.className = 'btn mini';
-  b.textContent = label;
+function button(label: string, onClick: () => Promise<void>, style?: 'destructive'): Gtk.Button {
+  const b = document.createElement('gtk-button') as Gtk.Button;
+  b.setAttribute('label', label);
+  b.setAttribute('slot', 'suffix');
+  b.toggleAttribute('flat', true);
+  if (style) b.toggleAttribute(style, true);
   b.addEventListener('click', () => void onClick());
   return b;
 }
 
-const when = (ms: number) => new Date(ms).toLocaleString();
+const when = (ms: number) =>
+  new Date(ms).toLocaleString(uiLanguage(), { dateStyle: 'medium', timeStyle: 'short' });
 
-function sessionRow(table: HTMLTableElement, session: SavedSession): void {
+const counts = (windows: number, tabs: number) => `${plural('windows', windows)}, ${plural('tabs', tabs)}`;
+
+/** The tab list as a hover text on the row's labels (the row's own `title` is its heading). */
+function hoverList(row: HTMLElement, lines: string[]): void {
+  row.querySelector('.adw-row-text')?.setAttribute('title', lines.join('\n'));
+}
+
+function sessionRow(session: SavedSession): HTMLElement {
   const tabs = session.windows.reduce((n, w) => n + w.tabs.length, 0);
-  const row = table.insertRow();
-  row.insertCell().textContent = session.kind === 'auto' ? when(session.savedAt) : session.name;
-  row.insertCell().textContent =
-    `${session.windows.length} window${session.windows.length === 1 ? '' : 's'}, ${tabs} tab${tabs === 1 ? '' : 's'}` +
-    (session.kind === 'auto' ? '' : ` · ${when(session.savedAt)}`) +
-    (session.kind === 'agent' ? ' · built by the agent' : '');
-  row.title = session.windows.flatMap((w) => w.tabs.map((t) => t.title || t.url)).join('\n');
-  const actions = row.insertCell();
-  actions.append(
-    button('Restore', async () => {
+  const row = document.createElement('adw-action-row');
+  row.setAttribute('title', session.kind === 'auto' ? when(session.savedAt) : session.name);
+  row.setAttribute(
+    'subtitle',
+    [
+      counts(session.windows.length, tabs),
+      ...(session.kind === 'auto' ? [] : [when(session.savedAt)]),
+      ...(session.kind === 'agent' ? [t('session_by_agent')] : []),
+    ].join(' · '),
+  );
+  row.append(
+    button(t('action_restore'), async () => {
       const { policy } = await loadSettings();
       await restoreSession(session, policy, 'new-windows');
     }),
-    ' ',
-    button('Delete', async () => {
-      await updateSessions((all) => all.filter((s) => s.name !== session.name));
-      await renderSessions();
-    }),
+    button(
+      t('action_delete'),
+      async () => {
+        await updateSessions((all) => all.filter((s) => s.name !== session.name));
+        toast(t('session_deleted', session.kind === 'auto' ? when(session.savedAt) : session.name));
+        await renderSessions();
+      },
+      'destructive',
+    ),
   );
+  return row;
 }
 
 async function renderSessions(): Promise<void> {
   const sessions = (await loadSessions()).sort((a, b) => b.savedAt - a.savedAt);
   const named = sessions.filter((s) => s.kind !== 'auto');
   const autos = sessions.filter((s) => s.kind === 'auto');
-  const table = $<HTMLTableElement>('sessions');
-  const autoTable = $<HTMLTableElement>('autos');
-  table.replaceChildren();
-  autoTable.replaceChildren();
-  $('sessions-empty').hidden = named.length > 0;
-  $('autos-empty').hidden = autos.length > 0;
-  for (const s of named) sessionRow(table, s);
-  for (const s of autos) sessionRow(autoTable, s);
+  const group = $<Adw.PreferencesGroup>('sessions');
+  const autoRow = $<Adw.ExpanderRow>('autos');
+  for (const old of group.querySelectorAll('adw-action-row')) old.remove();
+  for (const old of autoRow.querySelectorAll('adw-action-row')) old.remove();
+  markEmpty(group, named.length === 0 ? t('sessions_empty') : null);
+  autoRow.setAttribute('subtitle', autos.length === 0 ? t('autos_empty') : String(autos.length));
+  for (const s of named) {
+    const row = sessionRow(s);
+    group.addRow(row);
+    hoverList(row, tabLines(s));
+  }
+  for (const s of autos) {
+    const row = sessionRow(s);
+    autoRow.append(row);
+    hoverList(row, tabLines(s));
+  }
 }
 
+const tabLines = (s: SavedSession) => s.windows.flatMap((w) => w.tabs.map((tab) => tab.title || tab.url));
+
 async function renderClosed(): Promise<void> {
-  const table = $<HTMLTableElement>('closed');
-  table.replaceChildren();
+  const group = $<Adw.PreferencesGroup>('closed');
+  for (const old of group.querySelectorAll('adw-action-row')) old.remove();
   const api = sessionsApi();
   const items = api ? await api.getRecentlyClosed({ maxResults: 25 }).catch(() => []) : [];
   const windows = items.filter((i) => i.window && i.window.type !== 'popup' && !i.window.incognito);
-  $('closed-empty').hidden = windows.length > 0;
+  markEmpty(group, windows.length === 0 ? t('closed_empty') : null);
   for (const item of windows) {
     const tabs = item.window!.tabs ?? [];
-    const row = table.insertRow();
-    const hosts = [...new Set(tabs.map((t) => hostOf(t.url)).filter(Boolean))];
-    row.insertCell().textContent =
-      `${tabs.length} tab${tabs.length === 1 ? '' : 's'}: ${hosts.slice(0, 4).join(', ')}` +
-      (hosts.length > 4 ? ', …' : '');
-    row.title = tabs.map((t) => t.title || t.url).join('\n');
-    row.insertCell().append(
-      button('Restore', async () => {
+    const hosts = [...new Set(tabs.map((tab) => hostOf(tab.url)).filter(Boolean))];
+    const row = document.createElement('adw-action-row');
+    row.setAttribute('title', plural('tabs', tabs.length));
+    row.setAttribute('subtitle', hosts.slice(0, 4).join(', ') + (hosts.length > 4 ? ', …' : ''));
+    row.append(
+      button(t('action_restore'), async () => {
         await api!.restore(item.window!.sessionId);
         await renderClosed();
       }),
     );
+    group.addRow(row);
+    hoverList(
+      row,
+      tabs.map((tab) => tab.title || tab.url || ''),
+    );
   }
 }
 
+const NAME_MESSAGES: Record<SessionNameIssue, () => string> = {
+  type: () => t('session_name_empty'),
+  empty: () => t('session_name_empty'),
+  whitespace: () => t('session_name_whitespace'),
+  length: () => t('session_name_too_long', MAX_NAME),
+  control: () => t('session_name_control'),
+  reserved: () => t('session_name_reserved', AUTOSAVE_PREFIX),
+};
+
 async function setupTabs(): Promise<void> {
   const settings = await loadSettings();
-  const confirmClose = $('confirm-close') as HTMLInputElement;
-  const autosave = $('autosave') as HTMLInputElement;
-  confirmClose.checked = settings.confirmClose;
-  autosave.checked = settings.autosave;
-  confirmClose.addEventListener('change', () => void saveSettings({ confirmClose: confirmClose.checked }));
-  autosave.addEventListener('change', () => void saveSettings({ autosave: autosave.checked }));
+  const confirmClose = $<Adw.SwitchRow>('confirm-close');
+  const autosave = $<Adw.SwitchRow>('autosave');
+  setQuietly(confirmClose, settings.confirmClose);
+  setQuietly(autosave, settings.autosave);
+  onToggle(confirmClose, (on) => void saveSettings({ confirmClose: on }));
+  onToggle(autosave, (on) => void saveSettings({ autosave: on }));
 
-  $('session-save').addEventListener('click', async () => {
-    const note = $('session-note');
-    const name = ($('session-name') as HTMLInputElement).value.trim();
-    const error = sessionNameError(name);
-    if (error) {
-      note.textContent = error;
-      note.className = 'warn';
-      return;
-    }
+  const nameRow = $<Adw.EntryRow>('session-name');
+  const save = async () => {
+    const out = $('session-note');
+    const name = nameRow.text.trim();
+    const issue = sessionNameIssue(name);
+    if (issue) return note(out, NAME_MESSAGES[issue](), 'error');
     const { session } = await capture(name, 'saved');
-    if (session.windows.length === 0) {
-      note.textContent = 'No web page is open — nothing to save.';
-      note.className = 'warn';
-      return;
-    }
+    if (session.windows.length === 0) return note(out, t('session_nothing_open'), 'warning');
     await updateSessions((all) => upsertSession(all, session));
-    note.textContent = `✓ Saved "${name}"`;
-    note.className = 'ok';
+    note(out, '', 'dimmed');
+    nameRow.text = '';
+    toast(t('session_saved', name));
     await renderSessions();
-  });
+  };
+  $('session-save').addEventListener('click', () => void save());
+  nameRow.addEventListener('entry-activated', () => void save());
 
   await renderSessions();
   await renderClosed();
 }
 
+// --- pairing -------------------------------------------------------------------------------
+
+async function connect(): Promise<void> {
+  const out = $('saved');
+  const token = $<Adw.PasswordEntryRow>('token').text.trim();
+  if (!token) return note(out, t('pairing_need_token'), 'warning');
+  await saveSettings({
+    token,
+    port: $<Adw.SpinRow>('port').value,
+    portCount: $<Adw.SpinRow>('port-count').value,
+  });
+  note(out, t('pairing_connecting'), 'dimmed');
+  await browser.runtime.sendMessage({ type: 'reconnect' });
+  // Say how it ended, right next to the button: the person just clicked here, not at the
+  // status line at the top of the page.
+  for (let i = 0; i < 10; i++) {
+    const status = (await browser.runtime.sendMessage({ type: 'status' })) as Status;
+    await renderStatus();
+    if (status.state === 'connected') return note(out, t('pairing_connected'), 'success');
+    if (status.state === 'unauthorized' || status.state === 'protocol') break;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  const status = (await browser.runtime.sendMessage({ type: 'status' })) as Status;
+  if (status.state === 'offline') note(out, t('pairing_saved_offline'), 'success');
+  else note(out, describeStatus(status), 'warning');
+}
+
 async function main(): Promise<void> {
   const settings = await loadSettings();
-  ($('token') as HTMLInputElement).value = settings.token;
-  ($('port') as HTMLInputElement).value = String(settings.port);
-  ($('port-count') as HTMLInputElement).value = String(settings.portCount);
-  ($('shots') as HTMLInputElement).checked = await browser.permissions.contains(ALL);
+  $<Adw.PasswordEntryRow>('token').text = settings.token;
+  $<Adw.SpinRow>('port').value = settings.port;
+  $<Adw.SpinRow>('port-count').value = settings.portCount;
+  $('save').addEventListener('click', () => void connect());
 
-  $('save').addEventListener('click', async () => {
-    const note = $('saved');
-    const token = ($('token') as HTMLInputElement).value.trim();
-    if (!token) {
-      note.textContent = 'Paste the token first.';
-      note.className = 'warn';
-      return;
-    }
-    await saveSettings({
-      token,
-      port: Number(($('port') as HTMLInputElement).value),
-      portCount: Number(($('port-count') as HTMLInputElement).value),
-    });
-    note.textContent = 'Saved — connecting…';
-    note.className = 'muted';
-    await browser.runtime.sendMessage({ type: 'reconnect' });
-    // Say how it ended, right next to the button: the person just clicked here, not at the
-    // status line at the top of the page.
-    for (let i = 0; i < 10; i++) {
-      const status = (await browser.runtime.sendMessage({ type: 'status' })) as Status;
-      await renderStatus();
-      if (status.state === 'connected') {
-        note.textContent = '✓ Connected';
-        note.className = 'ok';
-        return;
-      }
-      if (status.state === 'unauthorized' || status.state === 'protocol') break;
-      await new Promise((r) => setTimeout(r, 500));
-    }
-    const status = (await browser.runtime.sendMessage({ type: 'status' })) as Status;
-    note.textContent =
-      status.state === 'offline'
-        ? '✓ Saved. No bridge is running yet — it starts with your agent, and the extension connects then.'
-        : describeStatus(status);
-    note.className = status.state === 'offline' ? 'ok' : 'warn';
+  const shots = $<Adw.SwitchRow>('shots');
+  setQuietly(shots, await browser.permissions.contains(ALL));
+  onToggle(shots, async (on) => {
+    // First await after the click, for the same user-gesture reason as in the popup: the row
+    // notifies synchronously inside its own click handler.
+    const ok = on ? await browser.permissions.request(ALL) : await browser.permissions.remove(ALL);
+    setQuietly(shots, on ? ok : !ok);
   });
 
-  $('shots').addEventListener('change', async () => {
-    const box = $('shots') as HTMLInputElement;
-    // First await in the handler, for the same user-gesture reason as in the popup.
-    const ok = box.checked ? await browser.permissions.request(ALL) : await browser.permissions.remove(ALL);
-    box.checked = box.checked ? ok : !ok;
-  });
-
-  await renderStatus();
-  await renderSites();
-  await setupTabs();
-  const pause = $<HTMLButtonElement>('pause');
-  wirePause(pause, $('state'));
-  await renderPause(pause, $('state'));
-  await renderFeatures($('features'), false);
+  const pause = $<Adw.SwitchRow>('pause');
+  const banner = $<Adw.Banner>('paused');
+  wirePause(pause, banner);
+  const features = $('features');
+  await Promise.all([
+    renderStatus(),
+    renderSites(),
+    setupTabs(),
+    renderPause(pause, banner),
+    renderFeatures(features, false),
+  ]);
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    if (changes.paused) void renderPause(pause, $('state'));
-    if (changes.features || changes.grants) void renderFeatures($('features'), false);
+    if (changes.paused) void renderPause(pause, banner);
+    if (changes.features || changes.grants) void renderFeatures(features, false);
   });
   setInterval(() => void renderStatus(), 3000);
 }

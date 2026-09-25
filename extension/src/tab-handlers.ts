@@ -30,6 +30,7 @@ import {
   type TabInfo,
 } from '@beifahrer/core';
 import { askPerson } from './confirm.ts';
+import { plural, t } from './i18n.ts';
 import { fail } from './errors.ts';
 import {
   capture,
@@ -129,7 +130,7 @@ function checkNewUrl(method: Method, url: unknown, policy: Policy): string {
 /** One line per tab for the confirmation window — the same redaction the agent gets. */
 function describeForPerson(tab: { url?: string; title?: string }, policy: Policy): string {
   const host = hostOf(tab.url);
-  if (!host) return 'a browser page (not a website)';
+  if (!host) return t('tab_not_website');
   if (levelFor(policy, tab.url) === 'none') return host;
   return tab.title ? `${tab.title} — ${host}` : host;
 }
@@ -171,7 +172,7 @@ export const tabHandlers: { [M in TabMethod]: Handler<M> } = {
       const answer = await askPerson({
         origin: '',
         action: 'close',
-        target: windowId !== undefined ? `a window with ${ids.length} tab(s)` : `${ids.length} tab(s)`,
+        target: plural(windowId !== undefined ? 'close_target_window' : 'close_target_tabs', ids.length),
         items: tabs.map((t) => describeForPerson(t, policy)),
       });
       if (!answer.allow)

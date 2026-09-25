@@ -2,47 +2,54 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>beifahrer</title>
+    <meta name="color-scheme" content="light dark" />
+    <title data-i18n="extName">beifahrer</title>
     <link rel="stylesheet" href="../../src/ui/style.css" />
-    <style>
-      body {
-        width: 320px;
-      }
-    </style>
   </head>
-  <body>
-    <div class="head">
-      <h1>beifahrer</h1>
-      <button id="pause" class="switch" role="switch" aria-checked="true" title="Shortcut: Alt+Shift+B">
-        …
-      </button>
-    </div>
-    <p id="state">…</p>
-    <p id="status" class="muted">…</p>
-    <h2>This site</h2>
-    <p id="site" class="mono">…</p>
-    <div class="levels" role="group" aria-label="What the agent may do on this site">
-      <button data-level="none" aria-pressed="false">Nothing</button>
-      <button data-level="read" aria-pressed="false">Read</button>
-      <button data-level="write" aria-pressed="false">Read + edit</button>
-    </div>
-    <label class="row" id="confirm-row" hidden>
-      <input type="checkbox" id="confirm" /> Ask me before every change
-    </label>
-    <p id="hint" class="muted"></p>
-    <details id="features-box">
-      <summary>What the agent may use</summary>
-      <div id="features"></div>
-    </details>
-    <h2>Agent sessions</h2>
-    <p id="sessions-empty" class="muted">None connected.</p>
-    <ul id="sessions" class="sessions"></ul>
-    <h2>Activity</h2>
-    <p id="activity-empty" class="muted">
-      Nothing yet. What the agent does here is listed until the browser closes.
-    </p>
-    <ol id="activity" class="activity"></ol>
-    <p><a href="#" id="options">Pairing and all sites…</a></p>
+  <body class="adw-root popup">
+    <main class="page">
+      <header class="page-head">
+        <h1 class="title-4">beifahrer</h1>
+        <span id="status" class="caption dimmed" role="status"></span>
+      </header>
+
+      <adw-banner id="problem" data-i18n-button-label="action_settings"></adw-banner>
+
+      <adw-preferences-group>
+        <adw-switch-row id="pause" data-i18n-title="pause_title"></adw-switch-row>
+      </adw-preferences-group>
+
+      <section class="site-level">
+        <div class="group-head">
+          <h2 class="heading" data-i18n="site_heading"></h2>
+          <span id="site" class="caption dimmed"></span>
+        </div>
+        <adw-toggle-group id="levels" data-i18n-aria-label="level_group_label">
+          <adw-toggle name="none" data-i18n-label="level_none"></adw-toggle>
+          <adw-toggle name="read" data-i18n-label="level_read"></adw-toggle>
+          <adw-toggle name="write" data-i18n-label="level_write"></adw-toggle>
+        </adw-toggle-group>
+        <p id="hint" class="note caption dimmed" role="status"></p>
+        <adw-preferences-group id="confirm-group" hidden>
+          <adw-switch-row id="confirm" data-i18n-title="confirm_writes"></adw-switch-row>
+        </adw-preferences-group>
+      </section>
+
+      <adw-preferences-group>
+        <adw-expander-row id="features" data-i18n-title="features_title"></adw-expander-row>
+      </adw-preferences-group>
+
+      <adw-preferences-group id="agents" data-i18n-title="agents_title"></adw-preferences-group>
+
+      <adw-preferences-group id="activity" data-i18n-title="activity_title"></adw-preferences-group>
+
+      <adw-preferences-group>
+        <adw-action-row id="options" data-i18n-title="popup_options" activatable>
+          <gtk-image slot="suffix" icon-name="go-next"></gtk-image>
+        </adw-action-row>
+      </adw-preferences-group>
+    </main>
+    <script src="../../src/ui/kit.ts"></script>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

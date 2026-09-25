@@ -19,6 +19,7 @@ import { zipSync } from 'fflate';
 
 import { TARGETS, manifestFor } from '../manifest.ts';
 import { copyIcons, renderIcons } from './icons.ts';
+import { checkLocales } from './locales.ts';
 
 // The bundle runs from extension/dist/, the source from extension/scripts/ — one level down either way.
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -39,8 +40,13 @@ const SCRIPTS: Record<string, string> = {
   popup: 'entrypoints/popup/main.ts',
   options: 'entrypoints/options/main.ts',
   confirm: 'entrypoints/confirm/main.ts',
+  // Translation + the Adwaita elements, shared by the three pages (src/ui/kit.ts, ADR 0008).
+  ui: 'src/ui/kit.ts',
 };
-/** Pages: output name → source. Their `<script src="./main.ts">` becomes `<name>.js`. */
+/**
+ * Pages: output name → source. Their `<script src="./main.ts">` becomes `<name>.js`, and the
+ * shared `src/ui/kit.ts` becomes `ui.js`: two classic scripts, run in document order.
+ */
 const PAGES: Record<string, string> = {
   popup: 'entrypoints/popup/index.html',
   options: 'entrypoints/options/index.html',
@@ -68,6 +74,7 @@ function bundle(name: string, entry: string): void {
 
 function page(name: string, source: string): string {
   return readFileSync(join(ROOT, source), 'utf8')
+    .replace(/<script src="(\.\.\/)+src\/ui\/kit\.ts"><\/script>/, '<script src="ui.js"></script>')
     .replace(/<script type="module" src="\.\/main\.ts"><\/script>/, `<script src="${name}.js"></script>`)
     .replace(/href="(\.\.\/)+src\/ui\/style\.css"/, 'href="style.css"');
 }
@@ -95,6 +102,13 @@ function collect(
 
 // A dev build must not delete the directory `web-ext run` is watching: Firefox would unload the
 // extension mid-rebuild. It overwrites file by file instead; a release build starts clean.
+// A missing or stray translation fails the build before anything is bundled.
+const localeErrors = checkLocales(ROOT, {
+  pages: Object.values(PAGES),
+  manifest: TARGETS.map((target) => JSON.stringify(manifestFor(target, { version: pkg.version }))).join('\n'),
+});
+if (localeErrors.length) throw new Error(`_locales is inconsistent:\n  ${localeErrors.join('\n  ')}`);
+
 if (!inPlace) rmSync(OUT, { recursive: true, force: true });
 rmSync(STAGE, { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
@@ -108,6 +122,7 @@ for (const target of TARGETS) {
   cpSync(STAGE, dir, { recursive: true });
   copyIcons(ICON_STAGE, dir, target);
   cpSync(join(ROOT, 'src/ui/style.css'), join(dir, 'style.css'));
+  cpSync(join(ROOT, '_locales'), join(dir, '_locales'), { recursive: true });
   for (const [name, source] of Object.entries(PAGES))
     writeFileSync(join(dir, `${name}.html`), page(name, source));
   const manifest = manifestFor(target, { version: pkg.version, e2eHosts: e2eHosts() });

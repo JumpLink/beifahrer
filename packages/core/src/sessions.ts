@@ -80,18 +80,37 @@ export function isRestorableUrl(url: string | undefined | null): url is string {
   return originOf(url) !== null;
 }
 
-/** Why `name` cannot name a session the person or agent saves, or null when it can. */
-export function sessionNameError(name: unknown, { allowAutosave = false } = {}): string | null {
-  if (typeof name !== 'string') return 'name must be a string';
+export type SessionNameIssue = 'type' | 'empty' | 'whitespace' | 'length' | 'control' | 'reserved';
+
+/**
+ * Why `name` cannot name a session, as a code: the options page words it in the person's
+ * language, `sessionNameError` in English for the agent. One rule set for both.
+ */
+export function sessionNameIssue(name: unknown, { allowAutosave = false } = {}): SessionNameIssue | null {
+  if (typeof name !== 'string') return 'type';
   const trimmed = name.trim();
-  if (trimmed.length === 0) return 'name must not be empty';
-  if (trimmed !== name) return 'name must not start or end with whitespace';
-  if (name.length > MAX_NAME) return `name is longer than ${MAX_NAME} characters`;
+  if (trimmed.length === 0) return 'empty';
+  if (trimmed !== name) return 'whitespace';
+  if (name.length > MAX_NAME) return 'length';
   // oxlint-disable-next-line no-control-regex -- the point is to refuse control characters
-  if (/[\u0000-\u001f\u007f]/.test(name)) return 'name must not contain control characters';
-  if (!allowAutosave && name.startsWith(AUTOSAVE_PREFIX))
-    return `names starting with "${AUTOSAVE_PREFIX}" are the automatic snapshots — pick another`;
+  if (/[\u0000-\u001f\u007f]/.test(name)) return 'control';
+  if (!allowAutosave && name.startsWith(AUTOSAVE_PREFIX)) return 'reserved';
   return null;
+}
+
+const NAME_ERRORS: Record<SessionNameIssue, string> = {
+  type: 'name must be a string',
+  empty: 'name must not be empty',
+  whitespace: 'name must not start or end with whitespace',
+  length: `name is longer than ${MAX_NAME} characters`,
+  control: 'name must not contain control characters',
+  reserved: `names starting with "${AUTOSAVE_PREFIX}" are the automatic snapshots — pick another`,
+};
+
+/** Why `name` cannot name a session the person or agent saves, or null when it can. */
+export function sessionNameError(name: unknown, options: { allowAutosave?: boolean } = {}): string | null {
+  const issue = sessionNameIssue(name, options);
+  return issue ? NAME_ERRORS[issue] : null;
 }
 
 // --- snapshot: browser windows → a session --------------------------------------------------

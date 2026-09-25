@@ -1,0 +1,647 @@
+{
+  "extName": {
+    "message": "beifahrer",
+    "description": "The extension name. A proper name: do not translate."
+  },
+  "extDescription": {
+    "message": "Let an AI agent ride along in this browser — see your tabs, read and edit pages you allow, site by site."
+  },
+  "commandTogglePause": {
+    "message": "Pause or resume beifahrer (the agent gets nothing while paused)"
+  },
+  "action_resume": {
+    "message": "Resume"
+  },
+  "action_restore": {
+    "message": "Restore"
+  },
+  "action_delete": {
+    "message": "Delete"
+  },
+  "action_settings": {
+    "message": "Settings"
+  },
+  "status_connected_one": {
+    "message": "Connected to 1 agent session (ports $RANGE$).",
+    "placeholders": {
+      "range": {
+        "content": "$1"
+      }
+    }
+  },
+  "status_connected_other": {
+    "message": "Connected to $COUNT$ agent sessions (ports $RANGE$).",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "range": {
+        "content": "$2"
+      }
+    }
+  },
+  "status_offline": {
+    "message": "No agent session on ports $RANGE$ — each starts with your agent. Looking every few seconds.",
+    "placeholders": {
+      "range": {
+        "content": "$1"
+      }
+    }
+  },
+  "status_unauthorized": {
+    "message": "An agent session refused the pairing token. Paste the current one in the settings."
+  },
+  "status_protocol": {
+    "message": "An agent session and the extension do not match. Update the older one."
+  },
+  "status_protocol_detail": {
+    "message": "An agent session and the extension do not match: $DETAIL$. Update the older one.",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "status_unpaired": {
+    "message": "Not paired yet — open the settings and paste the token from `beifahrer token`."
+  },
+  "banner_unpaired": {
+    "message": "Not paired with an agent yet"
+  },
+  "banner_unauthorized": {
+    "message": "An agent session refused the pairing token"
+  },
+  "banner_protocol": {
+    "message": "An agent session and the extension do not match"
+  },
+  "agents_title": {
+    "message": "Agent sessions"
+  },
+  "agents_none": {
+    "message": "None connected."
+  },
+  "agent_since": {
+    "message": "since $TIME$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "agent_details": {
+    "message": "port $PORT$, bridge $VERSION$",
+    "placeholders": {
+      "port": {
+        "content": "$1"
+      },
+      "version": {
+        "content": "$2"
+      }
+    }
+  },
+  "agent_details_pid": {
+    "message": "port $PORT$, pid $PID$, bridge $VERSION$",
+    "placeholders": {
+      "port": {
+        "content": "$1"
+      },
+      "pid": {
+        "content": "$2"
+      },
+      "version": {
+        "content": "$3"
+      }
+    }
+  },
+  "agent_disconnect": {
+    "message": "Disconnect"
+  },
+  "agent_disconnect_tooltip": {
+    "message": "Close this session’s connection. It stays closed until the agent session restarts."
+  },
+  "pause_title": {
+    "message": "Let the agent use this browser"
+  },
+  "pause_running": {
+    "message": "The agent may use this browser within the limits below."
+  },
+  "pause_paused": {
+    "message": "Paused. The agent gets nothing from this browser, not even the list of tabs."
+  },
+  "pause_tooltip": {
+    "message": "Shortcut: Alt+Shift+B"
+  },
+  "pause_banner": {
+    "message": "Paused — the agent gets nothing"
+  },
+  "site_heading": {
+    "message": "This site"
+  },
+  "site_none": {
+    "message": "not a web page — nothing to allow here"
+  },
+  "level_group_label": {
+    "message": "What the agent may do on this site"
+  },
+  "level_none": {
+    "message": "Nothing"
+  },
+  "level_read": {
+    "message": "Read"
+  },
+  "level_write": {
+    "message": "Read + edit"
+  },
+  "hint_none": {
+    "message": "The agent sees only that a tab on this site is open."
+  },
+  "hint_read": {
+    "message": "The agent may read this page and its outline (and take a screenshot, if you allow those). It cannot change anything."
+  },
+  "hint_write": {
+    "message": "The agent may also fill fields and click here."
+  },
+  "hint_denied": {
+    "message": "The browser did not grant access, so the level stays as it was."
+  },
+  "confirm_writes": {
+    "message": "Ask me before every change"
+  },
+  "features_title": {
+    "message": "What the agent may use"
+  },
+  "features_count": {
+    "message": "$ON$ of $TOTAL$ on",
+    "placeholders": {
+      "on": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "features_description": {
+    "message": "One switch per capability, for the whole browser. The level you set for each site still applies on top."
+  },
+  "activity_title": {
+    "message": "Activity"
+  },
+  "activity_empty": {
+    "message": "Nothing yet. What the agent does here is listed until the browser closes."
+  },
+  "popup_options": {
+    "message": "Pairing and all sites"
+  },
+  "reason_paused": {
+    "message": "refused: paused"
+  },
+  "reason_feature_disabled": {
+    "message": "refused: feature off"
+  },
+  "reason_forbidden": {
+    "message": "refused: site level"
+  },
+  "reason_denied": {
+    "message": "you declined"
+  },
+  "reason_failed": {
+    "message": "failed: $REASON$",
+    "placeholders": {
+      "reason": {
+        "content": "$1"
+      }
+    }
+  },
+  "method_tabs_list": {
+    "message": "Listed your tabs"
+  },
+  "method_tabs_active": {
+    "message": "Looked up the active tab"
+  },
+  "method_page_read": {
+    "message": "Read a page"
+  },
+  "method_page_outline": {
+    "message": "Outlined a page"
+  },
+  "method_page_find": {
+    "message": "Looked for an element"
+  },
+  "method_page_wait": {
+    "message": "Waited for a page"
+  },
+  "method_page_screenshot": {
+    "message": "Took a screenshot"
+  },
+  "method_page_fill": {
+    "message": "Filled a field"
+  },
+  "method_page_click": {
+    "message": "Clicked"
+  },
+  "method_tabs_open": {
+    "message": "Opened a tab"
+  },
+  "method_tabs_move": {
+    "message": "Moved tabs"
+  },
+  "method_tabs_pin": {
+    "message": "Pinned or unpinned tabs"
+  },
+  "method_tabs_close": {
+    "message": "Closed tabs"
+  },
+  "method_tabs_group": {
+    "message": "Grouped tabs"
+  },
+  "method_tabs_ungroup": {
+    "message": "Ungrouped tabs"
+  },
+  "method_windows_create": {
+    "message": "Opened a window"
+  },
+  "method_sessions_save": {
+    "message": "Saved a session"
+  },
+  "method_sessions_list": {
+    "message": "Listed saved sessions"
+  },
+  "method_sessions_restore": {
+    "message": "Restored a session"
+  },
+  "method_sessions_delete": {
+    "message": "Deleted a saved session"
+  },
+  "method_sessions_define": {
+    "message": "Defined a session"
+  },
+  "method_sessions_recentlyClosed": {
+    "message": "Listed recently closed windows"
+  },
+  "method_sessions_restoreClosed": {
+    "message": "Reopened a closed window"
+  },
+  "feature_tabs_label": {
+    "message": "See open tabs"
+  },
+  "feature_tabs_detail": {
+    "message": "tabs_list, tab_active — sites below Read show their host only"
+  },
+  "feature_read_label": {
+    "message": "Read page text"
+  },
+  "feature_read_detail": {
+    "message": "page_read"
+  },
+  "feature_outline_label": {
+    "message": "Outline pages"
+  },
+  "feature_outline_detail": {
+    "message": "page_outline, page_find, page_wait — links, buttons, fields"
+  },
+  "feature_screenshot_label": {
+    "message": "Take screenshots"
+  },
+  "feature_screenshot_detail": {
+    "message": "page_screenshot — of the visible tab only; Chromium also needs the all-sites grant below"
+  },
+  "feature_fill_label": {
+    "message": "Fill fields"
+  },
+  "feature_fill_detail": {
+    "message": "page_fill — still needs Read + edit on the site"
+  },
+  "feature_click_label": {
+    "message": "Click"
+  },
+  "feature_click_detail": {
+    "message": "page_click — still needs Read + edit on the site"
+  },
+  "feature_open_label": {
+    "message": "Open tabs"
+  },
+  "feature_open_detail": {
+    "message": "tab_open — only sites at Read or higher"
+  },
+  "feature_manageTabs_label": {
+    "message": "Manage tabs and windows"
+  },
+  "feature_manageTabs_detail": {
+    "message": "tabs_move, tabs_pin, tabs_close, tabs_group, tabs_ungroup, window_create"
+  },
+  "feature_sessions_label": {
+    "message": "Saved sessions"
+  },
+  "feature_sessions_detail": {
+    "message": "sessions_save/list/restore/delete/define, recently closed windows"
+  },
+  "toolbar_paused": {
+    "message": "beifahrer is paused — the agent gets nothing from this browser. Click to resume."
+  },
+  "toolbar_active": {
+    "message": "beifahrer — an agent is using this browser right now. Click to see what, or to stop it."
+  },
+  "toolbar_idle": {
+    "message": "beifahrer — connected to an agent, idle. Click to see the activity or pause."
+  },
+  "toolbar_offline_unpaired": {
+    "message": "beifahrer — not paired yet. No agent can reach this browser."
+  },
+  "toolbar_offline_connecting": {
+    "message": "beifahrer — connecting to the bridge…"
+  },
+  "toolbar_offline_offline": {
+    "message": "beifahrer — no agent running. Nothing can reach this browser."
+  },
+  "toolbar_offline_unauthorized": {
+    "message": "beifahrer — the bridge refused the pairing token. No agent can reach this browser."
+  },
+  "toolbar_offline_protocol": {
+    "message": "beifahrer — bridge and extension versions do not match. No agent can reach this browser."
+  },
+  "options_title": {
+    "message": "beifahrer — settings"
+  },
+  "pairing_title": {
+    "message": "Pairing"
+  },
+  "pairing_description": {
+    "message": "Run `beifahrer token` on this computer and paste what it prints. The token proves to the bridge that it is talking to this extension and not to a web page."
+  },
+  "token_title": {
+    "message": "Pairing token"
+  },
+  "port_title": {
+    "message": "First port"
+  },
+  "port_count_title": {
+    "message": "Ports"
+  },
+  "ports_description": {
+    "message": "Every agent session listens on its own port of this range, and beifahrer connects to each one it finds. The sessions must use the same range (BEIFAHRER_PORT, BEIFAHRER_PORT_COUNT) and the same token."
+  },
+  "pairing_save": {
+    "message": "Save and connect"
+  },
+  "pairing_need_token": {
+    "message": "Paste the token first."
+  },
+  "pairing_connecting": {
+    "message": "Saved — connecting…"
+  },
+  "pairing_connected": {
+    "message": "Connected"
+  },
+  "pairing_saved_offline": {
+    "message": "Saved. No agent session is running yet — each starts with your agent, and the extension connects then."
+  },
+  "pause_group_title": {
+    "message": "Pause"
+  },
+  "pause_group_description": {
+    "message": "Also from the toolbar popup, the Stop button on a page the agent is working on, or Alt+Shift+B. Only you can resume: the agent cannot."
+  },
+  "screenshots_title": {
+    "message": "Screenshots"
+  },
+  "screenshots_description": {
+    "message": "Chromium only takes a screenshot with access to all sites. beifahrer still takes one only on sites you set to Read or higher."
+  },
+  "screenshots_allow": {
+    "message": "Allow screenshots"
+  },
+  "tabs_title": {
+    "message": "Tabs and windows"
+  },
+  "tabs_confirm_close": {
+    "message": "Ask me before the agent closes tabs"
+  },
+  "tabs_autosave": {
+    "message": "Keep automatic snapshots of my windows"
+  },
+  "tabs_autosave_detail": {
+    "message": "The last 20, in this browser only"
+  },
+  "sessions_title": {
+    "message": "Saved sessions"
+  },
+  "session_name_title": {
+    "message": "Name, e.g. Taxes 2025"
+  },
+  "session_save": {
+    "message": "Save current windows"
+  },
+  "sessions_empty": {
+    "message": "Nothing saved yet."
+  },
+  "session_saved": {
+    "message": "Saved “$NAME$”",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "session_deleted": {
+    "message": "Deleted “$NAME$”",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "session_nothing_open": {
+    "message": "No web page is open — nothing to save."
+  },
+  "session_name_empty": {
+    "message": "Give the session a name first."
+  },
+  "session_name_whitespace": {
+    "message": "The name must not start or end with a space."
+  },
+  "session_name_too_long": {
+    "message": "The name is longer than $MAX$ characters.",
+    "placeholders": {
+      "max": {
+        "content": "$1"
+      }
+    }
+  },
+  "session_name_control": {
+    "message": "The name must not contain control characters."
+  },
+  "session_name_reserved": {
+    "message": "Names starting with “$PREFIX$” are the automatic snapshots — pick another.",
+    "placeholders": {
+      "prefix": {
+        "content": "$1"
+      }
+    }
+  },
+  "session_by_agent": {
+    "message": "built by the agent"
+  },
+  "windows_one": {
+    "message": "1 window"
+  },
+  "windows_other": {
+    "message": "$COUNT$ windows",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "tabs_one": {
+    "message": "1 tab"
+  },
+  "tabs_other": {
+    "message": "$COUNT$ tabs",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "autos_title": {
+    "message": "Automatic snapshots"
+  },
+  "autos_empty": {
+    "message": "None yet — one is taken a few seconds after your tabs change."
+  },
+  "closed_title": {
+    "message": "Recently closed windows"
+  },
+  "closed_empty": {
+    "message": "The browser remembers no closed window right now."
+  },
+  "sites_title": {
+    "message": "Sites"
+  },
+  "sites_empty": {
+    "message": "No site allowed yet. Open a site and use the toolbar button."
+  },
+  "site_level_write_ask": {
+    "message": "Read + edit (ask)"
+  },
+  "site_level_write_silent": {
+    "message": "Read + edit (don’t ask)"
+  },
+  "site_level_remove": {
+    "message": "Remove"
+  },
+  "confirm_window_title": {
+    "message": "beifahrer — allow this change?"
+  },
+  "confirm_heading_change": {
+    "message": "Your agent wants to change a page"
+  },
+  "confirm_heading_close": {
+    "message": "Your agent wants to close tabs"
+  },
+  "confirm_site": {
+    "message": "Site"
+  },
+  "confirm_fill": {
+    "message": "Put this text into $TARGET$:",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirm_click": {
+    "message": "Click $TARGET$.",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirm_close": {
+    "message": "Close $TARGET$:",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "close_target_window_one": {
+    "message": "a window with 1 tab"
+  },
+  "close_target_window_other": {
+    "message": "a window with $COUNT$ tabs",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "close_target_tabs_one": {
+    "message": "1 tab"
+  },
+  "close_target_tabs_other": {
+    "message": "$COUNT$ tabs",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "tab_not_website": {
+    "message": "a browser page (not a website)"
+  },
+  "confirm_remember_site": {
+    "message": "Don’t ask again on this site"
+  },
+  "confirm_remember_close": {
+    "message": "Don’t ask again before closing tabs"
+  },
+  "confirm_timeout": {
+    "message": "No answer in two minutes counts as no."
+  },
+  "confirm_deny": {
+    "message": "Don’t allow"
+  },
+  "confirm_allow": {
+    "message": "Allow"
+  },
+  "confirm_gone": {
+    "message": "This request is no longer waiting"
+  },
+  "confirm_gone_description": {
+    "message": "It was answered already, or the agent stopped waiting. You can close this window."
+  },
+  "pill_reading": {
+    "message": "beifahrer is reading"
+  },
+  "pill_editing": {
+    "message": "beifahrer is editing"
+  },
+  "pill_reading_session": {
+    "message": "beifahrer ($SESSION$) is reading",
+    "placeholders": {
+      "session": {
+        "content": "$1"
+      }
+    }
+  },
+  "pill_editing_session": {
+    "message": "beifahrer ($SESSION$) is editing",
+    "placeholders": {
+      "session": {
+        "content": "$1"
+      }
+    }
+  },
+  "pill_paused": {
+    "message": "beifahrer paused"
+  },
+  "pill_stop": {
+    "message": "Stop"
+  },
+  "pill_stop_tooltip": {
+    "message": "Pause beifahrer: the agent gets nothing from this browser until you resume it in the toolbar"
+  }
+}

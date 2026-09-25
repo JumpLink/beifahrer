@@ -56,16 +56,18 @@ export function manifestFor(
   // restore buttons in the options page.
   const permissions = ['tabs', 'storage', 'alarms', 'sessions', 'tabGroups', ...(mv3 ? ['scripting'] : [])];
   const action = {
-    default_title: 'beifahrer',
+    default_title: '__MSG_extName__',
     default_popup: 'popup.html',
     // "Not connected" until the background knows better (src/toolbar.ts).
     default_icon: iconPaths(target, 'offline'),
   };
   return {
     manifest_version: mv3 ? 3 : 2,
-    name: 'beifahrer',
-    description:
-      'Let an AI agent ride along in this browser — see your tabs, read and edit pages you allow, site by site.',
+    name: '__MSG_extName__',
+    // Store listings and the browser's extension list show these in the person's language
+    // (_locales/, checked by scripts/locales.ts). `en` is the fallback for every other one.
+    default_locale: 'en',
+    description: '__MSG_extDescription__',
     version,
     icons: iconPaths(target, 'active'),
     permissions: mv3 ? permissions : [...permissions, ...e2eHosts],
@@ -82,7 +84,7 @@ export function manifestFor(
     commands: {
       'toggle-pause': {
         suggested_key: { default: 'Alt+Shift+B' },
-        description: 'Pause or resume beifahrer (the agent gets nothing while paused)',
+        description: '__MSG_commandTogglePause__',
       },
     },
     ...(target === 'firefox-mv2'

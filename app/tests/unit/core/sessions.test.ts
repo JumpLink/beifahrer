@@ -8,6 +8,7 @@ import {
   parseSessions,
   restorePlan,
   sessionNameError,
+  sessionNameIssue,
   snapshot,
   summarizeClosed,
   summarizeSession,
@@ -103,6 +104,19 @@ export default async () => {
       for (const bad of ['', ' x', 'x ', 'a\nb', 'x'.repeat(101), 42, `${AUTOSAVE_PREFIX}1`])
         expect(sessionNameError(bad)).not.toBeNull();
       expect(sessionNameError(`${AUTOSAVE_PREFIX}1`, { allowAutosave: true })).toBeNull();
+    });
+
+    await it('names each refusal with a code the options page can word', async () => {
+      const cases: [unknown, string][] = [
+        [42, 'type'],
+        ['', 'empty'],
+        [' x', 'whitespace'],
+        ['x'.repeat(101), 'length'],
+        ['a\nb', 'control'],
+        [`${AUTOSAVE_PREFIX}1`, 'reserved'],
+      ];
+      for (const [name, code] of cases) expect(sessionNameIssue(name)).toBe(code);
+      expect(sessionNameIssue('Steuern 2025')).toBeNull();
     });
   });
 
