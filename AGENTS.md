@@ -46,10 +46,12 @@ origin, and the person's confirmation, unless they switched confirmation off for
 the active one).
 |**Nothing leaves the device.** No telemetry, no remote endpoint. The Firefox manifest declares
 `data_collection_permissions: none`, and that must stay true.
-|**Agent peers are admitted no less strictly than extensions** (ADR 0003): loopback, the same token,
-`agent-hello`, and NO Origin. `roleAllowed` ties the first frame to the handshake: a web page
-always sends an Origin and so can never become an agent; a process without one can never pose as
-a browser. The hub relays a peer's call unchanged and adds no gate of its own.
+|**One connection per agent session** ([ADR 0007](docs/adr/0007-one-connection-per-agent-session.md)).
+Each bridge binds its own port of the range (`listenInRange`), and the extension admits every
+socket on its own: loopback, an extension Origin in the handshake, the token (constant time), then
+the person's dismissal. No bridge relays for another; a hub would bring back #13 (an old session
+blocking new methods). The extension only ever builds `ws://127.0.0.1:<port>/` from a port of
+the range, and treats a session's label as untrusted text (`cleanSessionLabel`, set as text).
 |**Recipes are data and hold no gate** ([ADR 0006](docs/adr/0006-recipes-are-data-run-as-ordinary-calls.md)).
 The bridge runs a recipe as ordinary calls (`app/src/recipes/runner.ts`), so the extension checks
 every step; the extension never learns what a recipe is. Steps address elements by role + name,
@@ -63,8 +65,8 @@ extension reads is the person's private data.
 
 | Path | Contains | Runs on |
 |---|---|---|
-| `packages/core` | **Pure, zero deps.** Wire protocol, policy, features + pause (`features.ts`), toolbar look, activity log entries, redaction, saved-session model, element queries (`find.ts`), the recipe format + validator (`recipes.ts`) | GJS, Node, browser |
-| `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`. The bridge (`src/bridge/`: `bridge.ts` hub, `shared.ts` hub-or-peer election + relay), MCP tools, recipe runner + sources (`src/recipes/`) | GJS (bundled by gjsify); tests also on Node |
+| `packages/core` | **Pure, zero deps.** Wire protocol, the port range (`ports.ts`) and the extension's connection table (`connections.ts`), policy, features + pause (`features.ts`), toolbar look, activity log entries, redaction, saved-session model, element queries (`find.ts`), the recipe format + validator (`recipes.ts`) | GJS, Node, browser |
+| `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`, `tool`. The bridge (`src/bridge/`: `bridge.ts`, one per session, `session.ts` port range + session label), MCP tools, recipe runner + sources (`src/recipes/`) | GJS (bundled by gjsify); tests also on Node |
 | `extension/` | background, page agent (+ its pill, `src/page-indicator.ts`), popup, options, confirm window; `manifest.ts` + `scripts/build.ts` (runs on GJS; `scripts/icons.ts` renders the sparkles icons from `icons/sparkles.svg`) build both targets | browser (build: GJS + GdkPixbuf/librsvg) |
 | `recipes/` | Built-in recipes (JSON), bundled into the app via `app/src/recipes/builtin.ts` | data |
 | `tests/e2e/` | Full chain in headless Chromium + Firefox | Node driver, GJS app |
@@ -79,7 +81,7 @@ gjsify workspace beifahrer-cli test             # unit tests on gjs + node
 gjsify workspace beifahrer-extension build      # both browser builds
 gjsify foreach -A check && gjsify foreach -A lint
 node_modules/.bin/oxfmt --check .                # not `gjsify format`: under GJS it skips HTML
-node tests/e2e/browsers.e2e.mjs all             # chromium, firefox, shared (two MCP sessions); needs Playwright's Chromium + firefox
+node tests/e2e/browsers.e2e.mjs all             # chromium + firefox, each also with several sessions; needs Playwright's Chromium + firefox
 ```
 
 The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144). Launch
@@ -93,8 +95,8 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   await ends the user gesture and the request silently fails (see popup/options).
 - **The confirm window is a tab too.** `sender.tab` cannot tell it from a content script;
   `sender.url` can (background.ts).
-- **MV3 service workers sleep.** The socket pings every 20 s. A one-minute alarm reconnects a worker
-  that slept while the bridge was down.
+- **MV3 service workers sleep.** Every socket pings every 20 s. With no session connected, a
+  30-second alarm (Chromium's minimum) wakes the worker to probe the range again.
 - **Chromium's `captureVisibleTab` wants `<all_urls>`.** A per-origin grant is not enough, which is
   why screenshots are a separate opt-in in the options page. Firefox does not even *define*
   `tabs.captureVisibleTab` until `<all_urls>` is granted, so it is looked up per call, never at
@@ -108,9 +110,13 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   isolation, not a bug to fix. Rich-text filling therefore uses paste in Chromium and
   `execCommand` in Firefox, and checks after every step that the text actually landed
   (`fillRich` in page-agent.ts).
-- **Several agent sessions, one port.** Each session starts its own `beifahrer mcp`; the real
-  person usually has one running while you test. Unit tests use port 0 (the election test a random
-  high port), the e2e 47902: never 47813, and never kill a `beifahrer mcp` you did not start.
+- **The person's sessions hold 47813–47822 while you test**, and their Firefox probes that range.
+  Unit tests use port 0 or a random range above 50000; the e2e uses 47900 + offsets
+  (`BEIFAHRER_E2E_PORT_BASE` shifts a second run on the same machine, whose fixture port would
+  clash); the dev browser 47830–47839. Never kill a `beifahrer mcp` you did not start.
+- **The popup's Disconnect cannot be clicked headless.** E2E builds only (`installE2eHooks`,
+  e2e-seed.ts) treat a tab on `/__beifahrer_e2e/disconnect?port=N` as that click; a release build
+  carries no seed and registers nothing.
 - **Lazy tabs differ per engine** (from the API docs; the e2e covers the restore, not each
   branch). Firefox creates `discarded: true` tabs with a `title`, but not pinned ones. Chromium
   rejects the key, so its tabs are created and then discarded once the URL has committed
@@ -145,8 +151,8 @@ Fix them in gjsify, never around them (werkstatt AGENTS.md § Core deps). Found 
 |---|---|
 | `gjsify install` does not install required `peerDependencies` (npm ≥ 7 does), and does not prune packages the lockfile no longer lists | no longer hits beifahrer since the WXT build is gone (ADR 0002); a clean `rm -rf node_modules && gjsify install` before trusting a green build |
 | `@gjsify/ws` client: `new WebSocket(url, options)` treated as protocols; URL without path fails the handshake | tests use the three-argument form and `…/`. The extension is unaffected (browsers normalise) |
-| `@gjsify/ws` server: `connection` passes the raw `Soup.ServerMessage`, no `req.headers` | `verifyClient` refuses page origins on both runtimes; the role check after the hello reads the Origin through `handshakeOriginKind()` (bridge.ts), which knows both shapes and fails closed on any other |
-| `@gjsify/ws` server: a taken port carries no `code: 'EADDRINUSE'`, only a localised Gio message | `isAddressInUse()` matches the message; the hub-or-peer election tries the relay after *any* bind error, so a missed match cannot cost a session the browser |
+| `@gjsify/ws` server: `connection` passes the raw `Soup.ServerMessage`, no `req.headers` | `verifyClient` gets the Origin on both runtimes and refuses anything but an extension; nothing after the handshake reads it (ADR 0007 removed the agent role that needed it) |
+| `@gjsify/ws` server: a taken port carries no `code: 'EADDRINUSE'`, only a localised Gio message | `bindFirstFree` (core) moves on to the next port after *any* bind error, so the missing code costs nothing |
 | `gjsify format` under GJS silently skips HTML (oxfmt-native cannot format it) — [gjsify#1807](https://github.com/gjsify/gjsify/issues/1807) | `oxfmt` is called directly, locally and in CI |
 | `app/src/frontends/mcp/runtime.ts` is the **third** verbatim copy (postbote, troedler) | extract to a shared `@gjsify/mcp`; until then change all three or none |
 

@@ -29,11 +29,13 @@ Firefox / Chromium
   paired it once with a token, and the bridge refuses any connection whose origin is a web page.
 - The **bridge** (`beifahrer mcp`) is an MCP server over stdio that your agent starts. It routes
   requests and holds no policy.
-- **Several agent sessions share one browser connection.** The first `beifahrer mcp` owns the port
-  (the *hub*); every later one connects to it with the same pairing token and relays its calls
-  (a *peer*). When the hub's session ends, a peer takes the port over and the extension reconnects
-  to it by itself. `browsers_list` shows which role a session has and how many share the
-  connection. Why: [ADR 0003](docs/adr/0003-share-one-bridge-between-agent-sessions.md).
+- **Every agent session gets its own connection.** Each `beifahrer mcp` listens on the first free
+  port of 47813–47822, and the extension looks for sessions on that range every few seconds and
+  connects to each one it finds. Sessions never go through each other, so a session started from
+  an older build cannot hold back a newer one. All of them read the same token file. The popup
+  lists the connected sessions by name (the agent and the folder it works in, e.g.
+  "claude-code · werkstatt", or `BEIFAHRER_SESSION_LABEL`), and **Disconnect** shuts one out
+  until it restarts. Why: [ADR 0007](docs/adr/0007-one-connection-per-agent-session.md).
 - The **policy lives in your browser.** Every site is at one of three levels:
 
   | Level | The agent may |
@@ -57,7 +59,7 @@ Firefox / Chromium
 | grey + **amber dot** | not paired, or no agent running: nothing can reach the browser |
 
 Hover it for the same in words. Click it for the popup: the pause switch at the top, the level of
-the site you are on, the list of features, and the **activity** of the last 20 requests (time,
+the site you are on, the list of features, the connected **agent sessions**, and the **activity** of the last 20 requests (time, which session,
 what, which site by host, and why a request was refused). The activity list holds no page text
 and is gone when the browser closes.
 
@@ -196,6 +198,9 @@ fill and click at all (the browser still asks you):
 
 Then open a site, click the beifahrer toolbar button, and pick a level.
 
+Ten sessions at once is the default. For more, raise the range on both sides to the same number:
+`BEIFAHRER_PORT_COUNT` (or `--port-count`) for the bridges, and **Ports** in the extension options.
+
 ## Browsers
 
 | | Chromium (Chrome, Brave, Edge, …) | Firefox | Epiphany (GNOME Web) |
@@ -206,8 +211,9 @@ Then open a site, click the beifahrer toolbar button, and pick a level.
 ### Without an MCP client
 
 `beifahrer tool` runs any MCP tool from the command line, through the same server and the same
-gates, joining the shared hub as a peer. That helps in a session that started before beifahrer was
-registered, and it also works from scripts:
+gates. It listens on its own port of the range, like any agent session, and a call waits (up to
+`--wait`, 20 s) for the extension to find it. That helps in a session that started before
+beifahrer was registered, and it also works from scripts:
 
 ```sh
 gjsify run app/dist/beifahrer.gjs.mjs tool --list
@@ -223,8 +229,9 @@ gjsify workspace beifahrer-extension dev:chromium   # the same in Chromium (Play
 ```
 
 The dev browser runs in its own persistent profile (`~/.cache/beifahrer/dev-*`), is paired
-automatically with your local token, and talks to port **47814**, so it never shares the hub
-with your everyday browser. Drive it with `gjsify run app/dist/beifahrer.gjs.mjs call <method> --port 47814`.
+automatically with your local token, and looks for sessions on ports **47830–47839**, so it never
+meets the agent sessions of your everyday browser. Drive it with
+`gjsify run app/dist/beifahrer.gjs.mjs call <method> --port 47830`.
 
 ```sh
 gjsify workspace beifahrer-cli test           # unit tests, on GJS and Node

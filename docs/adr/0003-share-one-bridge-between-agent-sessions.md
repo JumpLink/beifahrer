@@ -1,6 +1,9 @@
 # 0003: Share one bridge between agent sessions
 
-- **Status:** accepted. Replaces the last consequence of ADR 0001 ("a second session gets 'port in use'").
+- **Status:** superseded by [ADR 0007](0007-one-connection-per-agent-session.md): a hub from an older
+  build blocked newer sessions ([#13](https://github.com/JumpLink/beifahrer/issues/13)), so every
+  session now has its own port and connection. Kept for the reasoning. It replaced the last
+  consequence of ADR 0001 ("a second session gets 'port in use'").
 - **Date:** 2026-09-25
 
 ## Context
