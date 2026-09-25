@@ -72,7 +72,10 @@ export function manifestFor(
     ...(mv3
       ? { optional_host_permissions: HOSTS, ...(e2eHosts.length ? { host_permissions: e2eHosts } : {}) }
       : { optional_permissions: HOSTS }),
-    ...(mv3 ? { action } : { browser_action: action }),
+    // Firefox puts a new extension's button into the Extensions (puzzle) menu unless the manifest
+    // asks for the toolbar. The icon IS the "an agent is in your browser" signal, so it must be
+    // visible without the person digging for it. Chromium has no equivalent: pinning there is manual.
+    ...(mv3 ? { action } : { browser_action: { ...action, default_area: 'navbar' } }),
     background: mv3 ? { service_worker: 'background.js' } : { scripts: ['background.js'] },
     options_ui: { page: 'options.html', open_in_tab: true },
     // The kill switch from the keyboard. Only the person can press it; the bridge cannot.
