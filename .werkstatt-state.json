@@ -1,13 +1,33 @@
 {
   "version": 1,
   "name": "beifahrer",
-  "description": "Browser bridge for agents: WebExtension + MCP server. The repository itself holds no state — everything local lives outside it.",
+  "description": "Browser bridge for agents: WebExtension + MCP server. The repository itself holds no state \u2014 everything local lives outside it.",
   "//nichts-im-repo": "The pairing token is $XDG_CONFIG_HOME/beifahrer/token (outside the repo, regenerable with `beifahrer token --rotate`). The per-site policy lives in each browser profile's extension storage, backed up with that profile.",
   "entries": [
-    { "path": "node_modules", "class": "derived", "why": "gjsify install" },
-    { "path": "app/dist", "class": "derived", "why": "gjsify workspace beifahrer-cli build" },
-    { "path": "extension/.output", "class": "derived", "why": "gjsify workspace beifahrer-extension build" },
-    { "path": "extension/.output-e2e", "class": "derived", "why": "node tests/e2e/browsers.e2e.mjs" },
-    { "path": "extension/.wxt", "class": "derived", "why": "wxt prepare" }
+    {
+      "path": "node_modules",
+      "class": "derived",
+      "recreate": "gjsify install"
+    },
+    {
+      "path": "app/dist",
+      "class": "derived",
+      "recreate": "gjsify workspace beifahrer-cli build"
+    },
+    {
+      "path": "extension/.output",
+      "class": "derived",
+      "recreate": "gjsify workspace beifahrer-extension build"
+    },
+    {
+      "path": "extension/.output-e2e",
+      "class": "derived",
+      "recreate": "node tests/e2e/browsers.e2e.mjs"
+    },
+    {
+      "path": "extension/.wxt",
+      "class": "derived",
+      "recreate": "wxt prepare"
+    }
   ]
 }
