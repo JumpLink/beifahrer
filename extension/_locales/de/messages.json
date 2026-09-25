@@ -302,6 +302,17 @@
   "pause_title": {
     "message": "Agent pausieren"
   },
+  "pause_shortcut": {
+    "message": "Tastenkürzel: $SHORTCUT$",
+    "placeholders": {
+      "shortcut": {
+        "content": "$1"
+      }
+    }
+  },
+  "pause_shortcut_unset": {
+    "message": "Kein Tastenkürzel festgelegt"
+  },
   "pairing_title": {
     "message": "Verbindung"
   },

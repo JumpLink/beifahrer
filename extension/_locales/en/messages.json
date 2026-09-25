@@ -303,6 +303,17 @@
   "pause_title": {
     "message": "Pause agent"
   },
+  "pause_shortcut": {
+    "message": "Shortcut: $SHORTCUT$",
+    "placeholders": {
+      "shortcut": {
+        "content": "$1"
+      }
+    }
+  },
+  "pause_shortcut_unset": {
+    "message": "No keyboard shortcut set"
+  },
   "pairing_title": {
     "message": "Connection"
   },
