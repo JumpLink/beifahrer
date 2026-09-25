@@ -106,7 +106,7 @@ reading" or "Agent is editing", with a **Stop** button, top right. It disappears
 the last action, never appears in a screenshot, and the page itself cannot read it.
 
 **Pause stops everything at once.** Press *Stop* on that pill, the pause button in the popup, the switch in the
-options, or press **Alt+Shift+B**. While paused, every tool the agent calls, even listing tabs,
+options, or press **Alt+Shift+B** (**⌥⇧B** on macOS). While paused, every tool the agent calls, even listing tabs,
 answers `paused`, and the agent is told to ask you. Only you can resume, in the popup, the options
 or with the shortcut: nothing the agent sends can.
 
