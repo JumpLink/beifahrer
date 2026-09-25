@@ -9,7 +9,8 @@
     "check": "gjsify tsc --noEmit",
     "lint": "gjsify lint .",
     "build": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify run dist/build.gjs.mjs",
-    "zip": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify run dist/build.gjs.mjs --zip"
+    "zip": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify run dist/build.gjs.mjs --zip",
+    "sign": "sh scripts/sign.sh"
   },
   "dependencies": {
     "@beifahrer/core": "*",

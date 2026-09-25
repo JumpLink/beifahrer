@@ -65,7 +65,11 @@ gjsify workspace beifahrer-extension build    # extension/.output/{chrome-mv3,fi
 ```
 
 - **Chromium:** `chrome://extensions` → Developer mode → *Load unpacked* → `extension/.output/chrome-mv3`
-- **Firefox:** `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on* → `extension/.output/firefox-mv2/manifest.json`
+- **Firefox, to try it:** `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on* → `extension/.output/firefox-mv2/manifest.json`. Firefox forgets it on restart.
+- **Firefox, to keep it:** sign it as an unlisted add-on (AMO signs it, nothing is published):
+  put `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` from [your AMO API key page](https://addons.mozilla.org/developers/addon/api/key/)
+  into `~/.config/beifahrer/amo.env`, run `gjsify workspace beifahrer-extension sign`, and open
+  the `.xpi` from `extension/.output/signed/` in Firefox.
 
 Pair it:
 
