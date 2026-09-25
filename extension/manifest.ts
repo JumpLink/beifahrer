@@ -26,16 +26,14 @@ export const ICON_VARIANTS = ['idle', 'active', 'paused', 'offline'] as const;
 export type IconVariant = (typeof ICON_VARIANTS)[number];
 
 /**
- * Where an icon lives in the build. Firefox renders the SVG sharp at every size; Chromium wants
- * PNGs, which scripts/icons.ts renders from the same SVG at build time.
+ * Where an icon lives in the build: PNGs rendered from the SVG sources (scripts/icons.ts), for
+ * every browser. Firefox was given the SVGs at first — they showed in about:debugging and stayed
+ * BLANK in the toolbar button (measured, Firefox 155, 2026-09-25), so it gets the PNGs Chromium
+ * already had.
  */
-export function iconPaths(target: Target, variant: IconVariant): Record<string, string> {
+export function iconPaths(_target: Target, variant: IconVariant): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const size of ICON_SIZES)
-    out[String(size)] =
-      target === 'firefox-mv2'
-        ? `icons/${variant}${isSmall(size) ? '-small' : ''}.svg`
-        : `icons/${variant}-${size}.png`;
+  for (const size of ICON_SIZES) out[String(size)] = `icons/${variant}-${size}.png`;
   return out;
 }
 

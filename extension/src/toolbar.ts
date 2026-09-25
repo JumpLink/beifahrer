@@ -27,11 +27,9 @@ function button(): ButtonApi | null {
 }
 
 function iconPath(variant: ToolbarIcon): Record<string, string> {
-  // Firefox (MV2) ships the SVG, Chromium PNGs — the same split as manifest.ts `iconPaths`.
-  const svg = browser.runtime.getManifest().manifest_version === 2;
+  // PNGs in every browser — see iconPaths() in manifest.ts for why not SVG in Firefox.
   const out: Record<string, string> = {};
-  for (const size of ICON_SIZES.filter((s) => s <= 32))
-    out[String(size)] = svg ? `/icons/${variant}-small.svg` : `/icons/${variant}-${size}.png`;
+  for (const size of ICON_SIZES.filter((s) => s <= 32)) out[String(size)] = `/icons/${variant}-${size}.png`;
   return out;
 }
 

@@ -61,10 +61,7 @@ export function renderIcons(root: string, stage: string): void {
 export function copyIcons(stage: string, dir: string, target: Target): void {
   mkdirSync(join(dir, 'icons'), { recursive: true });
   for (const variant of ICON_VARIANTS) {
-    const names =
-      target === 'firefox-mv2'
-        ? [`${variant}.svg`, `${variant}-small.svg`]
-        : ICON_SIZES.map((size) => `${variant}-${size}.png`);
+    const names = ICON_SIZES.map((size) => `${variant}-${size}.png`);
     for (const name of names) copyFileSync(join(stage, 'icons', name), join(dir, 'icons', name));
   }
 }
