@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# The gjsify toolchain, as in postbote/troedler: `gjsify install --immutable`, the bundled
+# `gjsify tsc` type-check, `gjsify build` for the app, and the unit tests under BOTH gjs and node.
+# The extension is built by WXT (Vite) on Node — that is build tooling only; what ships runs in
+# the browser.
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+    steps:
+      # The bridge serves WebSockets through libsoup (@gjsify/ws → Soup.Server), so the test run
+      # needs gjs and libsoup3 — nothing GTK: the bundle excludes the DOM-ish globals that would
+      # pull Gdk/Pango in at load.
+      - name: Install system prerequisites
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          git tar xz findutils gjs libsoup3
+
+      - uses: actions/checkout@v4
+
+      # Node 24: gjsify's native install-backend prebuilds target node 24; Fedora's default node
+      # 22 loads a mismatched ABI and segfaults `gjsify install`.
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Cache gjsify tarball store
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/gjsify/tarballs
+          key: gjsify-tarballs-${{ hashFiles('gjsify-lock.json') }}
+          restore-keys: gjsify-tarballs-
+
+      # Bootstrap the SAME gjsify version the app pins — read from app/package.json, never
+      # repeated here, so the two cannot drift apart.
+      - name: Bootstrap the gjsify CLI
+        run: |
+          VERSION=$(node -p "require('./app/package.json').devDependencies['@gjsify/cli']")
+          echo "Bootstrapping @gjsify/cli@$VERSION (from app/package.json)"
+          npm install -g "@gjsify/cli@$VERSION"
+
+      - name: Install dependencies (gjsify install --immutable)
+        run: gjsify install --immutable
+
+      # `wxt prepare` generates the extension's tsconfig + types; its check needs them.
+      - name: Prepare the extension
+        working-directory: extension
+        run: ../node_modules/.bin/wxt prepare
+
+      # -A includes the `private: true` workspaces — without it the packages are skipped and the
+      # check silently covers only part of the tree.
+      - name: Type check (every workspace)
+        run: gjsify foreach -A check
+
+      - name: Lint
+        run: gjsify foreach -A lint
+
+      - name: Format check
+        run: gjsify format --check .
+
+      - name: Build the app bundle
+        run: gjsify workspace beifahrer-cli build
+
+      - name: Build the extension (Chromium MV3 + Firefox MV2)
+        run: gjsify workspace beifahrer-extension build
+
+      - name: Unit tests (gjs + node)
+        run: gjsify workspace beifahrer-cli test
+
+      # The builds a person would install. Not a release — just proof they package.
+      - name: Package the extension
+        working-directory: extension
+        run: ../node_modules/.bin/wxt zip && ../node_modules/.bin/wxt zip -b firefox
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extension-zips
+          path: extension/.output/*.zip
