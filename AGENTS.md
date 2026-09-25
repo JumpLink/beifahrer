@@ -33,6 +33,10 @@ origin, and the person's confirmation, unless they switched confirmation off for
 the active one).
 |**Nothing leaves the device.** No telemetry, no remote endpoint. The Firefox manifest declares
 `data_collection_permissions: none`, and that must stay true.
+|**Agent peers are admitted no less strictly than extensions** (ADR 0003): loopback, the same token,
+`agent-hello`, and NO Origin. `roleAllowed` ties the first frame to the handshake: a web page
+always sends an Origin and so can never become an agent; a process without one can never pose as
+a browser. The hub relays a peer's call unchanged and adds no gate of its own.
 |**Fixtures are synthetic.** Never commit a captured page or a screenshot of a real site. What the
 extension reads is the person's private data.
 
@@ -41,7 +45,7 @@ extension reads is the person's private data.
 | Path | Contains | Runs on |
 |---|---|---|
 | `packages/core` | **Pure, zero deps.** Wire protocol, policy, redaction | GJS, Node, browser |
-| `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`. The bridge (`src/bridge/`), MCP tools | GJS (bundled by gjsify); tests also on Node |
+| `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`. The bridge (`src/bridge/`: `bridge.ts` hub, `shared.ts` hub-or-peer election + relay), MCP tools | GJS (bundled by gjsify); tests also on Node |
 | `extension/` | background, page agent, popup, options, confirm window; `manifest.ts` + `scripts/build.ts` (runs on GJS) build both targets | browser (build: GJS) |
 | `tests/e2e/` | Full chain in headless Chromium + Firefox | Node driver, GJS app |
 | `probes/epiphany/` | The probe that measured Epiphany (ADR 0001 § 3). Re-run it before claiming support | Epiphany |
@@ -55,7 +59,7 @@ gjsify workspace beifahrer-cli test             # unit tests on gjs + node
 gjsify workspace beifahrer-extension build      # both browser builds
 gjsify foreach -A check && gjsify foreach -A lint
 node_modules/.bin/oxfmt --check .                # not `gjsify format`: under GJS it skips HTML
-node tests/e2e/browsers.e2e.mjs all             # needs Playwright's Chromium in ~/.cache/ms-playwright + firefox
+node tests/e2e/browsers.e2e.mjs all             # chromium, firefox, shared (two MCP sessions); needs Playwright's Chromium + firefox
 ```
 
 The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144). Launch
@@ -84,6 +88,9 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   isolation, not a bug to fix. Rich-text filling therefore uses paste in Chromium and
   `execCommand` in Firefox, and checks after every step that the text actually landed
   (`fillRich` in page-agent.ts).
+- **Several agent sessions, one port.** Each session starts its own `beifahrer mcp`; the real
+  person usually has one running while you test. Unit tests use port 0 (the election test a random
+  high port), the e2e 47902: never 47813, and never kill a `beifahrer mcp` you did not start.
 - **Headless Chromium takes one start URL.** A second one makes it exit with "Multiple targets are
   not supported in headless mode". The e2e opens further tabs over the DevTools endpoint.
 
@@ -96,7 +103,8 @@ Fix them in gjsify, never around them (werkstatt AGENTS.md § Core deps). Found 
 |---|---|
 | `gjsify install` does not install required `peerDependencies` (npm ≥ 7 does), and does not prune packages the lockfile no longer lists | no longer hits beifahrer since the WXT build is gone (ADR 0002); a clean `rm -rf node_modules && gjsify install` before trusting a green build |
 | `@gjsify/ws` client: `new WebSocket(url, options)` treated as protocols; URL without path fails the handshake | tests use the three-argument form and `…/`. The extension is unaffected (browsers normalise) |
-| `@gjsify/ws` server: `connection` passes the raw `Soup.ServerMessage`, no `req.headers` | the bridge checks the origin in `verifyClient`, which works on both runtimes and is the better place anyway |
+| `@gjsify/ws` server: `connection` passes the raw `Soup.ServerMessage`, no `req.headers` | `verifyClient` refuses page origins on both runtimes; the role check after the hello reads the Origin through `handshakeOriginKind()` (bridge.ts), which knows both shapes and fails closed on any other |
+| `@gjsify/ws` server: a taken port carries no `code: 'EADDRINUSE'`, only a localised Gio message | `isAddressInUse()` matches the message; the hub-or-peer election tries the relay after *any* bind error, so a missed match cannot cost a session the browser |
 | `gjsify format` under GJS silently skips HTML (oxfmt-native cannot format it) — [gjsify#1807](https://github.com/gjsify/gjsify/issues/1807) | `oxfmt` is called directly, locally and in CI |
 | `app/src/frontends/mcp/runtime.ts` is the **third** verbatim copy (postbote, troedler) | extract to a shared `@gjsify/mcp`; until then change all three or none |
 

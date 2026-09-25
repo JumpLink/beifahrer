@@ -11,7 +11,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DEFAULT_PORT } from '@beifahrer/core';
 
-import { Bridge, isAddressInUse } from '../../bridge/bridge.ts';
+import { SharedBridge } from '../../bridge/shared.ts';
 import { loadOrCreateToken, tokenPath } from '../../bridge/token.ts';
 import { VERSION } from '../../version.ts';
 import { applyReadOnlyGate, serveStdio } from './runtime.ts';
@@ -27,23 +27,26 @@ export function createMcpServer(handle: BridgeHandle, allowWrite: boolean): McpS
   return server;
 }
 
+/**
+ * Join the browser connection: own the port (hub), or relay through the session that owns it
+ * (peer). A failed first election is not fatal — every tool call elects again, and its error says
+ * why it failed, which the agent can relay.
+ */
 export async function startBridge(port: number): Promise<BridgeHandle> {
   const { token } = loadOrCreateToken();
-  const bridge = new Bridge({ port, token, version: VERSION });
+  const bridge = new SharedBridge({
+    port,
+    token,
+    version: VERSION,
+    log: (message) => console.error(`[${SERVER_NAME}] ${message}`),
+  });
   try {
     await bridge.start();
-    console.error(`[${SERVER_NAME}] bridge listening on 127.0.0.1:${port} (token: ${tokenPath()})`);
-    return { bridge };
+    console.error(`[${SERVER_NAME}] token: ${tokenPath()}`);
   } catch (err) {
-    const unavailable = isAddressInUse(err)
-      ? `port ${port} is taken — most likely another agent session already runs a beifahrer bridge. ` +
-        'Only one bridge can own the browser connection at a time; use that session, or stop it.'
-      : `the bridge could not start: ${(err as Error).message}`;
-    console.error(`[${SERVER_NAME}] ${unavailable}`);
-    // Serve anyway: every tool then answers with this reason, which the agent can relay. Dying
-    // here would leave the agent with a server that simply "failed to start".
-    return { bridge: null, unavailable };
+    console.error(`[${SERVER_NAME}] ${(err as Error).message}`);
   }
+  return { bridge };
 }
 
 export async function startMcpServer(opts: { port?: number; allowWrite?: boolean } = {}): Promise<void> {

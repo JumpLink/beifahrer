@@ -1,7 +1,8 @@
 import type { CommandModule } from 'yargs';
 import { DEFAULT_PORT, isMethod } from '@beifahrer/core';
 
-import { Bridge, BridgeError, isAddressInUse, label } from '../../bridge/bridge.ts';
+import { Bridge, BridgeError, label } from '../../bridge/bridge.ts';
+import { SharedBridge } from '../../bridge/shared.ts';
 import { loadOrCreateToken, newToken, tokenPath, writeToken } from '../../bridge/token.ts';
 import { VERSION } from '../../version.ts';
 import { startMcpServer } from '../mcp/server.ts';
@@ -55,7 +56,8 @@ export const callCommand: CommandModule<
   { method: string; params?: string; browser?: string; port?: number; wait: number }
 > = {
   command: 'call <method> [params]',
-  describe: 'Start the bridge, wait for a browser, send one request, print the answer (for testing)',
+  describe:
+    'Send one request to a browser and print the answer (for testing). Owns the port, or relays through the agent session that does.',
   builder: (y) =>
     y
       .positional('method', { type: 'string', demandOption: true, describe: 'tabs.list, page.outline, …' })
@@ -69,22 +71,14 @@ export const callCommand: CommandModule<
         console.error(`unknown method ${argv.method}`);
         return finish(2);
       }
-      const bridge = new Bridge({ port: portOf(argv), token: loadOrCreateToken().token, version: VERSION });
+      const bridge = new SharedBridge({
+        port: portOf(argv),
+        token: loadOrCreateToken().token,
+        version: VERSION,
+      });
       try {
         await bridge.start();
-      } catch (err) {
-        console.error(
-          isAddressInUse(err)
-            ? `port ${portOf(argv)} is taken — another beifahrer (an agent session's MCP server) owns the browser connection`
-            : `the bridge could not start: ${(err as Error).message}`,
-        );
-        return finish(1);
-      }
-      try {
-        await bridge.waitForConnection(argv.wait * 1000);
-        // A second browser that is also paired connects within a moment; give it that moment so
-        // `--browser` can pick it instead of racing the first one in.
-        if (argv.browser) await new Promise((r) => setTimeout(r, 1500));
+        await waitForBrowser(bridge, argv.wait * 1000, argv.browser ? 2 : 1);
         const result = await bridge.call(argv.method, JSON.parse(argv.params ?? '{}'), argv.browser);
         console.log(JSON.stringify(result, null, 2));
         await bridge.stop();
@@ -99,6 +93,27 @@ export const callCommand: CommandModule<
     })();
   },
 };
+
+/**
+ * Poll until a browser is connected. With `--browser`, a second paired browser usually connects
+ * a moment after the first; give it until the deadline or a short grace so `--browser` can pick
+ * it instead of racing the first one in.
+ */
+async function waitForBrowser(bridge: SharedBridge, timeoutMs: number, want: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let firstSeen = 0;
+  for (;;) {
+    const { browsers } = await bridge.status();
+    if (browsers.length >= want) return;
+    if (browsers.length > 0) {
+      firstSeen ||= Date.now();
+      if (Date.now() - firstSeen > 1500) return;
+    } else if (Date.now() > deadline) {
+      throw new Error(`no browser connected within ${Math.round(timeoutMs / 1000)} s`);
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
 
 export const serveCommand: CommandModule<object, { port?: number }> = {
   command: 'serve',

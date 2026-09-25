@@ -31,7 +31,17 @@ async function startBridge(): Promise<Bridge> {
   return bridge;
 }
 
-/** A fake extension. Resolves with the socket once welcomed, or with the close code. */
+function agentHello(extra: Record<string, unknown> = {}) {
+  return {
+    type: 'agent-hello',
+    protocol: PROTOCOL_VERSION,
+    token: TOKEN,
+    agent: { version: 'test', pid: 1 },
+    ...extra,
+  };
+}
+
+/** A fake extension (or peer). Resolves with the socket once welcomed, or with the close code. */
 function connect(
   bridge: Bridge,
   opts: {
@@ -39,7 +49,12 @@ function connect(
     hello?: unknown;
     onRequest?: (req: { id: number; method: string; params: unknown }, ws: WebSocket) => void;
   } = {},
-): Promise<{ ws: WebSocket; welcome?: { connectionId: string }; closed?: number }> {
+): Promise<{
+  ws: WebSocket;
+  welcome?: { connectionId: string };
+  agentWelcome?: { peerId: string };
+  closed?: number;
+}> {
   return new Promise((resolve) => {
     // Three-argument form on purpose: @gjsify/ws 0.52.0 misreads `new WebSocket(url, options)` as
     // protocols and never sends the Origin. fixed upstream in gjsify: ws options as second argument
@@ -49,6 +64,7 @@ function connect(
     ws.on('message', (data) => {
       const frame = JSON.parse(String(data));
       if (frame.type === 'welcome') resolve({ ws, welcome: frame });
+      else if (frame.type === 'agent-welcome') resolve({ ws, agentWelcome: frame });
       else if (frame.type === 'request') opts.onRequest?.(frame, ws);
     });
     ws.on('close', (code) => resolve({ ws, closed: code }));
@@ -68,11 +84,49 @@ export default async () => {
       await bridge.stop();
     });
 
-    await it('refuses the handshake without an Origin (a local non-browser process)', async () => {
+    await it('refuses an extension hello without an Origin (a local process posing as a browser)', async () => {
       const bridge = await startBridge();
       const r = await connect(bridge, { origin: '' });
       expect(r.welcome).toBeUndefined();
+      expect(r.closed).toBe(CLOSE.unauthorized);
       expect(bridge.connections().length).toBe(0);
+      await bridge.stop();
+    });
+
+    await it('refuses an agent hello from a web page — in the handshake', async () => {
+      const bridge = await startBridge();
+      const r = await connect(bridge, { origin: 'https://evil.example', hello: agentHello() });
+      expect(r.agentWelcome).toBeUndefined();
+      expect(r.closed === CLOSE.unauthorized).toBe(false);
+      expect(bridge.peerCount()).toBe(0);
+      await bridge.stop();
+    });
+
+    await it('refuses an agent hello with an extension Origin', async () => {
+      const bridge = await startBridge();
+      const r = await connect(bridge, { hello: agentHello() });
+      expect(r.agentWelcome).toBeUndefined();
+      expect(r.closed).toBe(CLOSE.unauthorized);
+      expect(bridge.peerCount()).toBe(0);
+      await bridge.stop();
+    });
+
+    await it('refuses an agent hello without an Origin but with the wrong token', async () => {
+      const bridge = await startBridge();
+      const r = await connect(bridge, { origin: '', hello: agentHello({ token: 'nope' }) });
+      expect(r.agentWelcome).toBeUndefined();
+      expect(r.closed).toBe(CLOSE.unauthorized);
+      expect(bridge.peerCount()).toBe(0);
+      await bridge.stop();
+    });
+
+    await it('welcomes an agent peer: no Origin, agent hello, right token', async () => {
+      const bridge = await startBridge();
+      const r = await connect(bridge, { origin: '', hello: agentHello() });
+      expect(typeof r.agentWelcome?.peerId).toBe('string');
+      expect(bridge.peerCount()).toBe(1);
+      expect(bridge.connections().length).toBe(0);
+      r.ws.close();
       await bridge.stop();
     });
 
