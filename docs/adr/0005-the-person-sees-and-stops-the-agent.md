@@ -26,7 +26,7 @@ Options considered for stopping:
 `paused` in the extension's `storage.local`. While it is set, **every** method, `tabs.list`
 included, answers the wire error `paused` with "the person paused beifahrer in the browser — ask
 them to resume". The person sets it from the popup's switch, the options page, the **Stop** button
-of the in-page pill and the `toggle-pause` command (Alt+Shift+B).
+of the in-page pill and the `toggle-pause` command (Alt+Shift+B, ⌥⇧B on macOS).
 
 It is lifted **only from the browser's own UI**: the popup, the options page, the shortcut. No
 protocol method touches it, and the one message a content script may send the background
