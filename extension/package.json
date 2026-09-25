@@ -4,23 +4,24 @@
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
-  "description": "The beifahrer WebExtension: connects to the local bridge and serves the agent's requests under the per-origin policy the person sets. One source, built with WXT as MV3 for Chromium and MV2 for Firefox.",
+  "description": "The beifahrer WebExtension: connects to the local bridge and serves the agent's requests under the per-origin policy the person sets. One source, bundled by gjsify on GJS as MV3 for Chromium and MV2 for Firefox \u2014 no Node, no Vite.",
   "scripts": {
-    "postinstall": "wxt prepare",
-    "check": "wxt prepare && tsc --noEmit",
+    "check": "gjsify tsc --noEmit",
     "lint": "gjsify lint .",
-    "dev": "wxt",
-    "dev:firefox": "wxt -b firefox",
-    "build": "wxt build && wxt build -b firefox",
-    "zip": "wxt zip && wxt zip -b firefox"
+    "build": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify run dist/build.gjs.mjs",
+    "zip": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify run dist/build.gjs.mjs --zip"
   },
   "dependencies": {
-    "@beifahrer/core": "*"
+    "@beifahrer/core": "*",
+    "@wxt-dev/browser": "^0.3.0"
   },
   "devDependencies": {
+    "@gjsify/cli": "0.52.0",
+    "@gjsify/node-globals": "0.52.0",
+    "@gjsify/rolldown-native": "0.52.0",
+    "@gjsify/runtime": "0.52.0",
+    "fflate": "^0.8.3",
     "typescript": "^6.0.3",
-    "vite": "^8.0.0",
-    "web-ext": "^10.7.0",
-    "wxt": "^0.21.4"
+    "web-ext": "^10.7.0"
   }
 }

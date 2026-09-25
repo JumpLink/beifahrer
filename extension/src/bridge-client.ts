@@ -10,7 +10,7 @@
  *   one-minute alarm wakes it to try again.
  */
 
-import { browser } from 'wxt/browser';
+import { browser } from '@wxt-dev/browser';
 import {
   CLOSE,
   PROTOCOL_VERSION,

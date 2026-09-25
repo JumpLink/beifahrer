@@ -9,7 +9,7 @@
  * Only then is the page agent injected.
  */
 
-import { browser } from 'wxt/browser';
+import { browser } from '@wxt-dev/browser';
 import {
   decide,
   originOf,

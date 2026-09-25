@@ -5,7 +5,7 @@ node_modules/
 dist/
 extension/.output/
 extension/.output-e2e/
-extension/.wxt/
+extension/dist/
 
 # gjsify
 .gjsify/
@@ -31,3 +31,6 @@ screenshots/
 # Editor / OS
 .DS_Store
 *.log
+
+# Agent worktrees (Claude Code)
+.claude/

@@ -22,7 +22,7 @@
     "**/*.node.mjs",
     "**/.output",
     "**/.output-e2e",
-    "**/.wxt",
-    "probes/**"
+    "probes/**",
+    ".claude/**"
   ]
 }

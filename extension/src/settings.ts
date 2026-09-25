@@ -5,7 +5,7 @@
  * change it. That is what "the browser is where the policy lives" in ADR 0001 means in code.
  */
 
-import { browser } from 'wxt/browser';
+import { browser } from '@wxt-dev/browser';
 import { DEFAULT_PORT, EMPTY_POLICY, parsePolicy, type Policy } from '@beifahrer/core';
 
 export interface Settings {

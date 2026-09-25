@@ -25,9 +25,9 @@
       "recreate": "node tests/e2e/browsers.e2e.mjs"
     },
     {
-      "path": "extension/.wxt",
+      "path": "extension/dist",
       "class": "derived",
-      "recreate": "wxt prepare"
+      "recreate": "gjsify workspace beifahrer-extension build (the bundled build script)"
     }
   ]
 }

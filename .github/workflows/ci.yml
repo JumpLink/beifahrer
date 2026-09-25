@@ -8,8 +8,8 @@ on:
 
 # The gjsify toolchain, as in postbote/troedler: `gjsify install --immutable`, the bundled
 # `gjsify tsc` type-check, `gjsify build` for the app, and the unit tests under BOTH gjs and node.
-# The extension is built by WXT (Vite) on Node — that is build tooling only; what ships runs in
-# the browser.
+# The extension is bundled by gjsify on GJS too (extension/scripts/build.ts) — Node is here only to
+# bootstrap the gjsify CLI.
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -51,11 +51,6 @@ jobs:
       - name: Install dependencies (gjsify install --immutable)
         run: gjsify install --immutable
 
-      # `wxt prepare` generates the extension's tsconfig + types; its check needs them.
-      - name: Prepare the extension
-        working-directory: extension
-        run: ../node_modules/.bin/wxt prepare
-
       # -A includes the `private: true` workspaces — without it the packages are skipped and the
       # check silently covers only part of the tree.
       - name: Type check (every workspace)
@@ -73,7 +68,7 @@ jobs:
       - name: Build the app bundle
         run: gjsify workspace beifahrer-cli build
 
-      - name: Build the extension (Chromium MV3 + Firefox MV2)
+      - name: Build the extension on GJS (Chromium MV3 + Firefox MV2)
         run: gjsify workspace beifahrer-extension build
 
       - name: Unit tests (gjs + node)
@@ -81,8 +76,7 @@ jobs:
 
       # The builds a person would install. Not a release — just proof they package.
       - name: Package the extension
-        working-directory: extension
-        run: ../node_modules/.bin/wxt zip && ../node_modules/.bin/wxt zip -b firefox
+        run: gjsify workspace beifahrer-extension zip
 
       - uses: actions/upload-artifact@v4
         with:

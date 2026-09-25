@@ -7,7 +7,7 @@ This file is the beifahrer-specific layer and wins where the two differ.
 
 ## What this is
 
-A WebExtension (Firefox MV2, Chromium MV3, built with [WXT](https://wxt.dev)) plus a loopback
+A WebExtension (Firefox MV2, Chromium MV3, bundled by gjsify on GJS) plus a loopback
 bridge exposed as an MCP server. The bridge is a TypeScript app that **runs on GJS via gjsify**,
 like postbote and troedler. Together they let an agent use the person's *own* browser under a
 per-site policy the person sets in that browser. Why it exists and what else was considered:
@@ -42,7 +42,7 @@ extension reads is the person's private data.
 |---|---|---|
 | `packages/core` | **Pure, zero deps.** Wire protocol, policy, redaction | GJS, Node, browser |
 | `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`. The bridge (`src/bridge/`), MCP tools | GJS (bundled by gjsify); tests also on Node |
-| `extension/` | WXT project: background, page agent, popup, options, confirm window | browser |
+| `extension/` | background, page agent, popup, options, confirm window; `manifest.ts` + `scripts/build.ts` (runs on GJS) build both targets | browser (build: GJS) |
 | `tests/e2e/` | Full chain in headless Chromium + Firefox | Node driver, GJS app |
 | `probes/epiphany/` | The probe that measured Epiphany (ADR 0001 § 3). Re-run it before claiming support | Epiphany |
 
@@ -94,7 +94,7 @@ Fix them in gjsify, never around them (werkstatt AGENTS.md § Core deps). Found 
 
 | Gap | Consumer-side state |
 |---|---|
-| `gjsify install` does not install required `peerDependencies` (npm ≥ 7 does) | `vite` is an explicit devDependency of `extension/`. **Delete it once gjsify resolves peers** |
+| `gjsify install` does not install required `peerDependencies` (npm ≥ 7 does), and does not prune packages the lockfile no longer lists | no longer hits beifahrer since the WXT build is gone (ADR 0002); a clean `rm -rf node_modules && gjsify install` before trusting a green build |
 | `@gjsify/ws` client: `new WebSocket(url, options)` treated as protocols; URL without path fails the handshake | tests use the three-argument form and `…/`. The extension is unaffected (browsers normalise) |
 | `@gjsify/ws` server: `connection` passes the raw `Soup.ServerMessage`, no `req.headers` | the bridge checks the origin in `verifyClient`, which works on both runtimes and is the better place anyway |
 | `gjsify format` under GJS silently skips HTML (oxfmt-native cannot format it) — [gjsify#1807](https://github.com/gjsify/gjsify/issues/1807) | `oxfmt` is called directly, locally and in CI |

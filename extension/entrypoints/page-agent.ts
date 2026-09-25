@@ -10,7 +10,7 @@
  * an element keeps its ref across outlines, so an agent can outline, think, and act later.
  */
 
-import { browser } from 'wxt/browser';
+import { browser } from '@wxt-dev/browser';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
 interface AgentState {
@@ -355,10 +355,10 @@ function handle(req: PageRequest): PageResponse {
   }
 }
 
-export default defineUnlistedScript(() => {
-  // Injected before every request; the listener must be installed once per document.
-  if ((globalThis as { __beifahrerListening?: boolean }).__beifahrerListening) return;
-  (globalThis as { __beifahrerListening?: boolean }).__beifahrerListening = true;
+// Injected before every request; the listener must be installed once per document.
+const listening = globalThis as { __beifahrerListening?: boolean };
+if (!listening.__beifahrerListening) {
+  listening.__beifahrerListening = true;
   browser.runtime.onMessage.addListener((message: unknown) => {
     const req = message as PageRequest | null;
     if (!req || typeof req !== 'object' || !('beifahrer' in req)) return undefined;
@@ -371,4 +371,4 @@ export default defineUnlistedScript(() => {
       return Promise.resolve({ ok: false, code: 'failed', message: String((err as Error)?.message ?? err) });
     }
   });
-});
+}

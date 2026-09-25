@@ -1,4 +1,4 @@
-import { browser } from 'wxt/browser';
+import { browser } from '@wxt-dev/browser';
 import type { ConfirmRequest } from '../../src/confirm.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;

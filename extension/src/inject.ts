@@ -7,7 +7,7 @@
  * request is cheap and always safe.
  */
 
-import { browser } from 'wxt/browser';
+import { browser } from '@wxt-dev/browser';
 import type { PageRequest, PageResponse } from './page-messages.ts';
 
 const FILE = '/page-agent.js';

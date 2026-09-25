@@ -8,7 +8,7 @@
  * No answer within two minutes is a no.
  */
 
-import { browser } from 'wxt/browser';
+import { browser } from '@wxt-dev/browser';
 
 export interface ConfirmRequest {
   id: string;

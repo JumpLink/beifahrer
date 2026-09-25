@@ -55,13 +55,13 @@ injected instruction has nothing to write with.
 
 ## Install (from source, for now)
 
-Requires [gjsify](https://github.com/gjsify/gjsify) (the app runs on GJS) and Node ≥ 24 for the
-extension build.
+Requires [gjsify](https://github.com/gjsify/gjsify) and GJS, nothing else: the app runs on GJS and the
+extension is bundled on GJS too ([ADR 0002](docs/adr/0002-build-on-gjs-not-wxt.md)).
 
 ```sh
 gjsify install
 gjsify workspace beifahrer-cli build          # app/dist/beifahrer.gjs.mjs
-gjsify workspace beifahrer-extension build    # extension/.output/{chrome-mv3,firefox-mv2}
+gjsify workspace beifahrer-extension build    # extension/.output/{chrome-mv3,firefox-mv2}, on GJS
 ```
 
 - **Chromium:** `chrome://extensions` → Developer mode → *Load unpacked* → `extension/.output/chrome-mv3`

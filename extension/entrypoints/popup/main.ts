@@ -1,4 +1,4 @@
-import { browser } from 'wxt/browser';
+import { browser } from '@wxt-dev/browser';
 import { originOf, withRule, type Level } from '@beifahrer/core';
 import { loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
 import { describeStatus } from '../../src/ui/status.ts';

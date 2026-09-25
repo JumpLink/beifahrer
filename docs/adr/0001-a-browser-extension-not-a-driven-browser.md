@@ -34,7 +34,7 @@ controls.
 
 ## Decision
 
-Build **beifahrer**: a WebExtension (built with [WXT](https://wxt.dev) for Firefox, Chromium and,
+Build **beifahrer**: a WebExtension (for Firefox, Chromium and,
 where it works, Epiphany) plus a local bridge that exposes it to agents as an **MCP server**.
 
 ```
@@ -110,7 +110,8 @@ for the person's own tools (trackers, wikis), never something abholer asks for.
 
 - Two manifest flavours from one source: MV3 (Chromium; background is a service worker that
   sleeps when idle, so the socket carries a keep-alive) and MV2 (Firefox, Epiphany; a background
-  page). WXT builds both.
+  page). One build script produces both — see [ADR 0002](0002-build-on-gjs-not-wxt.md), which replaced
+  the original WXT build.
 - `scripting.executeScript` (MV3) and `tabs.executeScript` (MV2) sit behind one adapter.
 - Everything an agent can do is enumerated in the protocol package; nothing is "run arbitrary
   JavaScript". An `evaluate` escape hatch would make the policy table above meaningless.

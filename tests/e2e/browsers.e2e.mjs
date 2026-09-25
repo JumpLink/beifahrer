@@ -96,10 +96,13 @@ function findChromium() {
 }
 
 function buildExtension(seed) {
+  // The extension builds on GJS (scripts/build.ts); the seed makes it an E2E build in .output-e2e/.
   const env = { ...process.env, BEIFAHRER_E2E_SEED: JSON.stringify(seed) };
-  const wxt = join(ROOT, 'node_modules/.bin/wxt');
-  execFileSync(wxt, ['build'], { cwd: join(ROOT, 'extension'), env, stdio: 'ignore' });
-  execFileSync(wxt, ['build', '-b', 'firefox'], { cwd: join(ROOT, 'extension'), env, stdio: 'ignore' });
+  execFileSync(join(ROOT, 'node_modules/.bin/gjsify'), ['run', 'build'], {
+    cwd: join(ROOT, 'extension'),
+    env,
+    stdio: 'ignore',
+  });
 }
 
 function launch(browser, profile) {

@@ -1,4 +1,4 @@
-import { browser } from 'wxt/browser';
+import { browser } from '@wxt-dev/browser';
 import type { BrowserFamily } from '@beifahrer/core';
 
 export interface BrowserInfo {
