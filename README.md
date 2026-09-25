@@ -87,8 +87,8 @@ listing does too. Adding a language is one file, `extension/_locales/<lang>/mess
 the agent is paused or cannot connect, explanations behind an info button
 ([ADR 0009](docs/adr/0009-quiet-pages.md)).
 
-The pages and the in-page pill use your GNOME accent colour (GNOME 47+): every agent session's
-bridge reads it and tells the extension, which keeps the latest one, so this works in every
+The pages and the in-page pill use your desktop's accent colour (GNOME 47+, or macOS): every
+agent session's bridge reads it and tells the extension, which keeps the latest one, so this works in every
 browser. Without it they use the browser's own accent where it has one, otherwise Adwaita blue.
 Light and dark follow the *browser's* setting: in Firefox, the theme "System theme — auto" and
 Website appearance "Automatic"; in Chrome, Appearance → Mode "Device".
