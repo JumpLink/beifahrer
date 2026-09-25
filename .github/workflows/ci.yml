@@ -64,8 +64,11 @@ jobs:
       - name: Lint
         run: gjsify foreach -A lint
 
+      # oxfmt directly, not `gjsify format`: under GJS the latter uses oxfmt-native, which cannot
+      # format HTML (that needs oxfmt's Node host) and SKIPS those files silently — a check that is
+      # green locally and red here. One binary in both places.
       - name: Format check
-        run: gjsify format --check .
+        run: node_modules/.bin/oxfmt --check .
 
       - name: Build the app bundle
         run: gjsify workspace beifahrer-cli build

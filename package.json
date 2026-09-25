@@ -13,8 +13,8 @@
   "scripts": {
     "check": "gjsify foreach -A check",
     "lint": "gjsify foreach -A lint",
-    "format": "gjsify format --write .",
-    "format:check": "gjsify format --check .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
     "build": "gjsify workspace beifahrer-cli build && gjsify workspace beifahrer-extension build",
     "start": "gjsify workspace beifahrer-cli start",
     "test": "gjsify workspace beifahrer-cli test"

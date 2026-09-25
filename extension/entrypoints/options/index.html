@@ -5,7 +5,13 @@
     <title>beifahrer — options</title>
     <meta name="manifest.open_in_tab" content="true" />
     <link rel="stylesheet" href="../../src/ui/style.css" />
-    <style>body { max-width: 640px; margin: 0 auto; padding: 24px 16px; }</style>
+    <style>
+      body {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 24px 16px;
+      }
+    </style>
   </head>
   <body>
     <h1>beifahrer</h1>
@@ -13,17 +19,19 @@
 
     <h2>Pairing</h2>
     <p class="muted">
-      Run <code>beifahrer token</code> on this computer and paste what it prints. The token proves to the bridge
-      that it is talking to this extension and not to a web page.
+      Run <code>beifahrer token</code> on this computer and paste what it prints. The token proves to the
+      bridge that it is talking to this extension and not to a web page.
     </p>
-    <label class="row"><input type="text" id="token" autocomplete="off" spellcheck="false" placeholder="pairing token" /></label>
+    <label class="row"
+      ><input type="text" id="token" autocomplete="off" spellcheck="false" placeholder="pairing token"
+    /></label>
     <label class="row">Port <input type="number" id="port" min="1" max="65535" /></label>
     <div class="actions"><button class="btn primary" id="save">Save and connect</button></div>
 
     <h2>Screenshots</h2>
     <p class="muted">
-      Chromium only takes a screenshot with access to all sites. beifahrer still takes one only on sites you set to
-      Read or higher.
+      Chromium only takes a screenshot with access to all sites. beifahrer still takes one only on sites you
+      set to Read or higher.
     </p>
     <label class="row"><input type="checkbox" id="shots" /> Allow screenshots</label>
 

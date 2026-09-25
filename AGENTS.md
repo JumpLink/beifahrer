@@ -54,6 +54,7 @@ gjsify workspace beifahrer-cli build            # app/dist/beifahrer.gjs.mjs
 gjsify workspace beifahrer-cli test             # unit tests on gjs + node
 gjsify workspace beifahrer-extension build      # both browser builds
 gjsify foreach -A check && gjsify foreach -A lint
+node_modules/.bin/oxfmt --check .                # not `gjsify format`: under GJS it skips HTML
 node tests/e2e/browsers.e2e.mjs all             # needs Playwright's Chromium in ~/.cache/ms-playwright + firefox
 ```
 
@@ -96,6 +97,7 @@ Fix them in gjsify, never around them (werkstatt AGENTS.md § Core deps). Found 
 | `gjsify install` does not install required `peerDependencies` (npm ≥ 7 does) | `vite` is an explicit devDependency of `extension/`. **Delete it once gjsify resolves peers** |
 | `@gjsify/ws` client: `new WebSocket(url, options)` treated as protocols; URL without path fails the handshake | tests use the three-argument form and `…/`. The extension is unaffected (browsers normalise) |
 | `@gjsify/ws` server: `connection` passes the raw `Soup.ServerMessage`, no `req.headers` | the bridge checks the origin in `verifyClient`, which works on both runtimes and is the better place anyway |
+| `gjsify format` under GJS silently skips HTML (oxfmt-native cannot format it) — [gjsify#1807](https://github.com/gjsify/gjsify/issues/1807) | `oxfmt` is called directly, locally and in CI |
 | `app/src/frontends/mcp/runtime.ts` is the **third** verbatim copy (postbote, troedler) | extract to a shared `@gjsify/mcp`; until then change all three or none |
 
 ## Conventions
