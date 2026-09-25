@@ -19,6 +19,7 @@ import {
   tabNewSymbolic,
 } from '@gjsify/adwaita-icons/actions';
 import { inputMouseSymbolic } from '@gjsify/adwaita-icons/devices';
+import { folderDownloadSymbolic } from '@gjsify/adwaita-icons/places';
 import { utilitiesTerminalSymbolic, webBrowserSymbolic } from '@gjsify/adwaita-icons/legacy';
 import {
   dialogPasswordSymbolic,
@@ -28,6 +29,7 @@ import {
 
 const EXTRA: Record<string, string> = {
   'dialog-password-symbolic': dialogPasswordSymbolic,
+  'folder-download-symbolic': folderDownloadSymbolic,
   'dialog-question-symbolic': dialogQuestionSymbolic,
   'dialog-warning-symbolic': dialogWarningSymbolic,
   'document-open-recent-symbolic': documentOpenRecentSymbolic,

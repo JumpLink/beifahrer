@@ -127,6 +127,15 @@ export interface MethodMap {
     result: { waitedMs: number; match?: FoundElement };
   };
   'page.screenshot': { params: { tabId: number }; result: { dataUrl: string } };
+  /**
+   * A document the page links to. `ref` is a link from `page.outline`; `url` must be on the tab's
+   * own origin. The bytes come back base64 over the bridge — nothing is written to disk in the
+   * browser, so the person's download folder stays theirs.
+   */
+  'page.download': {
+    params: { tabId: number; ref?: string; url?: string; maxBytes?: number };
+    result: { url: string; filename: string; mime: string; size: number; base64: string };
+  };
   'page.fill': {
     params: { tabId: number; ref: string; text: string; as?: 'text' | 'html'; mode?: 'replace' | 'append' };
     result: { ref: string; value: string };

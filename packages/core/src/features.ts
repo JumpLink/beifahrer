@@ -17,12 +17,13 @@
 
 import type { Method } from './policy.ts';
 
-/** One switch per capability. `download` is reserved for when that method exists. */
+/** One switch per capability. */
 export const FEATURES = [
   'tabs',
   'read',
   'outline',
   'screenshot',
+  'download',
   'fill',
   'click',
   'open',
@@ -42,6 +43,7 @@ export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = 
   tabs: { label: 'See open tabs', detail: 'tabs_list, tab_active — sites below Read show their host only' },
   read: { label: 'Read page text', detail: 'page_read' },
   outline: { label: 'Outline pages', detail: 'page_outline, page_find, page_wait — links, buttons, fields' },
+  download: { label: 'Download documents', detail: 'page_download — a file the page links to' },
   screenshot: {
     label: 'Take screenshots',
     detail: 'page_screenshot — of the visible tab only; Chromium also needs the all-sites grant below',
@@ -62,14 +64,16 @@ export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = 
 /**
  * Reading and ordinary page work on; the per-site level still decides where. Writes are on here
  * because each one still needs `write` on its site and, by default, the person's confirmation.
- * Screenshots, tab management and sessions are off: each reaches beyond the one site the person
- * set a level for.
+ * Screenshots, downloads, tab management and sessions are off: each reaches beyond reading the
+ * one page in front of the person — a download turns a link into an authenticated request, and
+ * that is a thing to switch on deliberately.
  */
 export const DEFAULT_FEATURES: Features = {
   tabs: true,
   read: true,
   outline: true,
   screenshot: false,
+  download: false,
   fill: true,
   click: true,
   open: true,
@@ -90,6 +94,7 @@ export const FEATURE_OF = {
   'page.find': 'outline',
   'page.wait': 'outline',
   'page.screenshot': 'screenshot',
+  'page.download': 'download',
   'page.fill': 'fill',
   'page.click': 'click',
   'tabs.open': 'open',

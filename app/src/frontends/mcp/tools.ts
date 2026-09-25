@@ -173,6 +173,34 @@ export function registerTools(
   );
 
   server.registerTool(
+    'page_download',
+    {
+      title: 'Download a document the page links to',
+      description:
+        "A file a tab links to — an invoice, a statement, a letter from a portal inbox — fetched in that tab's own " +
+        'session and returned as base64. Give a ref from page_outline, or a url on the SAME origin as the tab; ' +
+        'anything else is refused, so open the page that holds the document first. Needs level "read" on that site. ' +
+        'It only reads: nothing is clicked, confirmed or marked as read, and no file is written in the browser. ' +
+        POLICY_NOTE,
+      inputSchema: {
+        tabId: tabIdParam,
+        ref: z.string().optional().describe('A link ref from page_outline, e.g. "e12"'),
+        url: z.string().optional().describe('Absolute URL on the same origin as the tab — instead of ref'),
+        maxBytes: z.number().int().optional().describe('Refuse anything larger (default 10000000)'),
+        browser: browserParam,
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async ({ tabId, ref, url, maxBytes, browser }) => {
+      try {
+        return text(await call('page.download', { tabId, ref, url, maxBytes }, browser));
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  server.registerTool(
     'page_outline',
     {
       title: 'Outline of a page with element refs',

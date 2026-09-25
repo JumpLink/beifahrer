@@ -153,6 +153,10 @@ export const REQUIRED_LEVEL = {
   'page.find': 'read',
   'page.wait': 'read',
   'page.screenshot': 'read',
+  // A document the page links to, fetched in the tab's own session. `read`, not `write`: it only
+  // ever reads, and demanding `write` would push a bank or insurer origin up a level for the one
+  // thing that has to stay harmless there.
+  'page.download': 'read',
   'page.fill': 'write',
   'page.click': 'write',
   // Opening a URL needs `read` on the TARGET: otherwise an agent that just read something could
