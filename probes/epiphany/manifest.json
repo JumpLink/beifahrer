@@ -1,0 +1,9 @@
+{
+  "manifest_version": 2,
+  "name": "werkstatt-probe",
+  "version": "0.0.1",
+  "description": "Measures which WebExtension APIs work for an agent bridge",
+  "permissions": ["tabs", "cookies", "activeTab", "<all_urls>"],
+  "background": { "scripts": ["background.js"] },
+  "content_scripts": [{ "matches": ["http://127.0.0.1/*"], "js": ["content.js"] }]
+}
