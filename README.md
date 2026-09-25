@@ -94,6 +94,8 @@ Website appearance "Automatic"; in Chrome, Appearance → Mode "Device".
   <img src="docs/images/confirm-light.png" width="360" alt="The confirmation window: the site, what will change, and Deny, Always allow, Allow">
   <img src="docs/images/confirm-dark.png" width="360" alt="The confirmation window in dark mode">
   <img src="docs/images/popup-de-dark.png" width="300" alt="The popup in German, dark mode">
+  <img src="docs/images/popup-de-light.png" width="300" alt="The popup in German, light mode">
+  <img src="docs/images/options-de-dark.png" width="400" alt="The options page in German, dark mode">
 </p>
 </details>
 
