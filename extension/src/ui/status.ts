@@ -32,9 +32,13 @@ export function stateOf(
   return isActive({ ...activity, now: Date.now() }) ? 'working' : 'ready';
 }
 
-/** The toolbar's own sparkles, so the hero and the toolbar button always look alike. */
-export function heroIcon(state: UiState): ToolbarIcon {
+/**
+ * The toolbar's own sparkles, so the hero and the toolbar button always look alike. `wide`: a
+ * temporary "all sites" grant is live (ADR 0010), which only a pause outranks, as on the button.
+ */
+export function heroIcon(state: UiState, wide = false): ToolbarIcon {
   if (state === 'paused') return 'paused';
+  if (wide) return state === 'working' ? 'wide-active' : 'wide';
   if (state === 'working') return 'active';
   if (state === 'ready') return 'idle';
   return 'offline';

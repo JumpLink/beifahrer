@@ -12,9 +12,11 @@ export const TARGETS: readonly Target[] = ['chrome-mv3', 'firefox-mv2', 'safari-
 // site the person never allowed is one the extension cannot even inject into, so a bug in the
 // policy check cannot widen access past what the browser granted.
 //
-// `<all_urls>` is optional too, for one reason only: Chromium's `captureVisibleTab` accepts nothing
-// narrower (and Firefox does not even define it without). It is requested separately, from the
-// options page, when the person switches screenshots on.
+// `<all_urls>` is optional too: Chromium's `captureVisibleTab` accepts nothing narrower (and
+// Firefox does not even define it without). It is requested separately, from the options page,
+// when the person switches screenshots on. `http://*/*` + `https://*/*` together are the
+// temporary "all sites" grant (ADR 0010), requested from the popup and removed when it ends —
+// kept apart from `<all_urls>` so that ending one never takes the other away.
 const HOSTS = ['http://*/*', 'https://*/*', '<all_urls>'];
 
 /** Toolbar and store icons, all derived from icons/sparkles.svg (scripts/icons.ts). */
@@ -22,7 +24,7 @@ export const ICON_SIZES = [16, 32, 48, 128] as const;
 
 /** Sizes drawn from icons/sparkles-small.svg, the fuller toolbar form. */
 export const isSmall = (size: number): boolean => size <= 32;
-export const ICON_VARIANTS = ['idle', 'active', 'paused', 'offline'] as const;
+export const ICON_VARIANTS = ['idle', 'active', 'paused', 'offline', 'wide', 'wide-active'] as const;
 export type IconVariant = (typeof ICON_VARIANTS)[number];
 
 /**

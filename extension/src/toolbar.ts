@@ -7,9 +7,10 @@
  */
 
 import { browser } from '@wxt-dev/browser';
-import { ACTIVE_MS, toolbarLook, type Connection, type ToolbarIcon } from '@beifahrer/core';
+import { ACTIVE_MS, toolbarLook, wildcardGrant, type Connection, type ToolbarIcon } from '@beifahrer/core';
 import { activityState, onActivityChange } from './activity.ts';
 import { currentStatus, onStatusChange } from './bridge-client.ts';
+import { loadGrants, onGrantsChange } from './grants.ts';
 import { t } from './i18n.ts';
 import { loadSettings } from './settings.ts';
 import { ICON_SIZES } from '../manifest.ts';
@@ -39,6 +40,8 @@ const BADGE_COLOUR: Record<ToolbarIcon, string> = {
   active: '#c061cb',
   paused: '#e01b24',
   offline: '#e5a50a',
+  wide: '#3584e4',
+  'wide-active': '#3584e4',
 };
 
 let painted = '';
@@ -47,7 +50,7 @@ let fadeTimer: ReturnType<typeof setTimeout> | undefined;
 export async function refreshToolbar(): Promise<void> {
   const api = button();
   if (!api) return;
-  const { paused } = await loadSettings();
+  const [{ paused }, grants] = await Promise.all([loadSettings(), loadGrants()]);
   const { inFlight, lastActivityAt } = activityState();
   const now = Date.now();
   const look = toolbarLook({
@@ -56,6 +59,7 @@ export async function refreshToolbar(): Promise<void> {
     inFlight,
     lastActivityAt,
     now,
+    wide: wildcardGrant(grants, now) !== null,
   });
   // The colour outlives the request by ACTIVE_MS; repaint when that runs out.
   clearTimeout(fadeTimer);
@@ -79,6 +83,8 @@ export async function refreshToolbar(): Promise<void> {
  */
 function titleFor(icon: ToolbarIcon, connection: Connection): string {
   if (icon === 'paused') return t('toolbar_paused');
+  if (icon === 'wide' || icon === 'wide-active')
+    return t(icon === 'wide' ? 'toolbar_wide' : 'toolbar_wide_active');
   if (connection !== 'connected') return t(`toolbar_offline_${connection}`);
   return t(icon === 'active' ? 'toolbar_active' : 'toolbar_idle');
 }
@@ -87,6 +93,7 @@ function titleFor(icon: ToolbarIcon, connection: Connection): string {
 export function installToolbar(): void {
   onStatusChange(() => void refreshToolbar());
   onActivityChange(() => void refreshToolbar());
+  onGrantsChange(() => void refreshToolbar());
   browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.paused) void refreshToolbar();
   });

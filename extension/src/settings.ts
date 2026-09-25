@@ -34,6 +34,11 @@ export interface Settings {
   confirmClose: boolean;
   /** Keep automatic snapshots of the windows (ADR 0004). Only a literal false switches them off. */
   autosave: boolean;
+  /**
+   * Ask the person when a call needs a site it has no level for, instead of refusing at once
+   * (ADR 0010). Only a literal false switches asking off.
+   */
+  askOnDemand: boolean;
 }
 
 export async function loadSettings(): Promise<Settings> {
@@ -47,6 +52,7 @@ export async function loadSettings(): Promise<Settings> {
     'paused',
     'confirmClose',
     'autosave',
+    'askOnDemand',
   ]);
   const range = parsePortRange(raw.port, raw.portCount);
   return {
@@ -59,6 +65,7 @@ export async function loadSettings(): Promise<Settings> {
     paused: parsePaused(raw.paused),
     confirmClose: raw.confirmClose !== false,
     autosave: raw.autosave !== false,
+    askOnDemand: raw.askOnDemand !== false,
   };
 }
 
@@ -79,3 +86,10 @@ export function originPattern(origin: string): string {
   const url = new URL(origin);
   return `${url.protocol}//${url.hostname}/*`;
 }
+
+/**
+ * The browser host patterns of the temporary "all sites" grant (ADR 0010). Deliberately not
+ * `<all_urls>`, which screenshots hold: ending the grant removes exactly these two, so it never
+ * takes the screenshot grant with it.
+ */
+export const WILDCARD_PATTERNS = ['http://*/*', 'https://*/*'];

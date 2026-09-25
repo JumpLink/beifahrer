@@ -57,6 +57,23 @@
           </adw-preferences-group>
         </section>
 
+        <adw-preferences-group id="wide">
+          <adw-expander-row id="wide-start" data-i18n-title="wide_title">
+            <gtk-image slot="prefix" icon-name="web-browser-symbolic"></gtk-image>
+            <adw-combo-row id="wide-level" data-i18n-title="wide_level"></adw-combo-row>
+            <adw-combo-row id="wide-for" data-i18n-title="wide_for"></adw-combo-row>
+            <adw-button-row
+              id="wide-allow"
+              class="suggested-action"
+              data-i18n-title="confirm_allow"
+            ></adw-button-row>
+          </adw-expander-row>
+          <adw-action-row id="wide-on" class="accent" data-i18n-title="wide_title" hidden>
+            <gtk-image slot="prefix" icon-name="web-browser-symbolic"></gtk-image>
+            <gtk-button id="wide-end" slot="suffix" flat data-i18n-label="action_end"></gtk-button>
+          </adw-action-row>
+        </adw-preferences-group>
+
         <adw-preferences-group id="agents" data-i18n-title="agents_title" hidden></adw-preferences-group>
 
         <adw-preferences-group id="activity" data-i18n-title="activity_title"></adw-preferences-group>

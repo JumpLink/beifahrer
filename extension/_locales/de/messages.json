@@ -569,5 +569,86 @@
   },
   "pill_stop_tooltip": {
     "message": "Agent pausieren"
+  },
+  "wide_title": {
+    "message": "Alle Seiten"
+  },
+  "wide_level": {
+    "message": "Zugriff"
+  },
+  "wide_for": {
+    "message": "Dauer"
+  },
+  "wide_for_hour": {
+    "message": "1 Stunde"
+  },
+  "wide_for_browser": {
+    "message": "Bis der Browser schließt"
+  },
+  "wide_for_session": {
+    "message": "Diese Agenten-Sitzung"
+  },
+  "wide_left": {
+    "message": "noch $MINUTES$ min",
+    "placeholders": {
+      "minutes": {
+        "content": "$1"
+      }
+    }
+  },
+  "wide_failed": {
+    "message": "Zugriff auf alle Seiten ließ sich nicht einschalten"
+  },
+  "action_end": {
+    "message": "Beenden"
+  },
+  "toolbar_wide": {
+    "message": "beifahrer darf gerade alle Seiten nutzen"
+  },
+  "toolbar_wide_active": {
+    "message": "beifahrer arbeitet, alle Seiten erlaubt"
+  },
+  "site_level_block": {
+    "message": "Gesperrt"
+  },
+  "ask_sites_title": {
+    "message": "Bei anderen Seiten fragen"
+  },
+  "confirm_heading_access": {
+    "message": "Zugriff erlauben?"
+  },
+  "confirm_access_read": {
+    "message": "$SESSION$ möchte $ORIGIN$ lesen",
+    "placeholders": {
+      "session": {
+        "content": "$1"
+      },
+      "origin": {
+        "content": "$2"
+      }
+    }
+  },
+  "confirm_access_write": {
+    "message": "$SESSION$ möchte $ORIGIN$ bearbeiten",
+    "placeholders": {
+      "session": {
+        "content": "$1"
+      },
+      "origin": {
+        "content": "$2"
+      }
+    }
+  },
+  "confirm_agent": {
+    "message": "Ein Agent"
+  },
+  "confirm_allow_once": {
+    "message": "Einmal erlauben"
+  },
+  "confirm_for_session": {
+    "message": "Für diese Sitzung"
+  },
+  "confirm_always": {
+    "message": "Immer"
   }
 }

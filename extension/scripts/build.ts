@@ -81,7 +81,10 @@ function page(name: string, source: string): string {
 
 function e2eHosts(): string[] {
   if (!seed) return [];
-  const origins = Object.keys((JSON.parse(seed) as { policy?: { origins?: object } }).policy?.origins ?? {});
+  const parsed = JSON.parse(seed) as { policy?: { origins?: object }; e2eHostOrigins?: string[] };
+  // `e2eHostOrigins`: sites the test reaches through a temporary grant or a prompt's answer
+  // (ADR 0010), whose browser prompt it cannot click either.
+  const origins = [...Object.keys(parsed.policy?.origins ?? {}), ...(parsed.e2eHostOrigins ?? [])];
   // Host only, no port — see originPattern() in src/settings.ts for why.
   return origins.map((o) => `${new URL(o).protocol}//${new URL(o).hostname}/*`);
 }

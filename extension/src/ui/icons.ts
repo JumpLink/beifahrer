@@ -20,10 +20,15 @@ import {
 } from '@gjsify/adwaita-icons/actions';
 import { inputMouseSymbolic } from '@gjsify/adwaita-icons/devices';
 import { utilitiesTerminalSymbolic, webBrowserSymbolic } from '@gjsify/adwaita-icons/legacy';
-import { dialogPasswordSymbolic, dialogWarningSymbolic } from '@gjsify/adwaita-icons/status';
+import {
+  dialogPasswordSymbolic,
+  dialogQuestionSymbolic,
+  dialogWarningSymbolic,
+} from '@gjsify/adwaita-icons/status';
 
 const EXTRA: Record<string, string> = {
   'dialog-password-symbolic': dialogPasswordSymbolic,
+  'dialog-question-symbolic': dialogQuestionSymbolic,
   'dialog-warning-symbolic': dialogWarningSymbolic,
   'document-open-recent-symbolic': documentOpenRecentSymbolic,
   'help-about-symbolic': helpAboutSymbolic,

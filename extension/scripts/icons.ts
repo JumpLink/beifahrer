@@ -8,6 +8,8 @@
  *   active    the sparkles in colour           an agent request running, and a few seconds after
  *   paused    monochrome + red dot             the person pressed Stop
  *   offline   monochrome + amber dot           not paired, or no bridge running
+ *   wide      monochrome + blue dot            "all sites" is granted for now (ADR 0010)
+ *   wide-active  colour + blue dot             the same, while an agent request runs
  */
 
 import GdkPixbuf from 'gi://GdkPixbuf?version=2.0';
@@ -24,6 +26,9 @@ const LOOK: Record<IconVariant, { colour: boolean; dot: string | null }> = {
   active: { colour: true, dot: null },
   paused: { colour: false, dot: '#e01b24' },
   offline: { colour: false, dot: '#e5a50a' },
+  // GNOME's blue 3: not a warning colour, but not the quiet idle look either.
+  wide: { colour: false, dot: '#3584e4' },
+  'wide-active': { colour: true, dot: '#3584e4' },
 };
 
 export function variantSvg(source: string, variant: IconVariant): string {
