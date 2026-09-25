@@ -36,6 +36,7 @@ import { hideIndicator } from './indicator.ts';
 import { askPage } from './inject.ts';
 import { loadSettings, originPattern, saveSettings } from './settings.ts';
 import type { PageRequest } from './page-messages.ts';
+import { groupApi, sessionsApi } from './sessions-store.ts';
 import { tabHandlers } from './tab-handlers.ts';
 
 export { MethodError } from './errors.ts';
@@ -356,6 +357,18 @@ export async function runMethod(method: Method, params: unknown, ctx: CallContex
  * answered per call, with a reason — a capability list frozen at hello time went stale the moment
  * the person changed a setting.
  */
+/**
+ * Methods that rest on an API not every engine has. The hello leaves them out where it is missing,
+ * so the agent never sees a tool the browser cannot serve: Safari 27 has neither `tabGroups` nor
+ * `sessions`, and still announced all four until this filter existed.
+ */
+const NEEDS_API: Partial<Record<Method, () => boolean>> = {
+  'tabs.group': () => groupApi() !== null,
+  'tabs.ungroup': () => groupApi() !== null,
+  'sessions.recentlyClosed': () => sessionsApi() !== null,
+  'sessions.restoreClosed': () => sessionsApi() !== null,
+};
+
 export function capabilities(): Method[] {
-  return Object.keys(handlers) as Method[];
+  return (Object.keys(handlers) as Method[]).filter((m) => NEEDS_API[m]?.() ?? true);
 }
