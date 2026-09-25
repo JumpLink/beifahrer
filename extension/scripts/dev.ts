@@ -1,15 +1,15 @@
 /**
  * `gjsify workspace beifahrer-extension dev` — the edit/reload loop.
  *
- *   1. build once into .output-dev/, pre-paired with the local token on the DEV port;
+ *   1. build once into .output-dev/, pre-paired with the local token on the DEV port range;
  *   2. start the browser with the extension (`web-ext run`), in a persistent dev profile;
  *   3. watch the sources and rebuild in place — web-ext notices and reloads the extension.
  *
- * The dev browser talks to port 47814 (BEIFAHRER_DEV_PORT), not the everyday 47813: the person's
- * real Firefox is paired to the hub there, and a second browser on the same hub would make every
- * agent call without `browser` ambiguous. Talk to the dev browser with
- * `gjsify run app/dist/beifahrer.gjs.mjs call <method> --port 47814`, or an MCP server started
- * with BEIFAHRER_PORT=47814.
+ * The dev browser probes ports 47830–47839 (BEIFAHRER_DEV_PORT sets the first), not the everyday
+ * 47813–47822: every agent session of the person binds one of those, and a second browser on
+ * them would make each agent call without `browser` ambiguous. Talk to the dev browser with
+ * `gjsify run app/dist/beifahrer.gjs.mjs call <method> --port 47830`, or an MCP server started
+ * with BEIFAHRER_PORT=47830.
  *
  *   --chromium    Chromium instead of Firefox (needs BEIFAHRER_E2E_CHROMIUM or Playwright's build)
  *   --headless    no window (used to test this script itself)
@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = '.output-dev';
-const PORT = Number(process.env.BEIFAHRER_DEV_PORT) || 47814;
+const PORT = Number(process.env.BEIFAHRER_DEV_PORT) || 47830;
 const chromium = process.argv.includes('--chromium');
 const headless = process.argv.includes('--headless');
 const WATCH = ['entrypoints', 'src', 'icons', 'manifest.ts', '../packages/core/src'].map((p) =>
@@ -45,7 +45,7 @@ function token(): string {
 const env = {
   ...process.env,
   BEIFAHRER_OUT_DIR: OUT_DIR,
-  // The same pre-pairing an E2E build uses (src/e2e-seed.ts): token + port, no site grants.
+  // The same pre-pairing an E2E build uses (src/e2e-seed.ts): token + first port, no site grants.
   BEIFAHRER_E2E_SEED: JSON.stringify({ token: token(), port: PORT }),
 };
 
@@ -110,7 +110,7 @@ function launch(): ChildProcess {
   if (chromium && headless) args.push('--arg=--headless=new');
   args.push('--profile-create-if-missing');
   console.log(
-    `▶ ${chromium ? 'Chromium' : 'Firefox'} with the dev build (profile ${profile}, bridge port ${PORT})`,
+    `▶ ${chromium ? 'Chromium' : 'Firefox'} with the dev build (profile ${profile}, bridge ports from ${PORT})`,
   );
   return spawn(join(ROOT, '../node_modules/.bin/web-ext'), args, { cwd: ROOT, stdio: 'inherit' });
 }

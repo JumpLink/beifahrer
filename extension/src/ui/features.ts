@@ -89,6 +89,12 @@ export function renderActivity(list: HTMLElement, empty: HTMLElement, log: Activ
     const what = document.createElement('span');
     what.textContent = ` ${entry.words}${entry.host ? ` · ${entry.host}` : ''}`;
     item.append(time, what);
+    if (entry.session) {
+      const who = document.createElement('span');
+      who.className = 'muted';
+      who.textContent = ` — ${entry.session}`;
+      item.append(who);
+    }
     if (entry.preview) {
       const preview = document.createElement('span');
       preview.className = 'muted';

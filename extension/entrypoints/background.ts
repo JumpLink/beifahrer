@@ -1,11 +1,12 @@
 import { browser } from '@wxt-dev/browser';
-import { connect, currentStatus, install } from '../src/bridge-client.ts';
+import { connect, currentStatus, disconnectSession, install } from '../src/bridge-client.ts';
 import { handleConfirmMessage, onWindowRemoved } from '../src/confirm.ts';
-import { applyE2eSeed } from '../src/e2e-seed.ts';
+import { applyE2eSeed, installE2eHooks } from '../src/e2e-seed.ts';
 import { activityLog, activityState } from '../src/activity.ts';
 import { STOP_MESSAGE, installPauseCommand, setPaused } from '../src/indicator.ts';
 import { installAutosave } from '../src/sessions-store.ts';
 import { installToolbar } from '../src/toolbar.ts';
+import { DISCONNECT_MESSAGE } from '../src/ui/sessions.ts';
 
 // Every listener is registered synchronously, at the top level: an MV3 service worker that wakes
 // for an event only delivers it to listeners that exist before the first await.
@@ -13,6 +14,7 @@ install();
 installAutosave();
 installToolbar();
 installPauseCommand();
+installE2eHooks();
 browser.windows.onRemoved.addListener(onWindowRemoved);
 browser.runtime.onMessage.addListener((message: unknown, sender) => {
   // The one exception to "our own pages only": the Stop button of the in-page pill, which lives in
@@ -28,6 +30,9 @@ browser.runtime.onMessage.addListener((message: unknown, sender) => {
   if ((message as { type?: string } | null)?.type === 'status') return Promise.resolve(currentStatus());
   if ((message as { type?: string } | null)?.type === 'activity')
     return activityLog().then((log) => ({ log, ...activityState() }));
+  const m = message as { type?: string; port?: unknown } | null;
+  if (m?.type === DISCONNECT_MESSAGE && typeof m.port === 'number')
+    return Promise.resolve(disconnectSession(m.port));
   if ((message as { type?: string } | null)?.type === 'reconnect')
     return connect().then(() => currentStatus());
   return undefined;

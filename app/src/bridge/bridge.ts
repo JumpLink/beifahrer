@@ -2,19 +2,17 @@
  * The bridge: a WebSocket server on 127.0.0.1 that browsers running the beifahrer extension
  * connect to, and a `call()` that sends one request to one of them.
  *
- * The process that owns the port is the HUB. Besides extensions it admits AGENT PEERS: other
- * `beifahrer mcp` processes (parallel agent sessions) that found the port taken and relay their
- * calls through this one (ADR 0003, `shared.ts` for the peer side).
+ * Each agent session runs its own bridge on its own port of the range (ADR 0007, `listenInRange`),
+ * and the extension keeps one socket per bridge. A bridge talks to browsers only: no other bridge
+ * ever connects to it, so its protocol version and method set are its own and a session started
+ * from an older bundle cannot hold back a newer one.
  *
  * Admission, in this order, before a connection may receive or send a single request:
- *   1. the peer address is loopback, and the handshake carries either an extension Origin or no
- *      Origin at all. Anything else — above all a web page, which always sends its Origin — is
- *      refused IN the handshake, before a socket exists;
- *   2. the first frame is a `hello` (extension) or an `agent-hello` (peer) with a matching token,
- *      within five seconds;
- *   3. the role fits the handshake: `hello` needs an extension Origin, `agent-hello` needs NO
- *      Origin (`roleAllowed`). A page can therefore never become an agent, and a local process
- *      without an Origin can never pose as a browser.
+ *   1. the peer address is loopback, and the handshake carries an extension Origin. Anything
+ *      else, above all a web page (which always sends its Origin), is refused IN the handshake,
+ *      before a socket exists;
+ *   2. the first frame is a `hello` with a matching token (constant-time), within five seconds;
+ *   3. the hello does not name THIS bridge as the one the person disconnected (`dismissed`).
  *
  * The bridge holds no policy. Everything the agent may or may not do is decided in the browser;
  * this side only routes. That is deliberate: this is the process the agent talks to.
@@ -27,23 +25,20 @@ import {
   CLOSE,
   MAX_WAIT_MS,
   PROTOCOL_VERSION,
+  bindFirstFree,
+  cleanSessionLabel,
+  isExtensionOrigin,
   isLoopbackAddress,
-  originKind,
-  parseAgentRequest,
-  parseFirstFrame,
+  parseHello,
   parseResponse,
-  roleAllowed,
   tokensEqual,
-  type AgentHello,
-  type AgentReply,
-  type AgentRequest,
-  type AgentWelcome,
+  type AgentSession,
+  type BridgeStatus,
   type ConnectedBrowser,
   type Hello,
-  type HubStatus,
   type Method,
-  type OriginKind,
   type Params,
+  type PortRange,
   type Result,
   type Welcome,
   type WireError,
@@ -63,24 +58,31 @@ export class BridgeError extends Error {
   }
 }
 
+/** What an MCP server needs from the browsers. */
+export interface BrowserAccess {
+  call<M extends Method>(method: M, params: Params<M>, browser?: string): Promise<Result<M>>;
+  status(): BridgeStatus;
+}
+
 interface Live extends BrowserConnection {
   socket: WebSocket;
   pending: PendingCalls;
-}
-
-interface Peer {
-  id: string;
-  hello: AgentHello;
-  socket: WebSocket;
 }
 
 export interface BridgeOptions {
   port: number;
   token: string;
   version: string;
+  /** How the person sees this session in the popup. `setLabel` changes it later. */
+  label?: string;
   /** Default per-call timeout. Writes wait for a person, so they get their own, longer one. */
   timeoutMs?: number;
   helloTimeoutMs?: number;
+  /**
+   * How long a call waits for a browser when none is connected. The extension finds a new bridge
+   * within one probe round (≤ 5 s), so a session's first call should not fail for being early.
+   */
+  browserWaitMs?: number;
 }
 
 /**
@@ -94,6 +96,7 @@ const listening = new Set<Bridge>();
 /** Writes can wait for the confirmation window, which gives the person two minutes. */
 export const WRITE_TIMEOUT_MS = 135_000;
 export const DEFAULT_TIMEOUT_MS = 30_000;
+export const BROWSER_WAIT_MS = 7_000;
 const WRITES: ReadonlySet<Method> = new Set(['page.fill', 'page.click', 'tabs.close']);
 
 /** `page.wait` waits up to MAX_WAIT_MS in the browser; the call must outlive that. */
@@ -104,28 +107,37 @@ export function timeoutFor(method: Method, readTimeoutMs = DEFAULT_TIMEOUT_MS): 
   return WRITES.has(method) ? WRITE_TIMEOUT_MS : readTimeoutMs;
 }
 
-export class Bridge extends EventEmitter {
+export class Bridge extends EventEmitter implements BrowserAccess {
   #server: WebSocketServer | null = null;
   #live = new Map<string, Live>();
-  #peers = new Map<string, Peer>();
+  #session: AgentSession;
 
   constructor(readonly options: BridgeOptions) {
     super();
+    this.#session = {
+      label: cleanSessionLabel(options.label) ?? 'beifahrer',
+      pid: process.pid,
+      instance: randomUUID(),
+      startedAt: new Date().toISOString(),
+    };
   }
 
-  /** Resolves once listening; rejects with the listen error (EADDRINUSE: another bridge is up). */
+  /** Resolves once listening; rejects with the listen error (the port is taken, most likely). */
   start(): Promise<void> {
     return new Promise((resolve, reject) => {
       const server = new WebSocketServer({
         host: '127.0.0.1',
         port: this.options.port,
         // Refused IN the handshake, before a socket exists: a web page that opens
-        // ws://127.0.0.1 gets an HTTP 401/403 and never reaches the hello step. "No Origin" gets
-        // through here only to be held to the agent role after its first frame (#admit).
+        // ws://127.0.0.1 gets an HTTP 401/403 and never reaches the hello step, and neither does
+        // a local process without an extension Origin.
         verifyClient: (info: { origin: string; req: { socket?: { remoteAddress?: string } } }) =>
-          isLoopbackAddress(info.req?.socket?.remoteAddress) && originKind(info.origin) !== 'page',
+          isLoopbackAddress(info.req?.socket?.remoteAddress) && isExtensionOrigin(info.origin),
       });
-      const onError = (err: Error) => reject(err);
+      const onError = (err: Error) => {
+        server.close();
+        reject(err);
+      };
       server.once('error', onError);
       server.once('listening', () => {
         server.off('error', onError);
@@ -133,14 +145,13 @@ export class Bridge extends EventEmitter {
         listening.add(this);
         resolve();
       });
-      server.on('connection', (socket, req) => this.#admit(socket, handshakeOriginKind(req)));
+      server.on('connection', (socket) => this.#admit(socket));
       this.#server = server;
     });
   }
 
   async stop(): Promise<void> {
     for (const conn of this.#live.values()) conn.socket.close(CLOSE.shutdown, 'bridge stopping');
-    for (const peer of this.#peers.values()) peer.socket.close(CLOSE.shutdown, 'hub stopping');
     const server = this.#server;
     this.#server = null;
     listening.delete(this);
@@ -152,19 +163,33 @@ export class Bridge extends EventEmitter {
     return typeof addr === 'object' && addr ? addr.port : this.options.port;
   }
 
+  get session(): AgentSession {
+    return this.#session;
+  }
+
+  /**
+   * Rename the session, e.g. once the MCP client has said who it is. Connected browsers hear it
+   * at once; a label that cleans to nothing is ignored.
+   */
+  setLabel(label: string): void {
+    const clean = cleanSessionLabel(label);
+    if (!clean || clean === this.#session.label) return;
+    this.#session = { ...this.#session, label: clean };
+    for (const conn of this.#live.values()) {
+      if (conn.socket.readyState === conn.socket.OPEN)
+        conn.socket.send(JSON.stringify({ type: 'session', label: clean }));
+    }
+  }
+
   connections(): BrowserConnection[] {
     return [...this.#live.values()].map(({ id, hello, connectedAt }) => ({ id, hello, connectedAt }));
   }
 
-  /** Agent peers relaying through this hub right now. */
-  peerCount(): number {
-    return this.#peers.size;
-  }
-
-  status(): HubStatus {
+  status(): BridgeStatus {
     return {
       port: this.port,
-      hub: { pid: process.pid, version: this.options.version, peers: this.#peers.size },
+      version: this.options.version,
+      session: this.#session,
       browsers: this.connections().map(toConnectedBrowser),
     };
   }
@@ -192,6 +217,10 @@ export class Bridge extends EventEmitter {
   }
 
   async call<M extends Method>(method: M, params: Params<M>, browser?: string): Promise<Result<M>> {
+    if (this.#live.size === 0) {
+      // A session that just started may be a probe round ahead of the extension.
+      await this.waitForConnection(this.options.browserWaitMs ?? BROWSER_WAIT_MS).catch(() => undefined);
+    }
     const target = this.resolve(browser);
     const conn = this.#live.get(target.id)!;
     if (!conn.hello.capabilities.includes(method)) {
@@ -207,7 +236,7 @@ export class Bridge extends EventEmitter {
     return promise;
   }
 
-  #admit(socket: WebSocket, kind: OriginKind): void {
+  #admit(socket: WebSocket): void {
     const helloTimer = setTimeout(
       () => socket.close(CLOSE.unauthorized, 'no hello'),
       this.options.helloTimeoutMs ?? 5_000,
@@ -221,23 +250,22 @@ export class Bridge extends EventEmitter {
         socket.close(CLOSE.protocol, 'not JSON');
         return;
       }
-      const first = parseFirstFrame(raw);
-      if (typeof first === 'string') {
+      const hello = parseHello(raw);
+      if (typeof hello === 'string') {
         const proto = (raw as { protocol?: unknown } | null)?.protocol;
-        socket.close(proto !== PROTOCOL_VERSION ? CLOSE.protocol : CLOSE.unauthorized, first);
+        socket.close(proto !== PROTOCOL_VERSION ? CLOSE.protocol : CLOSE.unauthorized, hello);
         return;
       }
-      // Before the token: a role that does not fit the handshake is refused whatever it carries.
-      if (!roleAllowed(kind, first.role)) {
-        socket.close(CLOSE.unauthorized, `${first.role} not allowed from this origin`);
-        return;
-      }
-      if (!tokensEqual(first.hello.token, this.options.token)) {
+      if (!tokensEqual(hello.token, this.options.token)) {
         socket.close(CLOSE.unauthorized, 'wrong token');
         return;
       }
-      if (first.role === 'agent') this.#admitPeer(socket, first.hello);
-      else this.#admitBrowser(socket, first.hello);
+      // After the token: only a paired extension may learn that it had dismissed this bridge.
+      if (hello.dismissed === this.#session.instance) {
+        socket.close(CLOSE.dismissed, 'the person disconnected this session');
+        return;
+      }
+      this.#admitBrowser(socket, hello);
     });
     socket.on('error', () => socket.terminate());
   }
@@ -256,50 +284,12 @@ export class Bridge extends EventEmitter {
       protocol: PROTOCOL_VERSION,
       bridge: { version: this.options.version },
       connectionId: conn.id,
+      session: this.#session,
     };
     socket.send(JSON.stringify(welcome));
     socket.on('message', (frame) => this.#onFrame(conn, frame));
     socket.on('close', () => this.#drop(conn));
     this.emit('connected', { id: conn.id, hello, connectedAt: conn.connectedAt });
-  }
-
-  #admitPeer(socket: WebSocket, hello: AgentHello): void {
-    const peer: Peer = { id: randomUUID().slice(0, 8), hello, socket };
-    this.#peers.set(peer.id, peer);
-    const welcome: AgentWelcome = {
-      type: 'agent-welcome',
-      protocol: PROTOCOL_VERSION,
-      bridge: { version: this.options.version, pid: process.pid },
-      peerId: peer.id,
-    };
-    socket.send(JSON.stringify(welcome));
-    socket.on('message', (frame) => {
-      let raw: unknown;
-      try {
-        raw = JSON.parse(String(frame));
-      } catch {
-        return;
-      }
-      const req = parseAgentRequest(raw);
-      if (!req) {
-        const id = (raw as { id?: unknown } | null)?.id;
-        if (typeof id === 'number') {
-          send(socket, {
-            type: 'agent-reply',
-            id,
-            ok: false,
-            error: { code: 'invalid', message: 'not a valid agent request' },
-          });
-        }
-        return;
-      }
-      void answerAgentRequest(req, this).then((reply) => send(socket, reply));
-    });
-    socket.on('close', () => {
-      this.#peers.delete(peer.id);
-      this.emit('peer-disconnected', peer.id);
-    });
-    this.emit('peer-connected', peer.id);
   }
 
   #onFrame(conn: Live, data: unknown): void {
@@ -329,47 +319,16 @@ export class Bridge extends EventEmitter {
 }
 
 /**
- * Is this listen error "the port is taken"?
- *
- * gjsify gap (unfixed, @gjsify/ws 0.52.0): on GJS the error carries no `code: 'EADDRINUSE'`, only a
- * LOCALISED Gio message ("Die Adresse wird bereits verwendet"). @gjsify/http maps it; ws does not
- * yet. The message check goes when ws carries the code.
+ * Start a bridge on the first free port of the range. Every agent session calls this; the
+ * extension probes the whole range and connects to each bridge it finds.
  */
-export function isAddressInUse(err: unknown): boolean {
-  const e = err as { code?: unknown; message?: unknown } | null;
-  if (e?.code === 'EADDRINUSE') return true;
-  return (
-    typeof e?.message === 'string' && /Gio\.IOErrorEnum/.test(e.message) && /127\.0\.0\.1:\d+/.test(e.message)
-  );
-}
-
-/** A socket that closed while the hub worked on its request gets nothing; that is fine. */
-function send(socket: WebSocket, frame: AgentReply): void {
-  if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(frame));
-}
-
-/**
- * Answer one peer request with what the hub would have answered its own agent. Errors travel
- * unchanged: a `forbidden` from the browser reaches the peer's agent as the same `forbidden`.
- */
-export async function answerAgentRequest(
-  req: AgentRequest,
-  hub: {
-    call<M extends Method>(method: M, params: Params<M>, browser?: string): Promise<Result<M>>;
-    status(): HubStatus;
-  },
-): Promise<AgentReply> {
-  try {
-    const result =
-      req.type === 'agent-status' ? hub.status() : await hub.call(req.method, req.params, req.browser);
-    return { type: 'agent-reply', id: req.id, ok: true, result };
-  } catch (err) {
-    const error: WireError =
-      err instanceof BridgeError
-        ? err.wire
-        : { code: 'failed', message: err instanceof Error ? err.message : String(err) };
-    return { type: 'agent-reply', id: req.id, ok: false, error };
-  }
+export async function listenInRange(range: PortRange, options: Omit<BridgeOptions, 'port'>): Promise<Bridge> {
+  const { value } = await bindFirstFree(range, async (port) => {
+    const bridge = new Bridge({ ...options, port });
+    await bridge.start();
+    return bridge;
+  });
+  return value;
 }
 
 /**
@@ -381,8 +340,9 @@ export function resolveBrowser<C extends BrowserConnection>(all: C[], browser?: 
     throw new BridgeError({
       code: 'failed',
       message:
-        'no browser is connected to beifahrer. The person needs the extension installed and paired ' +
-        '(`beifahrer token`), and the browser open.',
+        'no browser is connected to this beifahrer session. The person needs the extension installed and ' +
+        'paired (`beifahrer token`), the browser open, and this session not disconnected in the popup. ' +
+        'A session that just started is found within a few seconds.',
     });
   }
   if (!browser) {
@@ -422,27 +382,4 @@ export function label(c: BrowserConnection): string {
 
 export function browserLabel(b: Pick<ConnectedBrowser, 'id' | 'browser'>): string {
   return `${b.browser.name} ${b.browser.version} (${b.id})`;
-}
-
-/**
- * The Origin of the handshake behind a new connection, as an `OriginKind`.
- *
- * gjsify gap (@gjsify/ws 0.52.0): `connection` hands over the raw `Soup.ServerMessage` instead of
- * a request with `headers`, so the header is read from whichever of the two shapes arrived. A
- * shape neither of them matches counts as `page`, the kind that is refused — fail closed.
- * `sec-websocket-origin` is what `ws` reads for protocol version 8; a client that sends only that
- * header must not look Origin-less here while `verifyClient` saw an Origin.
- */
-export function handshakeOriginKind(req: unknown): OriginKind {
-  const node = req as { headers?: Record<string, string | string[] | undefined> } | null;
-  if (node?.headers && typeof node.headers === 'object') {
-    const origin = node.headers.origin ?? node.headers['sec-websocket-origin'];
-    return typeof origin === 'string' || origin === undefined ? originKind(origin) : 'page';
-  }
-  const soup = req as { get_request_headers?: () => { get_one(name: string): string | null } } | null;
-  if (typeof soup?.get_request_headers === 'function') {
-    const headers = soup.get_request_headers();
-    return originKind(headers.get_one('Origin') ?? headers.get_one('Sec-WebSocket-Origin'));
-  }
-  return 'page';
 }

@@ -115,5 +115,6 @@ for the person's own tools (trackers, wikis), never something abholer asks for.
 - `scripting.executeScript` (MV3) and `tabs.executeScript` (MV2) sit behind one adapter.
 - Everything an agent can do is enumerated in the protocol package; nothing is "run arbitrary
   JavaScript". An `evaluate` escape hatch would make the policy table above meaningless.
-- One bridge owns the port. Other agent sessions relay through it instead of failing with "port
-  in use": [ADR 0003](0003-share-one-bridge-between-agent-sessions.md).
+- Every agent session runs its own bridge on its own port of a small range, and the extension
+  connects to each: [ADR 0007](0007-one-connection-per-agent-session.md) (it replaced ADR 0003's
+  shared hub).

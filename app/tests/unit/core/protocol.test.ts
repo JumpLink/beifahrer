@@ -2,17 +2,14 @@ import { describe, expect, it } from '@gjsify/unit';
 
 import {
   PROTOCOL_VERSION,
+  SESSION_LABEL_MAX,
+  cleanSessionLabel,
+  defaultSessionLabel,
   isExtensionOrigin,
   isLoopbackAddress,
-  originKind,
-  parseAgentHello,
-  parseAgentReply,
-  parseAgentRequest,
-  parseAgentWelcome,
-  parseFirstFrame,
-  roleAllowed,
   parseHello,
   parseResponse,
+  parseWelcome,
   toTabInfo,
   tokensEqual,
 } from '@beifahrer/core';
@@ -115,47 +112,7 @@ export default async () => {
     });
   });
 
-  const agentHello = {
-    type: 'agent-hello',
-    protocol: PROTOCOL_VERSION,
-    token: 't0k3n',
-    agent: { version: '0.1.0', pid: 42 },
-  };
-
-  await describe('parseFirstFrame', async () => {
-    await it('tells an extension hello from an agent hello', async () => {
-      const ext = parseFirstFrame(hello);
-      const agent = parseFirstFrame(agentHello);
-      expect(typeof ext === 'object' && ext.role === 'extension').toBe(true);
-      expect(typeof agent === 'object' && agent.role === 'agent').toBe(true);
-    });
-    await it('names what is wrong with either', async () => {
-      expect(parseFirstFrame({ ...agentHello, token: '' })).toBe('missing token');
-      expect(parseFirstFrame({ ...agentHello, protocol: 99 })).toMatch(/protocol/);
-      expect(parseFirstFrame({ ...agentHello, agent: { version: '1' } })).toBe('bad agent');
-      expect(parseFirstFrame({ type: 'agent-call', id: 1 })).toBe('first frame must be hello');
-    });
-    await it('parseAgentHello refuses an extension hello', async () => {
-      expect(parseAgentHello(hello)).toBe('first frame must be agent-hello');
-    });
-  });
-
-  await describe('origin kind and role', async () => {
-    await it('classifies handshake origins', async () => {
-      expect(originKind(undefined)).toBe('none');
-      expect(originKind('')).toBe('none');
-      expect(originKind('moz-extension://abc-123')).toBe('extension');
-      expect(originKind('https://evil.example')).toBe('page');
-      expect(originKind('null')).toBe('page');
-    });
-    await it('allows exactly extension→extension and none→agent', async () => {
-      expect(roleAllowed('extension', 'extension')).toBe(true);
-      expect(roleAllowed('none', 'agent')).toBe(true);
-      expect(roleAllowed('extension', 'agent')).toBe(false);
-      expect(roleAllowed('none', 'extension')).toBe(false);
-      expect(roleAllowed('page', 'agent')).toBe(false);
-      expect(roleAllowed('page', 'extension')).toBe(false);
-    });
+  await describe('loopback', async () => {
     await it('recognises loopback addresses only', async () => {
       for (const a of ['127.0.0.1', '127.1.2.3', '::1', '::ffff:127.0.0.1'])
         expect(isLoopbackAddress(a)).toBe(true);
@@ -164,58 +121,56 @@ export default async () => {
     });
   });
 
-  await describe('agent frames', async () => {
-    await it('parseAgentRequest accepts calls and status requests', async () => {
-      expect(
-        parseAgentRequest({ type: 'agent-call', id: 1, method: 'tabs.list', params: {} }),
-      ).not.toBeNull();
-      expect(
-        parseAgentRequest({
-          type: 'agent-call',
-          id: 2,
-          method: 'page.read',
-          params: { tabId: 1 },
-          browser: 'firefox',
-        }),
-      ).not.toBeNull();
-      expect(parseAgentRequest({ type: 'agent-status', id: 3 })).not.toBeNull();
+  await describe('agent sessions (ADR 0007)', async () => {
+    const session = {
+      label: 'claude-code · werkstatt',
+      pid: 42,
+      instance: 'i-1',
+      startedAt: '2026-09-25T10:00:00Z',
+    };
+    const welcome = {
+      type: 'welcome',
+      protocol: PROTOCOL_VERSION,
+      bridge: { version: '0.1.0' },
+      connectionId: 'c1',
+      session,
+    };
+
+    await it('parseHello takes an optional dismissed instance, and only a string', async () => {
+      expect(typeof parseHello({ ...hello, dismissed: 'i-1' })).toBe('object');
+      expect(parseHello({ ...hello, dismissed: 5 })).toBe('bad dismissed');
     });
-    await it('parseAgentRequest refuses unknown methods and malformed frames — fail closed', async () => {
-      expect(
-        parseAgentRequest({ type: 'agent-call', id: 1, method: 'page.evaluate', params: {} }),
-      ).toBeNull();
-      expect(parseAgentRequest({ type: 'agent-call', id: 1, method: 'tabs.list' })).toBeNull();
-      expect(parseAgentRequest({ type: 'agent-call', id: 1, method: 'tabs.list', params: [] })).toBeNull();
-      expect(parseAgentRequest({ type: 'agent-call', id: 1.5, method: 'tabs.list', params: {} })).toBeNull();
-      expect(
-        parseAgentRequest({ type: 'agent-call', id: 1, method: 'tabs.list', params: {}, browser: 3 }),
-      ).toBeNull();
-      expect(parseAgentRequest({ type: 'request', id: 1, method: 'tabs.list', params: {} })).toBeNull();
-      expect(parseAgentRequest(null)).toBeNull();
+
+    await it('parseWelcome reads the session, and accepts a welcome without one (older bridge)', async () => {
+      expect(parseWelcome(welcome)?.session?.label).toBe('claude-code · werkstatt');
+      const { session: _, ...old } = welcome;
+      const parsed = parseWelcome(old);
+      expect(parsed?.connectionId).toBe('c1');
+      expect(parsed?.session).toBeUndefined();
     });
-    await it('parseAgentReply accepts ok and error replies, refuses the rest', async () => {
-      expect(parseAgentReply({ type: 'agent-reply', id: 1, ok: true, result: {} })).not.toBeNull();
-      expect(
-        parseAgentReply({
-          type: 'agent-reply',
-          id: 1,
-          ok: false,
-          error: { code: 'forbidden', message: 'no' },
-        }),
-      ).not.toBeNull();
-      expect(parseAgentReply({ type: 'agent-reply', id: 1, ok: false })).toBeNull();
-      expect(parseAgentReply({ type: 'response', id: 1, ok: true })).toBeNull();
+
+    await it('parseWelcome refuses a malformed session instead of showing half of it', async () => {
+      expect(parseWelcome({ ...welcome, session: { ...session, instance: '' } })).toBeNull();
+      expect(parseWelcome({ ...welcome, session: { ...session, label: '\u0000\u0007' } })).toBeNull();
+      expect(parseWelcome({ ...welcome, type: 'hello' })).toBeNull();
+      expect(parseWelcome(null)).toBeNull();
     });
-    await it('parseAgentWelcome checks protocol and shape', async () => {
-      const w = {
-        type: 'agent-welcome',
-        protocol: PROTOCOL_VERSION,
-        bridge: { version: '1', pid: 5 },
-        peerId: 'p',
-      };
-      expect(parseAgentWelcome(w)).not.toBeNull();
-      expect(parseAgentWelcome({ ...w, protocol: 99 })).toBeNull();
-      expect(parseAgentWelcome({ ...w, type: 'welcome' })).toBeNull();
+
+    await it('cleanSessionLabel flattens, strips control and bidi characters, and caps', async () => {
+      expect(cleanSessionLabel('  a\n\tb  ')).toBe('a b');
+      expect(cleanSessionLabel('evil\u202Eeman')).toBe('evil eman');
+      expect(cleanSessionLabel('x'.repeat(200))?.length).toBe(SESSION_LABEL_MAX);
+      expect(cleanSessionLabel('')).toBeNull();
+      expect(cleanSessionLabel(7)).toBeNull();
+    });
+
+    await it('defaultSessionLabel is the client and the directory basename', async () => {
+      expect(defaultSessionLabel('claude-code', '/home/p/Projekte/werkstatt')).toBe(
+        'claude-code · werkstatt',
+      );
+      expect(defaultSessionLabel('claude-code', '/home/p/werkstatt/')).toBe('claude-code · werkstatt');
+      expect(defaultSessionLabel('beifahrer tool', 'C:\\work\\repo')).toBe('beifahrer tool · repo');
+      expect(defaultSessionLabel('mcp', '/')).toBe('mcp · /');
     });
   });
 };

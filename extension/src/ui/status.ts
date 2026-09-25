@@ -1,17 +1,18 @@
+import { describeRange } from '@beifahrer/core';
 import type { Status } from '../bridge-client.ts';
 
 export function describeStatus(status: Status | undefined): string {
   switch (status?.state) {
-    case 'connected':
-      return `Connected to the bridge on port ${status.port}.`;
-    case 'connecting':
-      return `Connecting to port ${status.port}…`;
+    case 'connected': {
+      const n = status.sessions.length;
+      return `Connected to ${n} agent session${n === 1 ? '' : 's'} (ports ${describeRange(status.range)}).`;
+    }
     case 'offline':
-      return `No bridge on port ${status.port} — it starts with your agent. Retrying.`;
+      return `No agent session on ports ${describeRange(status.range)} — each starts with your agent. Looking every few seconds.`;
     case 'unauthorized':
-      return 'The bridge refused the pairing token. Paste the current one in the options.';
+      return 'An agent session refused the pairing token. Paste the current one in the options.';
     case 'protocol':
-      return `Bridge and extension do not match: ${status.reason}. Update the older one.`;
+      return `An agent session and the extension do not match${status.detail ? `: ${status.detail}` : ''}. Update the older one.`;
     case 'unpaired':
     default:
       return 'Not paired yet — open the options and paste the token from `beifahrer token`.';

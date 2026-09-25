@@ -9,9 +9,10 @@
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { DEFAULT_PORT } from '@beifahrer/core';
+import { describeRange, type PortRange } from '@beifahrer/core';
 
-import { SharedBridge } from '../../bridge/shared.ts';
+import { listenInRange, type Bridge } from '../../bridge/bridge.ts';
+import { labelOverride, sessionLabel } from '../../bridge/session.ts';
 import { loadOrCreateToken, tokenPath } from '../../bridge/token.ts';
 import { VERSION } from '../../version.ts';
 import { applyReadOnlyGate, serveStdio } from './runtime.ts';
@@ -27,31 +28,59 @@ export function createMcpServer(handle: BridgeHandle, allowWrite: boolean): McpS
   return server;
 }
 
+const log = (message: string) => console.error(`[${SERVER_NAME}] ${message}`);
+
 /**
- * Join the browser connection: own the port (hub), or relay through the session that owns it
- * (peer). A failed first election is not fatal — every tool call elects again, and its error says
- * why it failed, which the agent can relay.
+ * Bind this session's own bridge on the first free port of the range. A full range is not fatal:
+ * every tool call tries again (a session may have ended meanwhile), and its error says why it
+ * failed, which the agent can relay.
  */
-export async function startBridge(port: number): Promise<BridgeHandle> {
+export async function startBridge(
+  range: PortRange,
+  client: string,
+  opts: { browserWaitMs?: number; lazy?: boolean } = {},
+): Promise<BridgeHandle> {
   const { token } = loadOrCreateToken();
-  const bridge = new SharedBridge({
-    port,
-    token,
-    version: VERSION,
-    log: (message) => console.error(`[${SERVER_NAME}] ${message}`),
-  });
-  try {
-    await bridge.start();
-    console.error(`[${SERVER_NAME}] token: ${tokenPath()}`);
-  } catch (err) {
-    console.error(`[${SERVER_NAME}] ${(err as Error).message}`);
-  }
-  return { bridge };
+  const handle: BridgeHandle = { bridge: null };
+  let started: Bridge | null = null;
+  const bind = async () => {
+    try {
+      started = await listenInRange(range, {
+        token,
+        version: VERSION,
+        label: sessionLabel(client),
+        browserWaitMs: opts.browserWaitMs,
+      });
+      started.on('error', (err: Error) => log(`bridge error: ${err.message}`));
+      handle.bridge = started;
+      handle.unavailable = undefined;
+      handle.relabel = (name) => {
+        if (!labelOverride()) started?.setLabel(sessionLabel(name));
+      };
+      log(
+        `session "${started.session.label}": bridge on 127.0.0.1:${started.port} (range ${describeRange(range)})`,
+      );
+    } catch (err) {
+      handle.unavailable = (err as Error).message;
+      log(handle.unavailable);
+    }
+  };
+  handle.retry = bind;
+  // Lazy: bind on the first call that needs a browser (`beifahrer tool --list` never does).
+  if (opts.lazy) return handle;
+  await bind();
+  if (handle.bridge) log(`token: ${tokenPath()}`);
+  return handle;
 }
 
-export async function startMcpServer(opts: { port?: number; allowWrite?: boolean } = {}): Promise<void> {
-  const port = opts.port ?? (Number(process.env.BEIFAHRER_PORT) || DEFAULT_PORT);
+export async function startMcpServer(opts: { range: PortRange; allowWrite?: boolean }): Promise<void> {
   const allowWrite = opts.allowWrite === true || process.env.BEIFAHRER_MCP_ALLOW_WRITE === '1';
-  const handle = await startBridge(port);
-  await serveStdio(createMcpServer(handle, allowWrite), SERVER_NAME);
+  const handle = await startBridge(opts.range, 'mcp');
+  const server = createMcpServer(handle, allowWrite);
+  // The client says who it is only in the MCP handshake, after the bridge is up: rename then.
+  server.server.oninitialized = () => {
+    const name = server.server.getClientVersion()?.name;
+    if (name) handle.relabel?.(name);
+  };
+  await serveStdio(server, SERVER_NAME);
 }

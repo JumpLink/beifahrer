@@ -215,3 +215,22 @@ ol.activity time {
   font-family: ui-monospace, monospace;
   color: var(--muted);
 }
+ul.sessions {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+  font-size: 12.5px;
+}
+ul.sessions li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+ul.sessions li > span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -4,10 +4,15 @@
  *
  *   MCP client (this file) → `beifahrer mcp` on GJS → loopback bridge → extension → fixture page
  *
- * Usage:  node tests/e2e/browsers.e2e.mjs [chromium|firefox|shared|all]
+ * Usage:  node tests/e2e/browsers.e2e.mjs [chromium|firefox|all]
  *
- * `shared` runs TWO MCP servers against one headless Chromium (ADR 0003): the second relays
- * through the first, and takes the browser connection over once the first is gone.
+ * Per browser, after the single-session runs, a multi-session run (ADR 0007): two MCP sessions, a
+ * `beifahrer tool` and a faked older bridge connected to one headless browser at once, each on
+ * its own port; one ending, and the person's per-session Disconnect.
+ *
+ * Ports: fixture 47901, DevTools 47903, bridges 47910–47919, all shifted by
+ * $BEIFAHRER_E2E_PORT_BASE (default 47900) so two runs can share a machine. Never the person's
+ * 47813–47822.
  *
  * Needs: the app bundle (`gjsify workspace beifahrer-cli build`), a Chromium that still loads
  * unpacked extensions (Chrome for Testing / Playwright's build — branded Chrome ≥ 137 does not)
@@ -30,15 +35,19 @@ import {
 } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { WebSocketServer } from 'ws';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const FIXTURE_PORT = 47901;
-const BRIDGE_PORT = 47902;
-const DEVTOOLS_PORT = 47903;
+/** Every port of a run is derived from this, so a parallel run can pick another base. */
+const PORT_BASE = Number(process.env.BEIFAHRER_E2E_PORT_BASE) || 47900;
+const FIXTURE_PORT = PORT_BASE + 1;
+/** The range the e2e bridges bind and the test browsers probe: far from the person's 47813–47822. */
+const RANGE = { base: PORT_BASE + 10, count: 10 };
+const DEVTOOLS_PORT = PORT_BASE + 3;
 const ALLOWED = `http://127.0.0.1:${FIXTURE_PORT}`;
 const FORBIDDEN = `http://localhost:${FIXTURE_PORT}`;
 const TOKEN = `e2e-${Math.random().toString(36).slice(2)}`;
@@ -267,7 +276,7 @@ function launch(browser, profile) {
 }
 
 /** Start one `beifahrer mcp` over stdio, as an agent session would. */
-async function startMcp(tokenFile, logName) {
+async function startMcp(tokenFile, logName, env = {}) {
   const transport = new StdioClientTransport({
     command: join(ROOT, 'node_modules/.bin/gjsify'),
     args: [
@@ -275,7 +284,9 @@ async function startMcp(tokenFile, logName) {
       join(ROOT, 'app/dist/beifahrer.gjs.mjs'),
       'mcp',
       '--port',
-      String(BRIDGE_PORT),
+      String(RANGE.base),
+      '--port-count',
+      String(RANGE.count),
       '--allow-write',
     ],
     // Recipes from the test's own directory; XDG_CONFIG_HOME inside the throw-away profile so the
@@ -285,6 +296,7 @@ async function startMcp(tokenFile, logName) {
       BEIFAHRER_TOKEN_FILE: tokenFile,
       XDG_CONFIG_HOME: join(dirname(tokenFile), 'config'),
       BEIFAHRER_RECIPES: writeRecipeDir(dirname(tokenFile)),
+      ...env,
     },
     stderr: LOGS ? 'pipe' : 'ignore',
   });
@@ -300,75 +312,188 @@ async function browsersOf(client) {
   return r.error ? { error: r.text } : JSON.parse(r.text);
 }
 
-/** Two agent sessions, one browser: relay, then failover. */
-async function sharedScenario() {
-  const name = 'shared';
-  const profile = mkdtempSync(join(tmpdir(), 'beifahrer-e2e-shared-'));
+/** Poll one session's browsers_list until `done(status)` or the deadline. */
+async function until(client, done, seconds = 30) {
+  let status = {};
+  for (let i = 0; i < seconds * 2; i++) {
+    status = await browsersOf(client);
+    if (done(status)) break;
+    await sleep(500);
+  }
+  return status;
+}
+
+const tabsOk = (r) => !r.error && JSON.parse(r.text).tabs.some((t) => t.url?.startsWith(ALLOWED));
+
+/** `beifahrer tool <name>` as a separate process: binds its own port and waits for the browser. */
+function runTool(tokenFile, name, args = {}) {
+  return new Promise((resolveRun) => {
+    const child = spawn(
+      join(ROOT, 'node_modules/.bin/gjsify'),
+      [
+        'run',
+        join(ROOT, 'app/dist/beifahrer.gjs.mjs'),
+        'tool',
+        '--port',
+        String(RANGE.base),
+        '--port-count',
+        String(RANGE.count),
+        '--wait',
+        '30',
+        name,
+        JSON.stringify(args),
+      ],
+      { env: { ...process.env, BEIFAHRER_TOKEN_FILE: tokenFile }, stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    let out = '';
+    let err = '';
+    child.stdout.on('data', (d) => (out += d));
+    child.stderr.on('data', (d) => (err += d));
+    child.on('close', (code) => resolveRun({ code, out, err }));
+  });
+}
+
+/**
+ * A bridge from before this design, faked in the test: it welcomes without a session and knows
+ * only `tabs.list`. It stands for any session started from an older bundle. The point is that it
+ * cannot hold back a newer session any more: nothing relays through it.
+ */
+function startOldBridge(port) {
+  const server = new WebSocketServer({ host: '127.0.0.1', port });
+  const state = { answered: null, server };
+  server.on('connection', (ws) => {
+    ws.once('message', (data) => {
+      const hello = JSON.parse(String(data));
+      if (hello.token !== TOKEN) return ws.close(4401, 'wrong token');
+      ws.send(
+        JSON.stringify({ type: 'welcome', protocol: 1, bridge: { version: '0.0.1' }, connectionId: 'old' }),
+      );
+      ws.on('message', (frame) => {
+        const res = JSON.parse(String(frame));
+        if (res.type === 'response' && res.id === 1) state.answered = res;
+      });
+      ws.send(JSON.stringify({ type: 'request', id: 1, method: 'tabs.list', params: {} }));
+    });
+  });
+  return state;
+}
+
+/**
+ * Several agent sessions, one browser (ADR 0007): two MCP sessions, a `beifahrer tool` and an
+ * older bridge connected at once, each directly; one ending leaves the others; the person's
+ * Disconnect holds until that session restarts.
+ */
+async function multiSession(browser) {
+  const name = `${browser} sessions`;
+  const profile = mkdtempSync(join(tmpdir(), `beifahrer-e2e-multi-${browser}-`));
   const tokenFile = join(profile, 'token');
   writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
 
-  const first = await startMcp(tokenFile, 'shared-mcp-1.log');
-  let second = null;
-  const proc = launch('chromium', profile);
+  const sessions = [];
+  const a = await startMcp(tokenFile, `${browser}-multi-a.log`, { BEIFAHRER_SESSION_LABEL: 'e2e session A' });
+  sessions.push(a);
+  const b = await startMcp(tokenFile, `${browser}-multi-b.log`);
+  sessions.push(b);
+  // The last port of the range, out of the way of the sessions that bind from the first one.
+  const old = startOldBridge(RANGE.base + RANGE.count - 1);
+  const proc = launch(browser, profile);
   try {
-    let status = {};
-    for (let i = 0; i < 60; i++) {
-      status = await browsersOf(first.client);
-      if (status.browsers?.length > 0) break;
-      await sleep(1000);
-    }
+    const sa = await until(a.client, (s) => s.browsers?.length === 1, 60);
+    const sb = await until(b.client, (s) => s.browsers?.length === 1);
     check(
       name,
-      'first session owns the port (role hub) and sees the browser',
-      status.role === 'hub' && status.browsers?.length === 1,
-      JSON.stringify(status),
+      'two MCP sessions each have their own port and a direct connection',
+      sa.browsers?.length === 1 && sb.browsers?.length === 1 && sa.port !== sb.port,
+      `${JSON.stringify(sa).slice(0, 200)} | ${JSON.stringify(sb).slice(0, 200)}`,
+    );
+    check(
+      name,
+      'labels: BEIFAHRER_SESSION_LABEL, else MCP client name · directory',
+      sa.session?.label === 'e2e session A' &&
+        sb.session?.label === `beifahrer-e2e · ${basename(process.cwd())}`,
+      `${sa.session?.label} | ${sb.session?.label}`,
     );
 
-    second = await startMcp(tokenFile, 'shared-mcp-2.log');
-    const peerStatus = await browsersOf(second.client);
+    // The third session: a `beifahrer tool` process, while both MCP sessions stay connected.
+    const [viaTool, viaA, viaB] = await Promise.all([
+      runTool(tokenFile, 'tabs_list'),
+      tool(a.client, 'tabs_list'),
+      tool(b.client, 'tabs_list'),
+    ]);
     check(
       name,
-      'second session relays (role peer) and sees the same browser',
-      peerStatus.role === 'peer' && peerStatus.browsers?.length === 1 && peerStatus.hub?.pid === status.pid,
-      JSON.stringify(peerStatus),
+      'beifahrer tool binds its own port and its tabs_list succeeds',
+      viaTool.code === 0 && viaTool.out.includes(ALLOWED),
+      `${viaTool.code}: ${viaTool.out.slice(0, 200)} ${viaTool.err.slice(-300)}`,
     );
-    const hubStatus = await browsersOf(first.client);
-    check(name, 'the hub counts two sessions', hubStatus.sessions === 2, JSON.stringify(hubStatus));
+    check(name, 'tabs_list succeeds in both MCP sessions at the same time', tabsOk(viaA) && tabsOk(viaB));
 
-    const tabs = await tool(second.client, 'tabs_list');
+    for (let i = 0; i < 30 && !old.answered; i++) await sleep(500);
     check(
       name,
-      "second session's tabs_list succeeds through the hub",
-      !tabs.error && JSON.parse(tabs.text).tabs.some((t) => t.url?.startsWith(ALLOWED)),
-      tabs.text.slice(0, 300),
+      'an older bridge (no session, tabs.list only) is served too',
+      old.answered?.ok === true && Array.isArray(old.answered.result?.tabs),
+      JSON.stringify(old.answered)?.slice(0, 200),
+    );
+    const tabs = JSON.parse(viaA.text).tabs;
+    const allowed = tabs.find((t) => t.url?.startsWith(ALLOWED));
+    const found = await tool(a.client, 'page_find', { tabId: allowed.tabId, role: 'button', name: 'send' });
+    check(
+      name,
+      'meanwhile a newer session uses a method the older bridge does not know (page_find)',
+      !found.error && JSON.parse(found.text).count >= 1,
+      found.text.slice(0, 200),
     );
 
-    // The first agent session ends: its MCP server exits with it.
-    await first.client.close();
-    let taken = {};
-    for (let i = 0; i < 40; i++) {
-      await sleep(500);
-      taken = await browsersOf(second.client);
-      if (taken.role === 'hub' && taken.browsers?.length > 0) break;
-    }
+    // Session A ends: its MCP server exits with it. B is untouched.
+    await a.client.close();
+    sessions.splice(sessions.indexOf(a), 1);
+    await sleep(1000);
+    const afterA = await tool(b.client, 'tabs_list');
+    check(name, 'one session ending leaves the others working', tabsOk(afterA), afterA.text.slice(0, 200));
+
+    // The person disconnects B. A third MCP session opens the tab that stands in for the popup's
+    // button (src/e2e-seed.ts), since a headless test cannot click the popup.
+    const c = await startMcp(tokenFile, `${browser}-multi-c.log`, {
+      BEIFAHRER_SESSION_LABEL: 'e2e session C',
+    });
+    sessions.push(c);
+    await until(c.client, (s) => s.browsers?.length === 1);
+    await tool(c.client, 'tab_open', {
+      url: `${ALLOWED}/__beifahrer_e2e/disconnect?port=${sb.port}`,
+      active: false,
+    });
+    const gone = await until(b.client, (s) => s.browsers?.length === 0, 15);
+    check(name, 'Disconnect closes that session', gone.browsers?.length === 0, JSON.stringify(gone));
+    await sleep(8000); // longer than a probe round
+    const stillGone = await browsersOf(b.client);
+    const refused = await tool(b.client, 'tabs_list');
+    const cStill = await tool(c.client, 'tabs_list');
     check(
       name,
-      'after the first session exits, the second takes over and the browser reconnects',
-      taken.role === 'hub' && taken.browsers?.length === 1 && taken.sessions === 1,
-      JSON.stringify(taken),
+      'a disconnected session stays out (no reconnect), the others stay in',
+      stillGone.browsers?.length === 0 && refused.error && tabsOk(cStill),
+      `${JSON.stringify(stillGone)} | ${refused.text.slice(0, 120)}`,
     );
-    const after = await tool(second.client, 'tabs_list');
+
+    // B restarts: a new bridge instance on the port it held is welcome again.
+    await b.client.close();
+    sessions.splice(sessions.indexOf(b), 1);
+    await sleep(500);
+    const d = await startMcp(tokenFile, `${browser}-multi-d.log`);
+    sessions.push(d);
+    const sd = await until(d.client, (s) => s.browsers?.length === 1);
     check(
       name,
-      'tabs_list works in the second session after the takeover',
-      !after.error && JSON.parse(after.text).tabs.some((t) => t.url?.startsWith(ALLOWED)),
-      after.text.slice(0, 300),
+      'a restarted session on the disconnected port is connected again',
+      sd.browsers?.length === 1 && sd.port === sb.port,
+      JSON.stringify(sd).slice(0, 200),
     );
   } finally {
-    await first.client.close().catch(() => undefined);
-    await second?.client.close().catch(() => undefined);
+    for (const s of sessions) await s.client.close().catch(() => undefined);
+    old.server.close();
     try {
-      process.kill(proc.pid, 'SIGTERM');
+      process.kill(browser === 'firefox' ? -proc.pid : proc.pid, 'SIGTERM');
     } catch {
       /* already gone */
     }
@@ -974,7 +1099,7 @@ async function scenario(browser, gate) {
 // ---------------------------------------------------------------------------------------------
 
 const which = process.argv[2] ?? 'all';
-const browsers = which === 'all' ? ['chromium', 'firefox', 'shared'] : [which];
+const browsers = which === 'all' ? ['chromium', 'firefox'] : [which];
 
 const page = (req) => (req.url?.startsWith('/openproject') ? OP_FIXTURE : FIXTURE);
 const fixture = createServer((req, res) => {
@@ -991,7 +1116,8 @@ await new Promise((r) => fixture6.listen(FIXTURE_PORT, '::1', r)).catch(() => un
 
 const seed = {
   token: TOKEN,
-  port: BRIDGE_PORT,
+  port: RANGE.base,
+  portCount: RANGE.count,
   policy: { origins: { [ALLOWED]: { level: 'write', confirmWrites: false } } },
 };
 
@@ -1007,13 +1133,19 @@ const BUILDS = {
 for (const [gate, build] of Object.entries(BUILDS)) {
   buildExtension(build);
   for (const b of browsers) {
-    if (b === 'shared' && gate !== 'on') continue;
     const label = gate === 'paused' ? 'paused' : `features ${gate}`;
-    console.log(`\n${b}${b === 'shared' ? '' : ` (${label})`}`);
+    console.log(`\n${b} (${label})`);
     try {
-      await (b === 'shared' ? sharedScenario() : scenario(b, gate));
+      await scenario(b, gate);
     } catch (err) {
       check(b, `scenario ran (${label})`, false, err.stack ?? String(err));
+    }
+    if (gate !== 'on') continue;
+    console.log(`\n${b} (several agent sessions)`);
+    try {
+      await multiSession(b);
+    } catch (err) {
+      check(b, 'multi-session scenario ran', false, err.stack ?? String(err));
     }
   }
 }

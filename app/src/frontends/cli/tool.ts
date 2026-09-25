@@ -5,8 +5,8 @@
  * or the agent is not an MCP client at all) and for scripts. It is not a second implementation:
  * the real MCP server and an MCP client are wired together in this process over the SDK's
  * in-memory transport, so the tool, its gates (the read-only gate here, and every browser-side
- * gate) and its output are exactly what an MCP client gets. The bridge joins the shared hub as a
- * peer, like any other session.
+ * gate) and its output are exactly what an MCP client gets. It binds its own port of the range,
+ * like any agent session, and a call waits (bounded by --wait) for the extension to find it.
  *
  *   beifahrer tool --list
  *   beifahrer tool tabs_list
@@ -17,15 +17,15 @@
 import type { CommandModule } from 'yargs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { DEFAULT_PORT } from '@beifahrer/core';
 
+import { rangeOf, rangeOptions, type RangeArgs } from '../../bridge/session.ts';
 import { createMcpServer, startBridge } from '../mcp/server.ts';
 
-interface Args {
+interface Args extends RangeArgs {
   name?: string;
   args?: string;
   list?: boolean;
-  port?: number;
+  wait: number;
   'allow-write'?: boolean;
 }
 
@@ -41,9 +41,11 @@ export const toolCommand: CommandModule<object, Args> = {
       .positional('name', { type: 'string', describe: 'tool name, e.g. tabs_list' })
       .positional('args', { type: 'string', describe: 'JSON object with the tool arguments' })
       .option('list', { type: 'boolean', describe: 'List the tools and their descriptions' })
-      .option('port', {
+      .options(rangeOptions)
+      .option('wait', {
         type: 'number',
-        describe: `Loopback port (default ${DEFAULT_PORT}, or $BEIFAHRER_PORT)`,
+        default: 20,
+        describe: 'Seconds a call waits for the extension to find this session',
       })
       .option('allow-write', {
         type: 'boolean',
@@ -51,7 +53,6 @@ export const toolCommand: CommandModule<object, Args> = {
       }),
   handler: (argv) => {
     void (async () => {
-      const port = argv.port ?? (Number(process.env.BEIFAHRER_PORT) || DEFAULT_PORT);
       const allowWrite = argv['allow-write'] === true || process.env.BEIFAHRER_MCP_ALLOW_WRITE === '1';
       let input: Record<string, unknown> = {};
       if (argv.args) {
@@ -62,7 +63,10 @@ export const toolCommand: CommandModule<object, Args> = {
           return finish(2);
         }
       }
-      const handle = await startBridge(port);
+      const handle = await startBridge(rangeOf(argv), 'beifahrer tool', {
+        browserWaitMs: argv.wait * 1000,
+        lazy: true,
+      });
       const server = createMcpServer(handle, allowWrite);
       const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
       const client = new Client({ name: 'beifahrer-tool', version: '0' });

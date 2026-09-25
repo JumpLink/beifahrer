@@ -109,8 +109,14 @@ async function gate(
   return { origin, confirm: decision.confirm };
 }
 
-async function page(tabId: number, req: PageRequest): Promise<Record<string, unknown>> {
-  const res = await askPage(tabId, req).catch((err: Error) =>
+/** Who sent the request being served: the agent session, as the person sees it (ADR 0007). */
+export interface CallContext {
+  session?: string;
+}
+
+async function page(tabId: number, ctx: CallContext, req: PageRequest): Promise<Record<string, unknown>> {
+  // The session names itself on the in-page pill.
+  const res = await askPage(tabId, ctx.session ? { ...req, session: ctx.session } : req).catch((err: Error) =>
     fail('failed', `could not reach the page: ${err.message}`),
   );
   if (!res.ok) return fail(res.code, res.message);
@@ -118,13 +124,14 @@ async function page(tabId: number, req: PageRequest): Promise<Record<string, unk
 }
 
 async function confirmWrite(
+  ctx: CallContext,
   tabId: number,
   origin: string,
   action: 'fill' | 'click',
   ref: string,
   text: string | undefined,
 ): Promise<void> {
-  const target = String((await page(tabId, { beifahrer: 'describe', ref })).description ?? ref);
+  const target = String((await page(tabId, ctx, { beifahrer: 'describe', ref })).description ?? ref);
   const answer = await askPerson({ origin, action, target, text });
   if (!answer.allow)
     fail('denied', `the person declined the ${action} on ${origin} (or did not answer within two minutes)`);
@@ -161,7 +168,7 @@ async function waitForLoad(tabId: number, deadline: number): Promise<void> {
   }
 }
 
-type Handler<M extends Method> = (params: Params<M>, policy: Policy) => Promise<Result<M>>;
+type Handler<M extends Method> = (params: Params<M>, policy: Policy, ctx: CallContext) => Promise<Result<M>>;
 
 const handlers: { [M in Method]: Handler<M> } = {
   async 'tabs.list'(_params, policy) {
@@ -182,23 +189,23 @@ const handlers: { [M in Method]: Handler<M> } = {
     return { tab: tab ? toTabInfo(tab, policy, focused) : null };
   },
 
-  async 'page.read'(params, policy) {
+  async 'page.read'(params, policy, ctx) {
     const tabId = tabIdOf(params);
     const tab = await getTab(tabId);
     await gate('page.read', tab.url, policy);
     const maxChars = Math.min(Math.max(Number(params.maxChars) || 20_000, 100), 200_000);
-    return (await page(tabId, { beifahrer: 'read', maxChars })) as unknown as Result<'page.read'>;
+    return (await page(tabId, ctx, { beifahrer: 'read', maxChars })) as unknown as Result<'page.read'>;
   },
 
-  async 'page.outline'(params, policy) {
+  async 'page.outline'(params, policy, ctx) {
     const tabId = tabIdOf(params);
     const tab = await getTab(tabId);
     await gate('page.outline', tab.url, policy);
     const maxItems = Math.min(Math.max(Number(params.maxItems) || 400, 10), 2_000);
-    return (await page(tabId, { beifahrer: 'outline', maxItems })) as unknown as Result<'page.outline'>;
+    return (await page(tabId, ctx, { beifahrer: 'outline', maxItems })) as unknown as Result<'page.outline'>;
   },
 
-  async 'page.find'(params, policy) {
+  async 'page.find'(params, policy, ctx) {
     const tabId = tabIdOf(params);
     const raw = params as unknown as Record<string, unknown>;
     const tab = await getTab(tabId);
@@ -206,14 +213,18 @@ const handlers: { [M in Method]: Handler<M> } = {
     if (raw.meta !== undefined) {
       const meta = parseMetaQuery(raw.meta);
       if (typeof meta === 'string') return fail('invalid', meta);
-      return (await page(tabId, { beifahrer: 'meta', meta })) as unknown as Result<'page.find'>;
+      return (await page(tabId, ctx, { beifahrer: 'meta', meta })) as unknown as Result<'page.find'>;
     }
     const query = findQueryOf(raw);
     const maxResults = Math.min(Math.max(Number(params.maxResults) || 20, 1), 200);
-    return (await page(tabId, { beifahrer: 'find', query, maxResults })) as unknown as Result<'page.find'>;
+    return (await page(tabId, ctx, {
+      beifahrer: 'find',
+      query,
+      maxResults,
+    })) as unknown as Result<'page.find'>;
   },
 
-  async 'page.wait'(params, policy) {
+  async 'page.wait'(params, policy, ctx) {
     const tabId = tabIdOf(params);
     const started = Date.now();
     const timeoutMs = Math.min(Math.max(Number(params.timeoutMs) || 10_000, 100), MAX_WAIT_MS);
@@ -233,7 +244,7 @@ const handlers: { [M in Method]: Handler<M> } = {
     const loaded = await getTab(tabId);
     await gate('page.wait', loaded.url, policy);
     const left = Math.max(deadline - Date.now(), 100);
-    const data = await page(tabId, { beifahrer: 'wait', query, timeoutMs: left });
+    const data = await page(tabId, ctx, { beifahrer: 'wait', query, timeoutMs: left });
     return { waitedMs: Date.now() - started, match: data.match as Result<'page.wait'>['match'] };
   },
 
@@ -274,7 +285,7 @@ const handlers: { [M in Method]: Handler<M> } = {
     }
   },
 
-  async 'page.fill'(params, policy) {
+  async 'page.fill'(params, policy, ctx) {
     const tabId = tabIdOf(params);
     const ref = refOf(params);
     if (typeof params.text !== 'string') return fail('invalid', 'text must be a string');
@@ -283,8 +294,8 @@ const handlers: { [M in Method]: Handler<M> } = {
     const mode = params.mode === 'append' ? 'append' : 'replace';
     const tab = await getTab(tabId);
     const { origin, confirm } = await gate('page.fill', tab.url, policy);
-    if (confirm) await confirmWrite(tabId, origin, 'fill', ref, params.text);
-    return (await page(tabId, {
+    if (confirm) await confirmWrite(ctx, tabId, origin, 'fill', ref, params.text);
+    return (await page(tabId, ctx, {
       beifahrer: 'fill',
       ref,
       text: params.text,
@@ -293,13 +304,13 @@ const handlers: { [M in Method]: Handler<M> } = {
     })) as unknown as Result<'page.fill'>;
   },
 
-  async 'page.click'(params, policy) {
+  async 'page.click'(params, policy, ctx) {
     const tabId = tabIdOf(params);
     const ref = refOf(params);
     const tab = await getTab(tabId);
     const { origin, confirm } = await gate('page.click', tab.url, policy);
-    if (confirm) await confirmWrite(tabId, origin, 'click', ref, undefined);
-    return (await page(tabId, { beifahrer: 'click', ref })) as unknown as Result<'page.click'>;
+    if (confirm) await confirmWrite(ctx, tabId, origin, 'click', ref, undefined);
+    return (await page(tabId, ctx, { beifahrer: 'click', ref })) as unknown as Result<'page.click'>;
   },
 
   async 'tabs.open'(params, policy) {
@@ -322,8 +333,9 @@ const handlers: { [M in Method]: Handler<M> } = {
   ...tabHandlers,
 };
 
-export async function runMethod(method: Method, params: unknown): Promise<unknown> {
-  return track(method, params, async () => {
+export async function runMethod(method: Method, params: unknown, ctx: CallContext = {}): Promise<unknown> {
+  return track(method, params, run, ctx.session);
+  async function run(): Promise<unknown> {
     const { policy, paused, features } = await loadSettings();
     // Pause, then the feature switch: before any handler, so none can forget them (features.ts).
     const pre = preflight({ paused, features }, method);
@@ -335,8 +347,8 @@ export async function runMethod(method: Method, params: unknown): Promise<unknow
       );
     }
     const handler = handlers[method] as Handler<Method>;
-    return handler((params ?? {}) as Params<Method>, policy);
-  });
+    return handler((params ?? {}) as Params<Method>, policy, ctx);
+  }
 }
 
 /**
