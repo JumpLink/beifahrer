@@ -58,13 +58,14 @@ Firefox / Chromium
 | grey + **red dot** | paused: the agent gets nothing |
 | grey + **amber dot** | not paired, or no agent running: nothing can reach the browser |
 
-Hover it for the same in words. Click it for the popup: the pause switch at the top, the level of
-the site you are on, the list of features, the connected **agent sessions**, and the **activity** of the last 20 requests (time, which session,
-what, which site by host, and why a request was refused). The activity list holds no page text
+Hover it for the same in words. Click it for the popup: one word of state and the pause button at
+the top, the level of the site you are on, the connected **agent sessions**, and the last few
+entries of the **activity** (what, which site by host, when, which session, and why a request was
+refused; the options page shows all of them). The activity list holds no page text
 and is gone when the browser closes.
 
 <p>
-  <img src="docs/images/popup-dark.png" width="300" alt="The popup in dark mode: the pause switch, the site level of tickets.example set to Read + edit, and the activity list">
+  <img src="docs/images/popup-dark.png" width="300" alt="The popup in dark mode: the state, the pause button, the site level, the agent sessions and the activity list">
   <img src="docs/images/popup-light.png" width="300" alt="The same popup in light mode">
 </p>
 
@@ -73,7 +74,9 @@ The popup, the options page and the confirmation window are built with
 under GNOME and like a plain, consistent settings page elsewhere. Light and dark follow your
 system. They speak **English and German** so far, chosen by your browser's language; the store
 listing does too. Adding a language is one file, `extension/_locales/<lang>/messages.json`
-([ADR 0008](docs/adr/0008-ui-on-adwaita-web.md)).
+([ADR 0008](docs/adr/0008-ui-on-adwaita-web.md)). They say only what is not normal: a banner when
+the agent is paused or cannot connect, explanations behind an info button
+([ADR 0009](docs/adr/0009-quiet-pages.md)).
 
 The pages and the in-page pill use your GNOME accent colour (GNOME 47+): every agent session's
 bridge reads it and tells the extension, which keeps the latest one, so this works in every
@@ -84,36 +87,38 @@ Website appearance "Automatic"; in Chrome, Appearance → Mode "Device".
 <details>
 <summary>The options page, the confirmation window, and the popup in German</summary>
 <p>
-  <img src="docs/images/options-light.png" width="400" alt="The options page in light mode: pairing, pause, feature switches, screenshots, tabs and windows, saved sessions, sites">
+  <img src="docs/images/options-light.png" width="400" alt="The options page in light mode: pause, connection, features, sites, tabs and windows, saved sessions, activity, advanced">
   <img src="docs/images/options-dark.png" width="400" alt="The options page in dark mode">
 </p>
 <p>
-  <img src="docs/images/confirm-light.png" width="360" alt="The confirmation window: the agent wants to put a text into a comment field on tickets.example">
+  <img src="docs/images/confirm-light.png" width="360" alt="The confirmation window: the site, what will change, and Deny, Always allow, Allow">
   <img src="docs/images/confirm-dark.png" width="360" alt="The confirmation window in dark mode">
   <img src="docs/images/popup-de-dark.png" width="300" alt="The popup in German, dark mode">
+  <img src="docs/images/popup-de-light.png" width="300" alt="The popup in German, light mode">
+  <img src="docs/images/options-de-dark.png" width="400" alt="The options page in German, dark mode">
 </p>
 </details>
 
-The pictures show synthetic sites (`*.example`), never a real one.
+The pictures show the e2e's synthetic fixture page, never a real site.
 
-**While the agent reads or edits a page, the page shows it**: a small pill, "beifahrer is
-reading" or "is editing", with a **Stop** button, top right. It disappears a few seconds after
+**While the agent reads or edits a page, the page shows it**: a small pill, "Agent is
+reading" or "Agent is editing", with a **Stop** button, top right. It disappears a few seconds after
 the last action, never appears in a screenshot, and the page itself cannot read it.
 
-**Pause stops everything at once.** Press *Stop* on that pill, flip the switch in the popup or the
+**Pause stops everything at once.** Press *Stop* on that pill, the pause button in the popup, the switch in the
 options, or press **Alt+Shift+B**. While paused, every tool the agent calls, even listing tabs,
 answers `paused`, and the agent is told to ask you. Only you can resume, in the popup, the options
 or with the shortcut: nothing the agent sends can.
 
 **Features.** On top of the per-site levels, you choose which capabilities the agent may use at
-all (popup and options):
+all (options page):
 
 | Feature | Tools | Default |
 |---|---|---|
 | See open tabs | `tabs_list`, `tab_active` (sites below *Read* show their host only) | on |
 | Read page text | `page_read` | on |
 | Outline pages | `page_outline` | on |
-| Take screenshots | `page_screenshot` (Chromium also needs the all-sites grant in the options) | **off** |
+| Screenshots | `page_screenshot` (turning it on asks the browser for access to all sites) | **off** |
 | Fill fields | `page_fill`, still only at *Read + edit*, and you confirm | on |
 | Click | `page_click`, still only at *Read + edit*, and you confirm | on |
 | Open tabs | `tab_open`, only sites at *Read* or higher | on |

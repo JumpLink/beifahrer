@@ -1,18 +1,21 @@
 import { browser } from '@wxt-dev/browser';
 import {
   AUTOSAVE_PREFIX,
+  FEATURES,
+  FEATURE_OF,
   MAX_NAME,
   hostOf,
   sessionNameIssue,
   upsertSession,
   withRule,
   type Level,
+  type Method,
   type SavedSession,
   type SessionNameIssue,
 } from '@beifahrer/core';
 import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../../src/bridge-client.ts';
-import { plural, t, uiLanguage, type MessageKey } from '../../src/i18n.ts';
+import { featureLabel, plural, t, uiLanguage, type MessageKey } from '../../src/i18n.ts';
 import {
   capture,
   loadSessions,
@@ -22,27 +25,74 @@ import {
 } from '../../src/sessions-store.ts';
 import { loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
 import {
+  hoverText,
+  loadActivity,
   markEmpty,
   onToggle,
+  renderActivity,
   renderFeatures,
-  renderPause,
+  setFeature,
   setQuietly,
-  wirePause,
+  switchRowIcon,
 } from '../../src/ui/features.ts';
-import { describeStatus } from '../../src/ui/status.ts';
+import { infoButton } from '../../src/ui/info.ts';
+import { heroIcon, stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const ALL = { origins: ['<all_urls>'] };
-const toast = (text: string) => $<Adw.ToastOverlay>('toasts').addToast(text, { timeout: 4 });
+const toast = (text: string, options: { buttonLabel?: string; onAction?: () => void } = {}) =>
+  $<Adw.ToastOverlay>('toasts').addToast(text, { timeout: 4, ...options });
 
-/** Inline feedback next to what the person just clicked, coloured by Adwaita's own classes. */
-function note(el: HTMLElement, text: string, tone: 'success' | 'warning' | 'error' | 'dimmed'): void {
-  el.textContent = text;
-  el.className = `note ${tone}`;
+const status = async () => (await browser.runtime.sendMessage({ type: 'status' })) as Status | undefined;
+
+// --- state: header word and banner ----------------------------------------------------------
+
+let state: UiState = 'unpaired';
+
+/** The banner speaks only when something is not normal, with the one action that fixes it. */
+const BANNERS: Partial<Record<UiState, { title: MessageKey; button?: MessageKey }>> = {
+  paused: { title: 'state_paused', button: 'action_resume' },
+  unauthorized: { title: 'banner_unauthorized' },
+  protocol: { title: 'banner_protocol' },
+};
+
+async function renderState(): Promise<void> {
+  const [current, activity, { paused }] = await Promise.all([status(), loadActivity(), loadSettings()]);
+  state = stateOf(current, paused, activity);
+  $('state').textContent = t(STATE_WORDS[state]);
+  const icon = $<HTMLImageElement>('hero-icon');
+  const src = `/icons/${heroIcon(state)}-48.png`;
+  if (icon.getAttribute('src') !== src) icon.setAttribute('src', src);
+  icon.classList.toggle('working', state === 'working');
+  setQuietly($<Adw.SwitchRow>('pause'), paused);
+
+  const banner = $<Adw.Banner>('banner');
+  const spec = BANNERS[state];
+  if (spec) {
+    banner.setAttribute('title', t(spec.title));
+    if (spec.button) banner.setAttribute('button-label', t(spec.button));
+    else banner.removeAttribute('button-label');
+  }
+  banner.toggleAttribute('revealed', spec !== undefined);
+  renderActivity($<Adw.PreferencesGroup>('activity'), activity.log);
+  markEmpty($<Adw.PreferencesGroup>('activity'), activity.log.length === 0 ? t('activity_empty') : null);
 }
 
-async function renderStatus(): Promise<void> {
-  $('status').textContent = describeStatus(await browser.runtime.sendMessage({ type: 'status' }));
+async function setupPause(): Promise<void> {
+  const pause = $<Adw.SwitchRow>('pause');
+  // The shortcut is the person's to change (browser settings), so show the one they have.
+  const commands = await browser.commands?.getAll?.().catch(() => []);
+  const shortcut = commands?.find((c) => c.name === 'toggle-pause')?.shortcut;
+  if (shortcut) pause.setAttribute('subtitle', shortcut);
+  onToggle(pause, async (paused) => {
+    await saveSettings({ paused });
+    await renderState();
+  });
+  $('banner').addEventListener('button-clicked', async () => {
+    if (state !== 'paused') return;
+    await saveSettings({ paused: false });
+    await renderState();
+  });
 }
 
 // --- sites ---------------------------------------------------------------------------------
@@ -86,14 +136,68 @@ async function renderSites(): Promise<void> {
   }
 }
 
+// --- features, screenshots included -------------------------------------------------------
+
+/**
+ * Screenshots are ONE decision for the person, though they take two things: the feature switch,
+ * and the browser's access to all sites (Chromium's `captureVisibleTab` wants `<all_urls>`, and
+ * Firefox does not even define it without). So the switch asks the browser in the same click,
+ * and stays off when the browser says no.
+ */
+async function setScreenshots(row: Adw.SwitchRow, on: boolean): Promise<void> {
+  // permissions.request must be the FIRST await after the click (Firefox's user gesture); the
+  // row notifies synchronously inside its own click handler, so the gesture is still live.
+  if (on) {
+    const granted = await browser.permissions.request(ALL);
+    if (!granted) {
+      setQuietly(row, false);
+      toast(t('screenshots_denied'));
+      return;
+    }
+  } else {
+    await browser.permissions.remove(ALL).catch(() => false);
+  }
+  await setFeature('screenshot', on);
+  await renderShotsWarning();
+}
+
+/** Shown only when the two diverge: the feature is on, but the grant was taken back in the browser. */
+async function renderShotsWarning(): Promise<void> {
+  const { features } = await loadSettings();
+  const granted = await browser.permissions.contains(ALL);
+  $('shots-warning').hidden = !features.screenshot || granted;
+}
+
+function renderMethods(): void {
+  // Developer detail: which protocol methods each switch covers. Method names are not translated.
+  const expander = $<Adw.ExpanderRow>('methods');
+  for (const feature of FEATURES) {
+    const methods = (Object.keys(FEATURE_OF) as Method[]).filter((m) => FEATURE_OF[m] === feature);
+    const row = document.createElement('adw-action-row');
+    row.className = 'monospace-subtitle';
+    row.setAttribute('title', featureLabel(feature));
+    row.setAttribute('subtitle', methods.join(', '));
+    expander.append(row);
+  }
+}
+
 // --- tabs, windows and sessions: the person's own controls, no agent needed ------------------
 
-function button(label: string, onClick: () => Promise<void>, style?: 'destructive'): Gtk.Button {
+function button(
+  label: string,
+  onClick: () => Promise<void>,
+  look: { icon?: string; destructive?: boolean } = {},
+): Gtk.Button {
   const b = document.createElement('gtk-button') as Gtk.Button;
-  b.setAttribute('label', label);
+  if (look.icon) {
+    b.setAttribute('icon-name', look.icon);
+    // An icon-only button takes its accessible name from the tooltip.
+    b.setAttribute('tooltip-text', label);
+    b.toggleAttribute('circular', true);
+  } else b.setAttribute('label', label);
   b.setAttribute('slot', 'suffix');
   b.toggleAttribute('flat', true);
-  if (style) b.toggleAttribute(style, true);
+  if (look.destructive) b.toggleAttribute('destructive', true);
   b.addEventListener('click', () => void onClick());
   return b;
 }
@@ -103,15 +207,15 @@ const when = (ms: number) =>
 
 const counts = (windows: number, tabs: number) => `${plural('windows', windows)}, ${plural('tabs', tabs)}`;
 
-/** The tab list as a hover text on the row's labels (the row's own `title` is its heading). */
-function hoverList(row: HTMLElement, lines: string[]): void {
-  row.querySelector('.adw-row-text')?.setAttribute('title', lines.join('\n'));
-}
+/** The tab list as the row's hover text. */
+const hoverList = (row: HTMLElement, lines: string[]) => hoverText(row, lines.join('\n'));
+
+const sessionName = (s: SavedSession) => (s.kind === 'auto' ? when(s.savedAt) : s.name);
 
 function sessionRow(session: SavedSession): HTMLElement {
   const tabs = session.windows.reduce((n, w) => n + w.tabs.length, 0);
   const row = document.createElement('adw-action-row');
-  row.setAttribute('title', session.kind === 'auto' ? when(session.savedAt) : session.name);
+  row.setAttribute('title', sessionName(session));
   row.setAttribute(
     'subtitle',
     [
@@ -125,14 +229,19 @@ function sessionRow(session: SavedSession): HTMLElement {
       const { policy } = await loadSettings();
       await restoreSession(session, policy, 'new-windows');
     }),
+    // Deleting is undoable from the toast, the GNOME way, instead of asking first.
     button(
       t('action_delete'),
       async () => {
         await updateSessions((all) => all.filter((s) => s.name !== session.name));
-        toast(t('session_deleted', session.kind === 'auto' ? when(session.savedAt) : session.name));
         await renderSessions();
+        toast(t('session_deleted', sessionName(session)), {
+          buttonLabel: t('action_undo'),
+          onAction: () =>
+            void updateSessions((all) => upsertSession(all, session)).then(() => renderSessions()),
+        });
       },
-      'destructive',
+      { icon: 'user-trash-symbolic', destructive: true },
     ),
   );
   return row;
@@ -146,7 +255,6 @@ async function renderSessions(): Promise<void> {
   const autoRow = $<Adw.ExpanderRow>('autos');
   for (const old of group.querySelectorAll('adw-action-row')) old.remove();
   for (const old of autoRow.querySelectorAll('adw-action-row')) old.remove();
-  markEmpty(group, named.length === 0 ? t('sessions_empty') : null);
   autoRow.setAttribute('subtitle', autos.length === 0 ? t('autos_empty') : String(autos.length));
   for (const s of named) {
     const row = sessionRow(s);
@@ -209,14 +317,12 @@ async function setupTabs(): Promise<void> {
 
   const nameRow = $<Adw.EntryRow>('session-name');
   const save = async () => {
-    const out = $('session-note');
     const name = nameRow.text.trim();
     const issue = sessionNameIssue(name);
-    if (issue) return note(out, NAME_MESSAGES[issue](), 'error');
+    if (issue) return toast(NAME_MESSAGES[issue]());
     const { session } = await capture(name, 'saved');
-    if (session.windows.length === 0) return note(out, t('session_nothing_open'), 'warning');
+    if (session.windows.length === 0) return toast(t('session_nothing_open'));
     await updateSessions((all) => upsertSession(all, session));
-    note(out, '', 'dimmed');
     nameRow.text = '';
     toast(t('session_saved', name));
     await renderSessions();
@@ -228,31 +334,43 @@ async function setupTabs(): Promise<void> {
   await renderClosed();
 }
 
-// --- pairing -------------------------------------------------------------------------------
+// --- connection ------------------------------------------------------------------------------
+
+const RESULT: Partial<Record<UiState, MessageKey>> = {
+  ready: 'pairing_connected',
+  working: 'pairing_connected',
+  offline: 'pairing_saved_offline',
+  unauthorized: 'banner_unauthorized',
+  protocol: 'banner_protocol',
+};
 
 async function connect(): Promise<void> {
-  const out = $('saved');
   const token = $<Adw.PasswordEntryRow>('token').text.trim();
-  if (!token) return note(out, t('pairing_need_token'), 'warning');
+  if (!token) return toast(t('pairing_need_token'));
+  const save = $<Gtk.Button>('save');
+  save.toggleAttribute('disabled', true);
   await saveSettings({
     token,
     port: $<Adw.SpinRow>('port').value,
     portCount: $<Adw.SpinRow>('port-count').value,
   });
-  note(out, t('pairing_connecting'), 'dimmed');
   await browser.runtime.sendMessage({ type: 'reconnect' });
-  // Say how it ended, right next to the button: the person just clicked here, not at the
-  // status line at the top of the page.
-  for (let i = 0; i < 10; i++) {
-    const status = (await browser.runtime.sendMessage({ type: 'status' })) as Status;
-    await renderStatus();
-    if (status.state === 'connected') return note(out, t('pairing_connected'), 'success');
-    if (status.state === 'unauthorized' || status.state === 'protocol') break;
+  // The outcome is a toast: the person just clicked here, and a line beside the button would stay.
+  let current = await status();
+  for (let i = 0; i < 10 && current?.state === 'offline'; i++) {
     await new Promise((r) => setTimeout(r, 500));
+    current = await status();
   }
-  const status = (await browser.runtime.sendMessage({ type: 'status' })) as Status;
-  if (status.state === 'offline') note(out, t('pairing_saved_offline'), 'success');
-  else note(out, describeStatus(status), 'warning');
+  await renderState();
+  save.toggleAttribute('disabled', false);
+  const key = RESULT[stateOf(current, false)];
+  if (key) toast(t(key));
+}
+
+function renderRange(): void {
+  const base = $<Adw.SpinRow>('port').value;
+  const count = $<Adw.SpinRow>('port-count').value;
+  $('ports').setAttribute('subtitle', count === 1 ? String(base) : t('ports_range', base, base + count - 1));
 }
 
 async function main(): Promise<void> {
@@ -260,34 +378,43 @@ async function main(): Promise<void> {
   $<Adw.PasswordEntryRow>('token').text = settings.token;
   $<Adw.SpinRow>('port').value = settings.port;
   $<Adw.SpinRow>('port-count').value = settings.portCount;
+  renderRange();
+  for (const id of ['port', 'port-count']) $(id).addEventListener('notify::value', renderRange);
   $('save').addEventListener('click', () => void connect());
 
-  const shots = $<Adw.SwitchRow>('shots');
-  setQuietly(shots, await browser.permissions.contains(ALL));
-  onToggle(shots, async (on) => {
-    // First await after the click, for the same user-gesture reason as in the popup: the row
-    // notifies synchronously inside its own click handler.
-    const ok = on ? await browser.permissions.request(ALL) : await browser.permissions.remove(ALL);
-    setQuietly(shots, on ? ok : !ok);
+  switchRowIcon($('pause'), 'media-playback-pause-symbolic');
+  switchRowIcon($('confirm-close'), 'window-close-symbolic');
+  switchRowIcon($('autosave'), 'document-open-recent-symbolic');
+  $('pairing').append(infoButton('pairing_info'));
+  $('features').append(infoButton('features_info'));
+  $('shots-grant').addEventListener('click', async () => {
+    // First await after the click, for the same user-gesture reason as the switch.
+    if (await browser.permissions.request(ALL)) await renderShotsWarning();
+    else toast(t('screenshots_denied'));
   });
+  renderMethods();
 
-  const pause = $<Adw.SwitchRow>('pause');
-  const banner = $<Adw.Banner>('paused');
-  wirePause(pause, banner);
   const features = $('features');
+  const onChange = { screenshot: (row: Adw.SwitchRow, on: boolean) => void setScreenshots(row, on) };
   await Promise.all([
-    renderStatus(),
+    setupPause(),
+    renderState(),
     renderSites(),
     setupTabs(),
-    renderPause(pause, banner),
-    renderFeatures(features, false),
+    renderFeatures(features, onChange),
+    renderShotsWarning(),
   ]);
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    if (changes.paused) void renderPause(pause, banner);
-    if (changes.features || changes.grants) void renderFeatures(features, false);
+    if (changes.paused) void renderState();
+    if (changes.features || changes.grants) {
+      void renderFeatures(features, onChange);
+      void renderShotsWarning();
+    }
   });
-  setInterval(() => void renderStatus(), 3000);
+  setInterval(() => void renderState(), 2000);
+  // The popup's "Show all" opens this page at its activity.
+  if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
 }
 
 void main();

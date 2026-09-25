@@ -1,47 +1,72 @@
 import { browser } from '@wxt-dev/browser';
 import { originOf, withRule, type Level } from '@beifahrer/core';
-import type { Adw } from '@gjsify/adwaita-web';
+import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../../src/bridge-client.ts';
-import { t } from '../../src/i18n.ts';
+import { t, type MessageKey } from '../../src/i18n.ts';
 import { loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
 import {
   loadActivity,
   onToggle,
   renderActivity,
-  renderFeatures,
-  renderPause,
   setQuietly,
-  wirePause,
+  type ActivitySnapshot,
 } from '../../src/ui/features.ts';
-import { describeStatus } from '../../src/ui/status.ts';
+import { heroIcon, stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
 import { renderSessions } from '../../src/ui/sessions.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const levels = $<Adw.ToggleGroup>('levels');
 const confirmRow = $<Adw.SwitchRow>('confirm');
+const toast = (text: string) => $<Adw.ToastOverlay>('toasts').addToast(text, { timeout: 3 });
 
-const HINTS = { none: 'hint_none', read: 'hint_read', write: 'hint_write' } as const;
+/** The popup shows the newest few; the options page has the whole log. */
+const ACTIVITY_SHOWN = 5;
 
-async function renderStatus(): Promise<void> {
-  const status = (await browser.runtime.sendMessage({ type: 'status' })) as Status | undefined;
-  $('status').textContent = describeStatus(status);
-  renderSessions($<Adw.PreferencesGroup>('agents'), status);
-  // A pairing problem is the one thing the person has to act on outside this popup: say it as a
-  // banner with the way there. "No agent running" needs no action, so it stays the status line.
-  const problem = $<Adw.Banner>('problem');
-  const state = status?.state ?? 'unpaired';
-  const banner = BANNERS[state as keyof typeof BANNERS];
-  if (banner) problem.setAttribute('title', t(banner));
-  problem.toggleAttribute('revealed', banner !== undefined);
+const LEVEL_TIPS: Record<Level, MessageKey> = {
+  none: 'level_none_tip',
+  read: 'level_read_tip',
+  write: 'level_write_tip',
+};
+
+/**
+ * The banner speaks only when something is not normal, with the one action that fixes it.
+ * "No agent running" is not a problem: agents start and stop, so it stays the hero's quiet word.
+ */
+const BANNERS: Partial<Record<UiState, { title: MessageKey; button: MessageKey }>> = {
+  paused: { title: 'state_paused', button: 'action_resume' },
+  unauthorized: { title: 'banner_unauthorized', button: 'action_pair' },
+  protocol: { title: 'banner_protocol', button: 'action_settings' },
+};
+
+let state: UiState = 'unpaired';
+
+function renderState(status: Status | undefined, paused: boolean, activity: ActivitySnapshot): void {
+  state = stateOf(status, paused, activity);
+  $('state').textContent = t(STATE_WORDS[state]);
+  const icon = $<HTMLImageElement>('hero-icon');
+  const src = `/icons/${heroIcon(state)}-48.png`;
+  if (icon.getAttribute('src') !== src) icon.setAttribute('src', src);
+  icon.classList.toggle('working', state === 'working');
+
+  const pause = $<Gtk.Button>('pause');
+  pause.setAttribute('icon-name', paused ? 'media-playback-start-symbolic' : 'media-playback-pause-symbolic');
+  pause.setAttribute('tooltip-text', t(paused ? 'action_resume' : 'action_pause'));
+
+  const banner = $<Adw.Banner>('banner');
+  const spec = BANNERS[state];
+  if (spec) {
+    banner.setAttribute('title', t(spec.title));
+    banner.setAttribute('button-label', t(spec.button));
+  }
+  banner.toggleAttribute('revealed', spec !== undefined);
+
+  // Not paired yet: nothing below can do anything, so the first run is one clear step.
+  const unpaired = state === 'unpaired';
+  $('onboard').hidden = !unpaired;
+  $('main').hidden = unpaired;
 }
 
-const BANNERS = {
-  unpaired: 'banner_unpaired',
-  unauthorized: 'banner_unauthorized',
-  protocol: 'banner_protocol',
-} as const;
-
-async function render(origin: string | null): Promise<void> {
+async function renderSite(origin: string | null): Promise<void> {
   const { policy } = await loadSettings();
   $('site').textContent = origin ?? t('site_none');
   $('site').classList.toggle('monospace', origin !== null);
@@ -51,26 +76,59 @@ async function render(origin: string | null): Promise<void> {
   levels.activeName = level;
   $('confirm-group').hidden = level !== 'write';
   setQuietly(confirmRow, rule?.confirmWrites !== false);
-  $('hint').textContent = origin ? t(HINTS[level]) : '';
 }
 
 async function main(): Promise<void> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   const origin = originOf(tab?.url);
-  await Promise.all([renderStatus(), render(origin)]);
+
+  // gjsify gap (unfixed, @gjsify/adwaita-web 0.52.0): <adw-toggle> has no tooltip, so the
+  // explanation of each level goes on its rendered button as a native hover text.
+  for (const button of levels.querySelectorAll<HTMLButtonElement>('button.adw-toggle')) {
+    const name = (['none', 'read', 'write'] as const)[[...button.parentElement!.children].indexOf(button)];
+    if (name) button.title = t(LEVEL_TIPS[name]);
+  }
+
+  const openOptions = (hash = '') => {
+    if (!hash) return void browser.runtime.openOptionsPage();
+    void browser.tabs.create({ url: browser.runtime.getURL(`/options.html#${hash}`) });
+  };
+
+  const refresh = async () => {
+    const [status, activity, { paused }] = await Promise.all([
+      browser.runtime.sendMessage({ type: 'status' }) as Promise<Status | undefined>,
+      loadActivity(),
+      loadSettings(),
+    ]);
+    renderState(status, paused, activity);
+    renderSessions($<Adw.PreferencesGroup>('agents'), status);
+    const count = renderActivity($<Adw.PreferencesGroup>('activity'), activity.log, {
+      limit: ACTIVITY_SHOWN,
+      onShowAll: () => openOptions('activity'),
+      // Which session did it only says something when there is more than one.
+      showSession: status?.state !== 'unpaired' && (status?.sessions.length ?? 0) > 1,
+    });
+    $('activity-empty').hidden = count !== 0;
+  };
+  await Promise.all([refresh(), renderSite(origin)]);
+  // While the popup is open: follow the agent live, and a pause set from the page or shortcut.
+  setInterval(() => void refresh(), 1000);
+  browser.storage.onChanged.addListener((_changes, area) => {
+    if (area === 'local') void refresh();
+  });
 
   levels.addEventListener('notify::active', async () => {
     if (!origin) return;
     const level = (levels.activeName ?? 'none') as Level;
-    if (!(level in HINTS)) return;
+    if (!(level in LEVEL_TIPS)) return;
     // permissions.request must be the FIRST await after the click: Firefox only accepts it while
     // the user gesture is still live, and any earlier await ends it. The toggle group notifies
     // synchronously inside its button's click (or key) handler, so the gesture is still live.
     if (level !== 'none') {
       const granted = await browser.permissions.request({ origins: [originPattern(origin)] });
       if (!granted) {
-        await render(origin);
-        $('hint').textContent = t('hint_denied');
+        await renderSite(origin);
+        toast(t('access_denied'));
         return;
       }
     } else {
@@ -84,7 +142,7 @@ async function main(): Promise<void> {
         level === 'write' ? { level, confirmWrites: confirmRow.active } : { level },
       ),
     });
-    await render(origin);
+    await renderSite(origin);
   });
 
   onToggle(confirmRow, async (confirmWrites) => {
@@ -93,28 +151,18 @@ async function main(): Promise<void> {
     await saveSettings({ policy: withRule(policy, origin, { level: 'write', confirmWrites }) });
   });
 
-  const pause = $<Adw.SwitchRow>('pause');
-  wirePause(pause);
-  await renderPause(pause);
-  // The row's own `title` attribute is its heading, so the hover text goes on its label column.
-  pause.querySelector('.adw-row-text')?.setAttribute('title', t('pause_tooltip'));
-  const features = $('features');
-  await renderFeatures(features, true);
-  const activity = $<Adw.PreferencesGroup>('activity');
-  const refreshActivity = async () => renderActivity(activity, (await loadActivity()).log);
-  await refreshActivity();
-  // While the popup is open: follow the agent live, and a pause set from the page or shortcut.
-  setInterval(() => void refreshActivity(), 1000);
-  setInterval(() => void renderStatus(), 1000);
-  browser.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local') return;
-    if (changes.paused) void renderPause(pause);
-    if (changes.features || changes.grants) void renderFeatures(features, true);
-  });
+  const setPaused = async (paused: boolean) => {
+    await saveSettings({ paused });
+    await refresh();
+  };
+  $('pause').addEventListener('click', () => void setPaused(state !== 'paused'));
 
-  const openOptions = () => void browser.runtime.openOptionsPage();
-  $('options').addEventListener('activated', openOptions);
-  $('problem').addEventListener('button-clicked', openOptions);
+  $('options').addEventListener('activated', () => openOptions());
+  $('pair').addEventListener('click', () => openOptions());
+  $('banner').addEventListener('button-clicked', () => {
+    if (state === 'paused') void setPaused(false);
+    else openOptions();
+  });
 }
 
 void main();

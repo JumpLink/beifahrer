@@ -1,5 +1,6 @@
 import { browser } from '@wxt-dev/browser';
 import { disconnectSession } from './bridge-client.ts';
+import { holdForPreview } from './confirm.ts';
 
 declare const __E2E_SEED__: string;
 
@@ -16,10 +17,19 @@ const DISCONNECT_PATH = /^http:\/\/127\.0\.0\.1:\d+\/__beifahrer_e2e\/disconnect
 
 /**
  * E2E builds only: the test opens `…/__beifahrer_e2e/disconnect?port=N` to press "Disconnect" on
- * the session of port N. A release build carries no seed and registers nothing.
+ * the session of port N, and confirm.html#e2e-preview to see a confirmation. A release build
+ * carries no seed and registers nothing.
  */
 export function installE2eHooks(): void {
   if (!__E2E_SEED__) return;
+  // confirm.html#e2e-preview shows this request (tests/e2e/ui-pages.mjs), synthetic like the fixture.
+  holdForPreview({
+    id: 'e2e-preview',
+    origin: 'https://tickets.example',
+    action: 'fill',
+    target: 'textbox "Comment" (empty)',
+    text: 'Fixed in 1.4.2, closing this ticket.',
+  });
   browser.tabs.onUpdated.addListener((_tabId, _info, tab) => {
     const port = DISCONNECT_PATH.exec(tab.url ?? '')?.[1];
     if (port) disconnectSession(Number(port));

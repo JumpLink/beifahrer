@@ -11,7 +11,11 @@
  *     position),
  *   - every `data-i18n*="key"` in the pages and `__MSG_key__` in the manifest names a key,
  *   - the store listing fits: Chrome Web Store truncates a name after 45 characters and refuses
- *     a description over 132.
+ *     a description over 132,
+ *   - every key is still read somewhere: by its name in a source file, or by one of the families
+ *     the code builds from a prefix (`DYNAMIC`). A key nobody reads is text nobody maintains,
+ *   - the copy keeps the house style: no em or en dash, no exclamation mark and no curly quote
+ *     in any message. The pages were rewritten once to lose exactly those (the /unslop pass).
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
@@ -25,6 +29,29 @@ interface Entry {
 type Catalogue = Record<string, Entry>;
 
 const LIMITS: Record<string, number> = { extName: 45, extDescription: 132 };
+
+/**
+ * Keys the code builds instead of naming: `t(\`method_${…}\`)` and friends. Each pattern names the
+ * one place that builds it, so a family that loses its builder is found by reading this list.
+ */
+const DYNAMIC: RegExp[] = [
+  /^method_/, // i18n.ts methodWords
+  /^feature_[A-Za-z]+_label$/, // i18n.ts featureLabel
+  /^(windows|tabs|close_target_window|close_target_tabs)_(one|other)$/, // i18n.ts plural
+  /^toolbar_offline_/, // toolbar.ts titleFor
+];
+
+/** Characters the UI copy does not use: dashes as punctuation, exclamation marks, curly quotes. */
+const BANNED = /[\u2013\u2014!\u201C\u201D\u201E\u2018\u2019]/;
+
+/** The TypeScript files under `dir` (relative to `root`), for the unused-key check. */
+export function sourceFiles(root: string, dir: string): string[] {
+  return readdirSync(join(root, dir), { withFileTypes: true }).flatMap((entry) => {
+    const path = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) return sourceFiles(root, path);
+    return entry.name.endsWith('.ts') ? [path] : [];
+  });
+}
 
 function load(root: string, lang: string): Catalogue {
   return JSON.parse(readFileSync(join(root, '_locales', lang, 'messages.json'), 'utf8')) as Catalogue;
@@ -42,7 +69,10 @@ function placeholderErrors(where: string, entry: Entry): string[] {
 }
 
 /** Every problem found, one line each; empty when the catalogues are consistent. */
-export function checkLocales(root: string, sources: { pages: string[]; manifest: string }): string[] {
+export function checkLocales(
+  root: string,
+  sources: { pages: string[]; manifest: string; code: string[] },
+): string[] {
   const langs = readdirSync(join(root, '_locales'));
   if (!langs.includes('en')) return ['_locales/en is missing: it is the default_locale'];
   const en = load(root, 'en');
@@ -69,6 +99,11 @@ export function checkLocales(root: string, sources: { pages: string[]; manifest:
   }
   for (const lang of langs) {
     const catalogue = lang === 'en' ? en : load(root, lang);
+    for (const [key, entry] of Object.entries(catalogue)) {
+      const bad = entry.message.match(BANNED);
+      if (bad)
+        errors.push(`${lang}/${key}: "${bad[0]}" is not part of the UI copy (dash, "!" or curly quote)`);
+    }
     for (const [key, max] of Object.entries(LIMITS)) {
       const text = catalogue[key]?.message ?? '';
       if (text.length > max)
@@ -83,5 +118,13 @@ export function checkLocales(root: string, sources: { pages: string[]; manifest:
   }
   for (const m of sources.manifest.matchAll(/__MSG_([A-Za-z0-9_@]+)__/g))
     if (!(m[1]! in en)) errors.push(`manifest: __MSG_${m[1]}__ is not in en`);
+
+  const code = [...sources.pages, ...sources.code].map((file) => readFileSync(join(root, file), 'utf8'));
+  code.push(sources.manifest);
+  const words = new Set(code.flatMap((text) => text.match(/[A-Za-z0-9_@]+/g) ?? []));
+  for (const m of sources.manifest.matchAll(/__MSG_([A-Za-z0-9_@]+)__/g)) words.add(m[1]!);
+  for (const key of Object.keys(en))
+    if (!words.has(key) && !DYNAMIC.some((re) => re.test(key)))
+      errors.push(`en/${key}: no page or script reads this key any more`);
   return errors;
 }
