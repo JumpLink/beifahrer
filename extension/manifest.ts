@@ -17,6 +17,13 @@ export const TARGETS: readonly Target[] = ['chrome-mv3', 'firefox-mv2', 'safari-
 // options page, when the person switches screenshots on.
 const HOSTS = ['http://*/*', 'https://*/*', '<all_urls>'];
 
+/**
+ * The manifest's suggested binding for `toggle-pause`. The person can rebind it in the browser
+ * (extension/src/shortcut.ts reads what they actually have, via `commands.getAll()`); this is
+ * only the default, and the fallback where that API does not exist.
+ */
+export const TOGGLE_PAUSE_SHORTCUT = 'Alt+Shift+B';
+
 /** Toolbar and store icons, all derived from icons/sparkles.svg (scripts/icons.ts). */
 export const ICON_SIZES = [16, 32, 48, 128] as const;
 
@@ -93,7 +100,7 @@ export function manifestFor(
     // The kill switch from the keyboard. Only the person can press it; the bridge cannot.
     commands: {
       'toggle-pause': {
-        suggested_key: { default: 'Alt+Shift+B' },
+        suggested_key: { default: TOGGLE_PAUSE_SHORTCUT },
         description: '__MSG_commandTogglePause__',
       },
     },
