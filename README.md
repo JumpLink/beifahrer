@@ -75,6 +75,12 @@ system. They speak **English and German** so far, chosen by your browser's langu
 listing does too. Adding a language is one file, `extension/_locales/<lang>/messages.json`
 ([ADR 0008](docs/adr/0008-ui-on-adwaita-web.md)).
 
+The pages and the in-page pill use your GNOME accent colour (GNOME 47+): every agent session's
+bridge reads it and tells the extension, which keeps the latest one, so this works in every
+browser. Without it they use the browser's own accent where it has one, otherwise Adwaita blue.
+Light and dark follow the *browser's* setting: in Firefox, the theme "System theme — auto" and
+Website appearance "Automatic"; in Chrome, Appearance → Mode "Device".
+
 <details>
 <summary>The options page, the confirmation window, and the popup in German</summary>
 <p>

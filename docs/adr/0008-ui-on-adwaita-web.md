@@ -57,6 +57,18 @@ styles. Light and dark follow `prefers-color-scheme` through the package's own t
    a `data-i18n` or `__MSG_…__` key that does not exist, and on a store name or description over
    the Chrome Web Store's limits. MCP tool descriptions and wire errors stay English: a model
    reads them, and a prompt that changes with the browser's language is a prompt nobody tested.
+6. **The accent colour follows the desktop, via the bridge** (asked for by the person on
+   2026-09-25). Each bridge reads GSettings `org.gnome.desktop.interface accent-color` on GJS
+   (`app/src/bridge/desktop.ts`), sends it in the welcome as `desktop.accent` and again in a
+   `desktop` frame when it changes. Both are optional, so `PROTOCOL_VERSION` stays 1. The
+   extension accepts only libadwaita's nine names (`parseDesktop`, core), keeps the latest in
+   `storage.local`, and paints it with adwaita-web's `applyAdwaitaAccent` on every page, live,
+   and on the pill's dot. The bridge comes first because it works in every browser. The CSS
+   system colour `AccentColor` is only the fallback (`chooseAccent`, core): Firefox switched it
+   off for a time, Chrome announced shipping it only in 2026, and whether either matches GNOME's
+   setting on Linux is unmeasured. A missing schema or key (another desktop, GNOME before 47) or
+   a bridge on Node is "unknown", never an error. `BEIFAHRER_DESKTOP_ACCENT` overrides the
+   setting for tests only; the e2e sets it to `green` and checks the painted value.
 
 ## Consequences
 

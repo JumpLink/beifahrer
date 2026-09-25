@@ -174,6 +174,7 @@ Fix them in gjsify, never around them (werkstatt AGENTS.md § Core deps). Found 
 | `@gjsify/adwaita-web`: row titles/subtitles are `nowrap` + ellipsis, no `title-lines`/`subtitle-lines`; libadwaita wraps by default | `:root .adw-row-subtitle { white-space: normal }` in style.css, marked `gjsify gap (unfixed, …)` |
 | `@gjsify/adwaita-web`: the `--font-family` fallback names `Segoe UI` but no macOS face (`system-ui`/`-apple-system`), so macOS falls back to Helvetica | style.css re-declares the stack with both |
 | `@gjsify/adwaita-web`: rows have no `tooltip-text`, and `<adw-toggle-group>` no `sensitive` / per-toggle `enabled` | tooltips go on the row's `.adw-row-text`; the level group is hidden, not greyed, on a non-web page |
+| `@gjsify/adwaita-web`: no API to follow the browser's `AccentColor` — [gjsify#1821](https://github.com/gjsify/gjsify/issues/1821) | the fallback when no bridge reported the desktop accent is a shim in `extension/src/accent.ts` (`accentColors`), marked `gjsify gap (unfixed, gjsify#1821)` |
 
 ## Conventions
 
