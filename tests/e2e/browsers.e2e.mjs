@@ -62,6 +62,8 @@ const DESKTOP_ACCENT = 'green';
 /** Set BEIFAHRER_E2E_LOGS=<dir> to keep the MCP server's stderr and the browser's output. */
 const LOGS = process.env.BEIFAHRER_E2E_LOGS;
 const logTo = (name) => (LOGS ? createWriteStream(join(LOGS, name)) : null);
+/** Set BEIFAHRER_E2E_LANG=de to run Chromium in another UI language (for localized screenshots). */
+const LANG = process.env.BEIFAHRER_E2E_LANG;
 
 const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></head><body>
 <h1>Ticket 3279</h1>
@@ -250,13 +252,18 @@ function launch(browser, profile) {
         `--disable-extensions-except=${ext}`,
         '--no-first-run',
         '--no-default-browser-check',
+        ...(LANG ? [`--lang=${LANG}`] : []),
         ...(LOGS ? ['--enable-logging=stderr', '--v=0'] : []),
         // Headless Chromium refuses a second start URL ("Multiple targets are not supported"),
         // so the forbidden-origin tab is opened over the DevTools endpoint once it is up.
         `--remote-debugging-port=${DEVTOOLS_PORT}`,
         url,
       ],
-      { stdio: LOGS ? ['ignore', 'pipe', 'pipe'] : 'ignore' },
+      {
+        stdio: LOGS ? ['ignore', 'pipe', 'pipe'] : 'ignore',
+        // Chromium on Linux takes its UI language from LANGUAGE, not only from --lang.
+        env: LANG ? { ...process.env, LANGUAGE: LANG } : process.env,
+      },
     );
   }
   const firefox = process.env.BEIFAHRER_E2E_FIREFOX ?? 'firefox';
@@ -952,7 +959,7 @@ async function scenario(browser, gate) {
       // The extension's own pages, once per browser: they do not depend on the build's switches.
       if (browser === 'chromium')
         await chromiumPages(check, DEVTOOLS_PORT, process.env.BEIFAHRER_E2E_SCREENSHOTS);
-      else await firefoxPages(check, BIDI_PORT);
+      else await firefoxPages(check, BIDI_PORT, process.env.BEIFAHRER_E2E_SCREENSHOTS);
       return;
     }
     check(

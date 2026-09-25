@@ -13,7 +13,9 @@
  * BiDi (chrome scope, `-remote-allow-system-access`). The tabs open in the background, so the
  * popup describes the fixture tab that stays active.
  *
- * BEIFAHRER_E2E_SCREENSHOTS=<dir> also writes Chromium screenshots of each page, light and dark.
+ * BEIFAHRER_E2E_SCREENSHOTS=<dir> also writes Chromium screenshots of each page, light and dark,
+ * and Firefox screenshots of each page at a wide and a narrow width (`<page>-firefox-<width>.png`),
+ * which is where a layout that only Firefox gets wrong shows.
  */
 
 import { writeFileSync } from 'node:fs';
@@ -22,6 +24,8 @@ import { ADW_ACCENT_BG_COLORS } from '@gjsify/adwaita-core';
 
 const PAGES = ['popup', 'options', 'confirm'];
 const WIDTH = { popup: 360, options: 800, confirm: 520 };
+/** The confirm window opens on the request an E2E build holds for it (e2e-seed.ts). */
+const HASH = { confirm: '#e2e-preview' };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** What BEIFAHRER_DESKTOP_ACCENT=green (browsers.e2e.mjs) must paint, from adwaita-core's palette. */
 const ACCENT_BG = ADW_ACCENT_BG_COLORS.green;
@@ -30,10 +34,13 @@ const ACCENT_BG = ADW_ACCENT_BG_COLORS.green;
 const PROBE = `JSON.stringify({
   defined: ['adw-switch-row', 'adw-preferences-group', 'gtk-button'].every((t) => !!customElements.get(t)),
   styled: !!document.getElementById('adwaita-web-style'),
-  upgraded: !!document.querySelector('adw-switch-row .adw-row-text, adw-status-page:not([hidden]) *'),
+  upgraded: !!document.querySelector('adw-switch-row .adw-row-text, adw-action-row .adw-action-row-text, adw-status-page:not([hidden]) *'),
   translated: !document.querySelector('[data-i18n]') || [...document.querySelectorAll('[data-i18n]')].every((e) => e.textContent.trim() !== ''),
   lang: document.documentElement.lang,
   accent: getComputedStyle(document.documentElement).getPropertyValue('--accent-bg-color').trim(),
+  // The copy's house style, as the person sees it (scripts/locales.ts checks the catalogue).
+  copy: !/[\u2013\u2014!\u201C\u201D\u201E]/.test(document.body.innerText),
+  words: document.body.innerText.split(/\s+/).filter(Boolean).length,
 })`;
 
 function rpc(url) {
@@ -75,6 +82,12 @@ function judge(check, browser, page, raw) {
   );
   check(browser, `${page}.html: static text translated`, r.translated && !!r.lang, raw);
   check(browser, `${page}.html: follows the desktop accent the bridge reported`, r.accent === ACCENT_BG, raw);
+  check(
+    browser,
+    `${page}.html: no dash, "!" or curly quote in the visible text (${r.words} words)`,
+    r.copy,
+    raw,
+  );
 }
 
 /** Chromium: over the DevTools endpoint the e2e already opened. */
@@ -97,7 +110,7 @@ export async function chromiumPages(check, devtoolsPort, shotsDir) {
   // Not `new URL(…).origin`: for a non-special scheme like chrome-extension: that is "null".
   const base = /^chrome-extension:\/\/[a-p]{32}/.exec(worker.target.url)?.[0];
   for (const page of PAGES) {
-    const url = `${base}/${page}.html`;
+    const url = `${base}/${page}.html${HASH[page] ?? ''}`;
     const opened = await worker.c.send('Runtime.evaluate', {
       expression: `chrome.tabs.create({ url: ${JSON.stringify(url)}, active: false }).then(() => 'ok')`,
       awaitPromise: true,
@@ -143,7 +156,7 @@ export async function chromiumPages(check, devtoolsPort, shotsDir) {
     if (shotsDir) await screenshots(c, page, shotsDir);
     c.close();
     await worker.c.send('Runtime.evaluate', {
-      expression: `chrome.tabs.query({ url: ${JSON.stringify(url)} }).then((t) => chrome.tabs.remove(t.map((x) => x.id)))`,
+      expression: `chrome.tabs.query({ url: ${JSON.stringify(`${base}/${page}.html*`)} }).then((t) => chrome.tabs.remove(t.map((x) => x.id)))`,
       awaitPromise: true,
     });
   }
@@ -178,8 +191,42 @@ async function screenshots(c, page, dir) {
   }
 }
 
+const FIREFOX_WIDTHS = { popup: [360], options: [1280, 480], confirm: [520] };
+
+/**
+ * BiDi's captureScreenshot refuses an extension page ("browsing contexts in privileged scope"), so
+ * the browser window draws the tab itself: select it, size the window, `drawSnapshot` of the
+ * page's window global, PNG through a canvas.
+ */
+async function firefoxShots(evalIn, win, url, page, dir) {
+  for (const width of FIREFOX_WIDTHS[page]) {
+    const data = await evalIn(
+      win,
+      `(async () => {
+        const tab = gBrowser.tabs.find((t) => t.linkedBrowser.currentURI.spec === ${JSON.stringify(url)});
+        if (!tab) return 'no tab';
+        gBrowser.selectedTab = tab;
+        window.resizeTo(${width}, 900);
+        await new Promise((r) => setTimeout(r, 600));
+        const bmp = await tab.linkedBrowser.browsingContext.currentWindowGlobal.drawSnapshot(null, 1, 'white');
+        const canvas = document.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
+        canvas.width = bmp.width;
+        canvas.height = bmp.height;
+        canvas.getContext('2d').drawImage(bmp, 0, 0);
+        return canvas.toDataURL('image/png');
+      })()`,
+    );
+    if (typeof data === 'string' && data.startsWith('data:image/png;base64,'))
+      writeFileSync(
+        join(dir, `${page}-firefox-${width}.png`),
+        Buffer.from(data.slice('data:image/png;base64,'.length), 'base64'),
+      );
+    else console.error(`firefox screenshot of ${page} at ${width}px failed: ${String(data).slice(0, 300)}`);
+  }
+}
+
 /** Firefox: over WebDriver BiDi on `bidiPort` (launch passes --remote-debugging-port). */
-export async function firefoxPages(check, bidiPort) {
+export async function firefoxPages(check, bidiPort, shotsDir) {
   let c = null;
   for (let i = 0; i < 40 && !c; i++) {
     c = await rpc(`ws://127.0.0.1:${bidiPort}/session`).catch(() => null);
@@ -201,7 +248,7 @@ export async function firefoxPages(check, bidiPort) {
     check('firefox', 'ui: the extension is installed', !!host, String(host));
     if (!host) return;
     for (const page of PAGES) {
-      const url = `moz-extension://${host}/${page}.html`;
+      const url = `moz-extension://${host}/${page}.html${HASH[page] ?? ''}`;
       // A background tab, opened by the browser itself: the same principal a click would use.
       await evalIn(
         win,
@@ -219,6 +266,7 @@ export async function firefoxPages(check, bidiPort) {
       }
       await sleep(1000);
       judge(check, 'firefox', page, String(await evalIn(context, PROBE)));
+      if (shotsDir) await firefoxShots(evalIn, win, url, page, shotsDir);
       await c.send('browsingContext.close', { context });
     }
   } finally {
