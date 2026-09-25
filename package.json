@@ -1,0 +1,22 @@
+{
+  "name": "beifahrer",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "description": "Beifahrer \u2014 let an AI agent ride along in the browser you already use (Firefox, Chromium), under a per-site policy you control. A WebExtension plus an MCP server that runs on GJS via gjsify.",
+  "workspaces": [
+    "packages/*",
+    "app",
+    "extension"
+  ],
+  "scripts": {
+    "check": "gjsify foreach -A check",
+    "lint": "gjsify foreach -A lint",
+    "format": "gjsify format --write .",
+    "format:check": "gjsify format --check .",
+    "build": "gjsify workspace beifahrer-cli build && gjsify workspace beifahrer-extension build",
+    "start": "gjsify workspace beifahrer-cli start",
+    "test": "gjsify workspace beifahrer-cli test"
+  }
+}

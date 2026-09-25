@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+extension/.output/
+extension/.output-e2e/
+extension/.wxt/
+
+# gjsify
+.gjsify/
+
+# npm is not the package manager here — `gjsify install` is (see AGENTS.md).
+package-lock.json
+
+# ─── Secrets ──────────────────────────────────────────────────────────────
+# The pairing token lives in $XDG_CONFIG_HOME/beifahrer/token, never here. These lines are
+# defence in depth for anyone who points BEIFAHRER_TOKEN_FILE into the checkout.
+.env
+.env.*
+token
+*.token
+
+# ─── Page content — NEVER commit ──────────────────────────────────────────
+# beifahrer reads the person's pages: bank inboxes, trackers, mail. A captured page or a
+# screenshot of one is the person's private data. Fixtures are SYNTHETIC (tests/e2e).
+*.captured.html
+captures/
+screenshots/
+
+# Editor / OS
+.DS_Store
+*.log
