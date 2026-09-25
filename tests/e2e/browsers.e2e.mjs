@@ -4,7 +4,10 @@
  *
  *   MCP client (this file) → `beifahrer mcp` on GJS → loopback bridge → extension → fixture page
  *
- * Usage:  node tests/e2e/browsers.e2e.mjs [chromium|firefox|all]
+ * Usage:  node tests/e2e/browsers.e2e.mjs [chromium|firefox|shared|all]
+ *
+ * `shared` runs TWO MCP servers against one headless Chromium (ADR 0003): the second relays
+ * through the first, and takes the browser connection over once the first is gone.
  *
  * Needs: the app bundle (`gjsify workspace beifahrer-cli build`), a Chromium that still loads
  * unpacked extensions (Chrome for Testing / Playwright's build — branded Chrome ≥ 137 does not)
@@ -153,11 +156,8 @@ function launch(browser, profile) {
   );
 }
 
-async function scenario(browser) {
-  const profile = mkdtempSync(join(tmpdir(), `beifahrer-e2e-${browser}-`));
-  const tokenFile = join(profile, 'token');
-  writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
-
+/** Start one `beifahrer mcp` over stdio, as an agent session would. */
+async function startMcp(tokenFile, logName) {
   const transport = new StdioClientTransport({
     command: join(ROOT, 'node_modules/.bin/gjsify'),
     args: [
@@ -173,8 +173,99 @@ async function scenario(browser) {
   });
   const client = new Client({ name: 'beifahrer-e2e', version: '0' });
   await client.connect(transport);
-  const mcpLog = logTo(`${browser}-mcp.log`);
-  if (mcpLog) transport.stderr?.pipe(mcpLog);
+  const log = logTo(logName);
+  if (log) transport.stderr?.pipe(log);
+  return { client, transport };
+}
+
+async function browsersOf(client) {
+  const r = await tool(client, 'browsers_list');
+  return r.error ? { error: r.text } : JSON.parse(r.text);
+}
+
+/** Two agent sessions, one browser: relay, then failover. */
+async function sharedScenario() {
+  const name = 'shared';
+  const profile = mkdtempSync(join(tmpdir(), 'beifahrer-e2e-shared-'));
+  const tokenFile = join(profile, 'token');
+  writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
+
+  const first = await startMcp(tokenFile, 'shared-mcp-1.log');
+  let second = null;
+  const proc = launch('chromium', profile);
+  try {
+    let status = {};
+    for (let i = 0; i < 60; i++) {
+      status = await browsersOf(first.client);
+      if (status.browsers?.length > 0) break;
+      await sleep(1000);
+    }
+    check(
+      name,
+      'first session owns the port (role hub) and sees the browser',
+      status.role === 'hub' && status.browsers?.length === 1,
+      JSON.stringify(status),
+    );
+
+    second = await startMcp(tokenFile, 'shared-mcp-2.log');
+    const peerStatus = await browsersOf(second.client);
+    check(
+      name,
+      'second session relays (role peer) and sees the same browser',
+      peerStatus.role === 'peer' && peerStatus.browsers?.length === 1 && peerStatus.hub?.pid === status.pid,
+      JSON.stringify(peerStatus),
+    );
+    const hubStatus = await browsersOf(first.client);
+    check(name, 'the hub counts two sessions', hubStatus.sessions === 2, JSON.stringify(hubStatus));
+
+    const tabs = await tool(second.client, 'tabs_list');
+    check(
+      name,
+      "second session's tabs_list succeeds through the hub",
+      !tabs.error && JSON.parse(tabs.text).tabs.some((t) => t.url?.startsWith(ALLOWED)),
+      tabs.text.slice(0, 300),
+    );
+
+    // The first agent session ends: its MCP server exits with it.
+    await first.client.close();
+    let taken = {};
+    for (let i = 0; i < 40; i++) {
+      await sleep(500);
+      taken = await browsersOf(second.client);
+      if (taken.role === 'hub' && taken.browsers?.length > 0) break;
+    }
+    check(
+      name,
+      'after the first session exits, the second takes over and the browser reconnects',
+      taken.role === 'hub' && taken.browsers?.length === 1 && taken.sessions === 1,
+      JSON.stringify(taken),
+    );
+    const after = await tool(second.client, 'tabs_list');
+    check(
+      name,
+      'tabs_list works in the second session after the takeover',
+      !after.error && JSON.parse(after.text).tabs.some((t) => t.url?.startsWith(ALLOWED)),
+      after.text.slice(0, 300),
+    );
+  } finally {
+    await first.client.close().catch(() => undefined);
+    await second?.client.close().catch(() => undefined);
+    try {
+      process.kill(proc.pid, 'SIGTERM');
+    } catch {
+      /* already gone */
+    }
+    await sleep(1500);
+    rmSync(profile, { recursive: true, force: true });
+  }
+}
+
+async function scenario(browser) {
+  const profile = mkdtempSync(join(tmpdir(), `beifahrer-e2e-${browser}-`));
+  const tokenFile = join(profile, 'token');
+  writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
+
+  const { client } = await startMcp(tokenFile, `${browser}-mcp.log`);
 
   const proc = launch(browser, profile);
   if (browser === 'chromium') {
@@ -375,7 +466,7 @@ async function scenario(browser) {
 // ---------------------------------------------------------------------------------------------
 
 const which = process.argv[2] ?? 'all';
-const browsers = which === 'all' ? ['chromium', 'firefox'] : [which];
+const browsers = which === 'all' ? ['chromium', 'firefox', 'shared'] : [which];
 
 const fixture = createServer((req, res) => {
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
@@ -398,7 +489,7 @@ buildExtension({
 for (const b of browsers) {
   console.log(`\n${b}`);
   try {
-    await scenario(b);
+    await (b === 'shared' ? sharedScenario() : scenario(b));
   } catch (err) {
     check(b, 'scenario ran', false, err.stack ?? String(err));
   }

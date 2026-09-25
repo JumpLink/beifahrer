@@ -3,6 +3,14 @@ import { describe, expect, it } from '@gjsify/unit';
 import {
   PROTOCOL_VERSION,
   isExtensionOrigin,
+  isLoopbackAddress,
+  originKind,
+  parseAgentHello,
+  parseAgentReply,
+  parseAgentRequest,
+  parseAgentWelcome,
+  parseFirstFrame,
+  roleAllowed,
   parseHello,
   parseResponse,
   toTabInfo,
@@ -104,6 +112,110 @@ export default async () => {
     });
     await it('skips a tab without ids', async () => {
       expect(toTabInfo({ url: 'https://ok.example/' }, policy, null)).toBeNull();
+    });
+  });
+
+  const agentHello = {
+    type: 'agent-hello',
+    protocol: PROTOCOL_VERSION,
+    token: 't0k3n',
+    agent: { version: '0.1.0', pid: 42 },
+  };
+
+  await describe('parseFirstFrame', async () => {
+    await it('tells an extension hello from an agent hello', async () => {
+      const ext = parseFirstFrame(hello);
+      const agent = parseFirstFrame(agentHello);
+      expect(typeof ext === 'object' && ext.role === 'extension').toBe(true);
+      expect(typeof agent === 'object' && agent.role === 'agent').toBe(true);
+    });
+    await it('names what is wrong with either', async () => {
+      expect(parseFirstFrame({ ...agentHello, token: '' })).toBe('missing token');
+      expect(parseFirstFrame({ ...agentHello, protocol: 99 })).toMatch(/protocol/);
+      expect(parseFirstFrame({ ...agentHello, agent: { version: '1' } })).toBe('bad agent');
+      expect(parseFirstFrame({ type: 'agent-call', id: 1 })).toBe('first frame must be hello');
+    });
+    await it('parseAgentHello refuses an extension hello', async () => {
+      expect(parseAgentHello(hello)).toBe('first frame must be agent-hello');
+    });
+  });
+
+  await describe('origin kind and role', async () => {
+    await it('classifies handshake origins', async () => {
+      expect(originKind(undefined)).toBe('none');
+      expect(originKind('')).toBe('none');
+      expect(originKind('moz-extension://abc-123')).toBe('extension');
+      expect(originKind('https://evil.example')).toBe('page');
+      expect(originKind('null')).toBe('page');
+    });
+    await it('allows exactly extension→extension and none→agent', async () => {
+      expect(roleAllowed('extension', 'extension')).toBe(true);
+      expect(roleAllowed('none', 'agent')).toBe(true);
+      expect(roleAllowed('extension', 'agent')).toBe(false);
+      expect(roleAllowed('none', 'extension')).toBe(false);
+      expect(roleAllowed('page', 'agent')).toBe(false);
+      expect(roleAllowed('page', 'extension')).toBe(false);
+    });
+    await it('recognises loopback addresses only', async () => {
+      for (const a of ['127.0.0.1', '127.1.2.3', '::1', '::ffff:127.0.0.1'])
+        expect(isLoopbackAddress(a)).toBe(true);
+      for (const a of [undefined, '', '10.0.0.1', '::ffff:192.168.1.2', '1127.0.0.1', '127.0.0.1.evil'])
+        expect(isLoopbackAddress(a)).toBe(false);
+    });
+  });
+
+  await describe('agent frames', async () => {
+    await it('parseAgentRequest accepts calls and status requests', async () => {
+      expect(
+        parseAgentRequest({ type: 'agent-call', id: 1, method: 'tabs.list', params: {} }),
+      ).not.toBeNull();
+      expect(
+        parseAgentRequest({
+          type: 'agent-call',
+          id: 2,
+          method: 'page.read',
+          params: { tabId: 1 },
+          browser: 'firefox',
+        }),
+      ).not.toBeNull();
+      expect(parseAgentRequest({ type: 'agent-status', id: 3 })).not.toBeNull();
+    });
+    await it('parseAgentRequest refuses unknown methods and malformed frames — fail closed', async () => {
+      expect(
+        parseAgentRequest({ type: 'agent-call', id: 1, method: 'page.evaluate', params: {} }),
+      ).toBeNull();
+      expect(parseAgentRequest({ type: 'agent-call', id: 1, method: 'tabs.list' })).toBeNull();
+      expect(parseAgentRequest({ type: 'agent-call', id: 1, method: 'tabs.list', params: [] })).toBeNull();
+      expect(parseAgentRequest({ type: 'agent-call', id: 1.5, method: 'tabs.list', params: {} })).toBeNull();
+      expect(
+        parseAgentRequest({ type: 'agent-call', id: 1, method: 'tabs.list', params: {}, browser: 3 }),
+      ).toBeNull();
+      expect(parseAgentRequest({ type: 'request', id: 1, method: 'tabs.list', params: {} })).toBeNull();
+      expect(parseAgentRequest(null)).toBeNull();
+    });
+    await it('parseAgentReply accepts ok and error replies, refuses the rest', async () => {
+      expect(parseAgentReply({ type: 'agent-reply', id: 1, ok: true, result: {} })).not.toBeNull();
+      expect(
+        parseAgentReply({
+          type: 'agent-reply',
+          id: 1,
+          ok: false,
+          error: { code: 'forbidden', message: 'no' },
+        }),
+      ).not.toBeNull();
+      expect(parseAgentReply({ type: 'agent-reply', id: 1, ok: false })).toBeNull();
+      expect(parseAgentReply({ type: 'response', id: 1, ok: true })).toBeNull();
+    });
+    await it('parseAgentWelcome checks protocol and shape', async () => {
+      const w = {
+        type: 'agent-welcome',
+        protocol: PROTOCOL_VERSION,
+        bridge: { version: '1', pid: 5 },
+        peerId: 'p',
+      };
+      expect(parseAgentWelcome(w)).not.toBeNull();
+      expect(parseAgentWelcome({ ...w, protocol: 99 })).toBeNull();
+      expect(parseAgentWelcome({ ...w, type: 'welcome' })).toBeNull();
     });
   });
 };

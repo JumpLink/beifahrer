@@ -6,7 +6,8 @@ import { run } from '@gjsify/unit';
 import policy from './unit/core/policy.test.ts';
 import protocol from './unit/core/protocol.test.ts';
 import bridge from './unit/bridge/bridge.test.ts';
+import shared from './unit/bridge/shared.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
 import mcpTools from './unit/mcp/tools.test.ts';
 
-run({ policy, protocol, bridge, mcpGate, mcpTools });
+run({ policy, protocol, bridge, shared, mcpGate, mcpTools });

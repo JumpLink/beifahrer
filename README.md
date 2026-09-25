@@ -28,6 +28,11 @@ Firefox / Chromium
   paired it once with a token, and the bridge refuses any connection whose origin is a web page.
 - The **bridge** (`beifahrer mcp`) is an MCP server over stdio that your agent starts. It routes
   requests and holds no policy.
+- **Several agent sessions share one browser connection.** The first `beifahrer mcp` owns the port
+  (the *hub*); every later one connects to it with the same pairing token and relays its calls
+  (a *peer*). When the hub's session ends, a peer takes the port over and the extension reconnects
+  to it by itself. `browsers_list` shows which role a session has and how many share the
+  connection. Why: [ADR 0003](docs/adr/0003-share-one-bridge-between-agent-sessions.md).
 - The **policy lives in your browser.** Every site is at one of three levels:
 
   | Level | The agent may |

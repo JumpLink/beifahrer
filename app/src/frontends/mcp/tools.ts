@@ -11,11 +11,13 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import type { Method, Params } from '@beifahrer/core';
 
-import { BridgeError, label, type Bridge } from '../../bridge/bridge.ts';
+import { BridgeError, browserLabel } from '../../bridge/bridge.ts';
+import type { BrowserAccess } from '../../bridge/shared.ts';
 
 export interface BridgeHandle {
-  bridge: Bridge | null;
-  /** Why there is no bridge (port taken by another beifahrer, …) — shown on every call. */
+  /** Hub or peer (bridge/shared.ts) — the tools do not care which. */
+  bridge: BrowserAccess | null;
+  /** Why there is no bridge — shown on every call. */
   unavailable?: string;
 }
 
@@ -63,7 +65,8 @@ export function registerTools(server: McpServer, handle: BridgeHandle): void {
     {
       title: 'Connected browsers',
       description:
-        "Which of the person's browsers are connected to beifahrer right now (Firefox, Chromium-based, …), with version, manifest version and what each can do. Empty means: the extension is not installed, not paired, or the browser is closed.",
+        "Which of the person's browsers are connected to beifahrer right now (Firefox, Chromium-based, …), with version, manifest version and what each can do. Empty means: the extension is not installed, not paired, or the browser is closed. " +
+        'Also says whether this session owns the browser connection (role "hub") or relays through the session that does (role "peer"), and how many sessions share it.',
       inputSchema: {},
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -72,16 +75,28 @@ export function registerTools(server: McpServer, handle: BridgeHandle): void {
         return failure(
           new BridgeError({ code: 'failed', message: handle.unavailable ?? 'the bridge is not running' }),
         );
-      const browsers = handle.bridge.connections().map((c) => ({
-        id: c.id,
-        label: label(c),
-        family: c.hello.browser.family,
-        manifestVersion: c.hello.extension.manifestVersion,
-        extensionVersion: c.hello.extension.version,
-        capabilities: c.hello.capabilities,
-        connectedAt: c.connectedAt.toISOString(),
-      }));
-      return text({ port: handle.bridge.port, browsers });
+      try {
+        const status = await handle.bridge.status();
+        const browsers = status.browsers.map((b) => ({
+          id: b.id,
+          label: browserLabel(b),
+          family: b.browser.family,
+          manifestVersion: b.extension.manifestVersion,
+          extensionVersion: b.extension.version,
+          capabilities: b.capabilities,
+          connectedAt: b.connectedAt,
+        }));
+        return text({
+          port: status.port,
+          role: status.role,
+          pid: status.pid,
+          hub: { pid: status.hub.pid, version: status.hub.version, peers: status.hub.peers },
+          sessions: status.hub.peers + 1,
+          browsers,
+        });
+      } catch (err) {
+        return failure(err);
+      }
     },
   );
 

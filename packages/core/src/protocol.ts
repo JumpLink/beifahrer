@@ -11,9 +11,19 @@
  *
  * Only methods named in `REQUIRED_LEVEL` (policy.ts) exist. There is deliberately no "evaluate
  * this JavaScript" method: it would make the per-origin levels meaningless.
+ *
+ * The same socket also admits AGENT PEERS: other `beifahrer mcp` processes on this machine that
+ * found the port taken and relay their calls through the process that owns it, the hub
+ * (ADR 0003). A peer sends no Origin (it is not a browser) and says `agent-hello`:
+ *
+ *   peer → hub   agent-hello     first frame, carries the same pairing token
+ *   hub → peer   agent-welcome   or a close with one of the CLOSE codes
+ *   peer → hub   agent-call      { id, method, params, browser? } — one call, routed like the hub's own
+ *   peer → hub   agent-status    { id } — which browsers are connected, how many peers
+ *   hub → peer   agent-reply     { id, ok, result | error } — the hub's answer, unchanged
  */
 
-import type { Level, Method } from './policy.ts';
+import { isMethod, type Level, type Method } from './policy.ts';
 
 export const PROTOCOL_VERSION = 1;
 
@@ -135,6 +145,142 @@ export function parseHello(raw: unknown): Hello | string {
   if (!e || (e.manifestVersion !== 2 && e.manifestVersion !== 3)) return 'bad extension';
   if (!Array.isArray(h.capabilities)) return 'bad capabilities';
   return h as Hello;
+}
+
+// --- agent peers (ADR 0003) ------------------------------------------------------------------
+
+export interface AgentHello {
+  type: 'agent-hello';
+  protocol: number;
+  token: string;
+  agent: { version: string; pid: number };
+}
+
+export interface AgentWelcome {
+  type: 'agent-welcome';
+  protocol: number;
+  bridge: { version: string; pid: number };
+  peerId: string;
+}
+
+export interface AgentCall<M extends Method = Method> {
+  type: 'agent-call';
+  id: number;
+  method: M;
+  params: Params<M>;
+  browser?: string;
+}
+
+export interface AgentStatusRequest {
+  type: 'agent-status';
+  id: number;
+}
+
+export type AgentRequest = AgentCall | AgentStatusRequest;
+
+export type AgentReply =
+  | { type: 'agent-reply'; id: number; ok: true; result: unknown }
+  | { type: 'agent-reply'; id: number; ok: false; error: WireError };
+
+/** A connected browser as the agent sees it. The extension's token never leaves the hub. */
+export interface ConnectedBrowser {
+  id: string;
+  browser: Hello['browser'];
+  extension: Hello['extension'];
+  capabilities: Method[];
+  /** ISO 8601. */
+  connectedAt: string;
+}
+
+/** The answer to `agent-status`, and what `browsers_list` is built from. */
+export interface HubStatus {
+  port: number;
+  hub: { pid: number; version: string; peers: number };
+  browsers: ConnectedBrowser[];
+}
+
+/**
+ * Classify the first frame on a new connection. Which role it may take is NOT decided here: the
+ * hub checks the role against the handshake's Origin (`roleAllowed`).
+ */
+export function parseFirstFrame(
+  raw: unknown,
+): { role: 'extension'; hello: Hello } | { role: 'agent'; hello: AgentHello } | string {
+  if ((raw as { type?: unknown } | null)?.type === 'agent-hello') {
+    const hello = parseAgentHello(raw);
+    return typeof hello === 'string' ? hello : { role: 'agent', hello };
+  }
+  const hello = parseHello(raw);
+  return typeof hello === 'string' ? hello : { role: 'extension', hello };
+}
+
+export function parseAgentHello(raw: unknown): AgentHello | string {
+  const h = raw as Partial<AgentHello> | null;
+  if (!h || h.type !== 'agent-hello') return 'first frame must be agent-hello';
+  if (h.protocol !== PROTOCOL_VERSION) return `protocol ${String(h.protocol)} ≠ ${PROTOCOL_VERSION}`;
+  if (typeof h.token !== 'string' || h.token.length === 0) return 'missing token';
+  const a = h.agent;
+  if (!a || typeof a.version !== 'string' || typeof a.pid !== 'number') return 'bad agent';
+  return h as AgentHello;
+}
+
+export function parseAgentWelcome(raw: unknown): AgentWelcome | null {
+  const w = raw as Partial<AgentWelcome> | null;
+  if (!w || w.type !== 'agent-welcome' || w.protocol !== PROTOCOL_VERSION) return null;
+  if (typeof w.peerId !== 'string' || !w.bridge || typeof w.bridge.pid !== 'number') return null;
+  return w as AgentWelcome;
+}
+
+/**
+ * Validate a peer's request. Fail closed like everything else: a method that is not in
+ * `REQUIRED_LEVEL` is not relayed, whatever the peer claims.
+ */
+export function parseAgentRequest(raw: unknown): AgentRequest | null {
+  const r = raw as (Omit<Partial<AgentCall>, 'type'> & { type?: string }) | null;
+  if (!r || typeof r.id !== 'number' || !Number.isInteger(r.id)) return null;
+  if (r.type === 'agent-status') return { type: 'agent-status', id: r.id };
+  if (r.type !== 'agent-call' || !isMethod(r.method)) return null;
+  if (!r.params || typeof r.params !== 'object' || Array.isArray(r.params)) return null;
+  if (r.browser !== undefined && typeof r.browser !== 'string') return null;
+  return { type: 'agent-call', id: r.id, method: r.method, params: r.params, browser: r.browser };
+}
+
+export function parseAgentReply(raw: unknown): AgentReply | null {
+  const r = raw as Partial<AgentReply> | null;
+  if (!r || r.type !== 'agent-reply' || typeof r.id !== 'number') return null;
+  if (r.ok === true) return r as AgentReply;
+  if (r.ok === false) {
+    const err = (r as { error?: Partial<WireError> }).error;
+    if (err && typeof err.code === 'string' && typeof err.message === 'string') return r as AgentReply;
+  }
+  return null;
+}
+
+/**
+ * Which origin a handshake carried, reduced to what admission needs:
+ * - `extension`: an extension origin — may only become an extension connection;
+ * - `none`: no Origin header at all — a local process, may only become an agent peer;
+ * - `page`: anything else, above all a web page. Refused in the handshake already.
+ *
+ * Browsers always send an Origin on a WebSocket handshake, so a web page can never arrive as
+ * `none`, and therefore never as an agent.
+ */
+export type OriginKind = 'extension' | 'none' | 'page';
+
+export function originKind(origin: string | undefined | null): OriginKind {
+  if (origin === undefined || origin === null || origin === '') return 'none';
+  return isExtensionOrigin(origin) ? 'extension' : 'page';
+}
+
+/** The one rule tying the first frame to the handshake. Everything not listed is refused. */
+export function roleAllowed(kind: OriginKind, role: 'extension' | 'agent'): boolean {
+  return (kind === 'extension' && role === 'extension') || (kind === 'none' && role === 'agent');
+}
+
+/** The bridge listens on 127.0.0.1 only; this re-checks the peer address anyway. */
+export function isLoopbackAddress(address: string | undefined | null): boolean {
+  if (!address) return false;
+  return /^(::ffff:)?127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(address) || address === '::1';
 }
 
 /** Validate a response frame from the extension. */
