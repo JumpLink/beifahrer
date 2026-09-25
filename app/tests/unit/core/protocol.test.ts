@@ -50,6 +50,15 @@ export default async () => {
     await it('accepts a well-formed hello', async () => {
       expect(typeof parseHello(hello)).toBe('object');
     });
+    await it('accepts every browser family the extension can report, and nothing else', async () => {
+      for (const family of ['firefox', 'chromium', 'epiphany', 'safari', 'unknown']) {
+        const browser = { family, name: family, version: '1' };
+        expect(typeof parseHello({ ...hello, browser })).toBe('object');
+      }
+      expect(parseHello({ ...hello, browser: { family: 'webkit', name: 'x', version: '1' } })).toBe(
+        'bad browser',
+      );
+    });
     await it('names what is wrong', async () => {
       expect(parseHello({ ...hello, protocol: 99 })).toMatch(/protocol/);
       expect(parseHello({ ...hello, token: '' })).toBe('missing token');
