@@ -12,6 +12,7 @@
  */
 
 import { browser } from '@wxt-dev/browser';
+import { accentColors, loadAccentChoice } from './accent.ts';
 import { t } from './i18n.ts';
 import { STOP_MESSAGE } from './page-messages.ts';
 
@@ -32,7 +33,7 @@ const CSS = `
   font: 600 13px/1.2 system-ui, sans-serif; pointer-events: none;
 }
 .label { max-width: 40ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: #e66100; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-bg-color, #3584e4); }
 button {
   pointer-events: auto; cursor: pointer; font: inherit; color: #fff;
   background: #c01c28; border: 0; border-radius: 999px; padding: 4px 10px;
@@ -65,6 +66,10 @@ function build(): HTMLElement {
     schedule();
   });
   pill.append(dot, label, stop);
+  // The desktop's accent, as the extension pages show it. The pill is always dark.
+  void loadAccentChoice().then((choice) =>
+    pill.style.setProperty('--accent-bg-color', accentColors(choice, true).bg),
+  );
   root.append(style, pill);
   return el;
 }

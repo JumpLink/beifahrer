@@ -11,6 +11,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { describeRange, type PortRange } from '@beifahrer/core';
 
+import { desktopSource } from '../../bridge/desktop.ts';
 import { listenInRange, type Bridge } from '../../bridge/bridge.ts';
 import { labelOverride, sessionLabel } from '../../bridge/session.ts';
 import { loadOrCreateToken, tokenPath } from '../../bridge/token.ts';
@@ -48,6 +49,7 @@ export async function startBridge(
       started = await listenInRange(range, {
         token,
         version: VERSION,
+        desktop: desktopSource(),
         label: sessionLabel(client),
         browserWaitMs: opts.browserWaitMs,
       });

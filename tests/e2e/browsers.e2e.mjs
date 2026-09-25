@@ -54,6 +54,11 @@ const BIDI_PORT = PORT_BASE + 4;
 const ALLOWED = `http://127.0.0.1:${FIXTURE_PORT}`;
 const FORBIDDEN = `http://localhost:${FIXTURE_PORT}`;
 const TOKEN = `e2e-${Math.random().toString(36).slice(2)}`;
+/**
+ * Every e2e bridge reports this desktop accent (BEIFAHRER_DESKTOP_ACCENT, test-only), so the run
+ * does not depend on the machine's GNOME setting; ui-pages.mjs checks the pages painted it.
+ */
+const DESKTOP_ACCENT = 'green';
 /** Set BEIFAHRER_E2E_LOGS=<dir> to keep the MCP server's stderr and the browser's output. */
 const LOGS = process.env.BEIFAHRER_E2E_LOGS;
 const logTo = (name) => (LOGS ? createWriteStream(join(LOGS, name)) : null);
@@ -301,6 +306,7 @@ async function startMcp(tokenFile, logName, env = {}) {
       BEIFAHRER_TOKEN_FILE: tokenFile,
       XDG_CONFIG_HOME: join(dirname(tokenFile), 'config'),
       BEIFAHRER_RECIPES: writeRecipeDir(dirname(tokenFile)),
+      BEIFAHRER_DESKTOP_ACCENT: DESKTOP_ACCENT,
       ...env,
     },
     stderr: LOGS ? 'pipe' : 'ignore',
@@ -348,7 +354,10 @@ function runTool(tokenFile, name, args = {}) {
         name,
         JSON.stringify(args),
       ],
-      { env: { ...process.env, BEIFAHRER_TOKEN_FILE: tokenFile }, stdio: ['ignore', 'pipe', 'pipe'] },
+      {
+        env: { ...process.env, BEIFAHRER_TOKEN_FILE: tokenFile, BEIFAHRER_DESKTOP_ACCENT: DESKTOP_ACCENT },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
     );
     let out = '';
     let err = '';

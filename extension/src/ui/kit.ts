@@ -11,3 +11,5 @@
 
 import './localize-page.ts';
 import '@gjsify/adwaita-web';
+// The desktop's accent colour, on every page and live while it is open.
+import './accent.ts';
