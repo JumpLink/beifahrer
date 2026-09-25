@@ -14,7 +14,7 @@ import GdkPixbuf from 'gi://GdkPixbuf?version=2.0';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ICON_SIZES, ICON_VARIANTS, type IconVariant, type Target } from '../manifest.ts';
+import { ICON_SIZES, ICON_VARIANTS, isSmall, type IconVariant, type Target } from '../manifest.ts';
 
 /** Mid-grey: readable on a light and on a dark toolbar alike. */
 const MONO = '#7f7f86';
@@ -43,12 +43,16 @@ export function variantSvg(source: string, variant: IconVariant): string {
 /** Render every variant once into `stage`; `copyIcons` then places what each target needs. */
 export function renderIcons(root: string, stage: string): void {
   const source = readFileSync(join(root, 'icons', 'sparkles.svg'), 'utf8');
+  // Toolbar sizes get their own, fuller form — see the comment in icons/sparkles-small.svg.
+  const small = readFileSync(join(root, 'icons', 'sparkles-small.svg'), 'utf8');
   mkdirSync(join(stage, 'icons'), { recursive: true });
   for (const variant of ICON_VARIANTS) {
     const svg = join(stage, 'icons', `${variant}.svg`);
+    const svgSmall = join(stage, 'icons', `${variant}-small.svg`);
     writeFileSync(svg, variantSvg(source, variant));
+    writeFileSync(svgSmall, variantSvg(small, variant));
     for (const size of ICON_SIZES) {
-      const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(svg, size, size);
+      const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(isSmall(size) ? svgSmall : svg, size, size);
       pixbuf.savev(join(stage, 'icons', `${variant}-${size}.png`), 'png', [], []);
     }
   }
@@ -58,7 +62,9 @@ export function copyIcons(stage: string, dir: string, target: Target): void {
   mkdirSync(join(dir, 'icons'), { recursive: true });
   for (const variant of ICON_VARIANTS) {
     const names =
-      target === 'firefox-mv2' ? [`${variant}.svg`] : ICON_SIZES.map((size) => `${variant}-${size}.png`);
+      target === 'firefox-mv2'
+        ? [`${variant}.svg`, `${variant}-small.svg`]
+        : ICON_SIZES.map((size) => `${variant}-${size}.png`);
     for (const name of names) copyFileSync(join(stage, 'icons', name), join(dir, 'icons', name));
   }
 }

@@ -30,7 +30,7 @@ function iconPath(variant: ToolbarIcon): Record<string, string> {
   const svg = browser.runtime.getManifest().manifest_version === 2;
   const out: Record<string, string> = {};
   for (const size of ICON_SIZES.filter((s) => s <= 32))
-    out[String(size)] = svg ? `/icons/${variant}.svg` : `/icons/${variant}-${size}.png`;
+    out[String(size)] = svg ? `/icons/${variant}-small.svg` : `/icons/${variant}-${size}.png`;
   return out;
 }
 

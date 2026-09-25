@@ -19,6 +19,9 @@ const HOSTS = ['http://*/*', 'https://*/*', '<all_urls>'];
 
 /** Toolbar and store icons, all derived from icons/sparkles.svg (scripts/icons.ts). */
 export const ICON_SIZES = [16, 32, 48, 128] as const;
+
+/** Sizes drawn from icons/sparkles-small.svg, the fuller toolbar form. */
+export const isSmall = (size: number): boolean => size <= 32;
 export const ICON_VARIANTS = ['idle', 'active', 'paused', 'offline'] as const;
 export type IconVariant = (typeof ICON_VARIANTS)[number];
 
@@ -29,7 +32,10 @@ export type IconVariant = (typeof ICON_VARIANTS)[number];
 export function iconPaths(target: Target, variant: IconVariant): Record<string, string> {
   const out: Record<string, string> = {};
   for (const size of ICON_SIZES)
-    out[String(size)] = target === 'firefox-mv2' ? `icons/${variant}.svg` : `icons/${variant}-${size}.png`;
+    out[String(size)] =
+      target === 'firefox-mv2'
+        ? `icons/${variant}${isSmall(size) ? '-small' : ''}.svg`
+        : `icons/${variant}-${size}.png`;
   return out;
 }
 
