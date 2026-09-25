@@ -12,6 +12,7 @@
 import { browser } from '@wxt-dev/browser';
 import {
   decide,
+  decideGrant,
   originOf,
   toTabInfo,
   withRule,
@@ -20,22 +21,15 @@ import {
   type Policy,
   type Result,
   type TabInfo,
-  type WireError,
 } from '@beifahrer/core';
 import { askPerson } from './confirm.ts';
+import { fail } from './errors.ts';
 import { askPage } from './inject.ts';
 import { loadSettings, originPattern, saveSettings } from './settings.ts';
 import type { PageRequest } from './page-messages.ts';
+import { tabHandlers } from './tab-handlers.ts';
 
-export class MethodError extends Error {
-  constructor(readonly wire: WireError) {
-    super(wire.message);
-  }
-}
-
-const fail = (code: WireError['code'], message: string, extra: Partial<WireError> = {}): never => {
-  throw new MethodError({ code, message, ...extra });
-};
+export { MethodError } from './errors.ts';
 
 const MAX_TEXT = 100_000;
 
@@ -136,7 +130,12 @@ type Handler<M extends Method> = (params: Params<M>, policy: Policy) => Promise<
 const handlers: { [M in Method]: Handler<M> } = {
   async 'tabs.list'(_params, policy) {
     const [tabs, focused] = await Promise.all([browser.tabs.query({}), focusedWindowId()]);
-    return { tabs: tabs.map((t) => toTabInfo(t, policy, focused)).filter((t): t is TabInfo => t !== null) };
+    return {
+      tabs: tabs
+        // Chromium: a tab still loading has an empty `url` and its target in `pendingUrl`.
+        .map((t) => toTabInfo({ ...t, url: t.url || t.pendingUrl }, policy, focused))
+        .filter((t): t is TabInfo => t !== null),
+    };
   },
 
   async 'tabs.active'(_params, policy) {
@@ -242,10 +241,22 @@ const handlers: { [M in Method]: Handler<M> } = {
     if (!info) return fail('failed', 'the browser opened no tab');
     return { tab: info };
   },
+
+  ...tabHandlers,
 };
 
 export async function runMethod(method: Method, params: unknown): Promise<unknown> {
-  const { policy } = await loadSettings();
+  const { policy, grants } = await loadSettings();
+  // The browser-level switch comes first and covers every method that needs it, so no handler
+  // can forget it (REQUIRED_GRANT in policy.ts).
+  const granted = decideGrant(grants, method);
+  if (!granted.allow) {
+    return fail(
+      'forbidden',
+      `${method} needs "Let the agent manage tabs and windows", which is switched off in beifahrer. ` +
+        'Ask the person to switch it on in the beifahrer toolbar popup or options — it is their decision.',
+    );
+  }
   const handler = handlers[method] as Handler<Method>;
   return handler((params ?? {}) as Params<Method>, policy);
 }

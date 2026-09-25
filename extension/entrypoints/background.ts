@@ -2,10 +2,12 @@ import { browser } from '@wxt-dev/browser';
 import { connect, currentStatus, install } from '../src/bridge-client.ts';
 import { handleConfirmMessage, onWindowRemoved } from '../src/confirm.ts';
 import { applyE2eSeed } from '../src/e2e-seed.ts';
+import { installAutosave } from '../src/sessions-store.ts';
 
 // Every listener is registered synchronously, at the top level: an MV3 service worker that wakes
 // for an event only delivers it to listeners that exist before the first await.
 install();
+installAutosave();
 browser.windows.onRemoved.addListener(onWindowRemoved);
 browser.runtime.onMessage.addListener((message: unknown, sender) => {
   // Only our own pages (popup, options, confirm) may talk to the background this way. A content

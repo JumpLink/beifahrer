@@ -133,7 +133,8 @@ td {
   border-bottom: 1px solid var(--line);
   vertical-align: middle;
 }
-pre.preview {
+pre.preview,
+ul.preview {
   max-height: 160px;
   overflow: auto;
   white-space: pre-wrap;
@@ -141,4 +142,11 @@ pre.preview {
   border-radius: 6px;
   padding: 8px;
   margin: 6px 0;
+}
+ul.preview {
+  padding-left: 26px;
+}
+.mini {
+  padding: 3px 9px;
+  font-size: 13px;
 }

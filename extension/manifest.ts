@@ -28,7 +28,11 @@ export function manifestFor(
   { version, e2eHosts = [] }: ManifestInput,
 ): Record<string, unknown> {
   const mv3 = target === 'chrome-mv3';
-  const permissions = ['tabs', 'storage', 'alarms', ...(mv3 ? ['scripting'] : [])];
+  // `sessions`: the browser's recently-closed list, so a window closed by mistake comes back.
+  // `tabGroups`: naming and colouring tab groups (Chromium; Firefox ≥ 139). Both are used only
+  // behind the person's "Let the agent manage tabs and windows" switch, and for the person's own
+  // restore buttons in the options page.
+  const permissions = ['tabs', 'storage', 'alarms', 'sessions', 'tabGroups', ...(mv3 ? ['scripting'] : [])];
   const action = { default_title: 'beifahrer', default_popup: 'popup.html' };
   return {
     manifest_version: mv3 ? 3 : 2,

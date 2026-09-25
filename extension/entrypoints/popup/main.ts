@@ -67,6 +67,13 @@ async function main(): Promise<void> {
     });
   });
 
+  const manage = $('manage-tabs') as HTMLInputElement;
+  manage.checked = (await loadSettings()).grants.manageTabs;
+  manage.addEventListener('change', async () => {
+    const { grants } = await loadSettings();
+    await saveSettings({ grants: { ...grants, manageTabs: manage.checked } });
+  });
+
   $('options').addEventListener('click', (e) => {
     e.preventDefault();
     void browser.runtime.openOptionsPage();

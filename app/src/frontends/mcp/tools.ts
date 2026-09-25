@@ -13,6 +13,7 @@ import type { Method, Params } from '@beifahrer/core';
 
 import { BridgeError, browserLabel } from '../../bridge/bridge.ts';
 import type { BrowserAccess } from '../../bridge/shared.ts';
+import { registerTabTools } from './tab-tools.ts';
 
 export interface BridgeHandle {
   /** Hub or peer (bridge/shared.ts) — the tools do not care which. */
@@ -21,7 +22,7 @@ export interface BridgeHandle {
   unavailable?: string;
 }
 
-const browserParam = z
+export const browserParam = z
   .string()
   .optional()
   .describe(
@@ -34,13 +35,13 @@ const POLICY_NOTE =
   'The person sets, per site, what you may do: nothing, read, or read + edit — in the beifahrer toolbar popup of their browser. ' +
   'A "forbidden" error is their decision, not a malfunction: tell them which site and which level it needs, and let them decide.';
 
-function text(value: unknown): CallToolResult {
+export function text(value: unknown): CallToolResult {
   return {
     content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
   };
 }
 
-function failure(err: unknown): CallToolResult {
+export function failure(err: unknown): CallToolResult {
   if (err instanceof BridgeError) {
     const { code, message, origin, have, need } = err.wire;
     const detail =
@@ -285,4 +286,6 @@ export function registerTools(server: McpServer, handle: BridgeHandle): void {
       }
     },
   );
+
+  registerTabTools(server, call);
 }

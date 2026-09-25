@@ -38,6 +38,37 @@
     </p>
     <label class="row"><input type="checkbox" id="shots" /> Allow screenshots</label>
 
+    <h2>Tabs and windows</h2>
+    <label class="row"
+      ><input type="checkbox" id="manage-tabs" /> Let the agent manage tabs and windows (move, pin, close,
+      group, saved sessions)</label
+    >
+    <label class="row"
+      ><input type="checkbox" id="confirm-close" /> Ask me before the agent closes tabs</label
+    >
+    <label class="row"
+      ><input type="checkbox" id="autosave" /> Keep automatic snapshots of my windows (the last 20, in this
+      browser only)</label
+    >
+
+    <h2>Saved sessions</h2>
+    <div class="actions">
+      <input type="text" id="session-name" placeholder="Name, e.g. Steuern 2025" autocomplete="off" />
+      <button class="btn" id="session-save">Save current windows as…</button>
+    </div>
+    <p id="session-note" class="muted" role="status" aria-live="polite"></p>
+    <p class="muted" id="sessions-empty">Nothing saved yet.</p>
+    <table id="sessions"></table>
+    <details>
+      <summary>Automatic snapshots</summary>
+      <p class="muted" id="autos-empty">None yet — one is taken a few seconds after your tabs change.</p>
+      <table id="autos"></table>
+    </details>
+
+    <h2>Recently closed windows</h2>
+    <p class="muted" id="closed-empty">The browser remembers no closed window right now.</p>
+    <table id="closed"></table>
+
     <h2>Sites</h2>
     <p class="muted" id="empty">No site allowed yet. Open a site and use the toolbar button.</p>
     <table id="sites"></table>
