@@ -9,8 +9,8 @@ what you see. The ones that attach to your own browser only work with Chromium.
 
 beifahrer is a WebExtension for **Firefox and Chromium-based browsers** plus a small local
 **MCP server**. The agent gets a narrow set of tools: list tabs, read a page, outline its fields,
-take a screenshot, fill a field, click, open a URL, and, if you allow it, sort, pin, close, save and
-reopen your tabs. **You decide, site by site, what it may do.**
+find an element by name, wait for a page, take a screenshot, fill a field, click, open a URL, run
+a recipe, and, if you allow it, sort, pin, close, save and reopen your tabs. **You decide, site by site, what it may do.**
 
 > **Status: early (0.1).** Works end-to-end in Chromium and Firefox. Not yet on the add-on stores.
 
@@ -110,6 +110,34 @@ snapshots of your windows (the last 20), so a window you close by mistake comes 
 
 The per-site levels still apply: the agent sees a saved tab on a site below *Read* as its host
 only, and it can only put URLs of sites at *Read* or higher into a new window or workspace.
+
+## Recipes
+
+Some tasks take the same few steps on the same web app every time. On an OpenProject work
+package, for example, the comment box is a button until you click it, the editor appears a
+moment later, and only then can text go in. A **recipe** writes such a task down once, as data:
+
+| Tool | Does |
+|---|---|
+| `page_find` | elements by role and accessible name ("the button named Submit comment"), with refs for fill and click |
+| `page_wait` | wait for a tab to finish loading, or for an element to appear (up to 30 s) |
+| `recipes_list` | every recipe beifahrer knows, where it came from, and files it refused |
+| `recipes_for_tab` | the recipes that fit a tab, by URL or by recognising the app on the page |
+| `recipe_run` | run one step by step; stops at the first failing step and names it |
+
+A recipe only has steps like *find*, *click*, *fill*, *wait* and *read*, each an ordinary
+beifahrer call. **The browser checks every step like a call the agent made itself**: the site's
+level, your confirmation, the Stop button. A recipe carries no code. A step that publishes
+(posting the comment, saving) runs only when the agent says you asked for exactly that.
+Otherwise the run stops before it and leaves the draft on the page for you to read.
+
+beifahrer ships `openproject/add-comment` and `openproject/edit-description`. They recognise
+OpenProject on any domain. Your own recipes go in `~/.config/beifahrer/recipes/` or in the
+directories listed in `$BEIFAHRER_RECIPES` (colon-separated). A later source replaces a recipe
+with the same id. **This repository is public:** recipes that name a company, a customer's domain
+or an internal process belong in your own directory. Format and how to contribute:
+[recipes/README.md](recipes/README.md). Why it is built this way:
+[ADR 0006](docs/adr/0006-recipes-are-data-run-as-ordinary-calls.md).
 
 ## What it will never do
 

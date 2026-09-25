@@ -22,6 +22,8 @@ export const METHOD_WORDS: Record<Method, string> = {
   'tabs.active': 'looked up the active tab',
   'page.read': 'read a page',
   'page.outline': 'outlined a page',
+  'page.find': 'looked for an element',
+  'page.wait': 'waited for a page',
   'page.screenshot': 'took a screenshot',
   'page.fill': 'filled a field',
   'page.click': 'clicked',

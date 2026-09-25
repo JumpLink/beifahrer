@@ -25,6 +25,7 @@ import { randomUUID } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
 import {
   CLOSE,
+  MAX_WAIT_MS,
   PROTOCOL_VERSION,
   isLoopbackAddress,
   originKind,
@@ -95,7 +96,11 @@ export const WRITE_TIMEOUT_MS = 135_000;
 export const DEFAULT_TIMEOUT_MS = 30_000;
 const WRITES: ReadonlySet<Method> = new Set(['page.fill', 'page.click', 'tabs.close']);
 
+/** `page.wait` waits up to MAX_WAIT_MS in the browser; the call must outlive that. */
+export const WAIT_TIMEOUT_MS = MAX_WAIT_MS + 15_000;
+
 export function timeoutFor(method: Method, readTimeoutMs = DEFAULT_TIMEOUT_MS): number {
+  if (method === 'page.wait') return Math.max(WAIT_TIMEOUT_MS, readTimeoutMs);
   return WRITES.has(method) ? WRITE_TIMEOUT_MS : readTimeoutMs;
 }
 

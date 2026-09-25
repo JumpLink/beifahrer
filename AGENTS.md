@@ -50,6 +50,12 @@ the active one).
 `agent-hello`, and NO Origin. `roleAllowed` ties the first frame to the handshake: a web page
 always sends an Origin and so can never become an agent; a process without one can never pose as
 a browser. The hub relays a peer's call unchanged and adds no gate of its own.
+|**Recipes are data and hold no gate** ([ADR 0006](docs/adr/0006-recipes-are-data-run-as-ordinary-calls.md)).
+The bridge runs a recipe as ordinary calls (`app/src/recipes/runner.ts`), so the extension checks
+every step; the extension never learns what a recipe is. Steps address elements by role + name,
+never by ref, selector or code, and `parseRecipe` (core) refuses any key it does not know. A
+publishing step is a `submit` with `requiresExplicitRequest: true`. The public `recipes/` holds
+generic recipes only: company domains and processes go in the operator's own directory.
 |**Fixtures are synthetic.** Never commit a captured page or a screenshot of a real site. What the
 extension reads is the person's private data.
 
@@ -57,9 +63,10 @@ extension reads is the person's private data.
 
 | Path | Contains | Runs on |
 |---|---|---|
-| `packages/core` | **Pure, zero deps.** Wire protocol, policy, features + pause (`features.ts`), toolbar look, activity log entries, redaction, saved-session model | GJS, Node, browser |
-| `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`. The bridge (`src/bridge/`: `bridge.ts` hub, `shared.ts` hub-or-peer election + relay), MCP tools | GJS (bundled by gjsify); tests also on Node |
+| `packages/core` | **Pure, zero deps.** Wire protocol, policy, features + pause (`features.ts`), toolbar look, activity log entries, redaction, saved-session model, element queries (`find.ts`), the recipe format + validator (`recipes.ts`) | GJS, Node, browser |
+| `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`. The bridge (`src/bridge/`: `bridge.ts` hub, `shared.ts` hub-or-peer election + relay), MCP tools, recipe runner + sources (`src/recipes/`) | GJS (bundled by gjsify); tests also on Node |
 | `extension/` | background, page agent (+ its pill, `src/page-indicator.ts`), popup, options, confirm window; `manifest.ts` + `scripts/build.ts` (runs on GJS; `scripts/icons.ts` renders the sparkles icons from `icons/sparkles.svg`) build both targets | browser (build: GJS + GdkPixbuf/librsvg) |
+| `recipes/` | Built-in recipes (JSON), bundled into the app via `app/src/recipes/builtin.ts` | data |
 | `tests/e2e/` | Full chain in headless Chromium + Firefox | Node driver, GJS app |
 | `probes/epiphany/` | The probe that measured Epiphany (ADR 0001 § 3). Re-run it before claiming support | Epiphany |
 
@@ -117,6 +124,15 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
 - **`label.row { display: flex }` beats the `hidden` attribute.** The UA's `[hidden]` rule loses
   to any author `display`, so style.css forces `[hidden] { display: none !important }`. Without it
   the popup showed "Ask me before every change" at level Read.
+- **CKEditor 5 and ProseMirror put `role="textbox"` on their contenteditable.** `kindOf` checks
+  for a contenteditable host BEFORE the role, so those editors are `richtext` (and a recipe can
+  wait for `{ role: "richtext" }`). Measured on OpenProject: the comment box and the
+  description are buttons until clicked, and the editor mounts a moment later, hence
+  `page.wait`.
+- **A recipe file must be listed in `app/src/recipes/builtin.ts`.** The bundle only carries what
+  is imported; the `built-in recipes` unit test fails on a file left out.
+- **The e2e sets `XDG_CONFIG_HOME` inside its throw-away profile**, so the person's own
+  `~/.config/beifahrer/recipes` never takes part in a test run.
 - **Headless Chromium takes one start URL.** A second one makes it exit with "Multiple targets are
   not supported in headless mode". The e2e opens further tabs over the DevTools endpoint.
 

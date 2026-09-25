@@ -5,3 +5,5 @@ export * from './protocol.ts';
 export * from './redact.ts';
 export * from './sessions.ts';
 export * from './toolbar.ts';
+export * from './find.ts';
+export * from './recipes.ts';

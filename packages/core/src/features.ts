@@ -41,7 +41,7 @@ export type Features = Record<Feature, boolean>;
 export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = {
   tabs: { label: 'See open tabs', detail: 'tabs_list, tab_active — sites below Read show their host only' },
   read: { label: 'Read page text', detail: 'page_read' },
-  outline: { label: 'Outline pages', detail: 'page_outline — links, buttons, fields' },
+  outline: { label: 'Outline pages', detail: 'page_outline, page_find, page_wait — links, buttons, fields' },
   screenshot: {
     label: 'Take screenshots',
     detail: 'page_screenshot — of the visible tab only; Chromium also needs the all-sites grant below',
@@ -86,6 +86,9 @@ export const FEATURE_OF = {
   'tabs.active': 'tabs',
   'page.read': 'read',
   'page.outline': 'outline',
+  // find + wait see the same element model outline shows, so the same switch covers them.
+  'page.find': 'outline',
+  'page.wait': 'outline',
   'page.screenshot': 'screenshot',
   'page.fill': 'fill',
   'page.click': 'click',

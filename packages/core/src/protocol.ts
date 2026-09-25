@@ -24,6 +24,7 @@
  */
 
 import type { Feature } from './features.ts';
+import type { ElementQuery, MetaQuery } from './find.ts';
 import { isMethod, type Level, type Method } from './policy.ts';
 import type { ClosedSummary, GroupColor, SessionSummary } from './sessions.ts';
 
@@ -81,6 +82,12 @@ export interface TabInfo {
   groupId?: number;
 }
 
+/** One element `page.find` / `page.wait` found: a ref for fill/click and the outline line for it. */
+export interface FoundElement {
+  ref: string;
+  description: string;
+}
+
 /** Tabs to act on: explicit ids, or every tab of one window. */
 export interface TabSelection {
   tabIds?: number[];
@@ -97,6 +104,19 @@ export interface MethodMap {
   'page.outline': {
     params: { tabId: number; maxItems?: number };
     result: { url: string; title: string; outline: string; count: number; truncated: boolean };
+  };
+  'page.find': {
+    /**
+     * Elements by role + accessible name (+ text), from the same element model and ref registry
+     * as `page.outline`. With `meta`, a `<meta>` check instead: answers a count only.
+     */
+    params: { tabId: number; maxResults?: number; meta?: MetaQuery } & ElementQuery;
+    result: { url: string; matches: FoundElement[]; count: number; truncated: boolean };
+  };
+  'page.wait': {
+    /** Until the document has loaded, or until an element matching the query is there. */
+    params: { tabId: number; for: 'load' | ElementQuery; timeoutMs?: number };
+    result: { waitedMs: number; match?: FoundElement };
   };
   'page.screenshot': { params: { tabId: number }; result: { dataUrl: string } };
   'page.fill': {

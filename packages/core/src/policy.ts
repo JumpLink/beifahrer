@@ -68,6 +68,9 @@ export const REQUIRED_LEVEL = {
   'tabs.active': null,
   'page.read': 'read',
   'page.outline': 'read',
+  // find + wait read what outline reads (the same element model), so they need the same level.
+  'page.find': 'read',
+  'page.wait': 'read',
   'page.screenshot': 'read',
   'page.fill': 'write',
   'page.click': 'write',

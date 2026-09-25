@@ -19,7 +19,15 @@
  */
 
 import { spawn, execFileSync } from 'node:child_process';
-import { createWriteStream, mkdtempSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import {
+  createWriteStream,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+  existsSync,
+} from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -75,6 +83,96 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
     }
   }).observe(document.documentElement, { childList: true });
 </script></body></html>`;
+
+/**
+ * A SYNTHETIC OpenProject-like page (no real OpenProject HTML — fixtures are synthetic): the two
+ * metas the built-in recipes fingerprint, a comment box and a description that are buttons until
+ * clicked and then turn into a contenteditable editor (with role=textbox, as CKEditor 5 does)
+ * after a delay, and submit buttons that record what was posted. A csrf-token meta checks that
+ * a meta fingerprint answers a count and never the content.
+ */
+const OP_FIXTURE = `<!doctype html><html><head><title>WP 42 fixture</title>
+<meta name="app_base_path" content=""><meta name="app_title" content="WP 42">
+<meta name="csrf-token" content="CSRF-MUST-NOT-LEAK">
+</head><body>
+<h1>Work package 42</h1>
+<h2>Beschreibung</h2>
+<div id="desc-box"><div id="desc" role="button" tabindex="0" aria-label="Beschreibung: Zum Bearbeiten klicken...">Alte Beschreibung</div></div>
+<h2>Aktivität</h2>
+<ul id="posted"></ul>
+<p>posted: <span id="count">0</span> · saved: <span id="saved">0</span></p>
+<div id="comment-box"></div>
+<script>
+  const EDITOR = (label) => '<div contenteditable="true" role="textbox" aria-label="' + label + '"><p><br></p></div>';
+  function commentButton() {
+    const box = document.getElementById('comment-box');
+    box.innerHTML = '<button id="open">Kommentar…</button>';
+    const open = box.querySelector('#open');
+    open.setAttribute('aria-label', 'Einen Kommentar hinzufügen. @ tippen, um Personen zu benachrichtigen.');
+    open.addEventListener('click', () => {
+      box.innerHTML = '';
+      // The editor mounts later, like CKEditor: a recipe must WAIT for it.
+      setTimeout(() => {
+        box.innerHTML = EDITOR('Editor-Bearbeitungsbereich: main') + '<button aria-label="Kommentar absenden">Senden</button>';
+        box.querySelector('button').addEventListener('click', () => {
+          const li = document.createElement('li');
+          li.innerHTML = box.querySelector('[contenteditable]').innerHTML;
+          document.getElementById('posted').append(li);
+          document.getElementById('count').textContent = document.querySelectorAll('#posted li').length;
+          commentButton();
+        });
+      }, 400);
+    });
+  }
+  commentButton();
+  document.getElementById('desc').addEventListener('click', () => {
+    const box = document.getElementById('desc-box');
+    const old = document.getElementById('desc').innerHTML;
+    box.innerHTML = '';
+    setTimeout(() => {
+      box.innerHTML = EDITOR('Beschreibung') + '<button aria-label="Beschreibung: Speichern">✓</button>';
+      box.querySelector('[contenteditable]').innerHTML = '<p>' + old + '</p>';
+      box.querySelector('button').addEventListener('click', () => {
+        const html = box.querySelector('[contenteditable]').innerHTML;
+        box.innerHTML = '<div id="desc">' + html + '</div>';
+        document.getElementById('saved').textContent = Number(document.getElementById('saved').textContent) + 1;
+      });
+    }, 300);
+  });
+</script></body></html>`;
+
+/** A private recipe and a broken one, in a BEIFAHRER_RECIPES directory, like an operator's own. */
+function writeRecipeDir(profile) {
+  const dir = join(profile, 'recipes');
+  mkdirSync(join(dir, 'e2e'), { recursive: true });
+  writeFileSync(
+    join(dir, 'e2e', 'read-ticket.json'),
+    JSON.stringify({
+      id: 'e2e/read-ticket',
+      title: 'Read the ticket',
+      description: 'Private recipe from BEIFAHRER_RECIPES',
+      version: '1.0.0',
+      match: { urls: ['http://127.0.0.1:*/fixture*'] },
+      params: [],
+      steps: [
+        { id: 'heading', action: 'find', target: { role: 'heading', name: 'Ticket' } },
+        { id: 'read', action: 'read', maxChars: 2000 },
+      ],
+    }),
+  );
+  writeFileSync(
+    join(dir, 'e2e', 'evil.json'),
+    JSON.stringify({
+      id: 'e2e/evil',
+      title: 'x',
+      description: 'x',
+      version: '1.0.0',
+      match: { urls: ['*://*/*'] },
+      steps: [{ id: 'x', action: 'evaluate', code: 'alert(1)' }],
+    }),
+  );
+  return dir;
+}
 
 // ---------------------------------------------------------------------------------------------
 
@@ -180,7 +278,14 @@ async function startMcp(tokenFile, logName) {
       String(BRIDGE_PORT),
       '--allow-write',
     ],
-    env: { ...process.env, BEIFAHRER_TOKEN_FILE: tokenFile },
+    // Recipes from the test's own directory; XDG_CONFIG_HOME inside the throw-away profile so the
+    // person's own ~/.config/beifahrer/recipes never takes part.
+    env: {
+      ...process.env,
+      BEIFAHRER_TOKEN_FILE: tokenFile,
+      XDG_CONFIG_HOME: join(dirname(tokenFile), 'config'),
+      BEIFAHRER_RECIPES: writeRecipeDir(dirname(tokenFile)),
+    },
     stderr: LOGS ? 'pipe' : 'ignore',
   });
   const client = new Client({ name: 'beifahrer-e2e', version: '0' });
@@ -270,6 +375,172 @@ async function sharedScenario() {
     await sleep(1500);
     rmSync(profile, { recursive: true, force: true });
   }
+}
+
+/** page_find, page_wait (issue #2) and recipes, against the synthetic OpenProject-like page. */
+async function recipes(browser, client, allowed, forbidden) {
+  const opened = await tool(client, 'tab_open', { url: `${ALLOWED}/openproject/wp/42`, active: false });
+  check(browser, 'tab_open opens the OpenProject-like fixture', !opened.error, opened.text);
+  if (opened.error) return;
+  const op = JSON.parse(opened.text).tab.tabId;
+
+  const loaded = await tool(client, 'page_wait', { tabId: op, for: 'load' });
+  check(browser, 'page_wait for=load answers once the tab has loaded', !loaded.error, loaded.text);
+
+  const found = await tool(client, 'page_find', { tabId: allowed.tabId, role: 'button', name: 'send' });
+  const hit = found.error ? null : JSON.parse(found.text);
+  check(
+    browser,
+    'page_find finds the button by role + name, with a ref',
+    hit?.count === 1 && /^e\d+$/.test(hit.matches[0].ref) && hit.matches[0].description === 'button "Send"',
+    found.text,
+  );
+  const clickByFind = await tool(client, 'page_click', {
+    tabId: allowed.tabId,
+    ref: hit?.matches[0]?.ref ?? 'e0',
+  });
+  check(browser, "page_find's ref works in page_click", !clickByFind.error, clickByFind.text);
+
+  const csrf = await tool(client, 'page_find', { tabId: op, meta: { name: 'csrf-token' } });
+  check(
+    browser,
+    'a meta check answers a count, never the content',
+    !csrf.error && JSON.parse(csrf.text).count === 1 && !csrf.text.includes('CSRF-MUST-NOT-LEAK'),
+    csrf.text,
+  );
+
+  const deniedFind = await tool(client, 'page_find', { tabId: forbidden.tabId, role: 'button' });
+  check(
+    browser,
+    'page_find on a site nobody allowed is forbidden',
+    /^forbidden:/.test(deniedFind.text),
+    deniedFind.text,
+  );
+
+  const early = await tool(client, 'page_wait', {
+    tabId: op,
+    for: 'element',
+    role: 'richtext',
+    timeoutMs: 500,
+  });
+  check(
+    browser,
+    'page_wait gives up with timeout when nothing appears',
+    /^timeout:/.test(early.text),
+    early.text,
+  );
+
+  const list = await tool(client, 'recipes_list');
+  const catalog = list.error ? { recipes: [], refused: [] } : JSON.parse(list.text);
+  check(
+    browser,
+    'recipes_list: built-in + private recipes, the broken file refused',
+    ['openproject/add-comment', 'openproject/edit-description', 'e2e/read-ticket'].every((id) =>
+      catalog.recipes.some((r) => r.id === id),
+    ) &&
+      !catalog.recipes.some((r) => r.id === 'e2e/evil') &&
+      catalog.refused.some((e) => e.source.endsWith('evil.json')),
+    list.text.slice(0, 600),
+  );
+
+  const forOp = await tool(client, 'recipes_for_tab', { tabId: op });
+  const forFixture = await tool(client, 'recipes_for_tab', { tabId: allowed.tabId });
+  const ids = (r) =>
+    r.error
+      ? []
+      : JSON.parse(r.text)
+          .recipes.map((x) => x.id)
+          .sort();
+  check(
+    browser,
+    'recipes_for_tab matches OpenProject by fingerprint on any domain, and the private one by URL',
+    JSON.stringify(ids(forOp)) ===
+      JSON.stringify(['openproject/add-comment', 'openproject/edit-description']) &&
+      JSON.stringify(ids(forFixture)) === JSON.stringify(['e2e/read-ticket']),
+    `${forOp.text.slice(0, 300)} | ${forFixture.text.slice(0, 300)}`,
+  );
+
+  const privateRun = await tool(client, 'recipe_run', { tabId: allowed.tabId, id: 'e2e/read-ticket' });
+  check(
+    browser,
+    'a private recipe runs (find + read)',
+    !privateRun.error &&
+      JSON.parse(privateRun.text).status === 'done' &&
+      privateRun.text.includes('Secret-ish'),
+    privateRun.text.slice(0, 400),
+  );
+
+  const wrongTab = await tool(client, 'recipe_run', {
+    tabId: forbidden.tabId,
+    id: 'openproject/add-comment',
+    params: { text: 'x' },
+  });
+  check(
+    browser,
+    'recipe_run refuses a tab below read',
+    wrongTab.error && wrongTab.text.includes('below level \\"read\\"'),
+    wrongTab.text,
+  );
+
+  const draft = await tool(client, 'recipe_run', {
+    tabId: op,
+    id: 'openproject/add-comment',
+    params: { text: '<p>Hallo <strong>Welt</strong></p>' },
+  });
+  const draftRun = draft.error ? {} : JSON.parse(draft.text);
+  const afterDraft = await tool(client, 'page_read', { tabId: op });
+  check(
+    browser,
+    'add-comment without an explicit request stops before submit: text in the editor, nothing posted',
+    draftRun.status === 'stopped' &&
+      draftRun.next === 'submit' &&
+      afterDraft.text.includes('Hallo Welt') &&
+      afterDraft.text.includes('posted: 0'),
+    `${draft.text.slice(0, 600)} | ${afterDraft.text.slice(0, 400)}`,
+  );
+
+  const post = await tool(client, 'recipe_run', {
+    tabId: op,
+    id: 'openproject/add-comment',
+    params: { text: '<p>Hallo <strong>Welt</strong></p>' },
+    from: 'submit',
+    explicitRequest: true,
+  });
+  const afterPost = await tool(client, 'page_read', { tabId: op });
+  check(
+    browser,
+    'with explicitRequest the submit step posts the comment',
+    !post.error && JSON.parse(post.text).status === 'done' && afterPost.text.includes('posted: 1'),
+    `${post.text.slice(0, 400)} | ${afterPost.text.slice(0, 400)}`,
+  );
+
+  const desc = await tool(client, 'recipe_run', {
+    tabId: op,
+    id: 'openproject/edit-description',
+    params: { text: '<p>Neue Beschreibung</p>' },
+    explicitRequest: true,
+  });
+  const afterDesc = await tool(client, 'page_read', { tabId: op });
+  check(
+    browser,
+    'edit-description replaces and saves the description',
+    !desc.error &&
+      JSON.parse(desc.text).status === 'done' &&
+      afterDesc.text.includes('Neue Beschreibung') &&
+      !afterDesc.text.includes('Alte Beschreibung') &&
+      afterDesc.text.includes('saved: 1'),
+    `${desc.text.slice(0, 500)} | ${afterDesc.text.slice(0, 400)}`,
+  );
+
+  const missing = await tool(client, 'recipe_run', { tabId: op, id: 'openproject/add-comment', params: {} });
+  check(
+    browser,
+    'recipe_run refuses a missing required param',
+    missing.error && /missing required param/.test(missing.text),
+    missing.text,
+  );
+
+  await tool(client, 'tabs_close', { tabIds: [op] });
 }
 
 /** Order + pinned state of one window's tabs, as the agent sees them. */
@@ -423,6 +694,10 @@ async function pausedChecks(browser, client) {
     ['page_screenshot', { tabId: 1 }],
     ['page_fill', { tabId: 1, ref: 'e1', text: 'x' }],
     ['page_click', { tabId: 1, ref: 'e1' }],
+    ['page_find', { tabId: 1, role: 'button' }],
+    ['page_wait', { tabId: 1, for: 'load' }],
+    ['recipes_for_tab', { tabId: 1 }],
+    ['recipe_run', { tabId: 1, id: 'openproject/add-comment', params: { text: 'x' } }],
     ['tab_open', { url }],
     ['tabs_move', { tabIds: [1], index: 0 }],
     ['tabs_pin', { tabIds: [1], pinned: true }],
@@ -439,7 +714,8 @@ async function pausedChecks(browser, client) {
     ['sessions_restore_closed', { sessionId: 'x' }],
   ];
   const { tools } = await client.listTools();
-  const browserTools = tools.map((t) => t.name).filter((n) => n !== 'browsers_list');
+  // browsers_list and recipes_list answer from the bridge; they never reach the browser.
+  const browserTools = tools.map((t) => t.name).filter((n) => n !== 'browsers_list' && n !== 'recipes_list');
   check(
     browser,
     'the paused check covers every browser tool',
@@ -681,6 +957,7 @@ async function scenario(browser, gate) {
       shot.text,
     );
 
+    await recipes(browser, client, allowed, forbidden);
     await tabManagement(browser, client, forbidden);
   } finally {
     await client.close().catch(() => undefined);
@@ -699,15 +976,16 @@ async function scenario(browser, gate) {
 const which = process.argv[2] ?? 'all';
 const browsers = which === 'all' ? ['chromium', 'firefox', 'shared'] : [which];
 
+const page = (req) => (req.url?.startsWith('/openproject') ? OP_FIXTURE : FIXTURE);
 const fixture = createServer((req, res) => {
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-  res.end(FIXTURE);
+  res.end(page(req));
 });
 await new Promise((r) => fixture.listen(FIXTURE_PORT, '127.0.0.1', r));
 // `localhost` must reach the same server for the forbidden-origin cases.
 const fixture6 = createServer((req, res) => {
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-  res.end(FIXTURE);
+  res.end(page(req));
 });
 await new Promise((r) => fixture6.listen(FIXTURE_PORT, '::1', r)).catch(() => undefined);
 
