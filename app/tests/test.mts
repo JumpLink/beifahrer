@@ -12,6 +12,7 @@ import ports from './unit/core/ports.test.ts';
 import connections from './unit/core/connections.test.ts';
 import sessions from './unit/core/sessions.test.ts';
 import desktop from './unit/core/desktop.test.ts';
+import shortcut from './unit/core/shortcut.test.ts';
 import bridge from './unit/bridge/bridge.test.ts';
 import bridgeDesktop from './unit/bridge/desktop.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
@@ -29,6 +30,7 @@ run({
   connections,
   sessions,
   desktop,
+  shortcut,
   bridge,
   bridgeDesktop,
   mcpGate,
