@@ -1,7 +1,7 @@
 import type { CommandModule } from 'yargs';
 import { DEFAULT_PORT, isMethod } from '@beifahrer/core';
 
-import { Bridge, BridgeError, label } from '../../bridge/bridge.ts';
+import { Bridge, BridgeError, isAddressInUse, label } from '../../bridge/bridge.ts';
 import { loadOrCreateToken, newToken, tokenPath, writeToken } from '../../bridge/token.ts';
 import { VERSION } from '../../version.ts';
 import { startMcpServer } from '../mcp/server.ts';
@@ -70,7 +70,16 @@ export const callCommand: CommandModule<
         return finish(2);
       }
       const bridge = new Bridge({ port: portOf(argv), token: loadOrCreateToken().token, version: VERSION });
-      await bridge.start();
+      try {
+        await bridge.start();
+      } catch (err) {
+        console.error(
+          isAddressInUse(err)
+            ? `port ${portOf(argv)} is taken — another beifahrer (an agent session's MCP server) owns the browser connection`
+            : `the bridge could not start: ${(err as Error).message}`,
+        );
+        return finish(1);
+      }
       try {
         await bridge.waitForConnection(argv.wait * 1000);
         // A second browser that is also paired connects within a moment; give it that moment so

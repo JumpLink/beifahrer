@@ -11,7 +11,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { DEFAULT_PORT } from '@beifahrer/core';
 
-import { Bridge } from '../../bridge/bridge.ts';
+import { Bridge, isAddressInUse } from '../../bridge/bridge.ts';
 import { loadOrCreateToken, tokenPath } from '../../bridge/token.ts';
 import { VERSION } from '../../version.ts';
 import { applyReadOnlyGate, serveStdio } from './runtime.ts';
@@ -35,12 +35,10 @@ export async function startBridge(port: number): Promise<BridgeHandle> {
     console.error(`[${SERVER_NAME}] bridge listening on 127.0.0.1:${port} (token: ${tokenPath()})`);
     return { bridge };
   } catch (err) {
-    const code = (err as { code?: string }).code;
-    const unavailable =
-      code === 'EADDRINUSE'
-        ? `port ${port} is taken — most likely another agent session already runs a beifahrer bridge. ` +
-          'Only one bridge can own the browser connection at a time; use that session, or stop it.'
-        : `the bridge could not start: ${(err as Error).message}`;
+    const unavailable = isAddressInUse(err)
+      ? `port ${port} is taken — most likely another agent session already runs a beifahrer bridge. ` +
+        'Only one bridge can own the browser connection at a time; use that session, or stop it.'
+      : `the bridge could not start: ${(err as Error).message}`;
     console.error(`[${SERVER_NAME}] ${unavailable}`);
     // Serve anyway: every tool then answers with this reason, which the agent can relay. Dying
     // here would leave the agent with a server that simply "failed to start".

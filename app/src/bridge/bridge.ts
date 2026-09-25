@@ -278,6 +278,21 @@ export class Bridge extends EventEmitter {
   }
 }
 
+/**
+ * Is this listen error "the port is taken"?
+ *
+ * gjsify gap (unfixed, @gjsify/ws 0.52.0): on GJS the error carries no `code: 'EADDRINUSE'`, only a
+ * LOCALISED Gio message ("Die Adresse wird bereits verwendet"). @gjsify/http maps it; ws does not
+ * yet. The message check goes when ws carries the code.
+ */
+export function isAddressInUse(err: unknown): boolean {
+  const e = err as { code?: unknown; message?: unknown } | null;
+  if (e?.code === 'EADDRINUSE') return true;
+  return (
+    typeof e?.message === 'string' && /Gio\.IOErrorEnum/.test(e.message) && /127\.0\.0\.1:\d+/.test(e.message)
+  );
+}
+
 export function label(c: BrowserConnection): string {
   return `${c.hello.browser.name} ${c.hello.browser.version} (${c.id})`;
 }

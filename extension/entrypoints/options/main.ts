@@ -2,6 +2,7 @@ import { browser } from '@wxt-dev/browser';
 import { withRule, type Level } from '@beifahrer/core';
 import { loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
 import { describeStatus } from '../../src/ui/status.ts';
+import type { Status } from '../../src/bridge-client.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const ALL = { origins: ['<all_urls>'] };
@@ -56,12 +57,36 @@ async function main(): Promise<void> {
   ($('shots') as HTMLInputElement).checked = await browser.permissions.contains(ALL);
 
   $('save').addEventListener('click', async () => {
-    await saveSettings({
-      token: ($('token') as HTMLInputElement).value.trim(),
-      port: Number(($('port') as HTMLInputElement).value),
-    });
+    const note = $('saved');
+    const token = ($('token') as HTMLInputElement).value.trim();
+    if (!token) {
+      note.textContent = 'Paste the token first.';
+      note.className = 'warn';
+      return;
+    }
+    await saveSettings({ token, port: Number(($('port') as HTMLInputElement).value) });
+    note.textContent = 'Saved — connecting…';
+    note.className = 'muted';
     await browser.runtime.sendMessage({ type: 'reconnect' });
-    setTimeout(() => void renderStatus(), 800);
+    // Say how it ended, right next to the button: the person just clicked here, not at the
+    // status line at the top of the page.
+    for (let i = 0; i < 10; i++) {
+      const status = (await browser.runtime.sendMessage({ type: 'status' })) as Status;
+      await renderStatus();
+      if (status.state === 'connected') {
+        note.textContent = '✓ Connected';
+        note.className = 'ok';
+        return;
+      }
+      if (status.state === 'unauthorized' || status.state === 'protocol') break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    const status = (await browser.runtime.sendMessage({ type: 'status' })) as Status;
+    note.textContent =
+      status.state === 'offline'
+        ? '✓ Saved. No bridge is running yet — it starts with your agent, and the extension connects then.'
+        : describeStatus(status);
+    note.className = status.state === 'offline' ? 'ok' : 'warn';
   });
 
   $('shots').addEventListener('change', async () => {
