@@ -8,7 +8,9 @@ import {
   renderPause,
   wirePause,
 } from '../../src/ui/features.ts';
+import { renderSessions } from '../../src/ui/sessions.ts';
 import { describeStatus } from '../../src/ui/status.ts';
+import type { Status } from '../../src/bridge-client.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('.levels button')];
@@ -19,8 +21,14 @@ const HINTS: Record<Level, string> = {
   write: 'The agent may also fill fields and click here.',
 };
 
+async function renderConnection(): Promise<void> {
+  const status = (await browser.runtime.sendMessage({ type: 'status' })) as Status;
+  $('status').textContent = describeStatus(status);
+  renderSessions($('sessions'), $('sessions-empty'), status);
+}
+
 async function render(origin: string | null): Promise<void> {
-  $('status').textContent = describeStatus(await browser.runtime.sendMessage({ type: 'status' }));
+  await renderConnection();
   const { policy } = await loadSettings();
   $('site').textContent = origin ?? 'not a web page — nothing to allow here';
   const rule = origin ? policy.origins[origin] : undefined;
@@ -85,6 +93,7 @@ async function main(): Promise<void> {
   await refreshActivity();
   // While the popup is open: follow the agent live, and a pause set from the page or shortcut.
   setInterval(() => void refreshActivity(), 1000);
+  setInterval(() => void renderConnection(), 1000);
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
     if (changes.paused) void renderPause(pause, $('state'));

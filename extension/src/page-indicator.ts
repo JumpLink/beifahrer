@@ -30,6 +30,7 @@ const CSS = `
   background: #1d1d1f; color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.3);
   font: 600 13px/1.2 system-ui, sans-serif; pointer-events: none;
 }
+.label { max-width: 40ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: #e66100; }
 button {
   pointer-events: auto; cursor: pointer; font: inherit; color: #fff;
@@ -49,6 +50,7 @@ function build(): HTMLElement {
   const dot = document.createElement('span');
   dot.className = 'dot';
   label = document.createElement('span');
+  label.className = 'label';
   const stop = document.createElement('button');
   stop.type = 'button';
   stop.textContent = 'Stop';
@@ -71,12 +73,13 @@ function schedule(): void {
   hideTimer = setTimeout(hideNow, HIDE_AFTER_MS);
 }
 
-export function show(verb: 'reading' | 'editing'): void {
+/** `session` is the agent session's label; the text lives in the closed shadow root, out of the page's reach. */
+export function show(verb: 'reading' | 'editing', session?: string): void {
   if (!host || !host.isConnected) {
     host = build();
     document.documentElement.append(host);
   }
-  if (label) label.textContent = `beifahrer is ${verb}`;
+  if (label) label.textContent = session ? `beifahrer (${session}) is ${verb}` : `beifahrer is ${verb}`;
   schedule();
 }
 

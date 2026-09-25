@@ -449,7 +449,7 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
   const verb = VERB[req.beifahrer];
   // Shown BEFORE reading: `read` takes body.innerText, and the pill lives outside <body> in a
   // closed shadow root, so it never shows up in what the agent gets.
-  if (verb) show(verb);
+  if (verb) show(verb, req.session);
   switch (req.beifahrer) {
     case 'find':
       return find(req.query, req.maxResults);

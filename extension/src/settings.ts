@@ -7,18 +7,21 @@
 
 import { browser } from '@wxt-dev/browser';
 import {
-  DEFAULT_PORT,
   EMPTY_POLICY,
   parseFeatures,
   parsePaused,
   parsePolicy,
+  parsePortRange,
   type Features,
   type Policy,
 } from '@beifahrer/core';
 
 export interface Settings {
   token: string;
+  /** First port of the range agent sessions bind and the extension probes (ADR 0007). */
   port: number;
+  /** Ports in that range. The bridges must use the same two numbers. */
+  portCount: number;
   policy: Policy;
   /**
    * One switch per capability (features.ts in core). Replaces PR #8's `grants`, which is read as
@@ -37,6 +40,7 @@ export async function loadSettings(): Promise<Settings> {
   const raw = await browser.storage.local.get([
     'token',
     'port',
+    'portCount',
     'policy',
     'features',
     'grants',
@@ -44,10 +48,11 @@ export async function loadSettings(): Promise<Settings> {
     'confirmClose',
     'autosave',
   ]);
-  const port = Number(raw.port);
+  const range = parsePortRange(raw.port, raw.portCount);
   return {
     token: typeof raw.token === 'string' ? raw.token.trim() : '',
-    port: Number.isInteger(port) && port > 0 && port < 65536 ? port : DEFAULT_PORT,
+    port: range.base,
+    portCount: range.count,
     policy: raw.policy ? parsePolicy(raw.policy) : EMPTY_POLICY,
     // `grants` is the stored switch of PR #8, read only to carry `manageTabs: true` over.
     features: parseFeatures(raw.features, raw.grants),

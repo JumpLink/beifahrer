@@ -71,8 +71,13 @@ async function urlOf(method: Method, params: unknown): Promise<string | null> {
   );
 }
 
-/** Run one request and log it, refusals included. */
-export async function track<T>(method: Method, params: unknown, run: () => Promise<T>): Promise<T> {
+/** Run one request and log it, refusals included, with the session that sent it. */
+export async function track<T>(
+  method: Method,
+  params: unknown,
+  run: () => Promise<T>,
+  session?: string,
+): Promise<T> {
   inFlight++;
   changed();
   const url = await urlOf(method, params);
@@ -86,7 +91,7 @@ export async function track<T>(method: Method, params: unknown, run: () => Promi
     inFlight--;
     lastActivityAt = Date.now();
     await load();
-    log = pushActivity(log, activityEntry({ at: lastActivityAt, method, params, url, error }));
+    log = pushActivity(log, activityEntry({ at: lastActivityAt, method, params, url, error, session }));
     await sessionArea()?.set({ [KEY]: log });
     changed();
   }

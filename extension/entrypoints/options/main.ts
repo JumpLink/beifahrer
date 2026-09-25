@@ -176,6 +176,7 @@ async function main(): Promise<void> {
   const settings = await loadSettings();
   ($('token') as HTMLInputElement).value = settings.token;
   ($('port') as HTMLInputElement).value = String(settings.port);
+  ($('port-count') as HTMLInputElement).value = String(settings.portCount);
   ($('shots') as HTMLInputElement).checked = await browser.permissions.contains(ALL);
 
   $('save').addEventListener('click', async () => {
@@ -186,7 +187,11 @@ async function main(): Promise<void> {
       note.className = 'warn';
       return;
     }
-    await saveSettings({ token, port: Number(($('port') as HTMLInputElement).value) });
+    await saveSettings({
+      token,
+      port: Number(($('port') as HTMLInputElement).value),
+      portCount: Number(($('port-count') as HTMLInputElement).value),
+    });
     note.textContent = 'Saved — connecting…';
     note.className = 'muted';
     await browser.runtime.sendMessage({ type: 'reconnect' });

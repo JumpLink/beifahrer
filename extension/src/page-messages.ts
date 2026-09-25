@@ -8,7 +8,7 @@ import type { ElementQuery, MetaQuery } from '@beifahrer/core';
  */
 export const STOP_MESSAGE = 'beifahrer-stop';
 
-export type PageRequest =
+export type PageRequest = (
   | { beifahrer: 'read'; maxChars: number }
   | { beifahrer: 'outline'; maxItems: number }
   | { beifahrer: 'describe'; ref: string }
@@ -18,7 +18,11 @@ export type PageRequest =
   | { beifahrer: 'hide' }
   | { beifahrer: 'find'; query: ElementQuery; maxResults: number }
   | { beifahrer: 'meta'; meta: MetaQuery }
-  | { beifahrer: 'wait'; query: ElementQuery; timeoutMs: number };
+  | { beifahrer: 'wait'; query: ElementQuery; timeoutMs: number }
+) & {
+  /** The agent session that asked (ADR 0007), named on the in-page pill. */
+  session?: string;
+};
 
 export type PageResponse =
   | { ok: true; data: Record<string, unknown> }
