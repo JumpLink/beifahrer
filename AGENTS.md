@@ -49,7 +49,7 @@ extension reads is the person's private data.
 
 | Path | Contains | Runs on |
 |---|---|---|
-| `packages/core` | **Pure, zero deps.** Wire protocol, policy, redaction | GJS, Node, browser |
+| `packages/core` | **Pure, zero deps.** Wire protocol, policy + grants, redaction, saved-session model | GJS, Node, browser |
 | `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`. The bridge (`src/bridge/`: `bridge.ts` hub, `shared.ts` hub-or-peer election + relay), MCP tools | GJS (bundled by gjsify); tests also on Node |
 | `extension/` | background, page agent, popup, options, confirm window; `manifest.ts` + `scripts/build.ts` (runs on GJS) build both targets | browser (build: GJS) |
 | `tests/e2e/` | Full chain in headless Chromium + Firefox | Node driver, GJS app |
