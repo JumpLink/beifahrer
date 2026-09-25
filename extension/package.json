@@ -4,13 +4,15 @@
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
-  "description": "The beifahrer WebExtension: connects to the local bridge and serves the agent's requests under the per-origin policy the person sets. One source, bundled by gjsify on GJS as MV3 for Chromium and MV2 for Firefox — no Node, no Vite.",
+  "description": "The beifahrer WebExtension: connects to the local bridge and serves the agent's requests under the per-origin policy the person sets. One source, bundled by gjsify on GJS as MV3 for Chromium and MV2 for Firefox \u2014 no Node, no Vite.",
   "scripts": {
     "check": "gjsify tsc --noEmit",
     "lint": "gjsify lint .",
     "build": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify run dist/build.gjs.mjs",
     "zip": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify run dist/build.gjs.mjs --zip",
-    "sign": "sh scripts/sign.sh"
+    "sign": "sh scripts/sign.sh",
+    "dev": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify build scripts/dev.ts --app gjs --outfile dist/dev.gjs.mjs && gjsify run dist/dev.gjs.mjs",
+    "dev:chromium": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify build scripts/dev.ts --app gjs --outfile dist/dev.gjs.mjs && gjsify run dist/dev.gjs.mjs --chromium"
   },
   "dependencies": {
     "@beifahrer/core": "*",

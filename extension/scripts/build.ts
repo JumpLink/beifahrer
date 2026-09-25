@@ -25,7 +25,11 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { version: string };
 const seed = process.env.BEIFAHRER_E2E_SEED ?? '';
 const zip = process.argv.includes('--zip');
-const OUT = join(ROOT, seed ? '.output-e2e' : '.output');
+// BEIFAHRER_OUT_DIR: `dev` builds into its own directory and rebuilds IN PLACE (see below).
+const OUT = process.env.BEIFAHRER_OUT_DIR
+  ? resolve(ROOT, process.env.BEIFAHRER_OUT_DIR)
+  : join(ROOT, seed ? '.output-e2e' : '.output');
+const inPlace = Boolean(process.env.BEIFAHRER_OUT_DIR);
 const STAGE = join(OUT, '.stage');
 
 /** Scripts: output name → entry. */
@@ -89,7 +93,10 @@ function collect(
   return into;
 }
 
-rmSync(OUT, { recursive: true, force: true });
+// A dev build must not delete the directory `web-ext run` is watching: Firefox would unload the
+// extension mid-rebuild. It overwrites file by file instead; a release build starts clean.
+if (!inPlace) rmSync(OUT, { recursive: true, force: true });
+rmSync(STAGE, { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
 for (const [name, entry] of Object.entries(SCRIPTS)) bundle(name, entry);
 const ICON_STAGE = join(OUT, '.icons');

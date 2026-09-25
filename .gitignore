@@ -5,6 +5,7 @@ node_modules/
 dist/
 extension/.output/
 extension/.output-e2e/
+extension/.output-dev/
 extension/dist/
 
 # gjsify

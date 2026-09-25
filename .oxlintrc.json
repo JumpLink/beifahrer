@@ -27,6 +27,7 @@
     "**/.output",
     "**/.output-e2e",
     "probes/**",
-    ".claude/**"
+    ".claude/**",
+    "**/.output-dev"
   ]
 }

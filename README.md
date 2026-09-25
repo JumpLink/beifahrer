@@ -178,6 +178,15 @@ Then open a site, click the beifahrer toolbar button, and pick a level.
 ## Development
 
 ```sh
+gjsify workspace beifahrer-extension dev            # Firefox with the extension, rebuilt + reloaded on every change
+gjsify workspace beifahrer-extension dev:chromium   # the same in Chromium (Playwright's build or $BEIFAHRER_E2E_CHROMIUM)
+```
+
+The dev browser runs in its own persistent profile (`~/.cache/beifahrer/dev-*`), is paired
+automatically with your local token, and talks to port **47814**, so it never shares the hub
+with your everyday browser. Drive it with `gjsify run app/dist/beifahrer.gjs.mjs call <method> --port 47814`.
+
+```sh
 gjsify workspace beifahrer-cli test           # unit tests, on GJS and Node
 node tests/e2e/browsers.e2e.mjs all           # the full chain in headless Chromium + Firefox
 ```

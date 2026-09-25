@@ -28,6 +28,11 @@
       "path": "extension/dist",
       "class": "derived",
       "recreate": "gjsify workspace beifahrer-extension build (the bundled build script)"
+    },
+    {
+      "path": "extension/.output-dev",
+      "class": "derived",
+      "recreate": "gjsify workspace beifahrer-extension dev"
     }
   ]
 }
