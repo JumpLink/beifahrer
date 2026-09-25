@@ -58,7 +58,7 @@ export function renderIcons(root: string, stage: string): void {
   }
 }
 
-export function copyIcons(stage: string, dir: string, target: Target): void {
+export function copyIcons(stage: string, dir: string, _target: Target): void {
   mkdirSync(join(dir, 'icons'), { recursive: true });
   for (const variant of ICON_VARIANTS) {
     const names = ICON_SIZES.map((size) => `${variant}-${size}.png`);
