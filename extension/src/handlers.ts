@@ -14,6 +14,7 @@
 
 import { browser } from '@wxt-dev/browser';
 import {
+  ALWAYS_CONFIRM,
   MAX_WAIT_MS,
   REQUIRED_LEVEL,
   atLeast,
@@ -21,8 +22,10 @@ import {
   originOf,
   preflight,
   preflightMessage,
+  evaluateRequestOf,
   parseElementQuery,
   parseMetaQuery,
+  scriptPreview,
   type ElementQuery,
   toTabInfo,
   withRule,
@@ -139,8 +142,13 @@ async function gate(
   const decision = decide(policy, method, url, accessOf(ctx));
   if (!decision.allow && !decision.askable) return refuse(method, decision);
   const origin = originOf(url)!;
+  // Asked on demand is a branch of its own, so it has to carry the ALWAYS_CONFIRM rule itself. It
+  // happens to be true there for every write (including a script) because the level IS write — but
+  // that is a coincidence of this method's level, not the rule, and a future ALWAYS_CONFIRM method
+  // at another level would otherwise pass through unconfirmed.
+  const always = ALWAYS_CONFIRM.has(method);
   const granted = await hasHostPermission(origin);
-  if (decision.allow && granted) return { origin, confirm: decision.confirm };
+  if (decision.allow && granted) return { origin, confirm: decision.confirm || always };
   const need = decision.allow ? REQUIRED_LEVEL[method]! : decision.need;
   const onceLevel = ctx.once?.get(origin);
   const answer =
@@ -152,7 +160,7 @@ async function gate(
     (ctx.once ??= new Map()).set(origin, need);
   }
   if (answer && (await hasHostPermission(origin)))
-    return { origin, confirm: decision.allow ? decision.confirm : need === 'write' };
+    return { origin, confirm: always || (decision.allow ? decision.confirm : need === 'write') };
   if (!decision.allow) return refuse(method, decision);
   return fail(
     'forbidden',
@@ -187,6 +195,56 @@ async function confirmWrite(
     const { policy } = await loadSettings();
     await saveSettings({ policy: withRule(policy, origin, { level: 'write', confirmWrites: false }) });
   }
+}
+
+/**
+ * Ask before a script runs, showing the person the code (ADR 0012).
+ *
+ * "An agent wants to run something here" is not a decision anyone can make; the script itself is.
+ * The window shows it in full, scrollable — and offers no "Always allow": a site rule must never
+ * become a standing permission for code the person has not seen yet. The capability itself is the
+ * person's switch, in the browser, and it starts off.
+ */
+async function confirmScript(ctx: CallContext, origin: string, script: string): Promise<void> {
+  const answer = await askPerson({
+    origin,
+    action: 'script',
+    // What is about to happen, in words, for the window's own heading row. The code itself travels
+    // in `code` and the window shows that.
+    target: scriptPreview(script),
+    session: ctx.session,
+    code: script,
+  });
+  if (!answer.allow)
+    fail(
+      'denied',
+      `the person declined the script on ${origin} (or did not answer within two minutes). Do not rephrase and retry: ` +
+        'ask them what they want done on this page.',
+    );
+}
+
+/**
+ * Re-check a tab's origin and the person's switches after a window the person had to answer.
+ *
+ * A confirmation can sit open for two minutes. In that time the tab may navigate — the page can do
+ * it itself, and so can the person — so the origin the person said yes to may no longer be the one
+ * the call would run in. For `page.fill`/`page.click` a stale ref simply fails afterwards; a script
+ * has no ref to go stale, so this is where the check belongs. The pause and the level are re-read
+ * for the same reason: Stop pressed while the window was up must stop this call too, which is the
+ * promise ADR 0005 makes.
+ */
+async function stillTheSameOrigin(tabId: number, origin: string, method: Method): Promise<void> {
+  const where = (await getTab(tabId)).url;
+  const moved = originOf(where);
+  if (moved !== origin)
+    return fail(
+      'forbidden',
+      `the tab moved to ${moved ?? 'another page'} while the person was answering. ` +
+        `The answer was about ${origin}, so nothing runs here — ask again for where the tab is now.`,
+      { origin: moved, need: REQUIRED_LEVEL[method] ?? undefined },
+    );
+  const { paused } = await loadSettings();
+  if (paused) return fail('paused', preflightMessage({ allow: false, code: 'paused' }, method));
 }
 
 /** A query from the agent, validated with the same rules a recipe's queries are (find.ts). */
@@ -377,6 +435,39 @@ const handlers: { [M in Method]: Handler<M> } = {
     const { origin, confirm } = await gate('page.click', tab.url, policy, ctx);
     if (confirm) await confirmWrite(ctx, tabId, origin, 'click', ref, undefined);
     return (await page(tabId, ctx, { beifahrer: 'click', ref })) as unknown as Result<'page.click'>;
+  },
+
+  async 'page.evaluate'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    // `tabId` and `browser` are the call's addressing and are stripped; every other key has to be
+    // one the parser knows, so a key the agent invented is refused rather than dropped.
+    const request = evaluateRequestOf(params);
+    if (typeof request === 'string') return fail('invalid', request);
+    // Stated rather than worked around: no WebExtension can run agent-supplied code in a page's own
+    // world without injecting a <script> element — which the page's CSP blocks on most sites and
+    // the page would see. The isolated world below covers "click that and tell me what happened".
+    if (request.world !== 'isolated') {
+      return fail(
+        'unsupported',
+        "beifahrer will not run a script in the page's own JavaScript world: doing so means injecting a " +
+          '<script> element into the page, past its content security policy. Ask for what you need in the ' +
+          "isolated world instead — the DOM is there, the page's JavaScript objects are not.",
+      );
+    }
+    const tab = await getTab(tabId);
+    // `confirm` is true here whatever the site's rule says: ALWAYS_CONFIRM (policy.ts) is what keeps
+    // `confirmWrites: false` from reaching a method the level table does not describe.
+    const { origin, confirm } = await gate('page.evaluate', tab.url, policy, ctx);
+    if (confirm) await confirmScript(ctx, origin, request.script);
+    // The window can sit there for two minutes, and in that time the tab can navigate and the
+    // person can act. The person answered for the origin the window named, so that origin must
+    // still be the one the script would run in — and the pause must not have been pressed.
+    await stillTheSameOrigin(tabId, origin, 'page.evaluate');
+    return (await page(tabId, ctx, {
+      beifahrer: 'evaluate',
+      script: request.script,
+      maxChars: request.maxChars,
+    })) as unknown as Result<'page.evaluate'>;
   },
 
   async 'tabs.open'(params, policy, ctx) {

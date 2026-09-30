@@ -29,6 +29,7 @@ export const METHOD_WORDS: Record<Method, string> = {
   'page.download': 'downloaded a document',
   'page.fill': 'filled a field',
   'page.click': 'clicked',
+  'page.evaluate': 'ran a script',
   'tabs.open': 'opened a tab',
   'tabs.move': 'moved tabs',
   'tabs.pin': 'pinned or unpinned tabs',
@@ -82,6 +83,10 @@ export function activityEntry(input: {
   if (input.session) entry.session = input.session;
   const text = (input.params as { text?: unknown } | null)?.text;
   if (input.method === 'page.fill' && typeof text === 'string') entry.preview = preview(text);
+  // A script is the agent's own text as well, and the person saw the same preview in the confirm
+  // window — after a run, "what ran here" should still be answerable from the log.
+  const script = (input.params as { script?: unknown } | null)?.script;
+  if (input.method === 'page.evaluate' && typeof script === 'string') entry.preview = preview(script);
   return entry;
 }
 

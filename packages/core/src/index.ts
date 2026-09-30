@@ -11,3 +11,4 @@ export * from './ports.ts';
 export * from './connections.ts';
 export * from './desktop.ts';
 export * from './download.ts';
+export * from './evaluate.ts';

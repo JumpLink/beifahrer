@@ -22,6 +22,7 @@ const READ = [
 const WRITE = [
   'page_fill',
   'page_click',
+  'page_evaluate',
   'tab_open',
   'tabs_move',
   'tabs_pin',
@@ -63,6 +64,7 @@ export default async () => {
         'page_outline',
         'page_fill',
         'page_click',
+        'page_evaluate',
         'page_find',
         'page_wait',
         'recipes_for_tab',

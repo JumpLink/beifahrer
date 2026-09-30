@@ -1,7 +1,7 @@
 import { browser } from '@wxt-dev/browser';
 import { parseGrants } from '@beifahrer/core';
 import { disconnectSession } from './bridge-client.ts';
-import { answerAccessForTest, holdForPreview, type AccessScope } from './confirm.ts';
+import { answerAccessForTest, answerConfirmForTest, holdForPreview, type AccessScope } from './confirm.ts';
 import { addGrant, endWildcard } from './grants.ts';
 
 declare const __E2E_SEED__: string;
@@ -21,6 +21,8 @@ export async function applyE2eSeed(): Promise<void> {
 const DISCONNECT_PATH = /^http:\/\/127\.0\.0\.1:\d+\/__beifahrer_e2e\/disconnect\?port=(\d+)$/;
 /** …for the answer buttons of an access prompt (ADR 0010). */
 const ANSWER_PATH = /^http:\/\/127\.0\.0\.1:\d+\/__beifahrer_e2e\/answer\?scope=(once|session|always|deny)$/;
+/** …for the Allow / Deny of a write's or a script's confirmation. */
+const CONFIRM_PATH = /^http:\/\/127\.0\.0\.1:\d+\/__beifahrer_e2e\/confirm\?answer=(allow|deny)$/;
 /** …for the popup's End on "All sites". */
 const END_WIDE_PATH = /^http:\/\/127\.0\.0\.1:\d+\/__beifahrer_e2e\/end-wide$/;
 
@@ -28,6 +30,14 @@ const END_WIDE_PATH = /^http:\/\/127\.0\.0\.1:\d+\/__beifahrer_e2e\/end-wide$/;
 async function answerSoon(scope: AccessScope): Promise<void> {
   for (let i = 0; i < 120; i++) {
     if (answerAccessForTest(scope) > 0) return;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
+
+/** The same for a write's confirmation: the person answering the window (ADR 0012). */
+async function confirmSoon(allow: boolean): Promise<void> {
+  for (let i = 0; i < 120; i++) {
+    if (answerConfirmForTest(allow) > 0) return;
     await new Promise((r) => setTimeout(r, 250));
   }
 }
@@ -57,6 +67,8 @@ export function installE2eHooks(): void {
     if (port) disconnectSession(Number(port));
     const scope = ANSWER_PATH.exec(url)?.[1] as AccessScope | undefined;
     if (scope) void answerSoon(scope);
+    const confirm = CONFIRM_PATH.exec(url)?.[1] as 'allow' | 'deny' | undefined;
+    if (confirm) void confirmSoon(confirm === 'allow');
     if (END_WIDE_PATH.test(url)) void endWildcard();
   });
 }

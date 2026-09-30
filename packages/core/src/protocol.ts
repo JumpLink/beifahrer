@@ -20,6 +20,7 @@
  */
 
 import { parseDesktop, type DesktopInfo } from './desktop.ts';
+import type { ScriptWorld } from './evaluate.ts';
 import type { Feature } from './features.ts';
 import type { ElementQuery, MetaQuery } from './find.ts';
 import type { Level, Method } from './policy.ts';
@@ -141,6 +142,25 @@ export interface MethodMap {
     result: { ref: string; value: string };
   };
   'page.click': { params: { tabId: number; ref: string }; result: { ref: string } };
+  'page.evaluate': {
+    /**
+     * The agent's own code, run in the page (ADR 0012). The script is a function BODY, so `return`
+     * gives the result; `beifahrer` is in scope with find/click/fill/read/outline, so a script can
+     * act through the same vocabulary a recipe has instead of reaching for the DOM blind.
+     *
+     * `world: 'isolated'` (the default) sees the DOM, not the page's JavaScript objects.
+     * `world: 'main'` runs in the page's own world, where the site's objects are — only where the
+     * browser offers it, else `unsupported`.
+     */
+    params: {
+      tabId: number;
+      script: string;
+      world?: ScriptWorld;
+      /** Cap on the JSON result. Bounded by the bridge either way. */
+      maxChars?: number;
+    };
+    result: { url: string; world: ScriptWorld; value: unknown; truncated: boolean };
+  };
   'tabs.open': { params: { url: string; active?: boolean }; result: { tab: TabInfo } };
   'tabs.move': {
     /** `index` -1 = end of the window. Several tabs keep their given order from `index` on. */

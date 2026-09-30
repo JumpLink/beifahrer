@@ -159,6 +159,10 @@ export const REQUIRED_LEVEL = {
   'page.download': 'read',
   'page.fill': 'write',
   'page.click': 'write',
+  // `write`, because a script can do what a write does and more — never `read`. The level table
+  // cannot fully express how far this one reaches, which is why it also has its own feature switch
+  // (off by default), always confirms, and is shown to the person as code (ADR 0012).
+  'page.evaluate': 'write',
   // Opening a URL needs `read` on the TARGET: otherwise an agent that just read something could
   // carry it off in the query string of a URL the person never allowed.
   'tabs.open': 'read',
@@ -183,6 +187,17 @@ export const REQUIRED_LEVEL = {
 
 export type Method = keyof typeof REQUIRED_LEVEL;
 
+/**
+ * Methods a site rule may not silence. `confirmWrites: false` says "this origin needs no
+ * confirmation" — true for a form the person watches the agent fill in. It must not extend to a
+ * method whose reach the level table does not describe, because the answer to "you may not ask me
+ * again" would then cover code the person never saw.
+ *
+ * A script keeps its own switch and its own confirmation forever: only the person turns the
+ * capability on, and every single run is shown to them (ADR 0012).
+ */
+export const ALWAYS_CONFIRM: ReadonlySet<Method> = new Set<Method>(['page.evaluate']);
+
 export function isMethod(value: unknown): value is Method {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(REQUIRED_LEVEL, value);
 }
@@ -205,8 +220,9 @@ export type Decision =
  * May `method` run against a page at `url`?
  *
  * `confirm` is true for every write unless the person switched confirmation off for that origin
- * in an explicit rule. A write that only a temporary grant allows ALWAYS asks: "all sites" and
- * "for this session" widen where the agent may go, never how quietly it may change things there.
+ * in an explicit rule — and for the methods in `ALWAYS_CONFIRM`, whatever the rule says. A write
+ * that only a temporary grant allows ALWAYS asks: "all sites" and "for this session" widen where
+ * the agent may go, never how quietly it may change things there.
  */
 export function decide(
   policy: Policy,
@@ -227,7 +243,7 @@ export function decide(
     };
   }
   const quiet = access.source === 'rule' && policy.origins[access.origin!]?.confirmWrites === false;
-  return { allow: true, confirm: need === 'write' && !quiet };
+  return { allow: true, confirm: (need === 'write' && !quiet) || ALWAYS_CONFIRM.has(method) };
 }
 
 /**

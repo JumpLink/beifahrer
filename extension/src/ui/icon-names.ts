@@ -10,6 +10,7 @@ export const FEATURE_ICON: Record<Feature, string> = {
   download: 'folder-download-symbolic',
   fill: 'insert-text-symbolic',
   click: 'input-mouse-symbolic',
+  script: 'utilities-terminal-symbolic',
   open: 'tab-new-symbolic',
   manageTabs: 'view-grid-symbolic',
   sessions: 'document-save-symbolic',

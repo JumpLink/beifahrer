@@ -194,6 +194,9 @@
   "method_page_click": {
     "message": "Geklickt"
   },
+  "method_page_evaluate": {
+    "message": "Ein Skript ausgeführt"
+  },
   "method_tabs_open": {
     "message": "Tab geöffnet"
   },
@@ -262,6 +265,9 @@
   },
   "feature_click_label": {
     "message": "Klicken"
+  },
+  "feature_script_label": {
+    "message": "Skripte ausführen"
   },
   "feature_open_label": {
     "message": "Tabs öffnen"
@@ -622,6 +628,17 @@
   },
   "confirm_heading_access": {
     "message": "Zugriff erlauben?"
+  },
+  "confirm_heading_script": {
+    "message": "Dieses Skript ausführen?"
+  },
+  "confirm_script": {
+    "message": "$WHO$ möchte auf dieser Seite ein Skript ausführen",
+    "placeholders": {
+      "who": {
+        "content": "$1"
+      }
+    }
   },
   "confirm_access_read": {
     "message": "$SESSION$ möchte $ORIGIN$ lesen",

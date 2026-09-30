@@ -16,6 +16,7 @@ async function main(): Promise<void> {
   }
   $('where').setAttribute('subtitle', req.origin);
   if (req.action === 'access') return askAccess(req);
+  if (req.action === 'script') return askScript(req);
   $('what').textContent =
     req.action === 'fill'
       ? t('confirm_fill', req.target)
@@ -55,6 +56,34 @@ async function main(): Promise<void> {
 }
 
 void main();
+
+/**
+ * "Run this script?" (ADR 0012). The code is the point of this window: it is shown whole, in a
+ * scrollable block, because consent to code nobody can read is not consent.
+ *
+ * Two answers only. "Always allow" is gone here on purpose — it would turn a per-site rule into
+ * standing permission for code that has not been written yet, and the capability switch in the
+ * browser is where that decision belongs.
+ */
+function askScript(req: ConfirmRequest): void {
+  const who = req.session || t('confirm_agent');
+  $('heading').textContent = t('confirm_heading_script');
+  document.title = t('confirm_heading_script');
+  // Set as text: the session label comes from the bridge, the agent's side.
+  $('what').textContent = t('confirm_script', who);
+  $('text').hidden = false;
+  $('text').classList.add('code');
+  $('text').textContent = req.code ?? '';
+  $('always').hidden = true;
+  const answer = (allow: boolean) => async () => {
+    await browser.runtime.sendMessage({ type: 'confirm:answer', id, allow, remember: false });
+    window.close();
+  };
+  $('allow').addEventListener('click', answer(true));
+  $('deny').addEventListener('click', answer(false));
+  // Deny has the focus: Enter on a window that popped up unexpectedly must not run code.
+  $<Gtk.Button>('deny').button.focus();
+}
 
 /**
  * "<session> wants to read <site>" (ADR 0010). Every yes asks the browser for the site's host

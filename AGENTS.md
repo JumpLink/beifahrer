@@ -23,9 +23,24 @@ decides, and `extension/src/handlers.ts` calls it before *every* page access.
 |**Fail closed.** An unknown origin is `none`. A non-http(s) URL has no origin. An unknown method
 is refused. A malformed stored policy entry is dropped, not widened. The MCP read-only gate drops
 a tool that forgot its annotation.
-|**No `evaluate`.** No method runs agent-supplied JavaScript. Every capability is a named method in
-`REQUIRED_LEVEL` (policy.ts) with its level, and in `FEATURE_OF` (features.ts) with exactly ONE
-feature. Adding a method means adding both there first.
+|**No `evaluate` — except the one that is switched off, confirmed and shown.** No method runs
+agent-supplied JavaScript *by default*. Every capability is a named method in `REQUIRED_LEVEL`
+(policy.ts) with its level, and in `FEATURE_OF` (features.ts) with exactly ONE feature. Adding a
+method means adding both there first. `page.evaluate` is the one exception and it is the load-
+bearing one ([ADR 0012](docs/adr/0012-running-the-agents-own-script-in-the-page.md)): own feature
+switch `script`, **off by default**; `write` level, never `read`; `ALWAYS_CONFIRM` (policy.ts), so
+no `confirmWrites: false` can silence it; the confirm window shows the whole script and offers no
+"Always allow"; the result is projected into bounded JSON with a `truncated` flag; the extension's
+own `chrome`/`browser` globals are shadowed out of the script's scope, because a script that could
+read `storage` could clear the pause and widen every level; and the tab's origin is re-read after the
+window, since the person answered for a page and the page can move. It runs in the page agent's
+isolated world, and `world: "main"` is refused with a reason — an installed extension has no API that
+runs its own code as a string in a page's world. Removing any of those conditions removes the reason
+it may exist; changing them is an ADR, not a patch. One more condition, and it is not ours: **a
+Manifest V3 content script cannot compile a string into code at all** (it shares the extension's CSP,
+which cannot name `unsafe-eval`), so the page agent probes `new Function('')` once and answers
+`unsupported` with that reason on Chromium and Safari. Firefox's Manifest V2 build runs the script.
+Probe it, never infer it from a manifest field.
 |**Only the person resumes.** Pause (`paused` in storage) refuses EVERY method, `tabs.list` too.
 The popup, options, the in-page Stop button and the shortcut set it; only the popup, options and
 shortcut clear it. No protocol method may touch it, and a content script may only ever set it
@@ -84,7 +99,7 @@ descriptions and wire error messages are never translated. A new method needs `m
 
 | Path | Contains | Runs on |
 |---|---|---|
-| `packages/core` | **Pure, zero deps.** Wire protocol, the port range (`ports.ts`) and the extension's connection table (`connections.ts`), policy, features + pause (`features.ts`), toolbar look, activity log entries, redaction, saved-session model, element queries (`find.ts`), the recipe format + validator (`recipes.ts`) | GJS, Node, browser |
+| `packages/core` | **Pure, zero deps.** Wire protocol, the port range (`ports.ts`) and the extension's connection table (`connections.ts`), policy (incl. `ALWAYS_CONFIRM`), features + pause (`features.ts`), toolbar look, activity log entries, redaction, saved-session model, element queries (`find.ts`), the recipe format + validator (`recipes.ts`), the bounds of `page.evaluate` (`evaluate.ts`) | GJS, Node, browser |
 | `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`, `tool`. The bridge (`src/bridge/`: `bridge.ts`, one per session, `session.ts` port range + session label), MCP tools, recipe runner + sources (`src/recipes/`) | GJS (bundled by gjsify); tests also on Node |
 | `extension/` | background, page agent (+ its pill, `src/page-indicator.ts`), popup, options, confirm window (on `@gjsify/adwaita-web`, shared `src/ui/kit.ts` → `ui.js`), `_locales/` (en default, de); `manifest.ts` + `scripts/build.ts` (runs on GJS; `scripts/icons.ts` renders the sparkles icons from `icons/sparkles.svg`) build both targets | browser (build: GJS + GdkPixbuf/librsvg) |
 | `recipes/` | Built-in recipes (JSON), bundled into the app via `app/src/recipes/builtin.ts` | data |
@@ -122,6 +137,14 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   cannot serve.
 - **Firefox's `permissions.request` must be the first `await` in the click handler.** Any earlier
   await ends the user gesture and the request silently fails (see popup/options).
+- **A Manifest V3 content script cannot `eval` or `new Function`.** It shares the extension's
+  content security policy, `script-src` there may only name `self`, `none`, `wasm-unsafe-eval` and
+  (unpacked) localhost, and Chrome refuses to INSTALL an extension whose `extension_pages` policy
+  contains `'unsafe-eval'` — so there is no manifest that unlocks it. A Manifest V2 content script
+  has no CSP of its own and may. This is why `page_evaluate` works in the Firefox build and answers
+  `unsupported` in the Chromium and Safari ones (ADR 0012), and why the e2e's script run is
+  engine-dependent. The workarounds (`userScripts` with *Allow user scripts*, `chrome.debugger`) are
+  developer-mode powers, not capabilities to quietly reach for.
 - **The confirm window is a tab too.** `sender.tab` cannot tell it from a content script;
   `sender.url` can (background.ts).
 - **MV3 service workers sleep.** Every socket pings every 20 s. With no session connected, a
@@ -162,9 +185,15 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   with `url` empty, so tab listings read both.
 - **A whole window is closed with `windows.remove`**, not tab by tab, so that the browser's
   recently-closed list holds it as one window (the e2e restores it from there).
+- **A confirmation window can only be answered by the person.** So a script run, a fill and a click
+  block until the two minutes are up, which would stall the e2e. E2E builds carry hooks
+  (`e2e-seed.ts`): a tab on `/__beifahrer_e2e/confirm?answer=allow|deny` answers every open
+  confirmation as that person would (never with "remember"), and
+  `/__beifahrer_e2e/answer?scope=…` does the same for the access prompts (ADR 0010).
 - **The person's switches cannot be flipped headless.** The e2e builds the extension four
-  times: default features (the `feature_disabled` refusals), PR #8's legacy `grants.manageTabs`
-  plus screenshots (the migration, and the full tab-management run), `paused`, and `access`
+  times: default features (the `feature_disabled` refusals — tab management, sessions, screenshots
+  and, since ADR 0012, scripts), PR #8's legacy `grants.manageTabs` plus screenshots and the
+  `script` switch (the migration, the full tab-management run, and the script run), `paused`, and `access`
   (ADR 0010: a seeded "all sites" grant, a blocked site, and the prompt answered through
   `/__beifahrer_e2e/answer?scope=…` and `/end-wide`). The first three switch asking on demand
   off, because their refusal checks expect `forbidden` at once, not a prompt nobody answers.

@@ -195,6 +195,9 @@
   "method_page_click": {
     "message": "Clicked"
   },
+  "method_page_evaluate": {
+    "message": "Ran a script"
+  },
   "method_tabs_open": {
     "message": "Opened a tab"
   },
@@ -263,6 +266,9 @@
   },
   "feature_click_label": {
     "message": "Click"
+  },
+  "feature_script_label": {
+    "message": "Run scripts"
   },
   "feature_open_label": {
     "message": "Open tabs"
@@ -623,6 +629,17 @@
   },
   "confirm_heading_access": {
     "message": "Allow access?"
+  },
+  "confirm_heading_script": {
+    "message": "Run this script?"
+  },
+  "confirm_script": {
+    "message": "$WHO$ wants to run a script on this page",
+    "placeholders": {
+      "who": {
+        "content": "$1"
+      }
+    }
   },
   "confirm_access_read": {
     "message": "$SESSION$ wants to read $ORIGIN$",

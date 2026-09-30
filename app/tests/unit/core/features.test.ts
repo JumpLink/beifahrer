@@ -41,9 +41,10 @@ export default async () => {
       }
     });
     await it('refuses a method with no feature instead of waving it on', async () => {
-      expect(featureOf('page.evaluate')).toBeNull();
+      // `page.execute` is not a method — the sort of near-miss a typo or an older build sends.
+      expect(featureOf('page.execute')).toBeNull();
       expect(featureOf('__proto__')).toBeNull();
-      expect(preflight({ paused: false, features: allOn }, 'page.evaluate')).toStrictEqual({
+      expect(preflight({ paused: false, features: allOn }, 'page.execute')).toStrictEqual({
         allow: false,
         code: 'feature_disabled',
         feature: null,
@@ -54,6 +55,34 @@ export default async () => {
       expect(featureOf('windows.create')).toBe('manageTabs');
       expect(featureOf('sessions.restore')).toBe('sessions');
       expect(featureOf('sessions.recentlyClosed')).toBe('sessions');
+    });
+
+    await it('gives a script its own switch, off by default', async () => {
+      // ADR 0012: a script is a capability of its own, not one of the page writes — otherwise
+      // switching "Fill fields" on would quietly switch code execution on with it.
+      expect(featureOf('page.evaluate')).toBe('script');
+      expect(featureOf('page.fill')).toBe('fill');
+      expect(featureOf('page.click')).toBe('click');
+      expect(DEFAULT_FEATURES.script).toBe(false);
+      expect(FEATURE_INFO.script.label.length > 0).toBe(true);
+      // All page writes on, the script still off.
+      expect(preflight({ paused: false, features: DEFAULT_FEATURES }, 'page.evaluate')).toStrictEqual({
+        allow: false,
+        code: 'feature_disabled',
+        feature: 'script',
+      });
+      expect(preflight({ paused: false, features: DEFAULT_FEATURES }, 'page.click').allow).toBe(true);
+      // Switched on, it runs — the policy still has the last word (policy.ts decides).
+      expect(
+        preflight({ paused: false, features: { ...DEFAULT_FEATURES, script: true } }, 'page.evaluate'),
+      ).toStrictEqual({ allow: true, feature: 'script' });
+      // A stored value that is not a literal true leaves it off.
+      expect(parseFeatures({ script: 'yes' }).script).toBe(false);
+      // And the pause still beats the switch.
+      expect(preflight({ paused: true, features: allOn }, 'page.evaluate')).toStrictEqual({
+        allow: false,
+        code: 'paused',
+      });
     });
   });
 
@@ -67,6 +96,8 @@ export default async () => {
         download: false,
         fill: true,
         click: true,
+        // With the other far-reaching capabilities: a script is off until the person says so.
+        script: false,
         open: true,
         manageTabs: false,
         sessions: false,

@@ -92,6 +92,20 @@ export function show(verb: 'reading' | 'editing', session?: string): void {
   schedule();
 }
 
+/**
+ * Put the pill back if it was removed, and say what is happening.
+ *
+ * The Stop button is the one thing the person can press while a script runs, and the host element
+ * is an ordinary child of `<html>` — so code in the page's DOM (a script in the isolated world, or
+ * the page itself) can remove it. A long script therefore re-asserts it: the affordance must not be
+ * removable by the thing it is watching. The closed shadow root already keeps the page from reading
+ * or forging the pill's contents; this keeps it from being taken away.
+ */
+export function keepShown(verb: 'reading' | 'editing', session?: string): void {
+  if (!host || !host.isConnected) show(verb, session);
+  else schedule();
+}
+
 export function hideNow(): void {
   clearTimeout(hideTimer);
   host?.remove();

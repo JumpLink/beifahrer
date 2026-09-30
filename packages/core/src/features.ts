@@ -26,6 +26,7 @@ export const FEATURES = [
   'download',
   'fill',
   'click',
+  'script',
   'open',
   'manageTabs',
   'sessions',
@@ -50,6 +51,11 @@ export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = 
   },
   fill: { label: 'Fill fields', detail: 'page_fill — still needs Read + edit on the site' },
   click: { label: 'Click', detail: 'page_click — still needs Read + edit on the site' },
+  script: {
+    label: 'Run scripts',
+    detail:
+      'page_evaluate — the agent runs its own code in the page. Needs Read + edit on the site, and you see every script before it runs',
+  },
   open: { label: 'Open tabs', detail: 'tab_open — only sites at Read or higher' },
   manageTabs: {
     label: 'Manage tabs and windows',
@@ -76,6 +82,11 @@ export const DEFAULT_FEATURES: Features = {
   download: false,
   fill: true,
   click: true,
+  // Off, with screenshots, downloads, tab management and sessions: every capability that reaches
+  // past "act on the one page in front of the person" — and this one more than any of them. Running
+  // the agent's own code in a tab is switched on deliberately, per browser, and every run asks
+  // (ADR 0012).
+  script: false,
   open: true,
   manageTabs: false,
   sessions: false,
@@ -97,6 +108,7 @@ export const FEATURE_OF = {
   'page.download': 'download',
   'page.fill': 'fill',
   'page.click': 'click',
+  'page.evaluate': 'script',
   'tabs.open': 'open',
   'tabs.move': 'manageTabs',
   'tabs.pin': 'manageTabs',

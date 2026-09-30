@@ -9,7 +9,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import type { Method, Params, Result } from '@beifahrer/core';
+import { MAX_RESULT_CHARS, WORLDS, type Method, type Params, type Result } from '@beifahrer/core';
 
 import { BridgeError, browserLabel, type BrowserAccess } from '../../bridge/bridge.ts';
 import { registerFindTools } from './find-tools.ts';
@@ -292,6 +292,68 @@ export function registerTools(
     async ({ tabId, ref, browser }) => {
       try {
         return text(await call('page.click', { tabId, ref }, browser));
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    'page_evaluate',
+    {
+      title: 'Run a script in the page (Firefox only)',
+      description:
+        'Run YOUR OWN JavaScript in a tab and get a JSON result back — the escape hatch when a page does something no named tool covers, ' +
+        'and the only way to act on state beifahrer does not model (a drag-and-drop, a canvas, a widget that only answers a key sequence). ' +
+        'It removes the limits the other tools have, and that is exactly why it is guarded: the person switched "Run scripts" on in their browser, ' +
+        'the site must be at level "read + edit", and EVERY run opens a window in which they see the whole script and answer Allow or Deny. ' +
+        'There is no "always allow" for a script, and a denied run is not a phrasing problem — ask the person instead. ' +
+        "FIREFOX ONLY: a Manifest V3 content script shares the extension's content security policy and that policy cannot name " +
+        "'unsafe-eval', so Chromium and Safari answer `unsupported` with that reason. Do not retry it there; the named tools are the way. " +
+        'The script is a function BODY: `return` gives the result, `await` works. In scope is `beifahrer` with the same verbs the named tools have: ' +
+        'find(query) → [{ref, description}], describe(ref), click(ref), fill(ref, text, as?, mode?), read(maxChars?), outline(maxItems?), meta(query), sleep(ms), plus url and title. ' +
+        'So the usual script is `const b = beifahrer.find({role:"button", name:"Save"})[0]; beifahrer.click(b.ref); return beifahrer.read(2000);` — ' +
+        'address widgets by role and name as always, rather than reaching into the DOM blind. ' +
+        "Runs in beifahrer's own isolated world: the DOM is there, and the extension's own APIs are NOT (chrome and browser are undefined inside a script — " +
+        'a script that could read storage could clear the pause and widen every level). ' +
+        "The page's JavaScript objects are a per-engine thing: on Chromium a script cannot see window.appState at all, on Firefox it reaches it through " +
+        'window.wrappedJSObject — so rely on neither. world:"main" is refused with "unsupported", because an installed extension has no API that runs its ' +
+        "own code as a string inside a page's world. " +
+        'The result is JSON-safe and bounded; `truncated: true` means you are seeing part of it — do not fill the gap by guessing. ' +
+        "A script that never yields holds the tab's main thread and cannot be stopped from here: the person has to close or reload the tab. One that does await " +
+        'cannot: its `beifahrer.*` calls stop working once the call has ended or the person has paused beifahrer, and the in-page Stop button is re-asserted while it runs. ' +
+        'A script may do anything a "read + edit" grant allows on that site, reading a password field included — which is why it is off until a person switches it on. ' +
+        POLICY_NOTE,
+      // Strict, unlike the other tools' schemas, and that is the point: an unknown key here is an
+      // option the agent believes it set — a `maxChar` typo, a `timeout`, a flag it invented — and a
+      // stripped key runs the script under bounds nobody asked for while the agent believes it chose
+      // them. The extension's own parser refuses such a key too (evaluateRequestOf, core); this is
+      // the same rule one layer earlier, so the agent is told by the tool that validates its input
+      // rather than by a window it has already answered.
+      inputSchema: z.strictObject({
+        tabId: tabIdParam,
+        script: z
+          .string()
+          .min(1)
+          .describe('Function body. `return` gives the result; `beifahrer` is in scope. Firefox only.'),
+        world: z
+          .enum(WORLDS)
+          .optional()
+          .describe("Only 'isolated' works — 'main' is refused with `unsupported` (ADR 0012)"),
+        maxChars: z
+          .number()
+          .int()
+          .min(200)
+          .max(MAX_RESULT_CHARS)
+          .optional()
+          .describe('Cap on the JSON result, in characters of JSON text'),
+        browser: browserParam,
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ tabId, script, world, maxChars, browser }) => {
+      try {
+        return text(await call('page.evaluate', { tabId, script, world, maxChars }, browser));
       } catch (err) {
         return failure(err);
       }

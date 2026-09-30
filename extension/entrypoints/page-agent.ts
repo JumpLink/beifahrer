@@ -2,9 +2,9 @@
  * The page agent: injected on demand into a tab the policy allows, in the extension's isolated
  * world. It sees the page's DOM but not the page's JavaScript, and the page cannot see it.
  *
- * It does exactly eight things — read, outline, find, meta, wait, describe, fill, click — and
- * answers messages from the background. The policy was already checked there; this script
- * trusts its caller and nothing else. While it works, it shows the person a pill with a Stop
+ * It does exactly nine things — read, outline, find, meta, wait, describe, fill, click,
+ * evaluate — and answers messages from the background. The policy was already checked there; this
+ * script trusts its caller and nothing else. While it works, it shows the person a pill with a Stop
  * button (src/page-indicator.ts), and it hides that pill on request before a screenshot.
  *
  * Refs (`e1`, `e2`, …) are handed out by `outline` and stay valid for the life of the document:
@@ -15,12 +15,17 @@ import { browser } from '@wxt-dev/browser';
 import {
   downloadFilename,
   metaMatches,
+  parseElementQuery,
+  parseMetaQuery,
+  projectValue,
   queryMatches,
   resolveDownloadTarget,
+  scriptError,
   type ElementQuery,
+  type FoundElement,
   type MetaQuery,
 } from '@beifahrer/core';
-import { afterRepaint, hideNow, show } from '../src/page-indicator.ts';
+import { afterRepaint, hideNow, keepShown, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
 interface AgentState {
@@ -133,6 +138,54 @@ function kindOf(el: Element): Kind | null {
 function state(): AgentState {
   globalThis.__beifahrer ??= { refs: new Map(), ids: new WeakMap(), next: 1 };
   return globalThis.__beifahrer;
+}
+
+// --- a script's reach, and its lifetime --------------------------------------------------------
+
+/** Marks the script currently running, so a script that outlives its call can be told to stop. */
+let scriptRun = 0;
+let scriptRunning = false;
+
+/** A token for the run that starts now; pass it to `endScript` and `scriptAlive`. */
+function beginScript(): number {
+  scriptRun++;
+  scriptRunning = true;
+  return scriptRun;
+}
+
+function endScript(token: number): void {
+  // A later run already took over: its flag is the live one.
+  if (token === scriptRun) scriptRunning = false;
+}
+
+/** Is the run that started with `token` still the current one, and still going? */
+function scriptAlive(token: number): boolean {
+  return token === scriptRun && scriptRunning;
+}
+
+/** The agent session that asked, as the pill names it (ADR 0007). Untrusted text, set as text. */
+let session: string | undefined;
+
+/** `beifahrer.sleep`, but it wakes on a run that is over: beifahrer paused, or the call replaced. */
+function interruptibleSleep(ms: number, token: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    const tick = (): void => {
+      if (!scriptAlive(token)) {
+        reject(new Error('beifahrer was paused or the script was replaced — it stopped here'));
+        return;
+      }
+      // The pill and its Stop button must survive a script that is running: it is the one control
+      // the person has while it does. Re-asserted on every tick rather than once (page-indicator).
+      keepShown('editing', session);
+      if (Date.now() - started >= ms) {
+        resolve();
+        return;
+      }
+      setTimeout(tick, Math.min(ms, 250));
+    };
+    tick();
+  });
 }
 
 function refOf(el: Element): string {
@@ -515,6 +568,246 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+/**
+ * What a script gets in scope as `beifahrer`, beside the DOM (ADR 0012).
+ *
+ * Deliberately the same verbs a recipe has — find, click, fill, read, outline — so a script reads
+ * like a recipe and never has to guess how a widget is put together. Every one of them goes
+ * through the code path the equivalent call uses; the gate for all of them was checked once, for
+ * the script, in the confirm window the person answered.
+ */
+interface ScriptApi {
+  readonly url: string;
+  readonly title: string;
+  find(query: ElementQuery, maxResults?: number): FoundElement[];
+  describe(ref: string): string;
+  click(ref: string): void;
+  fill(ref: string, text: string, as?: 'text' | 'html', mode?: 'replace' | 'append'): string;
+  read(maxChars?: number): string;
+  outline(maxItems?: number): string;
+  meta(query: MetaQuery): number;
+  sleep(ms: number): Promise<void>;
+}
+
+function scriptApi(): ScriptApi {
+  const query = (raw: ElementQuery): ElementQuery => {
+    const parsed = parseElementQuery(raw);
+    if (typeof parsed === 'string') throw new Error(parsed);
+    return parsed;
+  };
+  const unwrap = (res: PageResponse): Record<string, unknown> => {
+    if (!res.ok) throw new Error(res.message);
+    return res.data;
+  };
+  return {
+    url: location.href,
+    title: document.title,
+    find: (q, maxResults = 20) => {
+      const { matches } = matching(query(q), maxResults);
+      return matches.map(found);
+    },
+    describe: (ref) => String(unwrap(describeRef(ref)).description),
+    click: (ref) => void click(ref),
+    fill: (ref, text, as = 'text', mode = 'replace') => String(unwrap(fill(ref, text, as, mode)).value),
+    read: (maxChars = 4_000) => String(unwrap(read(maxChars)).text),
+    outline: (maxItems = 200) => String(unwrap(outline(maxItems)).outline),
+    meta: (q) => {
+      const parsed = parseMetaQuery(q);
+      if (typeof parsed === 'string') throw new Error(parsed);
+      return Number(unwrap(meta(parsed)).count ?? 0);
+    },
+    sleep: (ms) => new Promise((r) => setTimeout(r, Math.min(Math.max(ms, 0), 30_000))),
+  };
+}
+
+/** The page agent's `describe`, as a value: a script wants the text, not a response envelope. */
+function describeRef(ref: string): PageResponse {
+  const el = byRef(ref);
+  if (!el) return notFound(ref);
+  const kind = kindOf(el);
+  return {
+    ok: true,
+    data: { ref, description: kind ? describe(el, kind) : el.tagName.toLowerCase() },
+  };
+}
+
+/**
+ * Run the agent's own code here (ADR 0012).
+ *
+ * The script is the BODY of an async function, so `return` gives a result and `await` works
+ * without ceremony. What comes back is projected into JSON-safe, bounded data by `projectValue`
+ * (core), with a `truncated` flag the agent must not ignore: a result that lost part of itself is
+ * not the whole answer.
+ *
+ * What a script CANNOT do, and why that is the design rather than a limitation to work around:
+ * it cannot reach the page's JavaScript objects. This runs in the page agent's isolated world, and
+ * no WebExtension can run agent-supplied code in a page's own world without defeating the page's
+ * CSP (a `<script>` element) — so beifahrer does not offer that, and the handler refuses
+ * `world: "main"` rather than pretending. `world: "main"` exists in the type for the day a browser
+ * offers it properly.
+ *
+ * A script that never returns cannot be stopped from here: it holds the tab's main thread, and the
+ * person closes or reloads the tab. That is stated in the ADR and in the tool description rather
+ * than hidden behind a timeout that cannot fire.
+ */
+type ScriptRunner = (...args: unknown[]) => unknown;
+
+const AsyncFunction = Object.getPrototypeOf(async function noop() {}).constructor as new (
+  ...args: string[]
+) => ScriptRunner;
+
+/**
+ * What a script must not see, even for the length of one call.
+ *
+ * A content script's isolated world carries the EXTENSION's own APIs as globals: `chrome` (or
+ * `browser`), and through it `storage.local` — which holds the pairing token, the whole per-origin
+ * policy, the feature switches and the pause flag (settings.ts). A script that could read them
+ * could clear the pause and widen every level, so it would be able to un-gate every later call in
+ * this browser: one approved run would unmake the whole model (ADR 0012).
+ *
+ * The shadowing is by PARAMETER, not by deleting anything. A parameter named `chrome` shadows the
+ * global for the whole body without touching the page agent's own reference to it, which is what
+ * lets `browser.runtime.onMessage` below keep working while a script runs. `globalThis` is shadowed
+ * as well, so the script cannot reach the real object by property path either.
+ *
+ * What this does NOT claim: it is not a sandbox boundary in the JS-engine sense. The script still
+ * runs in this realm and can reach anything reachable from a realm global that is not named here.
+ * The narrow list below plus the isolated world is what stands between a script and the extension.
+ * It is the reason the capability is off by default, confirmed every time, and limited to sites at
+ * `write` — not a reason to relax any of those.
+ */
+const SHADOWED = ['chrome', 'browser', 'globalThis', 'self', 'top', 'parent', 'frames', 'opener'] as const;
+
+function scriptParams(): string[] {
+  return ['beifahrer', ...SHADOWED];
+}
+
+function scriptArgs(api: ScriptApi): unknown[] {
+  // `self`, `top`, `parent`, `frames` and `opener` still WORK as the page's own window (a script
+  // needs `location` and `document`); they are shadowed so the script cannot walk from them to the
+  // extension's frame. `window` is not shadowed for the same reason.
+  return [api, undefined, undefined, undefined, window, window, window, window, window];
+}
+
+/**
+ * Can this browser compile a string into a function HERE, in a content script?
+ *
+ * Measured, not assumed, because the answer is a property of the platform and it differs:
+ *
+ * - A Manifest V2 content script has NO content security policy of its own, so `new Function` works
+ *   (Firefox, and Firefox's Manifest V2 build of beifahrer).
+ * - A Manifest V3 content script SHARES the extension's policy, and that policy cannot be relaxed:
+ *   Chrome refuses to install an extension whose `content_security_policy.extension_pages` contains
+ *   `'unsafe-eval'`, and only `self`, `none`, `wasm-unsafe-eval` and — unpacked only — localhost are
+ *   allowed there. So on Chromium, and on any Manifest V3 build, the call throws.
+ *
+ * The two doors around it are not ours to open: Chromium's `userScripts` API needs *Allow user
+ * scripts* turned on for the extension (developer mode), and `chrome.debugger` attaches a debugger
+ * to the person's browser. So a script is answered `unsupported` there, with the reason, rather than
+ * faked — the same answer `world: "main"` gets, for a second and independent reason (ADR 0012).
+ *
+ * Probed once and remembered: the answer cannot change while the page lives.
+ */
+let canCompile: boolean | undefined;
+
+function codeExecutionAllowed(): boolean {
+  canCompile ??= (() => {
+    try {
+      new Function('');
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  return canCompile;
+}
+
+const NO_CODE_HERE =
+  'this browser does not let an extension compile a string into code inside a page: in Manifest V3 ' +
+  "a content script shares the extension's content security policy, and that policy cannot name " +
+  "'unsafe-eval' — Chrome refuses to install such an extension. Firefox (Manifest V2) does, and " +
+  'beifahrer runs scripts there.';
+
+async function evaluate(script: string, maxChars: number): Promise<PageResponse> {
+  if (!codeExecutionAllowed())
+    return {
+      ok: false,
+      code: 'unsupported',
+      message: `beifahrer will not run a script here: ${NO_CODE_HERE}`,
+    };
+  const names = scriptParams();
+  let run: ScriptRunner;
+  try {
+    // `new AsyncFunction` is the whole point of this method: the script is agent-supplied code by
+    // definition. Bounded by `parseEvaluate` (length), shown whole in the confirm window, and the
+    // extension's own APIs are shadowed out of the scope below.
+    run = new AsyncFunction(...names, `"use strict";\n${script}`);
+  } catch (err) {
+    return { ok: false, code: 'invalid', message: `the script does not compile: ${scriptError(err)}` };
+  }
+  const token = beginScript();
+  const api = guardApi(scriptApi(), token);
+  const args = scriptArgs(api);
+  try {
+    const { value, truncated } = projectValue(await run(...args), maxChars);
+    return { ok: true, data: { url: location.href, world: 'isolated', value, truncated } };
+  } catch (err) {
+    return { ok: false, code: 'failed', message: `the script failed: ${scriptError(err)}` };
+  } finally {
+    endScript(token);
+  }
+}
+
+/**
+ * The stops a script can reach.
+ *
+ * A synchronous `while (true)` holds the tab's main thread and nothing on this side can interrupt
+ * it — that is a platform fact and the tool description says so. An ASYNC script is different: it
+ * yields at every `await`, so `beifahrer.sleep` can refuse, and pause is checked between steps.
+ * A fire-and-forget async script therefore still cannot click forever after its call ended: its
+ * next `beifahrer.*` call throws, because the run it belonged to is over.
+ */
+function guardApi(api: ScriptApi, token: number): ScriptApi {
+  const check = (): void => {
+    if (!scriptAlive(token))
+      throw new Error(
+        'this script is no longer running — beifahrer was paused, or the call it belonged to has ended',
+      );
+  };
+  return {
+    ...api,
+    find: (...args) => {
+      check();
+      return api.find(...args);
+    },
+    describe: (...args) => {
+      check();
+      return api.describe(...args);
+    },
+    click: (...args) => {
+      check();
+      return api.click(...args);
+    },
+    fill: (...args) => {
+      check();
+      return api.fill(...args);
+    },
+    read: (...args) => {
+      check();
+      return api.read(...args);
+    },
+    outline: (...args) => {
+      check();
+      return api.outline(...args);
+    },
+    meta: (...args) => {
+      check();
+      return api.meta(...args);
+    },
+    sleep: (ms) => interruptibleSleep(ms, token),
+  };
+}
+
 const VERB: Partial<Record<PageRequest['beifahrer'], 'reading' | 'editing'>> = {
   read: 'reading',
   outline: 'reading',
@@ -525,10 +818,12 @@ const VERB: Partial<Record<PageRequest['beifahrer'], 'reading' | 'editing'>> = {
   describe: 'editing',
   fill: 'editing',
   click: 'editing',
+  evaluate: 'editing',
 };
 
 function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
   const verb = VERB[req.beifahrer];
+  session = req.session;
   // Shown BEFORE reading: `read` takes body.innerText, and the pill lives outside <body> in a
   // closed shadow root, so it never shows up in what the agent gets.
   if (verb) show(verb, req.session);
@@ -558,6 +853,8 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
       return fill(req.ref, req.text, req.as, req.mode);
     case 'click':
       return click(req.ref);
+    case 'evaluate':
+      return evaluate(req.script, req.maxChars);
     case 'hide':
       hideNow();
       return { ok: true, data: {} };

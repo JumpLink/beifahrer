@@ -74,6 +74,9 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
 <div id="editor" contenteditable="true" aria-label="Model editor"><p>old</p></div>
 <div id="bare" contenteditable="true" aria-label="Bare editor"></div>
 <button id="send">Send</button>
+<button id="demo">Demo</button>
+<p id="demo-output"></p>
+<a href="/sample" id="sample-link">sample link</a>
 <p>clicks: <span id="clicks">0</span> · pastes: <span id="pastes">0</span> <span id="pasteinfo"></span></p>
 <p>indicator:<span id="ind"></span>.</p>
 <script>
@@ -91,6 +94,11 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
     const html = e.clipboardData.getData('text/html') || e.clipboardData.getData('text/plain');
     e.currentTarget.innerHTML = html;
     document.getElementById('pastes').textContent = ++pastes;
+  });
+  // ADR 0012: a button whose effect a page script records, for the script run. The text lands in
+  // the DOM, so a script in the isolated world can read the result of a click it made.
+  document.getElementById('demo').addEventListener('click', () => {
+    document.getElementById('demo-output').textContent = 'demo ran';
   });
   // What the PAGE can see of beifahrer's in-page pill: a host element that comes and goes. "+closed"
   // = it appeared and the page could not open its shadow root nor read any text; "-" = it left.
@@ -614,6 +622,212 @@ async function accessScenario(browser) {
 }
 
 /** page_find, page_wait (issue #2) and recipes, against the synthetic OpenProject-like page. */
+/**
+ * ADR 0012: the agent's own script, through the whole chain. The gate is the point of this run —
+ * the script switch, the site level, the confirm window with the code in it, `world: "main"` —
+ * plus what a test can actually prove about the script itself: it runs, it sees the DOM, the
+ * extension's own APIs are not in its scope, and what comes back is bounded and flagged.
+ *
+ * Every allowed run needs its own hook tab (ADR 0012's e2e hooks): the person answers every run, and
+ * a test that answered once and then carried on would prove nothing about the second one.
+ */
+async function scripts(browser, client, allowed, forbidden) {
+  // 1. Below the level: a site with no rule refuses a script, naming write.
+  const onNothing = await quickly(client, 'page_evaluate', {
+    tabId: forbidden.tabId,
+    script: 'return document.title',
+  });
+  check(
+    browser,
+    'page_evaluate on a site below read is forbidden, naming the level it needs',
+    onNothing.error && /forbidden/.test(onNothing.text) && /write/.test(onNothing.text),
+    onNothing.text.slice(0, 200),
+  );
+
+  // 2. `world: "main"` is refused with the reason, not silently downgraded.
+  const main = await quickly(client, 'page_evaluate', {
+    tabId: allowed.tabId,
+    script: 'return 1',
+    world: 'main',
+  });
+  check(
+    browser,
+    'page_evaluate world=main answers unsupported with a reason',
+    main.error && /^unsupported:/.test(main.text) && /content security policy/.test(main.text),
+    main.text.slice(0, 200),
+  );
+
+  // 3. Bad input is refused before anything runs. A missing script is caught by the MCP schema
+  //    first, so the empty one carries the check for the extension's own parser. An unknown key is
+  //    refused TWICE over — the tool's strict schema names it here, the extension's parser names it
+  //    again for a caller that is not this tool — so the check accepts either refusal and, above
+  //    all, that it arrives at once: a timeout would mean the window had already opened.
+  for (const [label, args, refused] of [
+    ['an empty script', { tabId: allowed.tabId, script: '  ' }, /invalid/],
+    ['a script too long to read', { tabId: allowed.tabId, script: 'a'.repeat(20_001) }, /invalid/],
+    ['an unknown key', { tabId: allowed.tabId, script: 'return 1', eval: true }, /invalid|Unrecognized key/],
+  ]) {
+    const bad = await quickly(client, 'page_evaluate', args);
+    check(
+      browser,
+      `page_evaluate refuses ${label}`,
+      bad.error && refused.test(bad.text) && !/still waiting/.test(bad.text),
+      bad.text.slice(0, 160),
+    );
+  }
+
+  // 4. The confirm window is answered Deny → the script does not run. ONE call, and the hook tab
+  //    answers whatever window is open; a second call here would open a second window and wait on
+  //    it, which is a test that hangs rather than a test that proves anything.
+  const pending = tool(client, 'page_evaluate', {
+    tabId: allowed.tabId,
+    script: 'return document.title',
+  });
+  await sleep(1_000);
+  await tool(client, 'tab_open', {
+    url: `${ALLOWED}/__beifahrer_e2e/confirm?answer=deny`,
+    active: false,
+  });
+  const denied = await Promise.race([pending, sleep(15_000).then(() => null)]);
+  check(
+    browser,
+    'a script the person denied answers "denied"',
+    denied && denied.error && /^denied:/.test(denied.text ?? ''),
+    denied ? String(denied.text).slice(0, 200) : 'still waiting after 15 s',
+  );
+
+  // 5. Every run after this one gets its own window, so each needs its own hook tab: the person
+  //    answers every run, and a test that answered once and then assumed would test nothing.
+  const allowScript = async (args, ms = 20_000) => {
+    const call = tool(client, 'page_evaluate', args);
+    await sleep(1_000);
+    await tool(client, 'tab_open', {
+      url: `${ALLOWED}/__beifahrer_e2e/confirm?answer=allow`,
+      active: false,
+    });
+    return Promise.race([call, sleep(ms).then(() => null)]);
+  };
+
+  // 5. The same script, answered Allow. WHAT HAPPENS NOW IS A PLATFORM FACT, and the run measures
+  //    it instead of assuming it (ADR 0012): a Manifest V3 content script shares the extension's
+  //    content security policy, and that policy cannot name 'unsafe-eval' — Chrome refuses to
+  //    install such an extension. So Chromium answers `unsupported` with that reason, and only
+  //    Firefox (Manifest V2, no content-script CSP) actually runs the code.
+  const canRunCode = browser !== 'chromium';
+  const ran = await allowScript({
+    tabId: allowed.tabId,
+    script: `document.getElementById('demo').click();
+      await new Promise((r) => setTimeout(r, 300));
+      return {
+        title: document.title,
+        pageChanged: document.querySelector('#demo-output')?.textContent ?? null,
+        extensionApis: [typeof chrome, typeof browser],
+      };`,
+  });
+  if (canRunCode) {
+    check(browser, 'a script the person allowed runs', ran && !ran.error, String(ran?.text).slice(0, 200));
+    if (ran && !ran.error) {
+      const out = JSON.parse(ran.text);
+      check(browser, 'the script read the page title', out.value?.title === 'beifahrer fixture', ran.text);
+      check(
+        browser,
+        "it clicked the page and the page's own listener ran",
+        out.value?.pageChanged === 'demo ran',
+        ran.text,
+      );
+      check(
+        browser,
+        "the extension APIs are not in the script's scope (ADR 0012)",
+        Array.isArray(out.value?.extensionApis) && out.value.extensionApis.every((t) => t === 'undefined'),
+        ran.text,
+      );
+      check(browser, 'the result says it is complete', out.truncated === false, ran.text);
+      check(browser, 'the result names the world it ran in', out.world === 'isolated', ran.text);
+    }
+  } else {
+    check(
+      browser,
+      'a Manifest V3 content script answers unsupported, naming the content security policy',
+      ran && ran.error && /^unsupported:/.test(ran.text) && /content security policy/.test(ran.text),
+      String(ran?.text).slice(0, 240),
+    );
+  }
+
+  if (!canRunCode) return;
+
+  // 6. The API in scope: `beifahrer` carries the recipe's own verbs, so a script needs no DOM code.
+  const viaApi = await allowScript({
+    tabId: allowed.tabId,
+    script: `const links = beifahrer.find({ role: 'link', name: 'sample' });
+      const b = beifahrer.find({ role: 'button', name: 'Demo' })[0];
+      beifahrer.click(b.ref);
+      await beifahrer.sleep(300);
+      return { links: links.map((l) => l.description), output: beifahrer.describe(b.ref), url: beifahrer.url };`,
+  });
+  check(
+    browser,
+    'a script can use the beifahrer API',
+    !!viaApi && !viaApi.error,
+    String(viaApi?.text).slice(0, 240),
+  );
+  if (viaApi && !viaApi.error) {
+    const out = JSON.parse(viaApi.text);
+    check(
+      browser,
+      'beifahrer.find returns refs and descriptions',
+      Array.isArray(out.value?.links) && out.value.links.length > 0,
+      viaApi.text.slice(0, 240),
+    );
+  }
+
+  // 7. A thrown error comes back with its name, not as a hang.
+  const threw = await allowScript({
+    tabId: allowed.tabId,
+    script: 'throw new TypeError("deliberate")',
+  });
+  check(
+    browser,
+    'a script that throws answers failed with the error name',
+    !!threw && threw.error && /TypeError: deliberate/.test(threw.text),
+    String(threw?.text).slice(0, 200),
+  );
+
+  // 8. A syntax error is the agent's own mistake, and is answered as invalid.
+  const noCompile = await allowScript({
+    tabId: allowed.tabId,
+    script: 'this is not javascript',
+  });
+  check(
+    browser,
+    'a script that does not compile answers invalid',
+    !!noCompile && noCompile.error && /invalid/.test(noCompile.text) && /compile/.test(noCompile.text),
+    String(noCompile?.text).slice(0, 200),
+  );
+
+  // 9. What comes back is bounded, and says so — a result cannot fill the bridge.
+  const huge = await allowScript({
+    tabId: allowed.tabId,
+    script: 'return { rows: Array.from({ length: 5000 }, (_, i) => ({ i, note: "x".repeat(200) })) }',
+    maxChars: 2_000,
+  });
+  check(
+    browser,
+    'a huge result comes back truncated, not whole',
+    !!huge && !huge.error,
+    String(huge?.text).slice(0, 120),
+  );
+  if (huge && !huge.error) {
+    const out = JSON.parse(huge.text);
+    check(browser, 'the huge result is flagged truncated', out.truncated === true, huge.text.slice(0, 160));
+    check(
+      browser,
+      'the huge result honours the cap',
+      JSON.stringify(out.value).length <= 2_000,
+      `${JSON.stringify(out.value).length} chars`,
+    );
+  }
+}
+
 async function recipes(browser, client, allowed, forbidden) {
   const opened = await tool(client, 'tab_open', { url: `${ALLOWED}/openproject/wp/42`, active: false });
   check(browser, 'tab_open opens the OpenProject-like fixture', !opened.error, opened.text);
@@ -932,6 +1146,8 @@ async function pausedChecks(browser, client) {
     ['page_click', { tabId: 1, ref: 'e1' }],
     ['page_find', { tabId: 1, role: 'button' }],
     ['page_wait', { tabId: 1, for: 'load' }],
+    ['page_evaluate', { tabId: 1, script: 'return 1' }],
+    ['page_download', { tabId: 1, url }],
     ['recipes_for_tab', { tabId: 1 }],
     ['recipe_run', { tabId: 1, id: 'openproject/add-comment', params: { text: 'x' } }],
     ['tab_open', { url }],
@@ -1037,6 +1253,9 @@ async function scenario(browser, gate) {
         ['sessions_list', {}, 'Saved sessions'],
         ['sessions_save', { name: 'x' }, 'Saved sessions'],
         ['page_screenshot', { tabId: allowed.tabId }, 'Take screenshots'],
+        // ADR 0012: a script is refused like any other capability the person has not switched on —
+        // before the per-site level, and naming the switch.
+        ['page_evaluate', { tabId: allowed.tabId, script: 'return 1' }, 'Run scripts'],
       ]) {
         const r = await tool(client, name, args);
         check(
@@ -1197,6 +1416,7 @@ async function scenario(browser, gate) {
       shot.text,
     );
 
+    await scripts(browser, client, allowed, forbidden);
     await recipes(browser, client, allowed, forbidden);
     await tabManagement(browser, client, forbidden);
   } finally {
@@ -1245,7 +1465,14 @@ const seed = {
 // sessions on) plus screenshots; `paused` is stopped.
 const BUILDS = {
   off: seed,
-  on: { ...seed, grants: { manageTabs: true }, features: { screenshot: true }, confirmClose: false },
+  on: {
+    ...seed,
+    grants: { manageTabs: true },
+    // ADR 0012: the script switch is one of the far-reaching capabilities, so `on` turns it on
+    // deliberately — the person would have to do exactly this in their own options page.
+    features: { screenshot: true, script: true },
+    confirmClose: false,
+  },
   paused: { ...seed, paused: true },
   // ADR 0010: all sites (read) from the start, one site blocked, one reachable only by a grant.
   access: {

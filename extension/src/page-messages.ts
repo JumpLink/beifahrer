@@ -14,6 +14,11 @@ export type PageRequest = (
   | { beifahrer: 'describe'; ref: string }
   | { beifahrer: 'fill'; ref: string; text: string; as: 'text' | 'html'; mode: 'replace' | 'append' }
   | { beifahrer: 'click'; ref: string }
+  /**
+   * The agent's own code, run in the page agent's isolated world (ADR 0012). The gate for
+   * everything it can do was checked once, in the confirm window, before this message exists.
+   */
+  | { beifahrer: 'evaluate'; script: string; maxChars: number }
   /** A document the page links to: by ref (a link) or by URL on the tab's own origin. */
   | { beifahrer: 'download'; ref?: string; url?: string; maxBytes: number }
   /** Hide the in-page pill now, e.g. before a screenshot. Answers once the page has repainted. */
@@ -28,4 +33,7 @@ export type PageRequest = (
 
 export type PageResponse =
   | { ok: true; data: Record<string, unknown> }
-  | { ok: false; code: 'not_found' | 'invalid' | 'failed' | 'timeout'; message: string };
+  // `unsupported` is the page agent saying the BROWSER cannot do what was asked — today only
+  // `page.evaluate` on a Manifest V3 build, where a content script's CSP forbids compiling a string
+  // into code (ADR 0012). It is not a script error and not a failure of the page.
+  | { ok: false; code: 'not_found' | 'invalid' | 'failed' | 'timeout' | 'unsupported'; message: string };

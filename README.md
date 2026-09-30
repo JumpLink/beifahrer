@@ -130,6 +130,7 @@ all (options page):
 | Screenshots | `page_screenshot` (turning it on asks the browser for access to all sites) | **off** |
 | Fill fields | `page_fill`, still only at *Read + edit*, and you confirm | on |
 | Click | `page_click`, still only at *Read + edit*, and you confirm | on |
+| Run scripts | `page_evaluate` — the agent runs its own code in the page (Firefox only; Chromium's content-script policy forbids it), still only at *Read + edit*, and you see every script before it runs | **off** |
 | Open tabs | `tab_open`, only sites at *Read* or higher | on |
 | Manage tabs and windows | `tabs_move`, `tabs_pin`, `tabs_close`, `tabs_group`, `tabs_ungroup`, `window_create` | **off** |
 | Saved sessions | `sessions_*` | **off** |
@@ -170,6 +171,7 @@ moment later, and only then can text go in. A **recipe** writes such a task down
 |---|---|
 | `page_find` | elements by role and accessible name ("the button named Submit comment"), with refs for fill and click |
 | `page_wait` | wait for a tab to finish loading, or for an element to appear (up to 30 s) |
+| `page_evaluate` | run your own script in the page, and get a JSON result back (off by default — see below) |
 | `recipes_list` | every recipe beifahrer knows, where it came from, and files it refused |
 | `recipes_for_tab` | the recipes that fit a tab, by URL or by recognising the app on the page |
 | `recipe_run` | run one step by step; stops at the first failing step and names it |
@@ -188,11 +190,52 @@ or an internal process belong in your own directory. Format and how to contribut
 [recipes/README.md](recipes/README.md). Why it is built this way:
 [ADR 0006](docs/adr/0006-recipes-are-data-run-as-ordinary-calls.md).
 
+## Running a script in the page
+
+A page agent is a visitor, not a keyboard. It cannot press **Enter** to submit a form, hover a menu
+open, drag something, or touch a `<canvas>` — for those pages the agent can see the thing and
+cannot operate it. `page_evaluate` is the way out, and it is guarded accordingly:
+
+| | |
+|---|---|
+| **Where** | **Firefox only.** In Manifest V3 a content script shares the extension's content security policy, and that policy cannot name `unsafe-eval` — Chrome refuses to install an extension that tries. So Chromium answers `unsupported` with that reason instead of pretending |
+| **Switch** | *Run scripts*, in your options page, **off by default** — beside Screenshots and the other far-reaching capabilities |
+| **Level** | the site must be at **Read + edit**. A site you left at Read refuses a script even with the switch on |
+| **Confirmation** | **every** run opens a window showing **the whole script**, with Allow and Deny. No "Always allow" — a site rule never becomes standing permission for code you have not seen |
+| **Reach** | beifahrer's own isolated world: the DOM is there, the extension's own APIs (`chrome`, `browser`) are `undefined` inside the script — a script that could read storage could clear the pause and widen every level |
+
+The script is a function **body**, so `return` gives the result and `await` works. In scope is
+`beifahrer`, with the same verbs the named tools have — `find`, `describe`, `click`, `fill`,
+`read`, `outline`, `meta`, `sleep` — so a script reads like a recipe instead of reaching into the
+DOM blind:
+
+```js
+const b = beifahrer.find({ role: 'button', name: 'Save' })[0];
+beifahrer.click(b.ref);
+await beifahrer.sleep(300);
+return beifahrer.read(2000);
+```
+
+The result comes back as JSON under a character budget, with `truncated: true` when something was
+left out — a flag worth honouring rather than filling the gap by guessing.
+
+Three limits, stated rather than hidden. A script that never yields holds the tab's main thread and
+**cannot be stopped from here**; the person has to close or reload the tab — but one that does
+`await` can be: its `beifahrer.*` calls stop working once the call has ended or you pressed Stop, and
+the in-page Stop button is put back if the page removes it. A script may also not reach the page's own
+JavaScript by name (`window.appState`) on Chromium; on Firefox it can ask for it through
+`window.wrappedJSObject`, which every content script there has. So the world is not a boundary —
+which is exactly why `world: "main"` is answered `unsupported` with a reason instead of being faked:
+an installed extension has no API that runs its own code as a string inside a page's world. And the
+price of all of it: a script may do anything a *Read + edit* grant allows on that site, reading a
+password field included — which `page_fill` refuses. Why the conditions above are the conditions:
+[ADR 0012](docs/adr/0012-running-the-agents-own-script-in-the-page.md).
+
 ## What it will never do
 
-- **Run arbitrary JavaScript for the agent.** There is no `evaluate`: every action is one of the
-  tools above, so the levels mean what they say.
-- **Fill a password field.** You type those yourself.
+- **Run arbitrary JavaScript unless you switched it on.** `page_evaluate` is off by default, needs
+  Read + edit on the site, and asks every single time. With the switch off, every action is one of
+  the tools above, so the levels mean what they say.- **Fill a password field.** You type those yourself.
 - **Hold your credentials.** It uses the session you are already logged into.
 - **Send anything off your computer.** The only channel is the loopback socket to the bridge you
   run yourself.

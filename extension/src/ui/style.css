@@ -281,3 +281,9 @@ p.note {
 ul.preview {
   padding-left: 30px;
 }
+
+/* A script in the confirm window gets more room than a typed value: it is longer, and it is what
+   the person is actually asked to judge (ADR 0012). */
+pre.preview.code {
+  max-height: 260px;
+}

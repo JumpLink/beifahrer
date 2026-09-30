@@ -180,6 +180,28 @@ export default async () => {
         confirm: false,
       });
     });
+    await it('keeps a quiet explicit write rule quiet — but not for a script', async () => {
+      const writeAll = withGrants([{ scope: '*', level: 'write' }]);
+      expect(decide(writeAll, 'page.click', 'https://quiet.example/', at()).allow).toBe(true);
+      expect(decide(writeAll, 'page.click', 'https://quiet.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+      // ADR 0012: "don't ask me again on this site" is an answer about fills and clicks. It must
+      // not become standing permission for code the person has not read yet.
+      expect(decide(writeAll, 'page.evaluate', 'https://quiet.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+    });
+    await it('a script needs write like any write — read is never enough', async () => {
+      const readAll = withGrants([{ scope: '*', level: 'read' }]);
+      expect(decide(readAll, 'page.evaluate', 'https://elsewhere.example/', at()).allow).toBe(false);
+      expect(decide(readAll, 'page.evaluate', 'https://elsewhere.example/', at())).toMatchObject({
+        need: 'write',
+        askable: true,
+      });
+    });
     await it('still gives a non-web page no origin', async () => {
       const writeAll = withGrants([{ scope: '*', level: 'write' }]);
       const d = decide(writeAll, 'page.read', 'file:///etc/passwd', at());

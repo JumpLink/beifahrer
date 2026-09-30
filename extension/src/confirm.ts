@@ -18,7 +18,7 @@ export interface ConfirmRequest {
   id: string;
   /** The site a write goes to. Empty for `close`, which is about the browser, not one site. */
   origin: string;
-  action: 'fill' | 'click' | 'close' | 'access';
+  action: 'fill' | 'click' | 'close' | 'access' | 'script';
   /** What is changed, or for `access` empty. */
   target: string;
   /** `access`: the level asked for. */
@@ -30,6 +30,12 @@ export interface ConfirmRequest {
   text?: string;
   /** `close`: one line per tab — host only for a tab the agent may not see. */
   items?: string[];
+  /**
+   * `script`: the code that is about to run, in full. Shown because a decision about code the
+   * person cannot read is not a decision (ADR 0012). Never truncated: `parseEvaluate` refuses a
+   * script too long to read before it ever reaches this window.
+   */
+  code?: string;
 }
 
 export interface ConfirmAnswer {
@@ -117,6 +123,21 @@ export function onWindowRemoved(windowId: number): void {
   for (const entry of pending.values()) {
     if (entry.windowId === windowId) entry.resolve({ allow: false, remember: false });
   }
+}
+
+/**
+ * E2E builds only (e2e-seed.ts): answer an open confirmation as the person would press Allow or
+ * Deny — for a fill, a click or a script (ADR 0012). `remember` is never set: no click in a test
+ * stands for "don't ask me again". Returns how many windows it answered.
+ */
+export function answerConfirmForTest(allow: boolean): number {
+  let answered = 0;
+  for (const entry of pending.values()) {
+    if (entry.req.action === 'access') continue;
+    entry.resolve({ allow, remember: false });
+    answered++;
+  }
+  return answered;
 }
 
 /**
