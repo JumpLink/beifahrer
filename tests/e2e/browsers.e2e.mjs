@@ -1836,7 +1836,7 @@ async function scripts(browser, client, allowed, forbidden) {
     check(
       browser,
       'page_evaluate answers unsupported from the bridge gate, naming the browser',
-      walled.error && /^unsupported:/.test(walled.text) && /cannot do page.evaluate/.test(walled.text),
+      walled.error && walled.text.startsWith('unsupported:') && /cannot do page.evaluate/.test(walled.text),
       walled.text.slice(0, 240),
     );
     // Nothing below can happen here, and pretending otherwise would test a browser that does not
@@ -1867,7 +1867,7 @@ async function scripts(browser, client, allowed, forbidden) {
   check(
     browser,
     'page_evaluate world=main answers unsupported with a reason',
-    main.error && /^unsupported:/.test(main.text) && /content security policy/.test(main.text),
+    main.error && main.text.startsWith('unsupported:') && /content security policy/.test(main.text),
     main.text.slice(0, 200),
   );
 
@@ -1906,7 +1906,7 @@ async function scripts(browser, client, allowed, forbidden) {
   check(
     browser,
     'a script the person denied answers "denied"',
-    denied && denied.error && /^denied:/.test(denied.text ?? ''),
+    denied && denied.error && (denied.text ?? '').startsWith('denied:'),
     denied ? String(denied.text).slice(0, 200) : 'still waiting after 15 s',
   );
 
