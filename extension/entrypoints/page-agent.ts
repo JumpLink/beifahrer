@@ -27,6 +27,7 @@ import {
   type KeySpec,
   type MetaQuery,
 } from '@beifahrer/core';
+import { FRAME_HELLO } from '@beifahrer/core';
 import { afterRepaint, hideNow, keepShown, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
@@ -190,6 +191,22 @@ function scriptAlive(token: number): boolean {
 /** The agent session that asked, as the pill names it (ADR 0007). Untrusted text, set as text. */
 let session: string | undefined;
 
+/**
+ * Is this agent inside a frame? `window.top !== window` is the test, and it is the one the platform
+ * gives: false in the top document, true in every frame, whatever the frame's origin. Used for the
+ * pill's wording, because "Agent is reading" inside an embedded page would name the wrong site — what
+ * is read there is the embedded page, under the embedded page's own level (issue #32).
+ */
+const inFrame = (() => {
+  try {
+    return window.top !== window;
+  } catch {
+    // A cross-origin parent makes `window.top` unreachable — and that IS the case, so the answer is
+    // true rather than an exception: this document is not the top one.
+    return true;
+  }
+})();
+
 /** `beifahrer.sleep`, but it wakes on a run that is over: beifahrer paused, or the call replaced. */
 function interruptibleSleep(ms: number, token: number): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -201,7 +218,7 @@ function interruptibleSleep(ms: number, token: number): Promise<void> {
       }
       // The pill and its Stop button must survive a script that is running: it is the one control
       // the person has while it does. Re-asserted on every tick rather than once (page-indicator).
-      keepShown('editing', session);
+      keepShown('editing', session, inFrame);
       if (Date.now() - started >= ms) {
         resolve();
         return;
@@ -281,54 +298,24 @@ const MAX_SHADOW_DEPTH = 12;
  * is `null` for it. Nothing here keeps the promise and breaks it; the tool description says so, because
  * an agent that cannot see inside a closed root should ask for another way in.
  */
-/** How deep frames are followed. Nesting three deep is a layout; ten deep is a mistake. */
-const MAX_FRAME_DEPTH = 3;
-
-/** One document the walk visits, and how it got there. */
+/** The one document this agent walks. `depth` is 0 in every document now; kept for the type. */
 interface Doc {
   doc: Document;
-  /** The frame element it was reached through; absent for the page's own document. */
-  via?: Element;
   depth: number;
-  /** What to call it in the outline: where it is, not where it came from. */
-  label?: string;
 }
 
 /**
- * The page's own document, then every same-origin frame in it, in the order the frames sit (issue
- * #30).
+ * This agent's own document, and only that one.
  *
- * `contentDocument` is `null` for a cross-origin frame. That is the browser holding the line, and it
- * is the whole reason this needs no new policy: a cross-origin frame belongs to a DIFFERENT origin,
- * the one whose `read` the person never gave. Granting the page does not grant the frames inside it,
- * and `all_frames` in the manifest would have granted them by accident — that is issue #32, and it is
- * a different, larger decision.
+ * It walked same-origin frames itself until issue #32 — `contentDocument` is `null` for a cross-origin
+ * one, and that is the browser holding the line. It does not any more: the background now asks EACH
+ * frame separately and stitches the answers, which is the only way a cross-origin frame is reachable
+ * at all and it gives such a frame the same treatment as a same-origin one instead of making it a
+ * special case. Walking in here as well would list a same-origin frame TWICE — once with the local
+ * refs and once with the namespaced ones.
  */
-function* documents(root: Document = document, depth = 0, via?: Element): Generator<Doc> {
-  yield { doc: root, depth, via, ...frameLabel(via) };
-  if (depth >= MAX_FRAME_DEPTH) return;
-  for (const frame of frameElements(root)) {
-    const inner = (frame as HTMLIFrameElement).contentDocument;
-    // No body yet, or gone: a frame that never loaded or was torn down. Not an error, just nothing
-    // to read — and asking again later is how `page_wait` for a frame works.
-    if (!inner?.body) continue;
-    yield* documents(inner, depth + 1, frame);
-  }
-}
-
-/** Where a frame is, for the outline. The live location, because `src` goes stale on a redirect. */
-function frameLabel(via?: Element): { label?: string } {
-  if (!via) return {};
-  const href = (via as HTMLIFrameElement).contentWindow?.location?.href ?? via.getAttribute('src');
-  return { label: href ?? 'about:blank' };
-}
-
-/** The frame elements in a document, including the ones inside open shadow roots (issue #4). */
-function* frameElements(root: Document | ShadowRoot): Generator<Element> {
-  for (const el of root.querySelectorAll('iframe, frame')) yield el;
-  for (const shadow of openRootsIn(root, 0)) {
-    for (const el of shadow.querySelectorAll('iframe, frame')) yield el;
-  }
+function* documents(): Generator<Doc> {
+  yield { doc: document, depth: 0 };
 }
 
 function* elements(): Generator<{ el: Element; kind: Kind }> {
@@ -357,9 +344,6 @@ function* inTree(root: ParentNode, doc: Document, depth: number): Generator<{ el
   }
 }
 
-/** The heading that separates one document from the next in an outline or a read (issue #30). */
-const FRAME_MARK = '— frame: ';
-
 function outline(maxItems: number): PageResponse {
   const lines: string[] = [];
   let truncated = false;
@@ -367,12 +351,7 @@ function outline(maxItems: number): PageResponse {
   // reader cannot see where one embedded document ends and the next begins, and with two frames side
   // by side there is nothing in the text that says which content belongs to which — so every ref in
   // the outline is attributable to a document by looking up from it.
-  let current: Doc | undefined;
-  for (const { entry, el, kind } of elementsByDocument()) {
-    if (entry !== current) {
-      current = entry;
-      if (entry.label) lines.push(`${FRAME_MARK}${entry.label}`);
-    }
+  for (const { el, kind } of elementsByDocument()) {
     if (lines.length >= maxItems) {
       truncated = true;
       break;
@@ -424,13 +403,11 @@ function textOf(el: Element): string {
  */
 function visibleText(): string {
   const parts: string[] = [];
-  for (const entry of documents()) {
-    // A frame's text is introduced by the same marker the outline uses, because two frames side by
-    // side produce two texts that are visually adjacent and not one text: running them together
-    // destroys the arrangement AND invents an order the page never had (issue #30).
-    if (entry.label) parts.push(FRAME_MARK + entry.label);
-    parts.push(...documentText(entry.doc));
-  }
+  // One document per agent, so there is no marker here: the background introduces each frame's text
+  // when it stitches the answers, because two frames side by side produce two texts that are
+  // visually adjacent and not one text — running them together destroys the arrangement AND invents
+  // an order the page never had (issue #30).
+  for (const entry of documents()) parts.push(...documentText(entry.doc));
   return parts
     .filter((part) => part.trim())
     .join('\n\n')
@@ -534,17 +511,7 @@ function focusMark(el: Element): string {
  */
 function found(el: Element): { ref: string; description: string } {
   const kind = kindOf(el)!;
-  const frame = frameOf(el);
-  const where = frame ? ` [frame: ${frame}]` : '';
-  return { ref: refOf(el), description: `${describe(el, kind)}${focusMark(el)}${where}` };
-}
-
-/** The label of the document an element is in, or '' for the page's own. */
-function frameOf(el: Element): string {
-  for (const entry of documents()) {
-    if (entry.label && entry.doc.contains(el)) return entry.label;
-  }
-  return '';
+  return { ref: refOf(el), description: `${describe(el, kind)}${focusMark(el)}` };
 }
 
 function find(query: ElementQuery, maxResults: number): PageResponse {
@@ -1542,12 +1509,24 @@ const VERB: Partial<Record<PageRequest['beifahrer'], 'reading' | 'editing'>> = {
   evaluate: 'editing',
 };
 
+/**
+ * How many frame elements this document holds.
+ *
+ * A count, and it is the count the top document can give for frames it may not read: the ELEMENTS
+ * are visible across origins, their contents are not. The extension uses it to know how many
+ * announcements to wait for after injecting into every frame, instead of guessing with a sleep — a
+ * fixed wait would be either too short on a page with thirty frames or too long on a page with none.
+ */
+function frameCount(): number {
+  return document.querySelectorAll('iframe, frame').length;
+}
+
 function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
   const verb = VERB[req.beifahrer];
   session = req.session;
   // Shown BEFORE reading: `read` takes body.innerText, and the pill lives outside <body> in a
   // closed shadow root, so it never shows up in what the agent gets.
-  if (verb) show(verb, req.session);
+  if (verb) show(verb, req.session, inFrame);
   switch (req.beifahrer) {
     case 'find':
       return find(req.query, req.maxResults);
@@ -1572,6 +1551,11 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
     }
     case 'fill':
       return fill(req.ref, req.text, req.as, req.mode);
+    case 'where':
+      // Read fresh, every time. This is the only answer the policy is decided on, so it must not
+      // come from a value remembered at injection time — a frame that navigated since then would be
+      // gated on the origin it used to have.
+      return { ok: true, data: { url: location.href } };
     case 'click':
       return click(req.ref);
     case 'press':
@@ -1588,23 +1572,79 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
   }
 }
 
-// Injected before every request; the listener must be installed once per document.
+/** Every answer carries the frame count, so the extension knows when it has heard from them all. */
+function withFrameCount(res: PageResponse): PageResponse {
+  if (res.ok) return { ok: true, data: { ...res.data, frames: frameCount() } };
+  return res;
+}
+
+/**
+ * Say where this document is — on EVERY injection, not only the first (issue #32).
+ *
+ * The extension pairs this with the browser's own `frameId`, and that pairing is what teaches it a
+ * frame exists at all. The URL in here is a HINT, not the authority: it is whatever `location.href`
+ * happened to be when the extension injected, which for a frame still loading is `about:blank`. The
+ * authority is the `where` request below, asked again immediately before each policy decision.
+ *
+ * The message asks for nothing and returns nothing, so a page cannot learn from it that beifahrer is
+ * here: it goes to the extension, not to the page. Re-announcing costs one message per injection per
+ * frame, and a frame that has navigated since the last call is found again rather than trusted.
+ */
+function announceFrame(): Promise<number> {
+  // The browser tells the background which frame this message came from, and the background tells
+  // US — in the reply. Knowing our own number is what lets every frame ignore a request meant for a
+  // different one.
+  //
+  // Why that matters, and it is not belt-and-braces: `tabs.sendMessage` with a `frameId` is the
+  // obvious way to address a frame, and it did not reach one here. A request that went to all frames
+  // and was answered by whichever was quicker is a race that resolves wrongly in a WRITE, so the
+  // address travels IN the request and each frame drops what is not for it. `frameId` and
+  // `documentId` are kept as well where the browser has them — they are the cheaper path when they
+  // work — but correctness no longer depends on either.
+  return browser.runtime
+    .sendMessage({ type: FRAME_HELLO, url: location.href })
+    .then((answer: unknown) => {
+      const id = (answer as { frame?: unknown } | null)?.frame;
+      return typeof id === 'number' ? id : window === window.top ? 0 : -1;
+    })
+    .catch(() => (window === window.top ? 0 : -1));
+}
+
+// The listener is installed once per document; the announcement is not.
 const listening = globalThis as { __beifahrerListening?: boolean };
 if (!listening.__beifahrerListening) {
   listening.__beifahrerListening = true;
+  // Resolves with this document's own frame number. Every request waits for it, because a frame that
+  // cannot say whether it is the one being asked must not answer: answering when it is not the
+  // addressee is how a write lands in the wrong document.
+  const myFrame = announceFrame();
   browser.runtime.onMessage.addListener((message: unknown) => {
     const req = message as PageRequest | null;
     if (!req || typeof req !== 'object' || !('beifahrer' in req)) return undefined;
-    // The DOM calls in here throw on hostile or unusual pages (a detached range, a
-    // `DataTransfer` the page's CSP forbids). An exception escaping a message listener does not
-    // reach the sender — it would see "no answer" and lose the reason — so it is answered.
-    try {
-      const res = handle(req);
-      // Before a screenshot: answer only once a frame without the pill is on screen.
-      if (req.beifahrer === 'hide') return afterRepaint().then(() => res);
-      return Promise.resolve(res);
-    } catch (err) {
-      return Promise.resolve({ ok: false, code: 'failed', message: String((err as Error)?.message ?? err) });
+    if (req.frame !== undefined) {
+      const mine = myFrame;
+      return mine.then((id) => {
+        // `-1` means the background never told us, and a frame that does not know its own number
+        // answers nothing rather than everything.
+        if (id < 0 || id !== req.frame) return undefined;
+        return answer(req as PageRequest);
+      });
     }
+    return answer(req as PageRequest);
   });
+}
+
+/** The whole request handling, once the addressee question is settled. */
+function answer(req: PageRequest): PageResponse | Promise<PageResponse> | undefined {
+  // The DOM calls in here throw on hostile or unusual pages (a detached range, a
+  // `DataTransfer` the page's CSP forbids). An exception escaping a message listener does not
+  // reach the sender — it would see "no answer" and lose the reason — so it is answered.
+  try {
+    const res = handle(req);
+    // Before a screenshot: answer only once a frame without the pill is on screen.
+    if (req.beifahrer === 'hide') return afterRepaint().then(() => res);
+    return Promise.resolve(res instanceof Promise ? res : withFrameCount(res));
+  } catch (err) {
+    return Promise.resolve({ ok: false, code: 'failed', message: String((err as Error)?.message ?? err) });
+  }
 }

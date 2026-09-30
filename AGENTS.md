@@ -53,6 +53,20 @@ live in the extension's storage, never on the bridge ([ADR 0004](docs/adr/0004-s
 |**The person sees the agent.** Toolbar icon (`toolbarLook`, core), popup activity log (host only,
 never page text), and the in-page pill in a CLOSED shadow root outside `<body>`, hidden before
 every screenshot. Do not make any of them optional.
+|**A frame is gated on its OWN origin, never on the page's** (issue #32). The page agent is injected
+into every frame (`allFrames`, and only when a call asks — there is no `content_scripts` entry, so it
+costs nothing on a page nobody is reading), each frame is addressed on its own, and the policy is
+asked about the FRAME's URL: a frame from an origin below `read` is never asked, so it is invisible
+in the outline, in `read` and in `find` while the page around it stays readable. Granting a site does
+not grant what that site embeds — the clickjacking case that `all_frames` in a manifest would have
+opened silently. Refs carry their frame (`b2e12`), because each frame has its OWN registry and an
+ambiguous ref in a write is a write on the wrong element; the confirm window names the FRAME's origin,
+and the in-page pill says "this embedded page" so the words do not name the top site. Frames are
+learned by announcing themselves (`FRAME_HELLO`, the only thing a content script may send unprompted
+besides Stop) — `sender.frameId` comes from the browser, so the table needs no permission. The
+discovery order matters and is easy to get wrong: a frame only announces itself once its agent is
+INJECTED, so the injection into all frames comes FIRST, and the wait is for a frame that has a real
+web URL (re-asked, not remembered) rather than a sleep.
 |**Host access follows the policy.** Host permissions are *optional* and requested per origin when
 the person raises that origin's level. A write needs level `write`, the browser's grant for the
 origin, and the person's confirmation, unless they switched confirmation off for that origin.
@@ -194,12 +208,50 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   rejects the key, so its tabs are created and then discarded once the URL has committed
   (`openLazy` in sessions-store.ts). A loading Chromium tab reports its target in `pendingUrl`
   with `url` empty, so tab listings read both.
+- **`decide()` returns a UNION, and the allowed branch carries no level.** `{ allow: true, confirm }`
+  has no `have` and no `origin`; only the refused branch has them. So `atLeast(decision.have, 'read')`
+  on a decision that ALLOWED is not a wrong value but **no value**, and `atLeast(undefined, 'read')` is
+  false — a filter that rejects everything while reading like a policy check. Measured: every
+  allowed frame was dropped, and the code was correct-looking TypeScript that `gjsify tsc` had no
+  reason to complain about. **Ask a level with `levelFor(policy, url, ctx)`, which answers in both
+  branches**; use `decide()` when you want the yes/no and the `confirm` flag, never for a level.
+- **A frame's identity has three layers, and only the middle one belongs in a ref.** What the browser
+  calls a frame is an internal counter: measured, **Firefox numbers a frame `10737418241`** and
+  Chromium's numbers are small only by accident, and both are reassigned on navigation. What the
+  agent needs is a short, document-ordered, stable name — so `extension/src/frames.ts` assigns
+  beifahrer's own `index` (1, 2, 3 … in announcement order) and the ref says `b2e12` while the
+  browser's `10737418241` never leaves the extension. A ref built from the browser's id was measured
+  failing outright: `page_click` refused its own outline's ref.
+- **A frame's URL cannot be cached, and a cached one is a gate that can be wrong.** A frame that is
+  still loading answers `about:blank`, and one that navigates answers something else than it did at
+  injection time. So the announcement (`FRAME_HELLO`) is a HINT that only teaches the extension a frame
+  exists, and the origin the policy is applied to is asked of the frame itself, every time, with the
+  `where` request — immediately before the gate for a write, and again after the content for a read.
+  The two are different messages, so a read is a window; the answer carries the frame's own
+  `location.href` from the SAME message as its content, which is the smallest the platform allows.
+- **`gjsify check` colours its output, so `grep "error TS"` finds NOTHING.** The ANSI codes sit
+  *between* `error` and `TS` (`[91merror[0m[90m TS2554:`), so the obvious filter matches zero lines,
+  exits 1, and a piped `check | grep … | head` looks exactly like a clean run. Cost: a whole session
+  of reading "clean" while `gjsify tsc --noEmit` reported thirteen type errors in `handlers.ts`.
+  **Strip the colours first:**
+  `gjsify foreach -A check 2>&1 | sed -e 's/\x1b\[[0-9;]*m//g' | grep -E "error TS"`, and read the
+  command's own exit status rather than the grep's. The same applies to `lint`.
+- **`fail()` only narrows the type when the ANNOTATION is on the const.** TypeScript treats a call as
+  a branch for an assertion/never-returning function only if the declaration carries an explicit type;
+  `export const fail = (...): never => {}` leaves every line after a `fail(...)` reporting its value
+  as possibly undefined, so handlers grow `!` and `as` that no one needed. `errors.ts` annotates the
+  const, which is why `return fail(...)` is the way to write it there.
 - **`gjsify test` reuses `app/dist/test.gjs.mjs` when only `packages/core` changed.** The bundler's
   cache is keyed on the entry files, not on what they import, so a change in `packages/core/src` is
   invisible to the tests until the bundle is thrown away: `rm -rf app/dist` before believing a
   green run (or a red one). Measured while adding the key table — a refusal message that had been
   edited three lines away was still the old one in the report. Not a beifahrer bug and not worked
   around in the code: it is in the gap table below.
+  **`rm -rf app/dist` also deletes the bridge bundle** (`beifahrer.gjs.mjs`) that the e2e spawns, and
+  `gjsify workspace beifahrer-cli test` does NOT put it back — only `… build` does. An e2e run after
+  it fails with `McpError: -32000 Connection closed` on EVERY scenario, which reads like a broken
+  bridge and is not one. Hit exactly once, so: `rm -rf app/dist && gjsify workspace beifahrer-cli test
+  && gjsify workspace beifahrer-cli build` — the `build` is not optional after the `rm`.
 - **A whole window is closed with `windows.remove`**, not tab by tab, so that the browser's
   recently-closed list holds it as one window (the e2e restores it from there).
 - **A confirmation window can only be answered by the person.** So a script run, a fill and a click

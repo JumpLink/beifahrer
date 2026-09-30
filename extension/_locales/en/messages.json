@@ -736,5 +736,11 @@
   },
   "method_page_navigate": {
     "message": "Moved the tab"
+  },
+  "pill_reading_frame": {
+    "message": "Agent is reading this embedded page"
+  },
+  "pill_editing_frame": {
+    "message": "Agent is editing this embedded page"
   }
 }

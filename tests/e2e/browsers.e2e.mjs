@@ -717,92 +717,21 @@ async function accessScenario(browser) {
  * alone, because the browser keeps that promise and so does beifahrer.
  */
 /**
- * Issue #30: a frame on the page's own origin is followed, one on another origin is not. The
- * difference is the browser's, not ours — `contentDocument` is null for a cross-origin frame — and
- * the negative case matters as much as the positive one: a frame that is invisible in the walk must
- * be invisible in `read` too, or its text comes out the way a closed shadow root once did.
+ * Issue #32: a frame gets its own origin in the policy, so the agent can see what the person
+ * allowed — and nothing else.
+ *
+ * The check that matters is not "did the agent get into the frame". It is **where a click landed**:
+ * a ref is `e12` in one document and `b2e12` in another, and if the routing were wrong the click
+ * would hit a DIFFERENT element in a different document. So every write here is verified by the
+ * page's own counter, in the frame that was supposed to change, and the top document's own counter
+ * is checked afterwards to prove nothing moved there.
+ *
+ * The negative case is the security one. `localhost` is at `none` in this build, and the page embeds
+ * a frame from it. The page is allowed; the frame is not. A frame on a blocked origin must therefore
+ * be invisible — in the outline, in `read`, in `find` — even though everything around it is readable.
+ * That is what `all_frames` in a manifest would have broken silently, and it is the whole reason
+ * #30 stopped at same-origin frames.
  */
-async function frames(browser, client, allowed) {
-  const inside = await tool(client, 'page_find', {
-    tabId: allowed.tabId,
-    role: 'button',
-    name: 'Frame done',
-  });
-  const hit = inside.error ? null : JSON.parse(inside.text);
-  check(
-    browser,
-    'page_find reaches a button inside a same-origin frame',
-    hit?.count === 1,
-    inside.text.slice(0, 200),
-  );
-  check(
-    browser,
-    'and says which frame the ref belongs to',
-    !!hit && /\[frame: [^\]]*\/frame-inside/.test(hit.matches[0].description),
-    hit?.matches[0]?.description ?? inside.text.slice(0, 200),
-  );
-
-  const named = await tool(client, 'page_find', {
-    tabId: allowed.tabId,
-    role: 'textbox',
-    name: 'Frame note',
-  });
-  check(
-    browser,
-    'a label inside a frame names its field (ids resolve in the frame document)',
-    !named.error && JSON.parse(named.text).count === 1,
-    named.text.slice(0, 200),
-  );
-
-  const foreign = await tool(client, 'page_find', {
-    tabId: allowed.tabId,
-    name: 'Foreign frame button',
-  });
-  check(
-    browser,
-    'a cross-origin frame stays invisible — no contentDocument, no gate to pass',
-    !foreign.error && JSON.parse(foreign.text).count === 0,
-    foreign.text.slice(0, 200),
-  );
-
-  const read = await tool(client, 'page_read', { tabId: allowed.tabId, maxChars: 12_000 });
-  check(
-    browser,
-    'page_read has the frame text, behind its own heading',
-    !read.error &&
-      /frame: [^\n]*\/frame-inside/.test(read.text) &&
-      /Text inside the frame document\./.test(read.text),
-    read.text.slice(0, 240),
-  );
-  check(
-    browser,
-    'and neither the heading nor the text of the cross-origin frame',
-    !read.error && !/frame-foreign/.test(read.text) && !/Foreign frame button/.test(read.text),
-    read.text.match(/frame: [^\n]*/)?.[0] ?? read.text.slice(0, 200),
-  );
-
-  const outline = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 200 });
-  check(
-    browser,
-    'page_outline gives each document its own section, headed by the frame URL',
-    !outline.error &&
-      /frame: [^\n]*\/frame-inside/.test(outline.text) &&
-      outline.text.indexOf('Frame done') > outline.text.indexOf('frame-inside'),
-    outline.text.slice(0, 240),
-  );
-
-  if (!hit) return;
-  const ref = hit.matches[0].ref;
-  const clicked = await tool(client, 'page_click', { tabId: allowed.tabId, ref });
-  check(browser, 'a ref into a frame clicks there', !clicked.error, clicked.text.slice(0, 160));
-  const after = await tool(client, 'page_read', { tabId: allowed.tabId, maxChars: 12_000 });
-  check(
-    browser,
-    "and the frame's own listener ran, which the page's text shows",
-    !after.error && /frame-clicks:1/.test(after.text),
-    after.text.match(/frame-clicks:\d/)?.[0] ?? after.text.slice(0, 200),
-  );
-}
 
 /**
  * Keys, dropdowns, checkboxes: the three form shapes a person drives with a keyboard and an agent
@@ -1267,6 +1196,113 @@ async function navigation(browser, client, allowed, forbidden) {
     'and the page is still the one it was on, so the answer matches what the browser did',
     !stayedPut.error && /Second document/.test(stayedPut.text),
     stayedPut.text.slice(0, 240),
+  );
+}
+
+async function framesAndOrigins(browser, client, allowed) {
+  // --- the same-origin frame, which the person allowed by allowing the page -------------------
+  // Asked TWICE on purpose, and the second answer is the one under test. Whether the frames need
+  // more than one call to appear is exactly the question this line settles: a frame section on the
+  // second call but not the first means the announcements are late, while neither means the
+  // injection is not reaching the frames at all. Two different fixes, and only one run to tell.
+  const outline = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 400 });
+  check(
+    browser,
+    'the frame has its own section, headed by its URL',
+    !outline.error && /frame: [^\n]*\/frame-inside/.test(outline.text),
+    outline.text.includes('framesUnavailable')
+      ? 'FRAMES UNAVAILABLE: ' + /frames could not be reached[^\n]*/.exec(outline.text)?.[0]
+      : outline.text.slice(0, 400),
+  );
+  const frameRefs = [...outline.text.matchAll(/\[(b\d+e\d+)\]/g)].map((m) => m[1]);
+  check(
+    browser,
+    "and its refs are namespaced, so they cannot collide with the page's own",
+    frameRefs.length > 0 && frameRefs.every((r) => /^b\d+e\d+$/.test(r)),
+    `${frameRefs.length} refs: ${frameRefs.slice(0, 4).join(', ')}`,
+  );
+  // The two registries are separate, so the same local number can appear in both. That is the whole
+  // reason for the prefix, and it is worth seeing in the output that it really happens.
+  const pageRefs = [...outline.text.matchAll(/\[(e\d+)\]/g)].map((m) => m[1]);
+  const sharedLocal = frameRefs.map((r) => r.replace(/^b\d+/, '')).filter((r) => pageRefs.includes(r));
+  check(
+    browser,
+    'and the two documents really do reuse the same local numbers, which is why the prefix exists',
+    sharedLocal.length > 0,
+    `page: ${pageRefs.slice(0, 5).join(',')} | frame: ${frameRefs.slice(0, 5).join(',')}`,
+  );
+
+  // --- the negative case: a frame on a blocked origin -----------------------------------------
+  check(
+    browser,
+    'a frame on a site the person blocked is invisible in the outline',
+    !/frame-foreign/.test(outline.text) && !/Foreign frame button/.test(outline.text),
+    outline.text.match(/[^\n]*frame-foreign[^\n]*/)?.[0] ?? 'nicht genannt',
+  );
+  const found = await tool(client, 'page_find', { tabId: allowed.tabId, name: 'Foreign frame button' });
+  check(
+    browser,
+    'and in page_find, though the page around it is readable',
+    !found.error && JSON.parse(found.text).count === 0,
+    found.text.slice(0, 200),
+  );
+  const read = await tool(client, 'page_read', { tabId: allowed.tabId, maxChars: 20_000 });
+  check(
+    browser,
+    'and in page_read — a frame that is invisible in the walk but visible in the text would leak',
+    !read.error && !/frame-foreign/.test(read.text) && !/Foreign frame button/.test(read.text),
+    read.text.match(/[^\n]*frame-foreign[^\n]*/)?.[0] ?? read.text.slice(0, 200),
+  );
+  check(
+    browser,
+    'while the frame the person DID allow is in the read',
+    /Text inside the frame document\./.test(read.text),
+    read.text.slice(0, 200),
+  );
+
+  // --- a write into a frame: where did it land? -----------------------------------------------
+  const before = await tool(client, 'page_read', { tabId: allowed.tabId, maxChars: 20_000 });
+  const act = [...outline.text.matchAll(/\[(b\d+e\d+)\] button "Frame act"/g)].map((m) => m[1])[0];
+  if (!act) {
+    check(browser, "the frame's button has a namespaced ref", false, outline.text.slice(0, 600));
+    return;
+  }
+  const clicked = await tool(client, 'page_click', { tabId: allowed.tabId, ref: act });
+  check(
+    browser,
+    'a namespaced ref clicks',
+    !clicked.error,
+    `ref=${JSON.stringify(act)} -> ${clicked.text.slice(0, 200)}`,
+  );
+
+  const after = await tool(client, 'page_read', { tabId: allowed.tabId, maxChars: 20_000 });
+  check(
+    browser,
+    "and the click landed IN THE FRAME: the frame's own counter moved",
+    /frame-acts:1/.test(after.text),
+    after.text.match(/frame-acts:\d/)?.[0] ?? after.text.slice(0, 300),
+  );
+  check(
+    browser,
+    "and the page's own counter did NOT, so the ref did not resolve into the wrong document",
+    /frame-clicks:0/.test(after.text) && before.text === after.text.replace('frame-acts:1', 'frame-acts:0'),
+    after.text.match(/frame-clicks:\d/)?.[0] ?? after.text.slice(0, 300),
+  );
+
+  // --- a ref naming a frame that is not allowed -----------------------------------------------
+  const wrong = await tool(client, 'page_click', { tabId: allowed.tabId, ref: 'b999e1' });
+  check(
+    browser,
+    'a ref in a frame the person blocked names no element, rather than resolving somewhere',
+    wrong.error,
+    wrong.text.slice(0, 200),
+  );
+  const invented = await tool(client, 'page_click', { tabId: allowed.tabId, ref: 'b0e1' });
+  check(
+    browser,
+    'and a frame number below 1 is refused: the page itself has no prefix',
+    invented.error,
+    invented.text.slice(0, 200),
   );
 }
 
@@ -2194,7 +2230,7 @@ async function scenario(browser, gate) {
     );
 
     await shadowDom(browser, client, allowed);
-    await frames(browser, client, allowed);
+    await framesAndOrigins(browser, client, allowed);
     await keys(browser, client, allowed, ref);
     await navigation(browser, client, allowed, forbidden);
     await scripts(browser, client, allowed, forbidden);
@@ -2223,11 +2259,17 @@ const FRAME_FIXTURE = `<!doctype html><html><head><title>Frame document</title><
 <label for="frame-note">Frame note</label><input id="frame-note">
 <button id="frame-save">Frame save</button>
 <button id="frame-done">Frame done</button>
+<button id="frame-act">Frame act</button>
 <p id="frame-output">frame-clicks:0</p>
+<p id="frame-act-output">frame-acts:0</p>
 <script>
   let n = 0;
   document.getElementById('frame-done').addEventListener('click', () => {
     document.getElementById('frame-output').textContent = 'frame-clicks:' + ++n;
+  });
+  let m = 0;
+  document.getElementById('frame-act').addEventListener('click', () => {
+    document.getElementById('frame-act-output').textContent = 'frame-acts:' + ++m;
   });
 </script>
 </body></html>`;

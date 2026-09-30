@@ -201,6 +201,38 @@ or an internal process belong in your own directory. Format and how to contribut
 [recipes/README.md](recipes/README.md). Why it is built this way:
 [ADR 0006](docs/adr/0006-recipes-are-data-run-as-ordinary-calls.md).
 
+## Frames: what the page embeds
+
+A checkout widget, a video, a comment box, a map: a modern page is mostly other people's pages in
+boxes. `page_read`, `page_outline`, `page_find` and `page_wait` see those too, each under **its own
+heading** in the answer, so a reader can tell which content belongs to which site.
+
+**A frame is asked under its own origin, not the page's.** A frame from a site you never allowed is
+invisible — in the outline, in the text, in a search — *even when the page around it is readable*.
+That is not a limitation but the point: granting a site does not grant the things that site embeds.
+An extension that injected itself into every frame and checked the top page's permission would let an
+agent write into a third party's widget through the page's consent, which is the whole reason
+`all_frames` was off the table until now.
+
+Where you click is the other half. Every frame has its own element registry, so a ref says which
+document it belongs to: `e12` in the page, `b2e12` in the second frame. A write with `b2e12` is gated
+on **the frame's** origin and confirmed in a window that names **the frame's** origin — the site in
+which the change actually happens. And a pill inside a frame says "Agent is reading this embedded
+page" rather than the bare words that would name the wrong site.
+
+A ref does not survive a navigation, and that is deliberate rather than a limitation to work around:
+frame numbers belong to a document, so a `b2e12` from before a page change finds no frame and is
+refused. The alternative — reusing the number for whatever sits there now — would mean a ref silently
+addressing a different element in a different document, which for a write is the one thing that must
+never happen. The same holds for a frame that navigates: its origin is asked again every time, so it
+loses access the moment the new origin is not one you allowed.
+
+Two things it does not do, both on purpose. `page_press` **without** a ref stays in the top
+document: the agent cannot see which frame the focus is in, and guessing would send keys into a
+document nobody chose. And a frame that has not loaded, or that is on a site below *Read*, is not
+asked at all — the answer is simply shorter, which is why the outline says `truncated` whenever
+there was more than one document.
+
 ## Keys, dropdowns and checkboxes
 
 A form is not only fields. It is keys: **Enter** to submit, **Tab** to the next field, a character

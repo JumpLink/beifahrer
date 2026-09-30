@@ -16,6 +16,7 @@ import download from './unit/core/download.test.ts';
 import evaluate from './unit/core/evaluate.test.ts';
 import keys from './unit/core/keys.test.ts';
 import navigate from './unit/core/navigate.test.ts';
+import refs from './unit/core/refs.test.ts';
 import toolbar from './unit/core/toolbar.test.ts';
 import bridge from './unit/bridge/bridge.test.ts';
 import bridgeDesktop from './unit/bridge/desktop.test.ts';
@@ -38,6 +39,7 @@ run({
   evaluate,
   keys,
   navigate,
+  refs,
   toolbar,
   bridge,
   bridgeDesktop,

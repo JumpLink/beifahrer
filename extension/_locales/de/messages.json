@@ -735,5 +735,11 @@
   },
   "method_page_navigate": {
     "message": "Tab verschoben"
+  },
+  "pill_reading_frame": {
+    "message": "Agent liest diese eingebettete Seite"
+  },
+  "pill_editing_frame": {
+    "message": "Agent bearbeitet diese eingebettete Seite"
   }
 }

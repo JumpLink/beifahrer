@@ -23,14 +23,19 @@ import {
   preflight,
   preflightMessage,
   evaluateRequestOf,
+  levelFor,
   parseElementQuery,
   parseKeySpec,
   parseKeyTimes,
   parseNavigate,
   parseMetaQuery,
+  parseRef,
+  namespaceRefs,
   scriptPreview,
   type ElementQuery,
+  type FoundElement,
   type Navigation,
+  type ParsedRef,
   toTabInfo,
   withRule,
   type AccessContext,
@@ -46,8 +51,9 @@ import { track } from './activity.ts';
 import { askPerson, type ConfirmAnswer } from './confirm.ts';
 import { fail } from './errors.ts';
 import { hideIndicator } from './indicator.ts';
+import { correctFrame, frameByIndex, framesOf, isWebUrl, type FrameRow } from './frames.ts';
 import { loadGrants, settle } from './grants.ts';
-import { askPage } from './inject.ts';
+import { askPage, inject } from './inject.ts';
 import { loadSettings, originPattern, saveSettings } from './settings.ts';
 import type { PageRequest } from './page-messages.ts';
 import { groupApi, sessionsApi } from './sessions-store.ts';
@@ -64,11 +70,19 @@ function tabIdOf(params: unknown): number {
   return tabId;
 }
 
+/**
+ * The ref the caller named, checked but not yet resolved to a frame.
+ *
+ * `b2e12` is a ref inside a frame: each frame runs its own page agent with its own registry, so
+ * `e12` exists once per frame and those are different elements. The frame is part of the ref rather
+ * than a second parameter, because an ambiguous ref in a WRITE is a click on the wrong element — in
+ * a frame on another origin, a write in the name of a site the person never allowed.
+ */
 function refOf(params: unknown): string {
   const ref = (params as { ref?: unknown } | null)?.ref;
-  if (typeof ref !== 'string' || !/^e\d+$/.test(ref))
-    return fail('invalid', 'ref must look like e12 — take it from page_outline');
-  return ref;
+  const parsed = parseRef(ref);
+  if (typeof parsed === 'string') return fail('invalid', parsed);
+  return ref as string;
 }
 
 async function focusedWindowId(): Promise<number | null> {
@@ -174,13 +188,273 @@ async function gate(
   );
 }
 
-async function page(tabId: number, ctx: CallContext, req: PageRequest): Promise<Record<string, unknown>> {
+/**
+ * Ask ONE frame and return its data.
+ *
+ * `frame` 0 is the page's own document. Above that it is a frame the person has ALLOWED at this
+ * method's level — the caller gates it, because only the caller knows the method and its level, and
+ * a check in here would have to guess which method it is serving.
+ *
+ * Every answer comes back in the frame's namespace: the agent inside a frame hands out bare `e12`,
+ * and the agent on the other side of the bridge must not be able to tell that from a ref in the
+ * page's own document. That is done on the serialized text rather than on the parsed object, so it
+ * covers the ref, a ref inside a `description`, and anything else the page's answer carries.
+ */
+async function page(
+  tabId: number,
+  ctx: CallContext,
+  req: PageRequest,
+  /** The BROWSER's frame number to send to. 0 is the top document. */
+  frame = 0,
+  /**
+   * beifahrer's frame number, which is what its refs are namespaced with.
+   *
+   * Two numbers, because they are not the same thing: Firefox numbers a frame `10737418241` and a
+   * ref is something an agent reads, so the send uses the browser's id and the NAME uses ours.
+   * Defaulting to `frame` is what kept this from being visible: the top document is 0 in both, so
+   * every call without a frame looked right while a frame's refs came out named after an internal
+   * counter — which is a ref the agent cannot use and `parseRef` correctly refuses.
+   */
+  refFrame = frame,
+): Promise<Record<string, unknown>> {
   // The session names itself on the in-page pill.
-  const res = await askPage(tabId, ctx.session ? { ...req, session: ctx.session } : req).catch((err: Error) =>
+  const ask = ctx.session ? { ...req, session: ctx.session } : req;
+  const res = await askPage(tabId, ask, frame).catch((err: Error) =>
     fail('failed', `could not reach the page: ${err.message}`),
   );
+  if (!res)
+    return fail('not_found', frame === 0 ? 'the page did not answer' : `frame ${frame} did not answer`);
   if (!res.ok) return fail(res.code, res.message);
-  return res.data;
+  if (refFrame === 0) return res.data;
+  return namespace(res.data, refFrame);
+}
+
+/** Put a frame's answer into the agent's namespace, wherever its refs appear. */
+function namespace(data: Record<string, unknown>, frame: number): Record<string, unknown> {
+  return JSON.parse(namespaceRefs(JSON.stringify(data), frame)) as Record<string, unknown>;
+}
+
+/**
+ * Which frames of a tab the person has allowed for what is about to happen, and which of those
+ * actually answer.
+ *
+ * The gate is per ORIGIN and per level, exactly as it is for a tab: a frame on a site below `read`
+ * is not asked at all, so a page that embeds somebody else's widget does not hand the agent that
+ * widget — the same boundary that stopped `all_frames` from being a bypass, now applied deliberately
+ * instead of by accident.
+ */
+/**
+ * Ask every known frame where it is, and take its answer as the truth about its origin.
+ *
+ * Two things are deliberately in this order (issue #32). DISCOVERY comes from the frame announcing
+ * itself, because only the browser knows which frames exist. The URL then comes from the frame
+ * ITSELF, asked again here, because a frame that is still loading answers `about:blank` and one that
+ * navigated answers something else than it did at injection time — and the policy is decided on the
+ * URL, so a cached one would gate a frame on an origin it no longer has.
+ *
+ * Asking before gating sounds backwards, so it is worth being exact about it: the `where` request
+ * returns the frame's OWN `location.href` and nothing else. The extension chose where it injected, so
+ * it knows this already, no page content crosses the boundary, and the person is asked about
+ * something only afterwards. The alternative — gate on the announcement's URL — is a gate that can be
+ * wrong, and a gate that can be wrong about an origin is not a gate.
+ */
+async function locateFrames(tabId: number, pageUrl: string): Promise<FrameRow[]> {
+  const out: FrameRow[] = [];
+  for (const row of framesOf(tabId, pageUrl)) {
+    const url = (await askWhere(tabId, row.frameId)) ?? row.url;
+    correctFrame(tabId, row.frameId, url);
+    out.push({ ...row, url });
+  }
+  return out;
+}
+
+/** The frames whose OWN origin the person allows at this level. A frame below `read` is not asked. */
+function framesAtLevel(rows: FrameRow[], policy: Policy, ctx: CallContext, level: Level): FrameRow[] {
+  // `levelFor`, NOT `decide(...).have`. `Decision` is a union, and the two branches carry DIFFERENT
+  // fields: the allowed one has `allow` and `confirm` and nothing else, the refused one has `origin`,
+  // `have` and `need`. Reading `have` off a decision that allowed is therefore not a wrong value but
+  // NO value — and `atLeast(undefined, 'read')` is false, so every allowed frame was dropped while
+  // the code read as though it were asking the policy. It is also why this is asked through
+  // `levelFor`: the level of an origin is a question with an answer in both cases, where the union
+  // only answers it when the answer is "no".
+  return rows.filter((row) => atLeast(levelFor(policy, row.url, accessOf(ctx)), level));
+}
+
+/** The heading that separates one document from the next, in a read and in an outline alike. */
+const FRAME_MARK = '— frame: ';
+
+/**
+ * Ask every frame the person allows, and what each of them answers.
+ *
+ * The top document is asked first and always: it is the page the person is looking at, and if it
+ * cannot be reached the call is a failure rather than a shorter answer. Each frame after it is
+ * asked on its own and contributes a section — and a frame that does not answer is skipped, not
+ * failed on, because a frame that was torn down between the announcement and this call is a normal
+ * event on a page with adverts on it.
+ *
+ * `text` and `outline` come back as the page's own text with each frame's text under its URL, which
+ * is the arrangement of the page: two frames side by side produce two texts that are visually
+ * adjacent and not one text, so running them together would invent an order the page never had.
+ */
+async function readAcrossFrames(
+  tabId: number,
+  ctx: CallContext,
+  req: PageRequest,
+  policy: Policy,
+  level: Level,
+): Promise<{ frame: number; data: Record<string, unknown> }[]> {
+  const top = await page(tabId, ctx, req);
+  // The frames have to be INJECTED INTO before anything can be asked of them: a frame announces
+  // itself when its agent appears, and the agent appears when the extension injects. A frame the
+  // browser has no host permission for is skipped silently here — measured — which is the FIRST
+  // boundary, ahead of the policy: a frame on an origin beifahrer cannot even inject into is not
+  // merely unreadable, it has no code in it at all.
+  //
+  // And if that injection is REFUSED outright, the reason travels into the answer instead of being
+  // swallowed: an agent that sees a page full of embeds and is told nothing cannot tell "this page
+  // embeds nothing" from "beifahrer could not look inside", and those two need different next moves.
+  const injection = await inject(tabId, true).then(
+    () => null,
+    (err: Error) => `frames could not be reached in this browser: ${err.message}`,
+  );
+  // Wait for a URL, not for a row. The row arrives with the first injection; the URL arrives when the
+  // frame's own document commits, and a frame that is still loading has no origin to ask a policy
+  // about. The count of frames the page reports is what "arrived" means, so the wait is derived
+  // rather than guessed — a sleep would be too short for a page with thirty embeds and needlessly
+  // long for a page with none.
+  const expected = Number(top.frames ?? 0);
+  let rows: FrameRow[] = [];
+  for (let attempt = 0; attempt < 24; attempt++) {
+    rows = await locateFrames(tabId, String(top.url ?? ''));
+    if (rows.filter((row) => isWebUrl(row.url)).length >= expected) break;
+    await sleep(25);
+  }
+  const out: { frame: number; data: Record<string, unknown> }[] = [
+    { frame: 0, data: injection ? { ...top, framesUnavailable: injection } : top },
+  ];
+  for (const row of framesAtLevel(rows, policy, ctx, level)) {
+    // A frame that does not answer is not silently dropped. It is a frame the person's policy ALLOWS
+    // and the answer then leaves out, and an agent cannot tell that from a page that embeds nothing
+    // — those two need different next moves. The reason travels with the answer instead.
+    // `row.frameId` to REACH the frame, `row.index` to NAME it. They are different numbers on
+    // purpose — Firefox numbers a frame 10737418241, and a ref is something an agent reads.
+    const answer = await page(tabId, ctx, req, row.frameId, row.index).then(
+      (data) => ({ data }),
+      (err: Error) => ({ err: err.message }),
+    );
+    // The origin is checked AGAIN, against the one the policy was applied to — not because the first
+    // check was wrong, but because between it and this read the frame may have navigated, and a
+    // frame that is at a blocked origin now is a frame whose content must not reach the agent. A
+    // check and a read are two messages, so there is a window; the answer carries the frame's own
+    // `location.href` from the SAME message as its content, which makes that window as small as the
+    // platform allows rather than open-ended. The write path has no window at all: `routeFor` asks
+    // where the frame is and gates in one step, and the write itself is the next message.
+    const said = 'data' in answer ? originOf(String(answer.data.url ?? '')) : null;
+    const moved =
+      said !== null && said !== originOf(row.url) ? `it moved to ${said} while it was being read` : null;
+    out.push(
+      'data' in answer && !moved
+        ? { frame: row.index, data: answer.data }
+        : { frame: row.index, data: { unreadable: moved ?? ('err' in answer ? answer.err : 'unknown') } },
+    );
+  }
+  return out;
+}
+
+/** The frames' text under their URLs, for a read. */
+function joinedText(parts: { frame: number; data: Record<string, unknown> }[], top: string): string {
+  const head = String(parts[0]?.data.text ?? top);
+  const rest = parts
+    .slice(1)
+    .map((part) =>
+      part.data.unreadable
+        ? `${FRAME_MARK}${part.data.url ?? 'a frame'}\n— not readable: ${part.data.unreadable}`
+        : `${FRAME_MARK}${part.data.url ?? ''}\n${String(part.data.text ?? '').trim()}`,
+    )
+    .filter((section) => section.trim() !== FRAME_MARK);
+  return [head, ...rest].filter(Boolean).join('\n\n').trim();
+}
+
+/** The frames' outlines under their URLs, for an outline. */
+function joinedOutline(parts: { frame: number; data: Record<string, unknown> }[], top: string): string {
+  const head = String(parts[0]?.data.outline ?? top);
+  const rest = parts
+    .slice(1)
+    .map((part) =>
+      part.data.unreadable
+        ? `${FRAME_MARK}${part.data.url ?? 'a frame'}\n— not readable: ${part.data.unreadable}`
+        : `${FRAME_MARK}${part.data.url ?? ''}\n${String(part.data.outline ?? '').trim()}`,
+    )
+    .filter((section) => section.trim() !== FRAME_MARK);
+  return [head, ...rest].filter(Boolean).join('\n');
+}
+
+/**
+ * Which document a ref points into, that document's OWN origin, and whether the person must confirm.
+ *
+ * This is the centre of issue #32 and the reason the frame is in the ref. A frame on another origin
+ * is a different site: the page's level does not carry into it, so the policy is asked about the
+ * FRAME's URL, and the confirmation window shows the FRAME's origin — the origin in which the write
+ * happens, which is the whole point of asking. A page that embeds a comment widget therefore cannot
+ * have the widget written to through the page's permission, and that is deliberate: granting the
+ * page does not grant the things inside it.
+ */
+async function routeFor(
+  method: Method,
+  tabId: number,
+  ref: string,
+  policy: Policy,
+  ctx: CallContext,
+): Promise<{ frame: number; index: number; ref: string; origin: string; confirm: boolean }> {
+  const parsed = parseRef(ref) as ParsedRef;
+  if (parsed.frame === 0) return routeForTop(method, tabId, policy, ctx, parsed.local);
+  // The ref names beifahrer's frame number; the browser's own number is looked up behind it and never
+  // reaches the wire in a ref. (frames.ts: Firefox numbers a frame 10737418241, so a ref built from
+  // the browser's id is neither short nor comparable — and the agent is the one reading it.)
+  const here = (await getTab(tabId)).url ?? '';
+  const found = frameByIndex(tabId, parsed.frame, here);
+  if (!found) {
+    // What IS there, because "gone" alone sends an agent looking in the page. The usual reasons are
+    // all worth naming in one line: the page changed since the ref was given, the frame was torn
+    // down, or the frame is on an origin below Read and was never asked.
+    const known = framesOf(tabId, here);
+    fail(
+      'not_found',
+      `frame b${parsed.frame} is not part of this page's frame set (${known.length} frame${known.length === 1 ? '' : 's'}: ${
+        known.map((r) => `b${r.index}`).join(', ') || 'none readable'
+      }). Call page_outline again for a ref in a frame.`,
+    );
+  }
+  const row: FrameRow = found;
+  // Ask the frame where it is NOW, not what it said when it was injected. A write is the one thing
+  // that must never be gated on a remembered origin: a frame that navigated from a site the person
+  // allowed to one they did not would otherwise be written to under the OLD site's permission, and
+  // the confirmation window would name the old site too.
+  const url = (await askWhere(tabId, row.frameId)) ?? row.url;
+  correctFrame(tabId, row.frameId, url);
+  const { origin, confirm } = await gate(method, url, policy, ctx);
+  return { frame: row.frameId, index: row.index, ref: parsed.local, origin, confirm };
+}
+
+/** The top document as a route: the same shape, so a refless call reads like a ref'd one. */
+async function routeForTop(
+  method: Method,
+  tabId: number,
+  policy: Policy,
+  ctx: CallContext,
+  local = '',
+): Promise<{ frame: number; index: number; ref: string; origin: string; confirm: boolean }> {
+  const tab = await getTab(tabId);
+  const { origin, confirm } = await gate(method, tab.url, policy, ctx);
+  return { frame: 0, index: 0, ref: local, origin, confirm };
+}
+
+/** A frame's own `location.href`, or null when it does not answer. Never throws. */
+async function askWhere(tabId: number, frame: number): Promise<string | null> {
+  const answer = await askPage(tabId, { beifahrer: 'where' }, frame).catch(() => undefined);
+  if (!answer?.ok) return null;
+  const url = answer.data.url;
+  return typeof url === 'string' && url !== '' ? url : null;
 }
 
 /**
@@ -391,7 +665,17 @@ const handlers: { [M in Method]: Handler<M> } = {
     const tab = await getTab(tabId);
     await gate('page.read', tab.url, policy, ctx);
     const maxChars = Math.min(Math.max(Number(params.maxChars) || 20_000, 100), 200_000);
-    return (await page(tabId, ctx, { beifahrer: 'read', maxChars })) as unknown as Result<'page.read'>;
+    // A frame on an origin the person allows is part of the page the person is reading, so it is
+    // part of its text. A frame they did not allow is not asked at all (issue #32).
+    const parts = await readAcrossFrames(tabId, ctx, { beifahrer: 'read', maxChars }, policy, 'read');
+    const head = parts[0].data;
+    const text = joinedText(parts, '');
+    return {
+      url: String(head.url ?? tab.url ?? ''),
+      title: String(head.title ?? ''),
+      text,
+      truncated: text.length > maxChars || parts.slice(1).some((p) => p.data.truncated === true),
+    } as Result<'page.read'>;
   },
 
   async 'page.download'(params, policy, ctx) {
@@ -399,17 +683,23 @@ const handlers: { [M in Method]: Handler<M> } = {
     const tab = await getTab(tabId);
     await gate('page.download', tab.url, policy, ctx);
     const raw = params as unknown as Record<string, unknown>;
-    const ref = typeof raw.ref === 'string' ? raw.ref : undefined;
+    const ref = typeof raw.ref === 'string' ? refOf(params) : undefined;
     const url = typeof raw.url === 'string' ? raw.url : undefined;
     // 10 MB covers a scanned letter or a statement; the ceiling keeps one document from filling
     // the bridge. The page checks it again against the bytes it actually got.
     const maxBytes = Math.min(Math.max(Number(raw.maxBytes) || 10_000_000, 1_000), 25_000_000);
-    return (await page(tabId, ctx, {
-      beifahrer: 'download',
-      ref,
-      url,
-      maxBytes,
-    })) as unknown as Result<'page.download'>;
+    // A link inside a frame is fetched by that frame, in the tab's session and against the FRAME's
+    // origin — a document reached from another site must not be pulled through the page's grant.
+    const route = ref
+      ? await routeFor('page.download', tabId, ref, policy, ctx)
+      : { frame: 0, index: 0, ref: undefined as string | undefined, origin: '', confirm: false };
+    return (await page(
+      tabId,
+      ctx,
+      { beifahrer: 'download', ref: route.ref, url, maxBytes },
+      route.frame,
+      route.index,
+    )) as unknown as Result<'page.download'>;
   },
 
   async 'page.outline'(params, policy, ctx) {
@@ -417,7 +707,20 @@ const handlers: { [M in Method]: Handler<M> } = {
     const tab = await getTab(tabId);
     await gate('page.outline', tab.url, policy, ctx);
     const maxItems = Math.min(Math.max(Number(params.maxItems) || 400, 10), 2_000);
-    return (await page(tabId, ctx, { beifahrer: 'outline', maxItems })) as unknown as Result<'page.outline'>;
+    // Per frame, not shared: `maxItems` is a bound on the ANSWER, and spending it on the top document
+    // would leave a frame with no lines at all. Each frame gets the whole budget and the caller is
+    // told the answer was cut.
+    const parts = await readAcrossFrames(tabId, ctx, { beifahrer: 'outline', maxItems }, policy, 'read');
+    const head = parts[0].data;
+    const unavailable = parts[0].data.framesUnavailable;
+    const outline = joinedOutline(parts, '') + (unavailable ? `\n— ${unavailable}` : '');
+    return {
+      url: String(head.url ?? tab.url ?? ''),
+      title: String(head.title ?? ''),
+      outline,
+      count: outline.split('\n').filter((line) => line.trim()).length,
+      truncated: parts.length > 1 || parts[0].data.truncated === true,
+    } as Result<'page.outline'>;
   },
 
   async 'page.find'(params, policy, ctx) {
@@ -432,11 +735,30 @@ const handlers: { [M in Method]: Handler<M> } = {
     }
     const query = findQueryOf(raw);
     const maxResults = Math.min(Math.max(Number(params.maxResults) || 20, 1), 200);
-    return (await page(tabId, ctx, {
-      beifahrer: 'find',
-      query,
-      maxResults,
-    })) as unknown as Result<'page.find'>;
+    // `nth` is counted HERE, across the documents in the order the outline shows them, and every
+    // frame is asked WITHOUT it. Left inside the frame it would mean "the third match in that
+    // frame", and a recipe asking for "the second Save button" would then get a different element
+    // depending on which document it happened to be in — the kind of drift a recipe cannot see.
+    const nth = query.nth;
+    const frames = await readAcrossFrames(
+      tabId,
+      ctx,
+      {
+        beifahrer: 'find',
+        query: { ...query, ...(nth === undefined ? {} : { nth: undefined }) },
+        maxResults,
+      },
+      policy,
+      'read',
+    );
+    const matches = frames.flatMap((part) => (part.data.matches as FoundElement[] | undefined) ?? []);
+    const wanted = nth === undefined ? matches : nth < matches.length ? [matches[nth]!] : [];
+    return {
+      url: String(frames[0].data.url ?? tab.url ?? ''),
+      matches: wanted.slice(0, maxResults),
+      count: wanted.length,
+      truncated: wanted.length > maxResults,
+    } as Result<'page.find'>;
   },
 
   async 'page.wait'(params, policy, ctx) {
@@ -459,7 +781,27 @@ const handlers: { [M in Method]: Handler<M> } = {
     const loaded = await getTab(tabId);
     await gate('page.wait', loaded.url, policy, ctx);
     const left = Math.max(deadline - Date.now(), 100);
-    const data = await page(tabId, ctx, { beifahrer: 'wait', query, timeoutMs: left });
+    // Asked of every allowed frame AT THE SAME TIME, and the first document with a match wins. A
+    // frame in which it never appears must not hold the others up, so this is a race and not a
+    // sequence — a comment box that opens inside an embedded widget is the case that needs it.
+    const attempts = [
+      page(tabId, ctx, { beifahrer: 'wait', query, timeoutMs: left }),
+      ...framesAtLevel(await locateFrames(tabId, (await getTab(tabId)).url ?? ''), policy, ctx, 'read').map(
+        (row) =>
+          // `row.index` again: a `wait` that found the element answers with its ref, and a ref from a
+          // frame is only usable if it names the frame.
+          page(tabId, ctx, { beifahrer: 'wait', query, timeoutMs: left }, row.frameId, row.index).catch(
+            () => ({}) as Record<string, unknown>,
+          ),
+      ),
+    ];
+    const answers = await Promise.race([
+      Promise.all(attempts).then((all) => all.find((a) => a.match)),
+      // Nothing anywhere: after the timeout the slowest one answers, and its own message is the one
+      // the agent gets — a frame's wording about what it waited for, or the top document's.
+      sleep(left).then(() => null),
+    ]);
+    const data = answers ?? (await Promise.all(attempts)).find((a) => a.match) ?? {};
     return { waitedMs: Date.now() - started, match: data.match as Result<'page.wait'>['match'] };
   },
 
@@ -507,25 +849,31 @@ const handlers: { [M in Method]: Handler<M> } = {
     if (params.text.length > MAX_TEXT) return fail('invalid', `text is longer than ${MAX_TEXT} characters`);
     const as = params.as === 'html' ? 'html' : 'text';
     const mode = params.mode === 'append' ? 'append' : 'replace';
-    const tab = await getTab(tabId);
-    const { origin, confirm } = await gate('page.fill', tab.url, policy, ctx);
-    if (confirm) await confirmWrite(ctx, tabId, origin, 'fill', ref, params.text);
-    return (await page(tabId, ctx, {
-      beifahrer: 'fill',
-      ref,
-      text: params.text,
-      as,
-      mode,
-    })) as unknown as Result<'page.fill'>;
+    // The origin in the gate is the DOCUMENT's: for a ref inside a frame that is the frame's own
+    // site, and the confirm window shows it (issue #32).
+    const route = await routeFor('page.fill', tabId, ref, policy, ctx);
+    if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'fill', route.ref, params.text);
+    return (await page(
+      tabId,
+      ctx,
+      { beifahrer: 'fill', ref: route.ref, text: params.text, as, mode },
+      route.frame,
+      route.index,
+    )) as unknown as Result<'page.fill'>;
   },
 
   async 'page.click'(params, policy, ctx) {
     const tabId = tabIdOf(params);
     const ref = refOf(params);
-    const tab = await getTab(tabId);
-    const { origin, confirm } = await gate('page.click', tab.url, policy, ctx);
-    if (confirm) await confirmWrite(ctx, tabId, origin, 'click', ref, undefined);
-    return (await page(tabId, ctx, { beifahrer: 'click', ref })) as unknown as Result<'page.click'>;
+    const route = await routeFor('page.click', tabId, ref, policy, ctx);
+    if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'click', route.ref, undefined);
+    return (await page(
+      tabId,
+      ctx,
+      { beifahrer: 'click', ref: route.ref },
+      route.frame,
+      route.index,
+    )) as unknown as Result<'page.click'>;
   },
 
   /**
@@ -660,13 +1008,25 @@ const handlers: { [M in Method]: Handler<M> } = {
       // modifier" because it types nothing — `Control+ArrowDown` types nothing either, and it is a
       // perfectly ordinary press that a listbox answers to.
     }
-    const tab = await getTab(tabId);
-    const { origin, confirm } = await gate('page.press', tab.url, policy, ctx);
+    // A ref in a frame is routed like every other write, or a `b2e12` would press a key in the TOP
+    // document — the one place where a ref that names a frame must never be quietly ignored, because
+    // the person confirmed one site and the keys would go to another.
+    //
+    // Without a ref the keys go wherever the FOCUSED element is, which in a frame is inside that
+    // frame — and no agent can tell which, so a refless press is the top document's. Guessing the
+    // frame would put keys into a document nobody chose.
+    const route = ref
+      ? await routeFor('page.press', tabId, ref, policy, ctx)
+      : await routeForTop('page.press', tabId, policy, ctx);
+    const { origin, confirm } = route;
     if (confirm) {
       // A press without a ref goes to the focused element, which the outline may not name at all —
       // so the window says where the keys are going, which is the fact the person needs.
       const where = ref
-        ? String((await page(tabId, ctx, { beifahrer: 'describe', ref })).description ?? ref)
+        ? String(
+            (await page(tabId, ctx, { beifahrer: 'describe', ref: route.ref }, route.frame, route.index))
+              .description ?? route.ref,
+          )
         : 'the focused element';
       // Typed text is shown as the text, and named as typing: "Press text: abc in Field" is a
       // sentence nobody would write, and the person has to read it to know what is about to happen.
@@ -682,13 +1042,19 @@ const handlers: { [M in Method]: Handler<M> } = {
       if (answer.remember) await rememberWrites(origin);
       await stillTheSameOrigin(tabId, origin, 'page.press');
     }
-    return (await page(tabId, ctx, {
-      beifahrer: 'press',
-      ...(ref ? { ref } : {}),
-      ...(key !== undefined ? { key } : {}),
-      ...(text !== undefined ? { text } : {}),
-      times,
-    })) as unknown as Result<'page.press'>;
+    return (await page(
+      tabId,
+      ctx,
+      {
+        beifahrer: 'press',
+        ...(ref ? { ref: route.ref } : {}),
+        ...(key !== undefined ? { key } : {}),
+        ...(text !== undefined ? { text } : {}),
+        times,
+      },
+      route.frame,
+      route.index,
+    )) as unknown as Result<'page.press'>;
   },
 
   async 'page.select'(params, policy, ctx) {
@@ -704,15 +1070,15 @@ const handlers: { [M in Method]: Handler<M> } = {
     if (!values.every((v) => typeof v === 'string' && v.length <= 200))
       return fail('invalid', 'every value must be a string of at most 200 characters');
     const add = params.add === true;
-    const tab = await getTab(tabId);
-    const { origin, confirm } = await gate('page.select', tab.url, policy, ctx);
-    if (confirm) await confirmWrite(ctx, tabId, origin, 'select', ref, values.join(', '));
-    return (await page(tabId, ctx, {
-      beifahrer: 'select',
-      ref,
-      values,
-      add,
-    })) as unknown as Result<'page.select'>;
+    const route = await routeFor('page.select', tabId, ref, policy, ctx);
+    if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'select', route.ref, values.join(', '));
+    return (await page(
+      tabId,
+      ctx,
+      { beifahrer: 'select', ref: route.ref, values, add },
+      route.frame,
+      route.index,
+    )) as unknown as Result<'page.select'>;
   },
 
   async 'page.check'(params, policy, ctx) {
@@ -721,10 +1087,15 @@ const handlers: { [M in Method]: Handler<M> } = {
     if (params.checked !== undefined && typeof params.checked !== 'boolean')
       return fail('invalid', 'checked must be true or false');
     const checked = params.checked !== false;
-    const tab = await getTab(tabId);
-    const { origin, confirm } = await gate('page.check', tab.url, policy, ctx);
-    if (confirm) await confirmWrite(ctx, tabId, origin, 'check', ref, String(checked));
-    return (await page(tabId, ctx, { beifahrer: 'check', ref, checked })) as unknown as Result<'page.check'>;
+    const route = await routeFor('page.check', tabId, ref, policy, ctx);
+    if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'check', route.ref, String(checked));
+    return (await page(
+      tabId,
+      ctx,
+      { beifahrer: 'check', ref: route.ref, checked },
+      route.frame,
+      route.index,
+    )) as unknown as Result<'page.check'>;
   },
 
   async 'page.evaluate'(params, policy, ctx) {

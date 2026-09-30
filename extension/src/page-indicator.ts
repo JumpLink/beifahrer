@@ -80,15 +80,23 @@ function schedule(): void {
 }
 
 /** `session` is the agent session's label; the text lives in the closed shadow root, out of the page's reach. */
-export function show(verb: 'reading' | 'editing', session?: string): void {
+export function show(verb: 'reading' | 'editing', session?: string, frame = false): void {
   if (!host || !host.isConnected) {
     host = build();
     document.documentElement.append(host);
   }
-  if (label)
-    label.textContent = session
-      ? t(verb === 'reading' ? 'pill_reading_session' : 'pill_editing_session', session)
-      : t(verb === 'reading' ? 'pill_reading' : 'pill_editing');
+  if (label) {
+    // A pill inside a FRAME says so in words. The person is looking at a page that embeds somebody
+    // else's, and a bare "Agent is reading" there would name the wrong site: what is read is the
+    // embedded page, under the embedded page's own level, and the person consented to that origin
+    // separately (issue #32). The frame cannot know the top origin, and does not need to — the word
+    // "embedded" is the honest part.
+    label.textContent = frame
+      ? t(verb === 'reading' ? 'pill_reading_frame' : 'pill_editing_frame')
+      : session
+        ? t(verb === 'reading' ? 'pill_reading_session' : 'pill_editing_session', session)
+        : t(verb === 'reading' ? 'pill_reading' : 'pill_editing');
+  }
   schedule();
 }
 
@@ -101,8 +109,8 @@ export function show(verb: 'reading' | 'editing', session?: string): void {
  * removable by the thing it is watching. The closed shadow root already keeps the page from reading
  * or forging the pill's contents; this keeps it from being taken away.
  */
-export function keepShown(verb: 'reading' | 'editing', session?: string): void {
-  if (!host || !host.isConnected) show(verb, session);
+export function keepShown(verb: 'reading' | 'editing', session?: string, frame = false): void {
+  if (!host || !host.isConnected) show(verb, session, frame);
   else schedule();
 }
 

@@ -215,6 +215,7 @@ export function registerTools(
       description:
         'Headings, links, buttons and form fields of a tab in document order, each actionable one with a ref like [e12] for page_fill / page_click. ' +
         'Refs stay valid while the page is not reloaded. Needs level "read". ' +
+        'A ref inside a frame looks like b2e12: the b2 says which frame it is in, and every frame is asked under its OWN origin — a frame on a site you blocked is not read at all, even when the page around it is allowed. ' +
         POLICY_NOTE,
       inputSchema: {
         tabId: tabIdParam,

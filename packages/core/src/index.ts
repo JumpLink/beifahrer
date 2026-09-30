@@ -14,3 +14,5 @@ export * from './download.ts';
 export * from './evaluate.ts';
 export * from './keys.ts';
 export * from './navigate.ts';
+export * from './refs.ts';
+export * from './frame-messages.ts';
