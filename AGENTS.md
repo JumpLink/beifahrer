@@ -272,14 +272,21 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   (`e2e-seed.ts`): a tab on `/__beifahrer_e2e/confirm?answer=allow|deny` answers every open
   confirmation as that person would (never with "remember"), and
   `/__beifahrer_e2e/answer?scope=…` does the same for the access prompts (ADR 0010).
-- **The person's switches cannot be flipped headless.** The e2e builds the extension four
+- **The person's switches cannot be flipped headless.** The e2e builds the extension five
   times: default features (the `feature_disabled` refusals — tab management, sessions, screenshots,
   page requests and, since ADR 0012, scripts), PR #8's legacy `grants.manageTabs` plus screenshots,
   the `script` switch and `webRequest` (the migration, the full tab-management run, the script run and
-  the request log), `paused`, and `access`
+  the request log), `paused`, `access`
   (ADR 0010: a seeded "all sites" grant, a blocked site, and the prompt answered through
-  `/__beifahrer_e2e/answer?scope=…` and `/end-wide`). The first three switch asking on demand
-  off, because their refusal checks expect `forbidden` at once, not a prompt nobody answers.
+  `/__beifahrer_e2e/answer?scope=…` and `/end-wide`), and `confirm`
+  (issue #5: confirmation NOT silenced, so the window is really opened and answered through
+  `/__beifahrer_e2e/confirm?answer=allow|deny`). The first three switch asking on demand off,
+  because their refusal checks expect `forbidden` at once, not a prompt nobody answers. A build
+  grants what the person would have to grant in the UI — a headless test cannot press Allow on the
+  browser's own bubble: `webRequest` via `e2eApiPermissions`, and the screenshot's `<all_urls>`
+  via `e2eAllUrls` (both read only by an E2E build, in `scripts/build.ts`). That grant is the
+  reason the screenshot's REFUSAL lives in the `confirm` build: the switch on, the grant off, the
+  only combination in which the missing-grant refusal is reachable.
 - **A `webRequest` listener has to exist before the request starts.** Chromium only delivers events
   to listeners registered at the time the request goes out, and an MV3 service worker that sleeps and
   wakes must find them again on wake — so `installNetworkWatch()` runs at load, unconditionally, and

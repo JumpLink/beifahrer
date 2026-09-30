@@ -19,8 +19,10 @@
  * via $BEIFAHRER_E2E_CHROMIUM or ~/.cache/ms-playwright, and Firefox via $BEIFAHRER_E2E_FIREFOX
  * or `firefox` on PATH. Both run headless with a throw-away profile — never the person's own.
  *
- * The fixture page lives on 127.0.0.1 and is allowed (write, no confirmation); the same page on
- * `localhost` is a DIFFERENT origin nobody allowed, which is what the negative cases use.
+ * The fixture page lives on 127.0.0.1 and is allowed (write, no confirmation — except in the
+ * `confirm` build, which leaves the confirmation on and answers the window as the person does); the
+ * same page on `localhost` is a DIFFERENT origin nobody allowed, which is what the negative cases
+ * use.
  */
 
 import { spawn, execFileSync } from 'node:child_process';
@@ -373,13 +375,44 @@ function buildExtension(seed) {
   });
 }
 
+/**
+ * Only the shapes a browser prints FOR a JavaScript error. A headless browser is otherwise full of
+ * unrelated noise (GPU, sandbox, dbus, a refused favicon), and a check that counted those would
+ * fail on the machine rather than on the code.
+ */
+const BROWSER_ERROR = /JavaScript error|ERROR:CONSOLE|Uncaught \(in promise\)|Uncaught \w*Error/;
+
+/**
+ * The error lines a browser process printed, in memory. Some checks have nothing else to look at —
+ * a screenshot that works answers with an image and no words — so "the browser logged nothing while
+ * it was taken" is measured from the browser itself rather than assumed.
+ *
+ * `launch` calls this on every browser it starts, whatever the scenario below wants of it: the
+ * streams are piped (that is the only way to read them), and a pipe nobody drains fills up and
+ * blocks the browser halfway through the run. Call it again for a counter of your own — both
+ * listeners see every chunk.
+ */
+function captureOutput(proc) {
+  const errors = [];
+  let tail = '';
+  const keep = (chunk) => {
+    // A line can arrive in two chunks: the piece before the last newline waits for the next one.
+    const lines = (tail + String(chunk)).split('\n');
+    tail = lines.pop() ?? '';
+    for (const line of lines) if (BROWSER_ERROR.test(line)) errors.push(line.trim());
+  };
+  proc.stdout?.on('data', keep);
+  proc.stderr?.on('data', keep);
+  return { errors: () => [...errors] };
+}
+
 function launch(browser, profile) {
   const url = `${ALLOWED}/fixture`;
   if (browser === 'chromium') {
     const bin = findChromium();
     if (!bin) throw new Error('no Chromium that loads unpacked extensions — set BEIFAHRER_E2E_CHROMIUM');
     const ext = join(ROOT, 'extension/.output-e2e/chrome-mv3');
-    return spawn(
+    const proc = spawn(
       bin,
       [
         '--headless=new',
@@ -389,21 +422,28 @@ function launch(browser, profile) {
         '--no-first-run',
         '--no-default-browser-check',
         ...(LANG ? [`--lang=${LANG}`] : []),
-        ...(LOGS ? ['--enable-logging=stderr', '--v=0'] : []),
+        // Always, not only with BEIFAHRER_E2E_LOGS: a call that WORKS says nothing beyond its
+        // answer, so "did the browser log an error while this ran" (issue #5's screenshot) can only
+        // be measured from the browser's own output — and `--v=0` keeps it to one line per message,
+        // so what it adds is small and bounded.
+        '--enable-logging=stderr',
+        '--v=0',
         // Headless Chromium refuses a second start URL ("Multiple targets are not supported"),
         // so the forbidden-origin tab is opened over the DevTools endpoint once it is up.
         `--remote-debugging-port=${DEVTOOLS_PORT}`,
         url,
       ],
       {
-        stdio: LOGS ? ['ignore', 'pipe', 'pipe'] : 'ignore',
+        stdio: ['ignore', 'pipe', 'pipe'],
         // Chromium on Linux takes its UI language from LANGUAGE, not only from --lang.
         env: LANG ? { ...process.env, LANGUAGE: LANG } : process.env,
       },
     );
+    captureOutput(proc);
+    return proc;
   }
   const firefox = process.env.BEIFAHRER_E2E_FIREFOX ?? 'firefox';
-  return spawn(
+  const started = spawn(
     join(ROOT, 'node_modules/.bin/web-ext'),
     [
       'run',
@@ -424,8 +464,10 @@ function launch(browser, profile) {
       '--start-url',
       `${FORBIDDEN}/fixture`,
     ],
-    { stdio: LOGS ? ['ignore', 'pipe', 'pipe'] : 'ignore', detached: true },
+    { stdio: ['ignore', 'pipe', 'pipe'], detached: true },
   );
+  captureOutput(started);
+  return started;
 }
 
 /** Start one `beifahrer mcp` over stdio, as an agent session would. */
@@ -688,6 +730,15 @@ async function quickly(client, name, args, ms = 10_000) {
   ]);
 }
 
+/** `access_check`'s answer as an object; a refusal has no JSON to parse, so it answers empty. */
+function accessAnswer(call) {
+  try {
+    return JSON.parse(call.text);
+  } catch {
+    return {};
+  }
+}
+
 /**
  * ADR 0010, in the access build: "all sites" (read) is granted from the start, BLOCKED is set to
  * none, FORBIDDEN has no rule. The E2E hooks stand in for the popup's End and the prompt's
@@ -768,7 +819,136 @@ async function accessScenario(browser) {
   }
 }
 
-/** page_find, page_wait (issue #2) and recipes, against the synthetic OpenProject-like page. */
+/**
+ * Issue #5: the confirmation window, answered as the person answers it.
+ *
+ * Every other build silences confirmation for the fixture site (`confirmWrites: false`), so no run
+ * proves what happens when it is ON — which is the state a person is in by default, and the one
+ * every write passes through. This build leaves the site's rule at the default, so the window opens,
+ * and the E2E hook answers it as Allow or Deny would (e2e-seed.ts). The two-minute timeout is not
+ * waited out on purpose: it would add two minutes to the run to prove what Deny already proves, and
+ * the extension answers both the same way (`denied:`, confirm.ts).
+ *
+ * Every write gets its own hook tab — the person answers EVERY window, so one tab that answered
+ * once and then carried on would prove nothing about the second one (ADR 0012's script run).
+ *
+ * The same build carries the screenshot refusal for the MISSING `<all_urls>` grant: the switch is
+ * on and the grant is off, which is the only combination in which that refusal is reachable.
+ */
+async function confirmScenario(browser) {
+  const name = `${browser} confirm`;
+  const profile = mkdtempSync(join(tmpdir(), `beifahrer-e2e-confirm-${browser}-`));
+  const tokenFile = join(profile, 'token');
+  writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
+  const a = await startMcp(tokenFile, `${browser}-confirm-a.log`, {
+    BEIFAHRER_SESSION_LABEL: 'e2e confirm',
+  });
+  const proc = launch(browser, profile);
+  /** The write runs; the person answers the window it opened, as they would. */
+  const answered = async (pending, answer) => {
+    await sleep(1_000);
+    await tool(a.client, 'tab_open', {
+      url: `${ALLOWED}/__beifahrer_e2e/confirm?answer=${answer}`,
+      active: false,
+    });
+    return Promise.race([pending, sleep(20_000).then(() => null)]);
+  };
+  try {
+    await until(a.client, (s) => s.browsers?.length === 1, 60);
+
+    // The tab the writes go into is opened here and left ACTIVE: a screenshot has to be of the tab
+    // on screen, and beifahrer will not switch the person's tab to get one.
+    const opened = await tool(a.client, 'tab_open', { url: `${ALLOWED}/fixture` });
+    const tabId = opened.error ? null : JSON.parse(opened.text).tab?.tabId;
+    if (tabId == null) {
+      check(name, 'the fixture tab opened', false, opened.text.slice(0, 200));
+      return;
+    }
+    await tool(a.client, 'page_wait', { tabId, for: 'load' });
+    const outline = await tool(a.client, 'page_outline', { tabId });
+    const ref = (label) => new RegExp(`\\[(e\\d+)\\] [a-z]+ "${label}`).exec(outline.text)?.[1];
+    const note = ref('Gate note');
+    const save = ref('Gate save');
+    if (!note || !save) {
+      check(name, 'page_outline gives refs for the gate field and button', false, outline.text.slice(0, 400));
+      return;
+    }
+    // What gates the writes below, asked before any of them: this build does not silence the
+    // person, so a write here is served WITH a window. Getting `confirm` wrong in either direction
+    // would misreport the site to every agent that asks (the `on` build checks the other half).
+    const would = await tool(a.client, 'access_check', { method: 'page.click', tabId });
+    const wouldSay = accessAnswer(would);
+    check(
+      name,
+      'access_check says a click here would be served, and that the person is asked',
+      !would.error && wouldSay.allowed === true && wouldSay.stage === 'ok' && wouldSay.confirm === true,
+      would.text.replace(/\s+/g, ' ').slice(0, 220),
+    );
+
+    // A screenshot here is refused — the switch is on, the grant is not — and it has to be a clear
+    // refusal, not a hang or a bare error (the `on` build is the one that has to prove the image).
+    const noGrant = await quickly(a.client, 'page_screenshot', { tabId });
+    check(
+      name,
+      'a screenshot without the <all_urls> grant is refused, and says what is missing',
+      noGrant.error &&
+        noGrant.text.startsWith('forbidden:') &&
+        /screenshots are switched off|Screenshots need the extra "all sites" grant/.test(noGrant.text),
+      noGrant.text.slice(0, 240),
+    );
+
+    // Allow: the fill lands, and the PAGE says so — the gate opens because the page's own listener
+    // saw the text, which is the difference between "the call returned" and "the page changed".
+    const filled = await answered(tool(a.client, 'page_fill', { tabId, ref: note, text: 'open' }), 'allow');
+    const afterAllow = await tool(a.client, 'page_read', { tabId });
+    check(
+      name,
+      'a write the person allowed goes through, and the page changed',
+      !!filled &&
+        !filled.error &&
+        afterAllow.text.includes('gate:enabled') &&
+        !afterAllow.text.includes('gate:disabled'),
+      `${String(filled?.text).slice(0, 200)} | ${afterAllow.text.slice(-400)}`,
+    );
+
+    // Deny: the same click on the button the fill enabled. The answer is `denied:` and the page's
+    // own `saved:` line stays empty — a window that was answered Deny and still changed something.
+    const deniedCall = answered(tool(a.client, 'page_click', { tabId, ref: save }), 'deny');
+    const refused = await deniedCall;
+    const afterDeny = await tool(a.client, 'page_read', { tabId });
+    check(
+      name,
+      'a write the person denied answers "denied"',
+      !!refused && refused.error && String(refused.text).startsWith('denied:'),
+      refused ? String(refused.text).slice(0, 200) : 'still waiting after 20 s',
+    );
+    check(
+      name,
+      'and the page did NOT change',
+      !afterDeny.text.includes('saved:') && afterDeny.text.includes('gate:enabled'),
+      afterDeny.text.slice(-400),
+    );
+
+    // The same click, allowed: the window is the only thing between the two answers.
+    const allowed = await answered(tool(a.client, 'page_click', { tabId, ref: save }), 'allow');
+    const afterSaved = await tool(a.client, 'page_read', { tabId });
+    check(
+      name,
+      'the same write, answered Allow, lands in the page',
+      !!allowed && !allowed.error && afterSaved.text.includes('saved:open'),
+      `${String(allowed?.text).slice(0, 200)} | ${afterSaved.text.slice(-400)}`,
+    );
+  } finally {
+    await a.client.close().catch(() => undefined);
+    try {
+      process.kill(browser === 'firefox' ? -proc.pid : proc.pid, 'SIGTERM');
+    } catch {
+      /* already gone */
+    }
+    await sleep(1500);
+    rmSync(profile, { recursive: true, force: true });
+  }
+}
 /**
  * ADR 0012: the agent's own script, through the whole chain. The gate is the point of this run —
  * the script switch, the site level, the confirm window with the code in it, `world: "main"` —
@@ -2433,6 +2613,7 @@ async function scenario(browser, gate) {
   const { client } = await startMcp(tokenFile, `${browser}-mcp.log`);
 
   const proc = launch(browser, profile);
+  const browserOut = captureOutput(proc);
   if (browser === 'chromium') {
     for (let i = 0; i < 40; i++) {
       const ok = await fetch(`http://127.0.0.1:${DEVTOOLS_PORT}/json/new?${FORBIDDEN}/fixture`, {
@@ -2521,7 +2702,7 @@ async function scenario(browser, gate) {
         method: 'page.screenshot',
         tabId: allowed.tabId,
       });
-      const offShotAnswer = JSON.parse(offShot.text ?? '{}');
+      const offShotAnswer = accessAnswer(offShot);
       check(
         browser,
         'access_check names the switch a refused method is behind, without being called',
@@ -2672,15 +2853,36 @@ async function scenario(browser, gate) {
       writeDenied.text,
     );
 
-    const shot = await tool(client, 'page_screenshot', { tabId: allowed.tabId });
-    const gotImage = shot.content?.some((c) => c.type === 'image');
-    // Without the extra "all sites" grant the browser refuses — that refusal must be a clear
-    // `forbidden`, not a hang. With it (not granted in this test), an image comes back.
+    // Issue #5: the screenshot that SUCCEEDS, on both engines. This build carries `<all_urls>` in
+    // its manifest (`e2eAllUrls`), so what is left is the whole path: capture the window, hide the
+    // pill, encode. It has to be the tab on screen — beifahrer refuses to switch the person's tab
+    // for one — and which of the start tabs is active is up to the browser, so the tab to
+    // photograph is opened here. The refusal for the MISSING grant is the confirm build's check:
+    // the switch on, the grant off, the only combination in which that refusal is reachable.
+    const front = await tool(client, 'tab_open', { url: `${ALLOWED}/fixture` });
+    const frontTabId = front.error ? allowed.tabId : JSON.parse(front.text).tab.tabId;
+    await tool(client, 'page_wait', { tabId: frontTabId, for: 'load' });
+    const loggedBefore = browserOut.errors().length;
+    const shot = await tool(client, 'page_screenshot', { tabId: frontTabId });
+    const image = shot.content?.find((c) => c.type === 'image');
+    const bytes = image ? Buffer.from(image.data ?? '', 'base64').length : 0;
     check(
       browser,
-      `page_screenshot answers (${gotImage ? 'image' : shot.text.slice(0, 60)})`,
-      gotImage || /^(forbidden|invalid):/.test(shot.text),
-      shot.text,
+      'page_screenshot answers with an image, given the browser granted <all_urls>',
+      !shot.error &&
+        typeof image?.mimeType === 'string' &&
+        image.mimeType.startsWith('image/') &&
+        bytes > 1000,
+      image ? `${image.mimeType}, ${bytes} bytes` : shot.text.slice(0, 200),
+    );
+    // A capture that fails says so in its answer; one that works leaves nothing to read but pixels,
+    // so the browser's own output is where an error behind that picture would show.
+    const logged = browserOut.errors().slice(loggedBefore);
+    check(
+      browser,
+      'and the browser logged no error while taking it',
+      logged.length === 0,
+      logged.join(' | ').slice(0, 300),
     );
 
     await shadowDom(browser, client, allowed);
@@ -2692,15 +2894,8 @@ async function scenario(browser, gate) {
     // call. So ask it, and check all three shapes an agent meets: a read that would be served, a
     // write with the confirmation this build's site rule has, and a site nobody allowed, which must
     // come back refused and askable rather than as a page worth opening.
-    const accessOf_ = (r) => {
-      try {
-        return JSON.parse(r.text);
-      } catch {
-        return {};
-      }
-    };
     const wouldRead = await tool(client, 'access_check', { method: 'page.read', tabId: allowed.tabId });
-    const readAnswer = accessOf_(wouldRead);
+    const readAnswer = accessAnswer(wouldRead);
     check(
       browser,
       'access_check says a read on the allowed tab would be served, and at which level',
@@ -2712,7 +2907,7 @@ async function scenario(browser, gate) {
       wouldRead.text.replace(/\s+/g, ' ').slice(0, 220),
     );
     const wouldClick = await tool(client, 'access_check', { method: 'page.click', tabId: allowed.tabId });
-    const clickAnswer = accessOf_(wouldClick);
+    const clickAnswer = accessAnswer(wouldClick);
     check(
       browser,
       'access_check says a click there is served, and reports the confirmation as this build has it',
@@ -2725,7 +2920,7 @@ async function scenario(browser, gate) {
       wouldClick.text.replace(/\s+/g, ' ').slice(0, 220),
     );
     const wouldReadBlocked = await tool(client, 'access_check', { method: 'page.read', url: FORBIDDEN });
-    const blockedAnswer = accessOf_(wouldReadBlocked);
+    const blockedAnswer = accessAnswer(wouldReadBlocked);
     check(
       browser,
       'access_check says a read on a site nobody allowed is refused, at the level step and askable',
@@ -2832,10 +3027,10 @@ const seed = {
   askOnDemand: false,
 };
 
-// Three builds: the person's switches can only be flipped in the browser's UI, which a headless
+// Five builds: the person's switches can only be flipped in the browser's UI, which a headless
 // test cannot click. `off` has the default features (tab management, sessions, screenshots off);
 // `on` carries PR #8's stored `grants.manageTabs` (which must still switch tab management AND
-// sessions on) plus screenshots; `paused` is stopped.
+// sessions on) plus screenshots; `paused` is stopped; `confirm` does not silence the person.
 const BUILDS = {
   off: seed,
   on: {
@@ -2848,6 +3043,10 @@ const BUILDS = {
     // the refusal. `e2eApiPermissions` is only read by the e2e build (manifest.ts).
     features: { screenshot: true, script: true, network: true },
     e2eApiPermissions: ['webRequest'],
+    // Issue #5: the extra "all sites" grant a screenshot needs and a test cannot click — Chromium's
+    // `captureVisibleTab` accepts nothing narrower, Firefox does not even define it without. With
+    // it, this build has to return an actual image; the refusal for its absence is `confirm`'s.
+    e2eAllUrls: true,
     confirmClose: false,
   },
   paused: { ...seed, paused: true },
@@ -2859,16 +3058,30 @@ const BUILDS = {
     e2eGrants: [{ scope: '*', level: 'read' }],
     e2eHostOrigins: [FORBIDDEN],
   },
+  // Issue #5: confirmation NOT switched off — the default the person is in, and the only state in
+  // which the window that every write passes through is ever open. `confirmWrites: false` is left
+  // out of the site rule on purpose. No `e2eAllUrls`: the switch on and the grant off is the only
+  // combination in which the screenshot's missing-grant refusal is reachable, and it needs the
+  // switch on for that to be the reason.
+  // Only the one switch this scenario needs on top of the defaults (reading a page, filling and
+  // clicking in it and opening a tab are on by default), and no legacy `grants`: `on` is where PR #8's
+  // stored switch is covered, and a second build on it would prove nothing new.
+  confirm: {
+    ...seed,
+    policy: { origins: { [ALLOWED]: { level: 'write' } } },
+    features: { screenshot: true },
+  },
 };
 for (const [gate, build] of Object.entries(BUILDS)) {
   buildExtension(build);
   for (const b of browsers) {
-    if (gate === 'access') {
-      console.log(`\n${b} (temporary access)`);
+    if (gate === 'access' || gate === 'confirm') {
+      console.log(`\n${b} (${gate === 'access' ? 'temporary access' : 'confirmation'})`);
       try {
-        await accessScenario(b);
+        if (gate === 'access') await accessScenario(b);
+        else await confirmScenario(b);
       } catch (err) {
-        check(b, 'access scenario ran', false, err.stack ?? String(err));
+        check(b, `${gate} scenario ran`, false, err.stack ?? String(err));
       }
       continue;
     }
