@@ -122,6 +122,10 @@ export const DEFAULT_FEATURES: Features = {
 export const FEATURE_OF = {
   'tabs.list': 'tabs',
   'tabs.active': 'tabs',
+  // Asking what would be allowed is part of looking: without it an agent cannot find out that a
+  // switch is off before it spends a call on the refusal (issue #27). It refuses while paused with
+  // everything else — a question is still a request.
+  'access.check': 'tabs',
   'page.read': 'read',
   'page.outline': 'outline',
   // find + wait see the same element model outline shows, so the same switch covers them.

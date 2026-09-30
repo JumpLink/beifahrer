@@ -1,3 +1,4 @@
+export * from './access-check.ts';
 export * from './activity.ts';
 export * from './features.ts';
 export * from './policy.ts';

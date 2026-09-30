@@ -15,6 +15,7 @@
 import { browser } from '@wxt-dev/browser';
 import {
   ALWAYS_CONFIRM,
+  accessCheck,
   MAX_WAIT_MS,
   REQUIRED_LEVEL,
   atLeast,
@@ -24,6 +25,7 @@ import {
   preflightMessage,
   evaluateRequestOf,
   expectationOf,
+  isMethod,
   levelFor,
   parseNetwork,
   parseElementQuery,
@@ -717,6 +719,43 @@ const handlers: { [M in Method]: Handler<M> } = {
       focused !== null ? { active: true, windowId: focused } : { active: true, currentWindow: true };
     const [tab] = await browser.tabs.query(query);
     return { tab: tab ? toTabInfo(tab, policy, focused, accessOf(ctx)) : null };
+  },
+
+  /**
+   * What would happen if `method` ran on this page (issue #27). It GATHERS and the core decides:
+   * the switches, the policy with its grants, the browser's own host grant and what this browser
+   * cannot do at all. Nothing here opens a window, asks the person or touches a page — the answer
+   * is a description, and describing is not doing.
+   *
+   * The tab's URL is read HERE and not in the bridge: only the extension can see a tab, and a
+   * question asked about the wrong page would be a gate on a page nobody is looking at.
+   */
+  async 'access.check'(params, policy, ctx) {
+    const raw = params as unknown as Record<string, unknown>;
+    // The page comes first and the method second, so even a name the policy has never heard of is
+    // refused about a real page. An unknown name cannot turn that into access — it only refuses.
+    // `url` wins over `tabId`: the caller who names a URL is asking about that URL, and resolving
+    // the tab as well would answer a different question.
+    const tabId = raw.tabId === undefined ? null : tabIdOf(params);
+    const url = typeof raw.url === 'string' ? raw.url : tabId !== null ? (await getTab(tabId)).url : null;
+    const named = isMethod(raw.method) ? raw.method : null;
+    const origin = originOf(url);
+    // No grant is consulted for a method that touches no page, and none exists to consult for a URL
+    // with no origin: null says "the question does not apply here", which is not the same as "no".
+    const need = named === null ? null : REQUIRED_LEVEL[named];
+    const hostGranted = origin !== null && need !== null ? await hasHostPermission(origin) : null;
+    const check = accessCheck({
+      features: (await loadSettings()).features,
+      policy,
+      ctx: accessOf(ctx),
+      method: typeof raw.method === 'string' ? raw.method : String(raw.method),
+      url,
+      unsupported: named === null ? null : (unsupportedReasons()[named] ?? null),
+      hostGranted,
+    });
+    // A method name the policy table does not know: refused, never answered by guesswork.
+    if (typeof check === 'string') return fail('invalid', check);
+    return check;
   },
 
   async 'page.read'(params, policy, ctx) {

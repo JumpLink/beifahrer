@@ -21,6 +21,7 @@ export const PREVIEW_CHARS = 40;
 export const METHOD_WORDS: Record<Method, string> = {
   'tabs.list': 'listed your tabs',
   'tabs.active': 'looked up the active tab',
+  'access.check': 'checked what an action would be allowed to do',
   'page.read': 'read a page',
   'page.outline': 'outlined a page',
   'page.find': 'looked for an element',

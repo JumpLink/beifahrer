@@ -4,6 +4,7 @@
 import { run } from '@gjsify/unit';
 
 import features from './unit/core/features.test.ts';
+import accessCheck from './unit/core/access-check.test.ts';
 import find from './unit/core/find.test.ts';
 import recipes from './unit/core/recipes.test.ts';
 import policy from './unit/core/policy.test.ts';
@@ -31,6 +32,7 @@ import recipeSources from './unit/recipes/sources.test.ts';
 
 run({
   features,
+  accessCheck,
   find,
   recipes,
   policy,
