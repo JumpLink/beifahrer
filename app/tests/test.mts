@@ -24,6 +24,7 @@ import bridge from './unit/bridge/bridge.test.ts';
 import bridgeDesktop from './unit/bridge/desktop.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
 import mcpTools from './unit/mcp/tools.test.ts';
+import mcpOutput from './unit/mcp/output.test.ts';
 import recipeRunner from './unit/recipes/runner.test.ts';
 import recipeSources from './unit/recipes/sources.test.ts';
 
@@ -49,6 +50,7 @@ run({
   bridgeDesktop,
   mcpGate,
   mcpTools,
+  mcpOutput,
   recipeRunner,
   recipeSources,
 });

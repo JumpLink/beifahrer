@@ -13,6 +13,8 @@ import {
   MAX_NETWORK_LIMIT,
   MAX_RESULT_CHARS,
   WORLDS,
+  type BrowserFamily,
+  type Level,
   type Method,
   type Params,
   type Result,
@@ -63,7 +65,96 @@ export function text(value: unknown): CallToolResult {
   };
 }
 
+/**
+ * What a tool answers with, declared once, and the result that carries it (issue #26).
+ *
+ * A tool with an `outputSchema` hands its answer TWICE: as the text every client reads, and as
+ * `structuredContent`, which the client validates and can chain on. That is what lets an agent take
+ * `tab.tabId` out of `tab_open` instead of guessing the shape out of JSON text — the guess cost a
+ * call on 2026-09-30: a flat read gave `undefined`, and the refusal named a MISSING KEY of the NEXT
+ * tool, one layer away from the mistake that caused it.
+ *
+ * Schema and value come out of ONE shape, so they cannot drift apart: `result` type-checks the
+ * value against it, and the same schema object goes into the tool's config.
+ */
+export interface Answer<S extends z.ZodRawShape = z.ZodRawShape> {
+  /** Hand this to the tool's `outputSchema`; it is what `tools/list` publishes. */
+  readonly schema: z.ZodType;
+  /**
+   * The result: the value as text and as `structuredContent`, checked against the shape.
+   *
+   * Inferred from the SHAPE, never from the loose schema that goes on the wire — so the value keeps
+   * the shape's optional fields optional (`note`, `url`, `groupId`) and the catchall stays out of
+   * the type entirely, which is what lets a `TabInfo` from the protocol be an answer.
+   */
+  result(value: z.infer<z.ZodObject<S>>): CallToolResult;
+}
+
+/**
+ * A shape as an object that also ACCEPTS the keys it does not name.
+ *
+ * Loose is the point, at EVERY level: the protocol grows fields, and the extension adds keys of its
+ * own (`frames`, `framesUnavailable`), and a schema that refuses a real answer breaks the very tool
+ * that published it — the client sees a validation error where the work succeeded. A strict object
+ * is the wrong default here in a way it is not for an INPUT schema, where a stripped key runs the
+ * call under bounds nobody asked for.
+ *
+ * The catchall cannot be TYPED: an index signature is not something a `TabInfo` from the protocol
+ * can satisfy, and it is not something an answer should have to have. So the cast is in the type
+ * only, and it errs the safe way — the runtime object accepts everything the shape names AND more,
+ * never less, and a field the shape forgets is a compile error at the `result` call.
+ */
+function loose<S extends z.ZodRawShape>(shape: S): z.ZodObject<S> {
+  return z.object(shape).catchall(z.unknown()) as unknown as z.ZodObject<S>;
+}
+
+export function answer<S extends z.ZodRawShape>(shape: S): Answer<S> {
+  const schema = loose(shape);
+  return {
+    schema,
+    result: (value) => ({ ...text(value), structuredContent: value as Record<string, unknown> }),
+  };
+}
+
+/** `Level` (policy.ts) as values — core exports the type only, and the wire needs the three. */
+const LEVELS = ['none', 'read', 'write'] as const satisfies readonly Level[];
+
+/** `BrowserFamily` (protocol.ts), the same story: a type in core, values on the wire. */
+const FAMILIES = [
+  'firefox',
+  'chromium',
+  'epiphany',
+  'safari',
+  'unknown',
+] as const satisfies readonly BrowserFamily[];
+
+/** `TabInfo` (protocol.ts): what every tab is described with, in `tabs_list` and `tab_open` too. */
+export const tabInfo = loose({
+  tabId: z.number().int().describe('The handle every other page tool takes as `tabId`'),
+  windowId: z.number().int().describe('Its window — what window_create, tabs_move and tabs_close name'),
+  active: z.boolean().describe('Active tab of its window'),
+  focusedWindow: z
+    .boolean()
+    .describe('Its window is the one the person focused last; active + focusedWindow = what they see'),
+  host: z.string().nullable().describe('Host only, no scheme and no path. Null on a non-web page'),
+  level: z.enum(LEVELS).describe("What you may do here — the person's setting for this site"),
+  url: z.string().optional().describe('Only at level "read" or above; never below it'),
+  title: z.string().optional().describe('Only at level "read" or above; never below it'),
+  index: z.number().int().optional().describe('Position in its window from 0 — what tabs_move takes'),
+  pinned: z.boolean().optional().describe('Pinned tabs stay before the others; the browser clamps'),
+  groupId: z.number().int().optional().describe('Tab group, where the browser has them; absent in none'),
+});
+
+/** One element `page_find` found: a ref for page_fill / page_click, and the line it is on. */
+export const foundElement = loose({
+  ref: z.string().describe('Element ref for page_fill / page_click / page_expect, e.g. e12 or b2e12'),
+  description: z.string().describe('The outline line for it'),
+});
+
 export function failure(err: unknown): CallToolResult {
+  // An error carries NO structuredContent, on purpose: the schema describes what a tool answers
+  // with, and a refusal is not an answer. A client validating one against that schema would see a
+  // shape error where the person simply said no.
   if (err instanceof BridgeError) {
     const { code, message, origin, have, need } = err.wire;
     const detail =
@@ -84,6 +175,32 @@ export function registerTools(
   const call: Call = async <M extends Method>(method: M, params: Params<M>, browser?: string) =>
     (await bridgeOf(handle)).call(method, params, browser);
 
+  const browsersAnswer = answer({
+    port: z.number().int().describe("This session's own bridge port, the one the person's popup shows"),
+    session: loose({
+      label: z.string().describe('How this session appears in the popup: client name and directory'),
+      pid: z.number().int(),
+      version: z.string(),
+    }),
+    browsers: z
+      .array(
+        loose({
+          id: z.string().describe('Pass this as `browser` when more than one is connected'),
+          label: z.string().describe('What the person sees for this browser'),
+          family: z.enum(FAMILIES),
+          manifestVersion: z.union([z.literal(2), z.literal(3)]),
+          extensionVersion: z.string(),
+          capabilities: z.array(z.string()).describe('The methods this browser can serve, e.g. tabs.open'),
+          unsupported: z
+            .record(z.string(), z.string())
+            .optional()
+            .describe('Method → why this browser left it out ("cannot" — use another tool)'),
+          connectedAt: z.string().describe('ISO 8601'),
+        }),
+      )
+      .describe('Empty when nobody is connected — then ask the person, do not retry'),
+  });
+
   server.registerTool(
     'browsers_list',
     {
@@ -98,6 +215,7 @@ export function registerTools(
         'Calling a method this browser does not have answers `unsupported` with the reason, without touching the page. ' +
         'When more than one browser is connected, pass `browser` (a family, a name, or the `id` from here) — beifahrer never guesses which one you meant.',
       inputSchema: {},
+      outputSchema: browsersAnswer.schema,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async () => {
@@ -115,7 +233,7 @@ export function registerTools(
           ...(b.unsupported ? { unsupported: b.unsupported } : {}),
           connectedAt: b.connectedAt,
         }));
-        return text({
+        return browsersAnswer.result({
           port: status.port,
           session: { label: status.session.label, pid: status.session.pid, version: status.version },
           browsers,
@@ -126,6 +244,8 @@ export function registerTools(
     },
   );
 
+  const tabsListAnswer = answer({ tabs: z.array(tabInfo) });
+
   server.registerTool(
     'tabs_list',
     {
@@ -133,30 +253,38 @@ export function registerTools(
       description:
         'Every open tab: id, window, whether it is the active tab and whether its window is focused (active + focusedWindow = what the person is looking at). ' +
         'Tabs on sites the person has not allowed show their host only — no title, no path. ' +
+        'The tabId here is what every other page tool takes. ' +
         POLICY_NOTE,
       inputSchema: { browser: browserParam },
+      outputSchema: tabsListAnswer.schema,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async ({ browser }) => {
       try {
-        return text(await call('tabs.list', {}, browser));
+        return tabsListAnswer.result(await call('tabs.list', {}, browser));
       } catch (err) {
         return failure(err);
       }
     },
   );
 
+  const tabActiveAnswer = answer({
+    tab: tabInfo.nullable().describe('Null when the focused window has no tab — ask the person'),
+  });
+
   server.registerTool(
     'tab_active',
     {
       title: 'The tab the person is looking at',
-      description: 'The active tab of the window the person focused last. Same redaction as tabs_list.',
+      description:
+        'The active tab of the window the person focused last. Same redaction as tabs_list. The tabId it answers is what every other page tool takes.',
       inputSchema: { browser: browserParam },
+      outputSchema: tabActiveAnswer.schema,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async ({ browser }) => {
       try {
-        return text(await call('tabs.active', {}, browser));
+        return tabActiveAnswer.result(await call('tabs.active', {}, browser));
       } catch (err) {
         return failure(err);
       }
@@ -262,6 +390,26 @@ export function registerTools(
     },
   );
 
+  const networkAnswer = answer({
+    requests: z
+      .array(
+        loose({
+          at: z.number().int().describe('When the browser reported it, in ms since the epoch'),
+          method: z.string(),
+          url: z.string().describe('Host and path only — never a query, a token is a query'),
+          status: z.number().int().optional().describe('Absent while in flight or when it failed'),
+          error: z.string().optional().describe("The browser's own net::ERR_* when nothing came back"),
+          type: z.string().optional().describe("The browser's own type: main_frame, script, image, …"),
+          frame: z.number().int().describe('Which frame asked; 0 is the page itself'),
+          pending: z.boolean().describe('True while the request is still open'),
+        }),
+      )
+      .describe('Newest first'),
+    kept: z.number().int().describe('How many the tab holds, so "50 of 200" is visible'),
+    truncated: z.boolean().describe('True when rows were dropped to hold the cap — a tail, not a history'),
+    note: z.string().optional().describe('Why the log is empty when the person expects it not to be'),
+  });
+
   server.registerTool(
     'page_network',
     {
@@ -293,11 +441,12 @@ export function registerTools(
           .describe('Only requests newer than this, in milliseconds — "what has it done since I clicked"'),
         browser: browserParam,
       },
+      outputSchema: networkAnswer.schema,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async ({ tabId, limit, since, browser }) => {
       try {
-        return text(await call('page.network', { tabId, limit, since }, browser));
+        return networkAnswer.result(await call('page.network', { tabId, limit, since }, browser));
       } catch (err) {
         return failure(err);
       }
@@ -552,17 +701,21 @@ export function registerTools(
     },
   );
 
+  const tabOpenAnswer = answer({ tab: tabInfo });
+
   server.registerTool(
     'tab_open',
     {
       title: 'Open a URL in a new tab',
       description:
-        'Open a page in the person\'s browser. Only on sites the person allowed at level "read" or higher — so what you read cannot be carried off in a URL to a site they never allowed.',
+        'Open a page in the person\'s browser. Only on sites the person allowed at level "read" or higher — so what you read cannot be carried off in a URL to a site they never allowed. ' +
+        'The answer is wrapped: the handle every other page tool takes is `tab.tabId`, not the tab itself.',
       inputSchema: {
         url: z.string().describe('http(s) URL'),
         active: z.boolean().optional().describe('Bring the new tab to the front (default true)'),
         browser: browserParam,
       },
+      outputSchema: tabOpenAnswer.schema,
       annotations: {
         readOnlyHint: false,
         destructiveHint: false,
@@ -572,7 +725,7 @@ export function registerTools(
     },
     async ({ url, active, browser }) => {
       try {
-        return text(await call('tabs.open', { url, active }, browser));
+        return tabOpenAnswer.result(await call('tabs.open', { url, active }, browser));
       } catch (err) {
         return failure(err);
       }
