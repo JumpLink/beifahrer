@@ -307,6 +307,47 @@ export function registerTools(
   );
 
   server.registerTool(
+    'page_navigate',
+    {
+      title: 'Move a tab',
+      description:
+        'Move the person\'s own tab: navigation="url" with a url, or "back", "forward" or "reload". ' +
+        'It waits for the new page to finish loading, so a page_read right after it sees the new page and not the one on its way out. ' +
+        'The answer carries "moved": false when the tab did not move at all, which for back/forward means there is no history entry — ' +
+        'use a url then, and do not read the page as if you had left it. ' +
+        'A url needs level "read" on the site it names, exactly like tab_open — a site the person blocked refuses here too. ' +
+        'back/forward name no url (no browser will say where a history entry points), so they are bounded by the tab as it is; ' +
+        'if the destination is below "read" the call answers forbidden naming the origin, because the move has already happened. ' +
+        'Clicking a link is usually the better way to follow one: page_click confirms with the person, ' +
+        'and a url the agent typed itself does NOT — it moves the tab they are looking at without a window. ' +
+        'So prefer page_click on a link from page_outline, and use a url when the address is what you actually want. ' +
+        POLICY_NOTE,
+      inputSchema: {
+        tabId: tabIdParam,
+        navigation: z
+          .enum(['url', 'back', 'forward', 'reload'])
+          .optional()
+          .describe('Which move; "url" (the default) needs a url'),
+        url: z.string().optional().describe('The URL to go to, for navigation="url"'),
+        timeoutMs: z
+          .number()
+          .int()
+          .optional()
+          .describe('How long to wait for the load (default 10 s, max 30 s)'),
+        browser: browserParam,
+      },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ tabId, navigation, url, timeoutMs, browser }) => {
+      try {
+        return text(await call('page.navigate', { tabId, navigation, url, timeoutMs }, browser));
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  server.registerTool(
     'page_press',
     {
       title: 'Press a key, or type text',

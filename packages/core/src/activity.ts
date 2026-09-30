@@ -33,6 +33,7 @@ export const METHOD_WORDS: Record<Method, string> = {
   'page.select': 'chose an option',
   'page.check': 'set a checkbox',
   'page.evaluate': 'ran a script',
+  'page.navigate': 'moved the tab',
   'tabs.open': 'opened a tab',
   'tabs.move': 'moved tabs',
   'tabs.pin': 'pinned or unpinned tabs',

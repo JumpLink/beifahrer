@@ -61,7 +61,10 @@ export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = 
     detail:
       'page_evaluate — the agent runs its own code in the page. Needs Read + edit on the site, and you see every script before it runs',
   },
-  open: { label: 'Open tabs', detail: 'tab_open — only sites at Read or higher' },
+  open: {
+    label: 'Point the browser at a URL',
+    detail: 'tab_open, page_navigate — opening a tab, following a link by URL, back/forward/reload',
+  },
   manageTabs: {
     label: 'Manage tabs and windows',
     detail: 'tabs_move, tabs_pin, tabs_close, tabs_group, tabs_ungroup, window_create',
@@ -122,6 +125,10 @@ export const FEATURE_OF = {
   'page.check': 'fill',
   'page.click': 'click',
   'page.evaluate': 'script',
+  // Navigation rides on the same switch as opening a tab: both are the agent pointing the
+  // browser at a URL, and both are bounded by `read` on the site named. One switch, because
+  // "may the agent send the browser somewhere" is one decision, not two.
+  'page.navigate': 'open',
   'tabs.open': 'open',
   'tabs.move': 'manageTabs',
   'tabs.pin': 'manageTabs',

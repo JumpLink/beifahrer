@@ -1074,6 +1074,202 @@ async function outputOf(client, allowed) {
   return read.text;
 }
 
+/** A ref for a link, read fresh from the outline — refs move with the page, so they are asked for. */
+async function linkRef(client, allowed, name) {
+  const outline = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 200 });
+  if (outline.error) return null;
+  return new RegExp(`\\[(e\\d+)\\] link "${name}`).exec(outline.text)?.[1] ?? null;
+}
+
+/**
+ * Navigation: moving the person's own tab.
+ *
+ * Two gates are tested here and they are not the same gate. A URL the agent supplies is checked
+ * against the site it NAMES, exactly as `tab_open` is — that is the one that would let an agent
+ * carry what it read away in a query string. Going back is checked against the tab as it is, and the
+ * interesting case is the landing: the move has already happened, so the answer has to stop the
+ * agent from reading what it landed on rather than pretend the move did not occur.
+ */
+async function navigation(browser, client, allowed, forbidden) {
+  const start = await tool(client, 'page_read', { tabId: allowed.tabId });
+  const startUrl = /fixture/.test(start.text) ? `${ALLOWED}/fixture` : null;
+  check(browser, 'the tab starts on the fixture', startUrl !== null, start.text.slice(0, 200));
+
+  // Stays on the fixture's own origin, so the destination IS allowed: the gate under test here is
+  // the one about the TARGET, not the one about where the tab already is.
+  const there = await tool(client, 'page_navigate', {
+    tabId: allowed.tabId,
+    url: `${ALLOWED}/elsewhere`,
+  });
+  check(
+    browser,
+    'page_navigate goes to a URL and reports where it landed',
+    !there.error && /elsewhere/.test(there.text),
+    there.text.slice(0, 240),
+  );
+  // The load is waited for, so the very next read sees the NEW page. Without that a page_read right
+  // after a goto reads the document on its way out, and every navigation looks like it failed.
+  const after = await tool(client, 'page_read', { tabId: allowed.tabId });
+  check(
+    browser,
+    'and the page is already loaded, so the next call reads the new page',
+    !after.error && /Text that only this page has/.test(after.text) && !/Ticket 3279/.test(after.text),
+    after.text.slice(0, 240),
+  );
+
+  // A LINK CLICK is what leaves a history entry that `back` can walk. `page_navigate` to a URL
+  // replaces in this browser rather than pushing — measured: two navigations in a row and `back`
+  // still said "Cannot find a next page in history" — so a test that navigates twice and expects
+  // history would be testing the browser, not beifahrer.
+  const there2 = await tool(client, 'page_navigate', { tabId: allowed.tabId, url: `${ALLOWED}/elsewhere` });
+  check(browser, 'a second page, with a link back', !there2.error, there2.text.slice(0, 200));
+  const homeLink = await linkRef(client, allowed, 'back to the fixture');
+  const viaLink = homeLink
+    ? await tool(client, 'page_click', { tabId: allowed.tabId, ref: homeLink })
+    : { error: true, text: 'no link found' };
+  // A click navigates without waiting, so the tab is mid-load here — which is also why an agent that
+  // clicks a link has to wait afterwards, and why `page_wait` exists.
+  await tool(client, 'page_wait', { tabId: allowed.tabId, for: 'load', timeoutMs: 10_000 });
+  const afterLink = await tool(client, 'page_read', { tabId: allowed.tabId });
+  check(
+    browser,
+    'a link click moves the tab and leaves a history entry behind it',
+    !viaLink.error && !afterLink.error && /Ticket 3279/.test(afterLink.text),
+    afterLink.text.slice(0, 200),
+  );
+
+  // The invariant that holds on BOTH engines, because the engines differ here: Chromium's tabs,
+  // opened over the DevTools endpoint, carry no session history at all and answer "no next page",
+  // while Firefox's do. What beifahrer owes either way is that the ANSWER MATCHES THE BROWSER — it
+  // moved and says moved, or it did not move and says so with the browser's own reason. Asserting
+  // `moved: true` on Chromium would be asserting the browser's history, not this code.
+  const before = await tool(client, 'page_read', { tabId: allowed.tabId });
+  const back = await tool(client, 'page_navigate', { tabId: allowed.tabId, navigation: 'back' });
+  const backMoved = /"moved":\s*true/.test(back.text);
+  check(
+    browser,
+    `back: the answer matches the browser (${backMoved ? 'it moved' : 'no history to walk'})`,
+    !back.error &&
+      (backMoved || (/"reason":\s*"[^"]+"/.test(back.text) && /"moved":\s*false/.test(back.text))),
+    back.text.slice(0, 240),
+  );
+  if (!backMoved) {
+    const was = before.text.match(/"url":\s*"([^"]+)"/)?.[1] ?? 'x';
+    check(
+      browser,
+      'and a back that did not move names the page the tab is STILL on, not another one',
+      back.text.includes(`"url": "${was}"`),
+      back.text.slice(0, 240),
+    );
+  }
+  const afterBack = await tool(client, 'page_read', { tabId: allowed.tabId });
+  check(
+    browser,
+    'and the page the tab ended on is the one the next call reads',
+    !afterBack.error && (backMoved ? /Second document/ : /Ticket 3279/).test(afterBack.text),
+    afterBack.text.slice(0, 240),
+  );
+
+  const forwardAgain = await tool(client, 'page_navigate', { tabId: allowed.tabId, navigation: 'forward' });
+  check(
+    browser,
+    'and a forward answers either way, never as a failure',
+    !forwardAgain.error && /"moved":\s*(true|false)/.test(forwardAgain.text),
+    forwardAgain.text.slice(0, 240),
+  );
+
+  const reload = await tool(client, 'page_navigate', { tabId: allowed.tabId, navigation: 'reload' });
+  check(browser, 'and reloads', !reload.error, reload.text.slice(0, 240));
+
+  // Back where we started, and by URL rather than by history: the checks that follow address the
+  // fixture's elements by ref, and a test that leaves the tab somewhere else fails them all for a
+  // reason that has nothing to do with what they check.
+  const home = await tool(client, 'page_navigate', { tabId: allowed.tabId, url: `${ALLOWED}/fixture` });
+  const home2 = await tool(client, 'page_read', { tabId: allowed.tabId });
+  check(
+    browser,
+    'and the tab is back on the fixture, which the checks after this one need',
+    !home.error && /Ticket 3279/.test(home2.text),
+    home.text.slice(0, 200) + ' | ' + home2.text.slice(0, 120),
+  );
+
+  // The gate that matters: a URL naming a site the person blocked.
+  const blocked = await tool(client, 'page_navigate', { tabId: allowed.tabId, url: FORBIDDEN });
+  check(
+    browser,
+    'a URL naming a site nobody allowed is forbidden — as tab_open is',
+    blocked.error && blocked.text.startsWith('forbidden:'),
+    blocked.text.slice(0, 240),
+  );
+  const stillThere = await tool(client, 'page_read', { tabId: allowed.tabId });
+  check(
+    browser,
+    'and the tab did NOT move: the refusal came before the browser was told anything',
+    !stillThere.error && /Ticket 3279/.test(stillThere.text),
+    stillThere.text.slice(0, 240),
+  );
+
+  // Two destinations at once. Not a warning: guessing which of the two was meant is a guess about
+  // where a person's tab goes, and the person answered for a different place than the one that opens.
+  const both = await tool(client, 'page_navigate', {
+    tabId: allowed.tabId,
+    navigation: 'back',
+    url: `${ALLOWED}/elsewhere`,
+  });
+  check(
+    browser,
+    'a url together with a history move is refused, not resolved by guesswork',
+    both.error && /names no url/.test(both.text),
+    both.text.slice(0, 240),
+  );
+
+  // A move that is not one of the four. The schema refuses it before it reaches the extension, and
+  // that is the better place for it: an invented verb is not a thing to be told about politely.
+  const nowhere = await tool(client, 'page_navigate', { tabId: allowed.tabId, navigation: 'backward' });
+  check(
+    browser,
+    'a move that is not one of the four is refused, and nothing moves',
+    nowhere.error,
+    nowhere.text.slice(0, 240),
+  );
+
+  // A site the person never allowed, navigated to in a tab that is not the one being read.
+  const onBlocked = await tool(client, 'page_navigate', {
+    tabId: forbidden.tabId,
+    url: `${ALLOWED}/elsewhere`,
+  });
+  check(
+    browser,
+    'moving a tab that is itself on a blocked site is refused before anything else',
+    onBlocked.error && onBlocked.text.startsWith('forbidden:'),
+    onBlocked.text.slice(0, 240),
+  );
+
+  // The honesty check, and the one this method could most easily get wrong: a move that did not
+  // happen must not answer like one that did. A freshly opened tab has no history to go back to, and
+  // "ok" there is how an agent ends up reading the page it believes it left.
+  const fresh = await tool(client, 'tab_open', { url: `${ALLOWED}/elsewhere` });
+  const freshTab = fresh.error ? null : JSON.parse(fresh.text).tab?.tabId;
+  const nowhereToGo = freshTab
+    ? await tool(client, 'page_navigate', { tabId: freshTab, navigation: 'back' })
+    : { error: true, text: fresh.text };
+  check(
+    browser,
+    'a tab with no history answers "did not move" rather than pretending it went back',
+    !nowhereToGo.error && /"moved":\s*false/.test(nowhereToGo.text),
+    nowhereToGo.text.slice(0, 240),
+  );
+  const stayedPut = freshTab
+    ? await tool(client, 'page_read', { tabId: freshTab })
+    : { error: true, text: fresh.text };
+  check(
+    browser,
+    'and the page is still the one it was on, so the answer matches what the browser did',
+    !stayedPut.error && /Second document/.test(stayedPut.text),
+    stayedPut.text.slice(0, 240),
+  );
+}
+
 async function shadowDom(browser, client, allowed) {
   const found = await tool(client, 'page_find', {
     tabId: allowed.tabId,
@@ -1708,6 +1904,7 @@ async function pausedChecks(browser, client) {
     ['tab_active', {}],
     ['page_read', { tabId: 1 }],
     ['page_outline', { tabId: 1 }],
+    ['page_navigate', { tabId: 1, url }],
     ['page_screenshot', { tabId: 1 }],
     ['page_fill', { tabId: 1, ref: 'e1', text: 'x' }],
     ['page_click', { tabId: 1, ref: 'e1' }],
@@ -1999,6 +2196,7 @@ async function scenario(browser, gate) {
     await shadowDom(browser, client, allowed);
     await frames(browser, client, allowed);
     await keys(browser, client, allowed, ref);
+    await navigation(browser, client, allowed, forbidden);
     await scripts(browser, client, allowed, forbidden);
     await recipes(browser, client, allowed, forbidden);
     await tabManagement(browser, client, forbidden);
@@ -2036,14 +2234,23 @@ const FRAME_FIXTURE = `<!doctype html><html><head><title>Frame document</title><
 const FOREIGN_FRAME_FIXTURE = `<!doctype html><html><head><title>Foreign frame</title></head><body>
 <button>Foreign frame button</button>
 </body></html>`;
+// A page that is NOT the fixture, so a navigation can be told apart from "the page did not change
+// yet" — the failure a page_read right after a goto produces when the load is not waited for.
+const ELSEWHERE_FIXTURE = `<!doctype html><html><head><title>Elsewhere</title></head><body>
+<h1>Second document</h1>
+<p>Text that only this page has.</p>
+<a href="/fixture" id="back-home">back to the fixture</a>
+</body></html>`;
 const page = (req) =>
-  req.url?.startsWith('/openproject')
-    ? OP_FIXTURE
-    : req.url?.startsWith('/frame-foreign')
-      ? FOREIGN_FRAME_FIXTURE
-      : req.url?.startsWith('/frame')
-        ? FRAME_FIXTURE
-        : FIXTURE;
+  req.url?.startsWith('/elsewhere')
+    ? ELSEWHERE_FIXTURE
+    : req.url?.startsWith('/openproject')
+      ? OP_FIXTURE
+      : req.url?.startsWith('/frame-foreign')
+        ? FOREIGN_FRAME_FIXTURE
+        : req.url?.startsWith('/frame')
+          ? FRAME_FIXTURE
+          : FIXTURE;
 const fixture = createServer((req, res) => {
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
   res.end(page(req));

@@ -131,7 +131,7 @@ all (options page):
 | Fill in forms | `page_fill`, `page_press`, `page_select`, `page_check` — text into a field, keys into a form, a dropdown option, a checkbox. Still only at *Read + edit*, and you confirm | on |
 | Click | `page_click`, still only at *Read + edit*, and you confirm | on |
 | Run scripts | `page_evaluate` — the agent runs its own code in the page (Firefox only; Chromium's content-script policy forbids it), still only at *Read + edit*, and you see every script before it runs | **off** |
-| Open tabs | `tab_open`, only sites at *Read* or higher | on |
+| Point the browser at a URL | `tab_open`, `page_navigate` — only sites at *Read* or higher | on |
 | Manage tabs and windows | `tabs_move`, `tabs_pin`, `tabs_close`, `tabs_group`, `tabs_ungroup`, `window_create` | **off** |
 | Saved sessions | `sessions_*` | **off** |
 
@@ -145,6 +145,7 @@ by default), let the agent tidy up your browser for you:
 
 | Tool | Does |
 |---|---|
+| `page_navigate` | move a tab: to a URL, or `back` / `forward` / `reload`. Waits for the new page to load, so the next call reads the new page |
 | `tabs_move`, `tabs_pin` | reorder tabs (also into another window), pin and unpin |
 | `tabs_close` | close tabs or a whole window. You confirm in a window that lists them, unless you switch that off |
 | `tabs_group`, `tabs_ungroup` | tab groups, where the browser has them (Chromium, Firefox ≥ 139) |
@@ -160,6 +161,16 @@ snapshots of your windows (the last 20), so a window you close by mistake comes 
 
 The per-site levels still apply: the agent sees a saved tab on a site below *Read* as its host
 only, and it can only put URLs of sites at *Read* or higher into a new window or workspace.
+
+`page_navigate` moves **your** tab, so the level is checked twice and the second check is not
+redundant. A URL the agent supplies needs *Read* on the site it names — exactly as `tab_open` does,
+so what an agent just read cannot be carried off in the query string of a site you never allowed.
+`back` and `forward` cannot be checked that way (no browser will say where a history entry points),
+so they are bounded by the tab as it is, which is the page in front of you. Where the tab **lands**
+is then asked about again: below *Read* the call answers `forbidden` with the origin, because the
+move has already happened by then and the answer exists to stop the agent reading it, not to
+pretend the move did not occur. **Clicking a link is the better way to follow one** — it confirms
+with you, which a URL the agent typed itself does not.
 
 ## Recipes
 

@@ -732,5 +732,8 @@
   },
   "confirm_state_off": {
     "message": "abgehakt"
+  },
+  "method_page_navigate": {
+    "message": "Tab verschoben"
   }
 }

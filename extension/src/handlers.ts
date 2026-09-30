@@ -26,9 +26,11 @@ import {
   parseElementQuery,
   parseKeySpec,
   parseKeyTimes,
+  parseNavigate,
   parseMetaQuery,
   scriptPreview,
   type ElementQuery,
+  type Navigation,
   toTabInfo,
   withRule,
   type AccessContext,
@@ -307,6 +309,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * Wait until the tab's document has loaded. Polls `tabs.get`: Epiphany fires no
  * `tabs.onUpdated`, so polling is the one path that works everywhere (issue #2).
+ *
+ * For a tab that is ALREADY loading, which is the only caller (`page.wait`): a tab counts as loaded
+ * from the moment its last load ended until one begins, so this cannot tell "loaded" from "has not
+ * started yet". `waitForNavigation` below exists for exactly that difference and says why.
  */
 async function waitForLoad(tabId: number, deadline: number): Promise<void> {
   for (;;) {
@@ -314,6 +320,48 @@ async function waitForLoad(tabId: number, deadline: number): Promise<void> {
     if (tab.status === 'complete') return;
     if (Date.now() >= deadline) fail('timeout', `tab ${tabId} did not finish loading in time`);
     await sleep(200);
+  }
+}
+
+/**
+ * Wait for the load that a navigation we JUST asked for produces — not merely for a loaded tab.
+ *
+ * The distinction is not academic. A tab reports `complete` from the moment its last load finished
+ * until it starts loading again, so a plain `waitForLoad` right after `tabs.goBack` returns
+ * immediately: the browser has been told to go back and has not done it yet. Measured — `back`
+ * answered `ok`, and the next `page_read` still showed the page we had come FROM. So this watches
+ * for the transition as well as the end state: a `loading` event, or a URL that is no longer the one
+ * the tab had. A reload changes no URL, which is exactly why the event is not optional.
+ *
+ * And a browser that fires no `tabs.onUpdated` at all (Epiphany, issue #2) can never set that flag,
+ * so a grace period accepts the old page afterwards: by then a load that was going to start has.
+ */
+async function waitForNavigation(
+  tabId: number,
+  was: string | undefined,
+  started: number,
+  deadline: number,
+): Promise<boolean> {
+  let loading = false;
+  const onUpdated = (id: number, change: { status?: string }) => {
+    if (id === tabId && change.status === 'loading') loading = true;
+  };
+  browser.tabs.onUpdated.addListener(onUpdated);
+  try {
+    for (;;) {
+      const tab = await getTab(tabId);
+      const now = Date.now();
+      if (tab.status === 'complete' && (tab.url !== was || loading)) return true;
+      // A browser that fires no `tabs.onUpdated` at all (Epiphany, issue #2) can never set that flag,
+      // so a grace period accepts the old page afterwards: by then a load that was going to start
+      // has. It reports FALSE, because without the event there is nothing that says the tab moved,
+      // and saying so is the caller's business rather than this function's guess.
+      if (tab.status === 'complete' && now - started > 2_000) return false;
+      if (now >= deadline) fail('timeout', `tab ${tabId} did not finish loading in time`);
+      await sleep(150);
+    }
+  } finally {
+    browser.tabs.onUpdated.removeListener(onUpdated);
   }
 }
 
@@ -487,6 +535,105 @@ const handlers: { [M in Method]: Handler<M> } = {
    * both has no defined order between "press this" and "type this". Refused here rather than
    * guessed, because a guessed order is a keystroke the person did not confirm.
    */
+  /**
+   * Move the person's own tab.
+   *
+   * Checked in the order that matters here, and the middle step is the one that is easy to forget:
+   * the ORIGIN THE TAB IS ON has to be allowed (that is the page in front of the person, and for a
+   * history move it is the only origin there is to ask about), and a URL THE AGENT SUPPLIES needs
+   * `read` on its own target, exactly like `tabs.open`. Without the second, an agent that had just
+   * read a page could carry it away in the query string of a site nobody ever allowed.
+   *
+   * Going back or forward cannot be checked that way — no browser API will say where a history
+   * entry points — so the bound is what the person can see: the tab, as it is now. Where it LANDS
+   * is then asked again, and a destination below `read` is refused with its origin. The tab has
+   * moved by then; the answer exists so the agent stops instead of reading a blocked page, which is
+   * the whole reason the level table is checked twice here.
+   */
+  async 'page.navigate'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const { tabId: _t, browser: _b, ...rest } = params as unknown as Record<string, unknown>;
+    const req = parseNavigate(rest);
+    if (typeof req === 'string') return fail('invalid', req);
+    const tab = await getTab(tabId);
+    await gate('page.navigate', tab.url, policy, ctx);
+    if (req.navigation === 'url' && req.url) {
+      const decision = decide(policy, 'page.navigate', req.url, accessOf(ctx));
+      if (!decision.allow) {
+        const answer =
+          decision.askable &&
+          (await askForAccess(
+            { label: ctx.session, sessionId: ctx.sessionId },
+            decision.origin!,
+            decision.need,
+          )) === 'once'
+            ? 'once'
+            : null;
+        if (answer === 'once') ctx.settleAfter = true;
+        if (!decision.allow && !answer) {
+          return fail(
+            'forbidden',
+            `navigating to ${decision.origin ?? req.url} needs level "read" on that site; it is "${decision.have}". ` +
+              (decision.askable
+                ? 'Ask the person to allow the site first.'
+                : 'The person blocked it or it is not a web page.'),
+            { origin: decision.origin, have: decision.have, need: decision.need },
+          );
+        }
+      }
+    }
+
+    const started = Date.now();
+    const deadline = started + req.timeoutMs;
+    try {
+      if (req.navigation === 'url') await browser.tabs.update(tabId, { url: req.url });
+      else if (req.navigation === 'back') await browser.tabs.goBack(tabId);
+      else if (req.navigation === 'forward') await browser.tabs.goForward(tabId);
+      else await browser.tabs.reload(tabId);
+    } catch (err) {
+      // For a history move, the browser REFUSING is an answer, not a failure: Chromium rejects
+      // `goBack` with "Cannot find a next page in history" when there is no entry, which is the
+      // normal state of a tab the person opened at a URL. It is reported as `moved: false` WITH the
+      // browser's own words, because swallowing it once taught the wrong lesson: an earlier version
+      // caught it and answered `ok`, and an agent then read the page it believed it had left.
+      // A url or a reload that is refused IS a failure, and says so.
+      if (req.navigation === 'back' || req.navigation === 'forward') {
+        return {
+          url: tab.url ?? null,
+          title: tab.title ?? '',
+          navigation: req.navigation as Navigation,
+          moved: false,
+          reason: (err as Error).message,
+          waitedMs: 0,
+        };
+      }
+      return fail('failed', `the browser refused to move the tab: ${(err as Error).message}`);
+    }
+    // The load is waited for, because a `page_read` right after a goto would otherwise read the
+    // document that is on its way out — the same reason `page.wait` waits. `waitForNavigation` and
+    // not `waitForLoad`: a tab counts as loaded until it starts loading again, so the plain one
+    // would return before `goBack` had even happened.
+    const moved = await waitForNavigation(tabId, tab.url, started, deadline);
+    const loaded = await getTab(tabId);
+    const after = decide(policy, 'page.navigate', loaded.url, accessOf(ctx));
+    if (!after.allow) {
+      return fail(
+        'forbidden',
+        `the tab is now on ${after.origin ?? 'another page'}, which is at level "${after.have}" in beifahrer. ` +
+          'The move already happened; nothing on that page may be read, and beifahrer will not name ' +
+          'its path for you.',
+        { origin: after.origin, have: after.have, need: after.need },
+      );
+    }
+    return {
+      url: loaded.url ?? null,
+      title: loaded.title ?? '',
+      navigation: req.navigation as Navigation,
+      moved,
+      waitedMs: moved ? Date.now() - started : 0,
+    };
+  },
+
   async 'page.press'(params, policy, ctx) {
     const tabId = tabIdOf(params);
     const raw = params as unknown as Record<string, unknown>;

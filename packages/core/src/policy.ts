@@ -171,6 +171,10 @@ export const REQUIRED_LEVEL = {
   'page.evaluate': 'write',
   // Opening a URL needs `read` on the TARGET: otherwise an agent that just read something could
   // carry it off in the query string of a URL the person never allowed.
+  // Same level and the same reason as `tabs.open`: a URL the agent supplies must be a site the
+  // person allows at `read`, and re-loading or walking back inside the tab's own history reaches
+  // nothing they have not already been to.
+  'page.navigate': 'read',
   'tabs.open': 'read',
   // Tab and window management. These touch no page content, so the per-site level is not their
   // gate — the person's feature switch is (FEATURE_OF in features.ts). Where one opens a NEW URL the agent

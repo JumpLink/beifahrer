@@ -21,6 +21,7 @@
 
 import { parseDesktop, type DesktopInfo } from './desktop.ts';
 import type { ScriptWorld } from './evaluate.ts';
+import type { Navigation } from './navigate.ts';
 import type { Feature } from './features.ts';
 import type { ElementQuery, MetaQuery } from './find.ts';
 import type { Level, Method } from './policy.ts';
@@ -163,6 +164,32 @@ export interface MethodMap {
    * the ones it can (the text appears, Enter submits, Tab moves on) — see `press` in page-agent.ts
    * for exactly what that covers and what it does not.
    */
+  /**
+   * Move the person's own tab: to a URL, or through its history.
+   *
+   * A URL needs `read` on the site it names, exactly like `tabs.open` — otherwise an agent that
+   * just read something could carry it off in the query string of a site nobody allowed. A history
+   * move names no URL (no browser API can ask where a history entry points), so the bound there is
+   * the tab itself, and a landing below `read` comes back as `forbidden` naming the origin.
+   */
+  'page.navigate': {
+    params: { tabId: number; url?: string; navigation?: Navigation; timeoutMs?: number };
+    /**
+     * `moved: false` says the tab did NOT move — in practice because there is no history entry to go
+     * back to, which Chromium reports by refusing the move. It is in the answer rather than left to
+     * be inferred, because an agent that read "ok" for a `back` that did nothing goes on to read the
+     * page it believed it had left. `reason` then carries the browser's own words for it.
+     */
+    result: {
+      url: string | null;
+      title: string;
+      navigation: Navigation;
+      moved: boolean;
+      /** Why the tab did not move, in the browser's words. Absent when it did. */
+      reason?: string;
+      waitedMs: number;
+    };
+  };
   'page.press': {
     params: { tabId: number; ref?: string; key?: string; text?: string; times?: number };
     result: { ref: string | null; key?: string; text?: string; times: number };

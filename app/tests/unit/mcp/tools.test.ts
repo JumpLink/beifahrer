@@ -20,6 +20,7 @@ const READ = [
   'recipes_for_tab',
 ];
 const WRITE = [
+  'page_navigate',
   'page_fill',
   'page_click',
   'page_press',
@@ -65,6 +66,7 @@ export default async () => {
         'tabs_list',
         'page_read',
         'page_outline',
+        'page_navigate',
         'page_fill',
         'page_click',
         'page_press',

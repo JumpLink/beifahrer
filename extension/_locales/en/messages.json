@@ -733,5 +733,8 @@
   },
   "confirm_state_off": {
     "message": "unchecked"
+  },
+  "method_page_navigate": {
+    "message": "Moved the tab"
   }
 }
