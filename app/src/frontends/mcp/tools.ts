@@ -9,7 +9,14 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { MAX_RESULT_CHARS, WORLDS, type Method, type Params, type Result } from '@beifahrer/core';
+import {
+  MAX_NETWORK_LIMIT,
+  MAX_RESULT_CHARS,
+  WORLDS,
+  type Method,
+  type Params,
+  type Result,
+} from '@beifahrer/core';
 
 import { BridgeError, browserLabel, type BrowserAccess } from '../../bridge/bridge.ts';
 import { registerFindTools } from './find-tools.ts';
@@ -249,6 +256,48 @@ export function registerTools(
         const match = /^data:(image\/[a-z]+);base64,(.*)$/.exec(dataUrl);
         if (!match) return failure(new Error('the browser returned no image'));
         return { content: [{ type: 'image', mimeType: match[1]!, data: match[2]! }] };
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    'page_network',
+    {
+      title: 'What the tab requested',
+      description:
+        "What the tab asked for and what came back: method, URL, status, the browser's own type, and on failure " +
+        "the browser's own error (net::ERR_ABORTED and friends). Newest first, up to limit of them. " +
+        'This is the answer to "the button did nothing": the POST that returned 500, the request a CSP or a CORS header refused, the third-party script that never loaded. ' +
+        "since takes a timestamp in milliseconds (Date.now() in the page agent's world is not reachable, so use the time of the last thing you did — a `pending` row tells you a request is still open). " +
+        'A row with `pending: true` went out and nothing came back yet; that is the whole answer for a request that is still in flight. ' +
+        "URLs come WITHOUT query and fragment, always: a query is where tokens live, and that is the person's decision, not yours — there is no argument that turns it back on. " +
+        'The log is a tail of the last few hundred requests, per tab, and it is empty until the person switches "See page requests" on AND the browser grants it; ' +
+        'a `note` in the answer says which of those it was. ' +
+        POLICY_NOTE,
+      inputSchema: {
+        tabId: tabIdParam,
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(MAX_NETWORK_LIMIT)
+          .optional()
+          .describe('How many of the newest (default 50)'),
+        since: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe('Only requests newer than this, in milliseconds — "what has it done since I clicked"'),
+        browser: browserParam,
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async ({ tabId, limit, since, browser }) => {
+      try {
+        return text(await call('page.network', { tabId, limit, since }, browser));
       } catch (err) {
         return failure(err);
       }

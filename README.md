@@ -128,6 +128,7 @@ all (options page):
 | Read page text | `page_read` | on |
 | Outline pages | `page_outline` | on |
 | Screenshots | `page_screenshot` (turning it on asks the browser for access to all sites) | **off** |
+| See page requests | `page_network` — what the tab asked for and what came back, never with query strings. Switching it on asks the browser for its `webRequest` permission, which is a request log of this whole browser | **off** |
 | Fill in forms | `page_fill`, `page_press`, `page_select`, `page_check` — text into a field, keys into a form, a dropdown option, a checkbox. Still only at *Read + edit*, and you confirm | on |
 | Click | `page_click`, still only at *Read + edit*, and you confirm | on |
 | Run scripts | `page_evaluate` — the agent runs its own code in the page (Firefox only; Chromium's content-script policy forbids it), still only at *Read + edit*, and you see every script before it runs | **off** |
@@ -321,6 +322,30 @@ an installed extension has no API that runs its own code as a string inside a pa
 price of all of it: a script may do anything a *Read + edit* grant allows on that site, reading a
 password field included — which `page_fill` and `page_press` refuse. Why the conditions above are the conditions:
 [ADR 0012](docs/adr/0012-running-the-agents-own-script-in-the-page.md).
+
+## When a page did not do the thing
+
+**There is no console tool, and there will not be one.** A content script shares the page's DOM but
+not the page's JavaScript world: the page's `console.log` goes to the page's console, beifahrer's to
+the extension's, and no browser API bridges the two. The only way in is defeating the page's own CSP
+with a `<script>` element, which is what [ADR 0012](docs/adr/0012-running-the-agents-own-script-in-the-page.md)
+refuses. A tool that answered "no entries" would be a lie, and a lie there is worse than a gap: an
+agent would conclude the page logged nothing when it cannot know.
+
+What there is instead is **`page_network`**: what the tab requested and what came back — method, URL,
+status, the browser's own type, and on failure the browser's own error (`net::ERR_ABORTED` and
+friends). That is the question behind most "the button did nothing": the POST that returned 500, the
+request a CSP or a CORS header refused before it went out, the third-party script that never loaded.
+
+It is the furthest-reaching switch in the list, and the only one whose permission cannot be narrowed:
+
+| | |
+|---|---|
+| **What you decide** | two things in one click — the switch, and the browser's `webRequest` grant, which the options page asks for in the same click and takes back when you switch it off |
+| **Why it is off by default** | the permission is a request log of everything this browser does. There is no per-site form of it, so a release build keeps it *optional* and out of the install prompt |
+| **What is never in it** | the query and the fragment. `?token=`, `?access_token=`, `?SAMLRequest=` are ordinary, and no argument turns that back on: a session token in an agent's hands is not the agent's decision to make |
+| **What it can see** | the page's own requests and the third-party ones it makes, at Read on the tab's own site. A frame from a site you never allowed is not asked, exactly as for a read |
+| **How much** | the last 200 requests of that tab, in memory, gone with the browser |
 
 ## What it will never do
 

@@ -25,6 +25,7 @@ import {
   evaluateRequestOf,
   expectationOf,
   levelFor,
+  parseNetwork,
   parseElementQuery,
   parseExpect,
   parseKeySpec,
@@ -34,6 +35,7 @@ import {
   parseRef,
   namespaceRefs,
   scriptPreview,
+  selectRows,
   type ElementQuery,
   type ExpectRequest,
   type FoundElement,
@@ -56,6 +58,7 @@ import { fail } from './errors.ts';
 import { hideIndicator } from './indicator.ts';
 import { correctFrame, frameByIndex, framesOf, isWebUrl, type FrameRow } from './frames.ts';
 import { loadGrants, settle } from './grants.ts';
+import { networkAvailable, rowsOf } from './network.ts';
 import { askPage, inject } from './inject.ts';
 import { loadSettings, originPattern, saveSettings } from './settings.ts';
 import type { PageRequest } from './page-messages.ts';
@@ -1162,6 +1165,35 @@ const handlers: { [M in Method]: Handler<M> } = {
       moved,
       waitedMs: moved ? Date.now() - started : 0,
     };
+  },
+
+  /**
+   * What the tab requested. The gate is the ordinary one for a read: the tab's own site, at `read`.
+   *
+   * A request log is about the page, and a page's requests are the page's — so the tab is what the
+   * policy is asked about, exactly as for a read or an outline. What the page asked OTHER sites for
+   * comes back as host and path, without the query (core/network.ts), so a token in a query cannot
+   * travel to the agent through a third party.
+   */
+  async 'page.network'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const { tabId: _t, browser: _b, ...rest } = params as unknown as Record<string, unknown>;
+    const req = parseNetwork(rest);
+    if (typeof req === 'string') return fail('invalid', req);
+    const tab = await getTab(tabId);
+    await gate('page.network', tab.url, policy, ctx);
+    const { rows, kept, truncated } = rowsOf(tabId);
+    // A person who switched the feature on and got nothing has to be able to tell the three reasons
+    // apart, because only one of them is "the page really asked for nothing".
+    const note = networkAvailable()
+      ? undefined
+      : 'the browser has not granted beifahrer its webRequest permission, so it cannot see requests at all';
+    return {
+      requests: selectRows(rows, req),
+      kept,
+      truncated,
+      ...(note ? { note } : rows.length === 0 ? { note: 'no requests recorded for this tab yet' } : {}),
+    } as unknown as Result<'page.network'>;
   },
 
   async 'page.press'(params, policy, ctx) {

@@ -41,6 +41,15 @@ Manifest V3 content script cannot compile a string into code at all** (it shares
 which cannot name `unsafe-eval`), so the page agent probes `new Function('')` once and answers
 `unsupported` with that reason on Chromium and Safari. Firefox's Manifest V2 build runs the script.
 Probe it, never infer it from a manifest field.
+|**There is no `page_console`, and there is no way to make one.** A page's console is not readable by
+a WebExtension: a content script shares the page's DOM but not its JavaScript world, so the page's
+`console.log` goes to the page's console and the content script's to the extension's, and no API
+bridges the two. The only route into the page's world is defeating the page's CSP with a `<script>`
+element — the same thing ADR 0012 refuses for `world: "main"`. A tool that answered "no entries" would
+be a lie, and a lie there is worse than a gap, because an agent debugs with it: it would conclude the
+page logged nothing when it cannot know. So the question behind "the button did nothing" is answered
+by `page.network` instead (see the optional `webRequest` feature), and the absence of a console tool
+is a decision to keep, not a backlog item.
 |**Only the person resumes.** Pause (`paused` in storage) refuses EVERY method, `tabs.list` too.
 The popup, options, the in-page Stop button and the shortcut set it; only the popup, options and
 shortcut clear it. No protocol method may touch it, and a content script may only ever set it
@@ -260,12 +269,19 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   confirmation as that person would (never with "remember"), and
   `/__beifahrer_e2e/answer?scope=…` does the same for the access prompts (ADR 0010).
 - **The person's switches cannot be flipped headless.** The e2e builds the extension four
-  times: default features (the `feature_disabled` refusals — tab management, sessions, screenshots
-  and, since ADR 0012, scripts), PR #8's legacy `grants.manageTabs` plus screenshots and the
-  `script` switch (the migration, the full tab-management run, and the script run), `paused`, and `access`
+  times: default features (the `feature_disabled` refusals — tab management, sessions, screenshots,
+  page requests and, since ADR 0012, scripts), PR #8's legacy `grants.manageTabs` plus screenshots,
+  the `script` switch and `webRequest` (the migration, the full tab-management run, the script run and
+  the request log), `paused`, and `access`
   (ADR 0010: a seeded "all sites" grant, a blocked site, and the prompt answered through
   `/__beifahrer_e2e/answer?scope=…` and `/end-wide`). The first three switch asking on demand
   off, because their refusal checks expect `forbidden` at once, not a prompt nobody answers.
+- **A `webRequest` listener has to exist before the request starts.** Chromium only delivers events
+  to listeners registered at the time the request goes out, and an MV3 service worker that sleeps and
+  wakes must find them again on wake — so `installNetworkWatch()` runs at load, unconditionally, and
+  the RECORDING is what the feature switch decides (one `features.network` read per event, cached a
+  second). Adding the listener when the person switches the feature on looks tidier and loses the
+  requests that matter most: the ones right after they switched it.
 - **A `for` loop that re-reads the clock in its own update expression measures the GAP between
   iterations, not the work in them.** `for (let waited = Date.now(); Date.now() - waited < budget;
   waited = Date.now())` reads like a deadline and is not one: the condition is evaluated right after

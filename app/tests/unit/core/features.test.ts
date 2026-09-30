@@ -94,6 +94,9 @@ export default async () => {
         outline: true,
         screenshot: false,
         download: false,
+        // With the other far-reaching ones, and for a stronger reason than any of them: a request log
+        // is this browser's browsing with timestamps, and `webRequest` cannot be narrowed to a site.
+        network: false,
         fill: true,
         click: true,
         // With the other far-reaching capabilities: a script is off until the person says so.

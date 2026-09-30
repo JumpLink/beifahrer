@@ -79,6 +79,13 @@ function page(name: string, source: string): string {
     .replace(/href="(\.\.\/)+src\/ui\/style\.css"/, 'href="style.css"');
 }
 
+/** API permissions an E2E build is given up front; a test cannot click a permission prompt. */
+function e2eApiPermissions(seedValue: string): string[] {
+  if (!seedValue) return [];
+  const parsed = JSON.parse(seedValue) as { e2eApiPermissions?: string[] };
+  return parsed.e2eApiPermissions ?? [];
+}
+
 function e2eHosts(): string[] {
   if (!seed) return [];
   const parsed = JSON.parse(seed) as { policy?: { origins?: object }; e2eHostOrigins?: string[] };
@@ -132,7 +139,11 @@ for (const target of TARGETS) {
   cpSync(join(ROOT, '_locales'), join(dir, '_locales'), { recursive: true });
   for (const [name, source] of Object.entries(PAGES))
     writeFileSync(join(dir, `${name}.html`), page(name, source));
-  const manifest = manifestFor(target, { version: pkg.version, e2eHosts: e2eHosts() });
+  const manifest = manifestFor(target, {
+    version: pkg.version,
+    e2eHosts: e2eHosts(),
+    e2eApiPermissions: e2eApiPermissions(seed),
+  });
   writeFileSync(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   if (zip && !seed) {
     const file = join(OUT, `beifahrer-${pkg.version}-${target}.zip`);

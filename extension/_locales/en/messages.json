@@ -189,6 +189,9 @@
   "method_page_expect": {
     "message": "Asserted a state"
   },
+  "method_page_network": {
+    "message": "Looked at what the page requested"
+  },
   "method_page_screenshot": {
     "message": "Took a screenshot"
   },
@@ -258,6 +261,9 @@
   "feature_download_label": {
     "message": "Download documents"
   },
+  "feature_network_label": {
+    "message": "See page requests"
+  },
   "feature_outline_label": {
     "message": "Find elements"
   },
@@ -287,6 +293,12 @@
   },
   "screenshots_missing": {
     "message": "Screenshots lack browser access"
+  },
+  "network_denied": {
+    "message": "Seeing page requests needs the browser's permission, which is your decision"
+  },
+  "network_missing": {
+    "message": "The browser's permission for page requests was taken away"
   },
   "toolbar_paused": {
     "message": "beifahrer is paused"

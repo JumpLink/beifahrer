@@ -188,6 +188,9 @@
   "method_page_expect": {
     "message": "Zustand bestätigt"
   },
+  "method_page_network": {
+    "message": "Angesehen, was die Seite angefragt hat"
+  },
   "method_page_screenshot": {
     "message": "Screenshot gemacht"
   },
@@ -257,6 +260,9 @@
   "feature_download_label": {
     "message": "Dokumente laden"
   },
+  "feature_network_label": {
+    "message": "Anfragen der Seite sehen"
+  },
   "feature_outline_label": {
     "message": "Elemente finden"
   },
@@ -286,6 +292,12 @@
   },
   "screenshots_missing": {
     "message": "Screenshots fehlt der Browserzugriff"
+  },
+  "network_denied": {
+    "message": "Anfragen der Seite zu sehen braucht die Erlaubnis des Browsers. Das entscheiden Sie."
+  },
+  "network_missing": {
+    "message": "Die Browser-Erlaubnis für Seitenanfragen wurde entzogen"
   },
   "toolbar_paused": {
     "message": "beifahrer ist pausiert"

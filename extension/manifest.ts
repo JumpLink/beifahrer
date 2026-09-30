@@ -19,6 +19,18 @@ export const TARGETS: readonly Target[] = ['chrome-mv3', 'firefox-mv2', 'safari-
 // kept apart from `<all_urls>` so that ending one never takes the other away.
 const HOSTS = ['http://*/*', 'https://*/*', '<all_urls>'];
 
+/**
+ * `webRequest` is OPTIONAL, and off until the person grants it.
+ *
+ * Not a detail: the permission is a request log of everything this browser does, and unlike a host
+ * permission it cannot be narrowed to one site — there is no per-origin form of it. So it is not in
+ * the install prompt of a project whose whole claim is that nothing leaves the device, it is asked
+ * for in the same click as the feature switch (options page, first await after the click for
+ * Firefox's user gesture), and `page.network` is refused by the feature switch before the browser
+ * is ever asked.
+ */
+const API = ['webRequest'];
+
 /** Toolbar and store icons, all derived from icons/sparkles.svg (scripts/icons.ts). */
 export const ICON_SIZES = [16, 32, 48, 128] as const;
 
@@ -43,11 +55,17 @@ export interface ManifestInput {
   version: string;
   /** E2E builds only: host patterns granted up front, because a test cannot click a prompt. */
   e2eHosts?: string[];
+  /**
+   * E2E builds only: API permissions granted up front, for the same reason. `webRequest` is the one
+   * that needs it — a request log cannot be tested through a prompt nobody can answer, and the test
+   * for the refusal is the build that does NOT have it.
+   */
+  e2eApiPermissions?: string[];
 }
 
 export function manifestFor(
   target: Target,
-  { version, e2eHosts = [] }: ManifestInput,
+  { version, e2eHosts = [], e2eApiPermissions = [] }: ManifestInput,
 ): Record<string, unknown> {
   // Safari takes the Chromium flavour: MV3, a service worker, `scripting`. What it lacks
   // (tab groups, the recently-closed list, per-origin optional hosts) is feature-detected at
@@ -73,10 +91,16 @@ export function manifestFor(
     description: '__MSG_extDescription__',
     version,
     icons: iconPaths(target, 'active'),
-    permissions: mv3 ? permissions : [...permissions, ...e2eHosts],
+    permissions: [...permissions, ...(mv3 ? [] : e2eHosts), ...e2eApiPermissions],
     ...(mv3
-      ? { optional_host_permissions: HOSTS, ...(e2eHosts.length ? { host_permissions: e2eHosts } : {}) }
-      : { optional_permissions: HOSTS }),
+      ? {
+          optional_host_permissions: HOSTS,
+          // `webRequest` is an API permission, so it is listed on its own and stays optional even in
+          // MV3 (see the note on API above).
+          optional_permissions: API,
+          ...(e2eHosts.length ? { host_permissions: e2eHosts } : {}),
+        }
+      : { optional_permissions: [...HOSTS, ...API] }),
     // Firefox puts a new extension's button into the Extensions (puzzle) menu unless the manifest
     // asks for the toolbar. The icon IS the "an agent is in your browser" signal, so it must be
     // visible without the person digging for it. Chromium has no equivalent: pinning there is manual.

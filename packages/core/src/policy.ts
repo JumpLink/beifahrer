@@ -153,6 +153,10 @@ export const REQUIRED_LEVEL = {
   'page.find': 'read',
   'page.wait': 'read',
   'page.expect': 'read',
+  // `read`, and read on the TAB's site: a network log is about what the page asked for, and the tab
+  // is the page. Requests the page made to OTHER origins come back host-and-path, without the query
+  // that could carry a token (network.ts) — the same boundary as the frame work, one layer out.
+  'page.network': 'read',
   'page.screenshot': 'read',
   // A document the page links to, fetched in the tab's own session. `read`, not `write`: it only
   // ever reads, and demanding `write` would push a bank or insurer origin up a level for the one

@@ -42,6 +42,13 @@ import { heroIcon, stateOf, STATE_WORDS, type UiState } from '../../src/ui/statu
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const ALL = { origins: ['<all_urls>'] };
+/**
+ * A request log cannot be narrowed to one site, which is why this one is the person's own grant.
+ * The literal tuple rather than `string[]`: the ambient `Permissions` type is a union of the names
+ * a browser knows, and a widened `string[]` is not assignable to it — which is the type system
+ * reminding us that the name has to be one the manifest really declares.
+ */
+const NETWORK = { permissions: ['webRequest'] as ['webRequest'] };
 const toast = (text: string, options: { buttonLabel?: string; onAction?: () => void } = {}) =>
   $<Adw.ToastOverlay>('toasts').addToast(text, { timeout: 4, ...options });
 
@@ -179,6 +186,37 @@ async function renderShotsWarning(): Promise<void> {
   const { features } = await loadSettings();
   const granted = await browser.permissions.contains(ALL);
   $('shots-warning').hidden = !features.screenshot || granted;
+}
+
+/**
+ * Seeing what a page requests is ONE decision for the person, though it takes two things: the
+ * feature switch and the browser's `webRequest` grant. Unlike the hosts, that permission cannot be
+ * narrowed to a site — it is every request this browser makes — so the switch asks in the same click
+ * and stays off when the browser says no. A release build keeps the permission OPTIONAL, so this
+ * grant is the only way to get it.
+ */
+async function setNetwork(row: Adw.SwitchRow, on: boolean): Promise<void> {
+  // permissions.request must be the FIRST await after the click (Firefox's user gesture); the row
+  // notifies synchronously inside its own click handler, so the gesture is still live.
+  if (on) {
+    const granted = await browser.permissions.request(NETWORK);
+    if (!granted) {
+      setQuietly(row, false);
+      toast(t('network_denied'));
+      return;
+    }
+  } else {
+    await browser.permissions.remove(NETWORK).catch(() => false);
+  }
+  await setFeature('network', on);
+  await renderNetWarning();
+}
+
+/** Shown only when the two diverge, as with screenshots: the switch is on, the grant is not. */
+async function renderNetWarning(): Promise<void> {
+  const { features } = await loadSettings();
+  const granted = await browser.permissions.contains(NETWORK);
+  $('net-warning').hidden = !features.network || granted;
 }
 
 function renderMethods(): void {
@@ -409,10 +447,17 @@ async function main(): Promise<void> {
     if (await browser.permissions.request(ALL)) await renderShotsWarning();
     else toast(t('screenshots_denied'));
   });
+  $('net-grant').addEventListener('click', async () => {
+    if (await browser.permissions.request(NETWORK)) await renderNetWarning();
+    else toast(t('network_denied'));
+  });
   renderMethods();
 
   const features = $('features');
-  const onChange = { screenshot: (row: Adw.SwitchRow, on: boolean) => void setScreenshots(row, on) };
+  const onChange = {
+    screenshot: (row: Adw.SwitchRow, on: boolean) => void setScreenshots(row, on),
+    network: (row: Adw.SwitchRow, on: boolean) => void setNetwork(row, on),
+  };
   await Promise.all([
     setupPause(),
     renderState(),
@@ -420,6 +465,7 @@ async function main(): Promise<void> {
     setupTabs(),
     renderFeatures(features, onChange),
     renderShotsWarning(),
+    renderNetWarning(),
   ]);
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
@@ -427,6 +473,7 @@ async function main(): Promise<void> {
     if (changes.features || changes.grants) {
       void renderFeatures(features, onChange);
       void renderShotsWarning();
+      void renderNetWarning();
     }
   });
   setInterval(() => void renderState(), 2000);

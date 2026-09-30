@@ -158,7 +158,11 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
     // answer it is checking: an assertion that agreed with itself would prove nothing.
     document.getElementById('gate-state').textContent = save.disabled ? 'gate:disabled' : 'gate:enabled';
   });
+  // Issue #35: the requests a network log is FOR. One GET with a token in its query (which must not
+  // be reported) and one POST the server answers 500 to — "the button did nothing" in two rows.
+  fetch('/api/ping?token=e2e-secret').catch(() => {});
   document.getElementById('gate-save').addEventListener('click', () => {
+    fetch('/api/submit', { method: 'POST' }).catch(() => {});
     document.getElementById('gate-done').textContent = 'saved:' + document.getElementById('gate-note').value;
     // The spinner comes back and the PAGE takes it away again three seconds later, and the page says
     // which of the two it is in — so a test can tell "the assertion waited" from "the spinner was
@@ -1292,6 +1296,107 @@ async function assertions(browser, client, allowed, _ref) {
   }
 }
 
+/**
+ * `page_network` (issue #35): what an agent has instead of a page's console, which no extension can
+ * read at all.
+ *
+ * Measured on the PAGE, not on the return value: the fixture asks for `/api/ping` on load and POSTs
+ * `/api/submit` when the gate is clicked, and the server answers the second one with 500 — so the log
+ * has to show a query that went out, a POST that came back broken, and a URL whose query is NOT in the
+ * answer although the page sent one.
+ */
+async function requests(browser, client, allowed, forbidden, ref) {
+  const ask = async (label, args = {}) => {
+    const r = await tool(client, 'page_network', { tabId: allowed.tabId, ...args });
+    console.log(`  · [${browser}] ${label} → error=${r.error} ${r.text.replace(/\s+/g, ' ').slice(0, 400)}`);
+    return r;
+  };
+  const json = (r) => {
+    try {
+      return JSON.parse(r.text);
+    } catch {
+      return {};
+    }
+  };
+
+  // The POST has to be in the log before it is asked about, so the click comes first.
+  const gate = ref('Gate save');
+  const clicked = await tool(client, 'page_click', { tabId: allowed.tabId, ref: gate });
+  await sleep(700);
+
+  const log = await ask('after the click');
+  const rows = json(log).requests ?? [];
+  const ping = rows.find((row) => row.url.endsWith('/api/ping'));
+  const submit = rows.find((row) => row.url.endsWith('/api/submit'));
+  check(
+    browser,
+    'page_network answers, and the log is a list rather than a string',
+    !clicked.error && !log.error && Array.isArray(rows) && rows.length > 0,
+    log.text.replace(/\s+/g, ' ').slice(0, 300),
+  );
+  check(
+    browser,
+    "the page's own request is in it, with the method and the browser's type",
+    !!ping && ping.method === 'GET' && /xmlhttprequest/.test(ping.type ?? ''),
+    JSON.stringify(ping ?? null),
+  );
+  check(
+    browser,
+    'a request that came back with a status carries it, and the method the page used',
+    !!submit && submit.method === 'POST' && submit.status === 500 && submit.pending === false,
+    JSON.stringify(submit ?? null),
+  );
+  check(
+    browser,
+    'and the query string is NOT in the answer, although the page sent one',
+    // The page asked for `?token=e2e-secret`. A log that handed that over would put a session token
+    // in the agent's hands, and the person never got to look at it.
+    !!ping && !/token/.test(log.text) && !rows.some((row) => row.url.includes('?')),
+    rows
+      .slice(0, 6)
+      .map((row) => row.url)
+      .join(' | '),
+  );
+  // The boundary that matters, and the one that is not a detail: a request log is as much about the
+  // site's tab as its text is, so a tab on a site nobody allowed has none to ask about. (The document
+  // request that LOADED this page is in no log at all — the extension's watch begins with the
+  // extension, and a page the browser was already showing asked nothing since. That is honest.)
+  const blocked = await tool(client, 'page_network', { tabId: forbidden.tabId });
+  check(
+    browser,
+    'a tab on a site nobody allowed has no request log to ask about',
+    blocked.error && blocked.text.startsWith('forbidden:'),
+    blocked.text.slice(0, 200),
+  );
+  // And the log says how much it holds, so "these 50 of 200" is visible rather than implied.
+  const whole = json(await ask('the whole log', { limit: 200 }));
+  check(
+    browser,
+    "the answer says how much the tab's log holds, so a tail is not mistaken for everything",
+    typeof whole.kept === 'number' && whole.kept > 0 && typeof whole.truncated === 'boolean',
+    `kept=${whole.kept} truncated=${whole.truncated}`,
+  );
+
+  // `since` is the question behind "what has it done since I clicked", and it is the only way to keep
+  // a log from being read from the beginning every time.
+  const mark = Date.now();
+  await tool(client, 'page_click', { tabId: allowed.tabId, ref: gate });
+  await sleep(700);
+  const fresh = await ask('since the click', { since: mark });
+  const freshRows = json(fresh).requests ?? [];
+  check(
+    browser,
+    'since returns only what came after it, which is the click and nothing older',
+    freshRows.length > 0 &&
+      freshRows.every((row) => row.at > mark) &&
+      !freshRows.some((row) => row.url.endsWith('/api/ping')),
+    freshRows
+      .slice(0, 6)
+      .map((row) => `${row.method} ${row.url}`)
+      .join(' | '),
+  );
+}
+
 /** The page's own `#press-output`, read as the page wrote it. */
 async function outputOf(client, allowed) {
   const read = await tool(client, 'page_read', { tabId: allowed.tabId, maxChars: 12_000 });
@@ -2245,6 +2350,7 @@ async function pausedChecks(browser, client) {
     ['page_find', { tabId: 1, role: 'button' }],
     ['page_wait', { tabId: 1, for: 'load' }],
     ['page_expect', { tabId: 1, role: 'button', state: 'visible' }],
+    ['page_network', { tabId: 1 }],
     ['page_evaluate', { tabId: 1, script: 'return 1' }],
     ['page_download', { tabId: 1, url }],
     ['recipes_for_tab', { tabId: 1 }],
@@ -2362,6 +2468,9 @@ async function scenario(browser, gate) {
         // ADR 0012: a script is refused like any other capability the person has not switched on —
         // before the per-site level, and naming the switch.
         ['page_evaluate', { tabId: allowed.tabId, script: 'return 1' }, 'Run scripts'],
+        // Issue #35: a request log is the furthest-reaching capability in the list, and `webRequest`
+        // cannot be narrowed to a site — so it is off until the person grants the browser permission.
+        ['page_network', { tabId: allowed.tabId }, 'See what a page requests'],
       ]) {
         const r = await tool(client, name, args);
         // ADR 0012 + issue #31: a script is refused on a Manifest V3 build by the BRIDGE's capability
@@ -2529,6 +2638,7 @@ async function scenario(browser, gate) {
     await framesAndOrigins(browser, client, allowed);
     await keys(browser, client, allowed, ref);
     await assertions(browser, client, allowed, ref);
+    await requests(browser, client, allowed, forbidden, ref);
     await navigation(browser, client, allowed, forbidden);
     await scripts(browser, client, allowed, forbidden);
     await recipes(browser, client, allowed, forbidden);
@@ -2591,6 +2701,19 @@ const page = (req) =>
           ? FRAME_FIXTURE
           : FIXTURE;
 const fixture = createServer((req, res) => {
+  // Issue #35: the two API paths, before anything is HTML. `/api/submit` answers 500 on purpose —
+  // a failing POST with a status is the row an agent is looking for, and a page that answered 200
+  // everywhere could not tell "the request went out" from "the request worked".
+  if (req.url?.startsWith('/api/ping')) {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end('{"ok":true}');
+    return;
+  }
+  if (req.url?.startsWith('/api/submit')) {
+    res.writeHead(500, { 'content-type': 'application/json' });
+    res.end('{"ok":false}');
+    return;
+  }
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
   res.end(page(req));
 });
@@ -2623,7 +2746,11 @@ const BUILDS = {
     grants: { manageTabs: true },
     // ADR 0012: the script switch is one of the far-reaching capabilities, so `on` turns it on
     // deliberately — the person would have to do exactly this in their own options page.
-    features: { screenshot: true, script: true },
+    // Issue #35: the network switch on, and the browser's `webRequest` grant in the manifest — a
+    // test cannot click a permission prompt, and the `off` build below is the one that has to prove
+    // the refusal. `e2eApiPermissions` is only read by the e2e build (manifest.ts).
+    features: { screenshot: true, script: true, network: true },
+    e2eApiPermissions: ['webRequest'],
     confirmClose: false,
   },
   paused: { ...seed, paused: true },

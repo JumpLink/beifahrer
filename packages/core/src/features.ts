@@ -24,6 +24,7 @@ export const FEATURES = [
   'outline',
   'screenshot',
   'download',
+  'network',
   'fill',
   'click',
   'script',
@@ -48,6 +49,12 @@ export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = 
     detail: 'page_outline, page_find, page_wait, page_expect — links, buttons, fields',
   },
   download: { label: 'Download documents', detail: 'page_download — a file the page links to' },
+  network: {
+    label: 'See what a page requests',
+    detail:
+      'page_network — what the tab asked for and what came back, without query strings. The browser ' +
+      'grants this separately, and the grant is what a request log is: your browsing, in a list',
+  },
   screenshot: {
     label: 'Take screenshots',
     detail: 'page_screenshot — of the visible tab only; Chromium also needs the all-sites grant below',
@@ -91,6 +98,11 @@ export const DEFAULT_FEATURES: Features = {
   outline: true,
   screenshot: false,
   download: false,
+  // Off by default, and the one switch whose DEFAULT is the honest answer: a request log is a
+  // browsing history with timestamps, and `webRequest` cannot be narrowed to one site. The person
+  // grants it in the same click that switches it on, and taking it away in the browser switches the
+  // feature off with it.
+  network: false,
   fill: true,
   click: true,
   // Off, with screenshots, downloads, tab management and sessions: every capability that reaches
@@ -121,6 +133,7 @@ export const FEATURE_OF = {
   'page.expect': 'outline',
   'page.screenshot': 'screenshot',
   'page.download': 'download',
+  'page.network': 'network',
   'page.fill': 'fill',
   // press, select and check ride on `fill`, not on switches of their own. They are the same act —
   // putting a value into a form control — and a page agent needs all four to get through one form.

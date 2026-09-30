@@ -23,6 +23,7 @@ import { parseDesktop, type DesktopInfo } from './desktop.ts';
 import type { ExpectState } from './expect.ts';
 import type { ScriptWorld } from './evaluate.ts';
 import type { Navigation } from './navigate.ts';
+import type { NetworkRow } from './network.ts';
 import type { Feature } from './features.ts';
 import type { ElementQuery, MetaQuery } from './find.ts';
 import type { Level, Method } from './policy.ts';
@@ -224,6 +225,26 @@ export interface MethodMap {
       /** Why the tab did not move, in the browser's words. Absent when it did. */
       reason?: string;
       waitedMs: number;
+    };
+  };
+  /**
+   * What the tab requested, newest first — the question behind "the button did nothing".
+   *
+   * A page's console cannot be read by an extension at all, so this is what there is: what went out,
+   * what came back, and the browser's own `net::ERR_*` when nothing did. URLs arrive without query
+   * and fragment (`network.ts`) — a per-call opt-out was refused, because a token in a query is the
+   * one thing in a request log that must not be the agent's choice to see.
+   */
+  'page.network': {
+    params: { tabId: number; limit?: number; since?: number };
+    result: {
+      requests: NetworkRow[];
+      /** How many the tab's log holds, so "50 of 200" is visible rather than implied. */
+      kept: number;
+      /** True when rows were dropped to hold the cap — the log is a tail, not a history. */
+      truncated: boolean;
+      /** Why the log is empty when the person expects it not to be (feature off, no grant). */
+      note?: string;
     };
   };
   'page.press': {
