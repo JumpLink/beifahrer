@@ -661,6 +661,40 @@ async function waitForNavigation(
   }
 }
 
+/**
+ * How long a new tab is given to show a URL that is really there. Bounded and quiet: the tab EXISTS,
+ * so failing the call would be a lie about something that did happen, and the fallback below still
+ * answers with the URL the agent asked for.
+ */
+const TAB_URL_COMMIT_MS = 3_000;
+
+/**
+ * The URL the BROWSER really has for a tab that was just opened, or the one that was asked for.
+ *
+ * A new tab's URL is not committed when `tabs.create` answers — measured on Firefox, where the tab
+ * comes back as `about:blank`. The answer used to paper over that (`tab.url || params.url`), so the
+ * agent was told about the site it had asked for while the browser still had no page there. And the
+ * NEXT call is the one that pays: every page call is gated on the tab's own URL, which has no origin
+ * yet, so a `page_read` of a just-opened tab sees nothing and a `page_navigate` on it refuses with
+ * "not possible on a non-web page" — for a tab that is on the site the agent opened a moment ago.
+ *
+ * So this waits for the URL to become a real one, and for nothing else: not for the load to finish
+ * (a slow page is a slow page, and `page.wait` is what waits), and not for a particular URL either —
+ * a site that redirects commits the target, which is a page just as real. Giving up is quiet: the tab
+ * EXISTS, and failing a call whose tab exists would be a lie about something that did happen.
+ */
+async function committedUrl(opened: { id?: number; url?: string }, asked: string): Promise<string> {
+  if (typeof opened.id !== 'number' || isWebUrl(opened.url ?? '')) return opened.url || asked;
+  const deadline = Date.now() + TAB_URL_COMMIT_MS;
+  for (;;) {
+    await sleep(100);
+    const tab = await getTab(opened.id);
+    const url = tab.url;
+    if (typeof url === 'string' && isWebUrl(url)) return url;
+    if (Date.now() >= deadline) return opened.url || asked;
+  }
+}
+
 type Handler<M extends Method> = (params: Params<M>, policy: Policy, ctx: CallContext) => Promise<Result<M>>;
 
 const handlers: { [M in Method]: Handler<M> } = {
@@ -1303,9 +1337,9 @@ const handlers: { [M in Method]: Handler<M> } = {
         { origin: decision.origin, have: decision.have, need: decision.need },
       );
     }
-    const tab = await browser.tabs.create({ url: params.url, active: params.active !== false });
+    const opened = await browser.tabs.create({ url: params.url, active: params.active !== false });
     const info = toTabInfo(
-      { ...tab, url: tab.url || params.url },
+      { ...opened, url: await committedUrl(opened, params.url) },
       policy,
       await focusedWindowId(),
       accessOf(ctx),
