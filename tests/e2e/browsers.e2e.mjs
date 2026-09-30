@@ -160,8 +160,15 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
   });
   // Issue #35: the requests a network log is FOR. One GET with a token in its query (which must not
   // be reported) and one POST the server answers 500 to — "the button did nothing" in two rows.
-  fetch('/api/ping?token=e2e-secret').catch(() => {});
+  // The GET goes out on the FIRST click, not on load: a request made while the page loads races the
+  // extension's watch, and Firefox lost that race (the row was simply not in the log). Only once, so
+  // the "since" check after the second click can tell an old request from a new one.
+  let pinged = false;
   document.getElementById('gate-save').addEventListener('click', () => {
+    if (!pinged) {
+      pinged = true;
+      fetch('/api/ping?token=e2e-secret').catch(() => {});
+    }
     fetch('/api/submit', { method: 'POST' }).catch(() => {});
     document.getElementById('gate-done').textContent = 'saved:' + document.getElementById('gate-note').value;
     // The spinner comes back and the PAGE takes it away again three seconds later, and the page says
