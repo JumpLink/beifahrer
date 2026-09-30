@@ -4,9 +4,11 @@ import { PROTOCOL_VERSION, type DesktopInfo } from '@beifahrer/core';
 
 import { Bridge } from '../../../src/bridge/bridge.ts';
 import {
+  adwAccentFromAppleAccentColor,
   desktopSource,
   followDesktop,
   isGnomeSession,
+  macosAccentSource,
   readDesktop,
   type AccentSource,
 } from '../../../src/bridge/desktop.ts';
@@ -100,9 +102,44 @@ export default async () => {
       for (const d of [undefined, '', 'KDE', 'XFCE', 'X-Cinnamon', 'Unity']) {
         expect(isGnomeSession({ XDG_CURRENT_DESKTOP: d })).toBe(false);
       }
-      // macOS and Windows set no XDG_CURRENT_DESKTOP: no source, whatever GSettings would answer.
-      expect(desktopSource({})).toBe(null);
-      expect(desktopSource({ XDG_CURRENT_DESKTOP: 'KDE' })).toBe(null);
+      // Outside GNOME and macOS: no source, whatever GSettings would answer.
+      expect(desktopSource({}, 'linux')).toBe(null);
+      expect(desktopSource({}, 'win32')).toBe(null);
+      expect(desktopSource({ XDG_CURRENT_DESKTOP: 'KDE' }, 'linux')).toBe(null);
+    });
+
+    await it('maps the macOS accent to its libadwaita namesake, graphite to slate', async () => {
+      const cases: [string, string][] = [
+        ['-1', 'slate'],
+        ['0', 'red'],
+        ['1', 'orange'],
+        ['2', 'yellow'],
+        ['3', 'green'],
+        ['4', 'blue'],
+        ['5\n', 'purple'],
+        [' 6 ', 'pink'],
+      ];
+      for (const [raw, name] of cases) expect(adwAccentFromAppleAccentColor(raw)).toBe(name);
+      // The key is absent for "Multicolor": Adwaita's own accent.
+      expect(adwAccentFromAppleAccentColor(null)).toBe('blue');
+      for (const raw of ['7', '-2', '', '5.0', 'purple']) {
+        expect(adwAccentFromAppleAccentColor(raw)).toBe(null);
+      }
+    });
+
+    await it('reads the system accent on macOS, on GJS only', async () => {
+      // XDG_CURRENT_DESKTOP is unset on macOS; the platform decides. Node has no Gio: no source.
+      const onGjs = typeof (globalThis as { imports?: unknown }).imports === 'object';
+      const mac = desktopSource({}, 'darwin');
+      expect(mac !== null).toBe(onGjs);
+      expect(macosAccentSource() !== null).toBe(onGjs);
+      if (mac) {
+        // Off macOS there is no `defaults`: no accent, never an error. On macOS, one of the nine.
+        const { accent } = readDesktop(mac);
+        expect(accent === undefined || mac.read() === accent).toBe(true);
+        const stop = mac.watch(() => undefined);
+        stop();
+      }
     });
 
     await it('followDesktop pushes now, on every change, and stops when unsubscribed', async () => {

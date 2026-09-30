@@ -69,6 +69,10 @@ styles. Light and dark follow `prefers-color-scheme` through the package's own t
    setting on Linux is unmeasured. A missing schema or key (another desktop, GNOME before 47) or
    a bridge on Node is "unknown", never an error. `BEIFAHRER_DESKTOP_ACCENT` overrides the
    setting for tests only; the e2e sets it to `green` and checks the painted value.
+   On macOS the bridge reads the system accent instead (`defaults read -g AppleAccentColor`,
+   graphite as slate, "Multicolor" as blue), re-read every five seconds because no change signal
+   reaches GJS. Safari needs it most: its WebKit resolves `AccentColor` to blue whatever the
+   setting (measured on macOS 27 with purple set), while Firefox follows it.
 
 ## Consequences
 
