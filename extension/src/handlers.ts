@@ -24,6 +24,8 @@ import {
   preflightMessage,
   evaluateRequestOf,
   parseElementQuery,
+  parseKeySpec,
+  parseKeyTimes,
   parseMetaQuery,
   scriptPreview,
   type ElementQuery,
@@ -39,7 +41,7 @@ import {
 } from '@beifahrer/core';
 import { askForAccess } from './access-prompt.ts';
 import { track } from './activity.ts';
-import { askPerson } from './confirm.ts';
+import { askPerson, type ConfirmAnswer } from './confirm.ts';
 import { fail } from './errors.ts';
 import { hideIndicator } from './indicator.ts';
 import { loadGrants, settle } from './grants.ts';
@@ -179,22 +181,63 @@ async function page(tabId: number, ctx: CallContext, req: PageRequest): Promise<
   return res.data;
 }
 
+/**
+ * The sentence the person reads before a write happens, per action.
+ *
+ * "Fill a field" is not enough for a key press: a press can SUBMIT a form, and the person is the
+ * one who has to recognise that from the window. So the keys, the values or the state go into the
+ * window, not just the field's name — the same reason a script's whole text is shown (ADR 0012).
+ */
+type WriteAction = 'fill' | 'click' | 'press' | 'select' | 'check';
+
+/** What the confirm window may show of the agent's own text: enough to judge, never a wall. */
+const WINDOW_PREVIEW_CHARS = 200;
+
+function clipForWindow(text: string): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  return flat.length > WINDOW_PREVIEW_CHARS ? `${flat.slice(0, WINDOW_PREVIEW_CHARS - 1)}…` : flat;
+}
+
+/** "Always allow" on a write: the person says this site needs no asking from now on. */
+async function rememberWrites(origin: string): Promise<void> {
+  const { policy } = await loadSettings();
+  await saveSettings({ policy: withRule(policy, origin, { level: 'write', confirmWrites: false }) });
+}
+
+function askWrite(
+  origin: string,
+  action: WriteAction,
+  target: string,
+  /** What the person needs to see to judge it: the text, the keys, the values, the new state. */
+  detail: string | undefined,
+  /** `press`: the detail is text to type rather than a key to press. */
+  typed = false,
+): Promise<ConfirmAnswer> {
+  if (action === 'press') {
+    return askPerson({ origin, action, target, text: detail, keys: detail, typed });
+  }
+  if (action === 'select') {
+    return askPerson({ origin, action, target, text: detail, values: detail });
+  }
+  if (action === 'check') {
+    return askPerson({ origin, action, target, state: detail === 'true' ? 'on' : 'off' });
+  }
+  return askPerson({ origin, action, target, text: detail });
+}
+
 async function confirmWrite(
   ctx: CallContext,
   tabId: number,
   origin: string,
-  action: 'fill' | 'click',
+  action: WriteAction,
   ref: string,
-  text: string | undefined,
+  detail: string | undefined,
 ): Promise<void> {
   const target = String((await page(tabId, ctx, { beifahrer: 'describe', ref })).description ?? ref);
-  const answer = await askPerson({ origin, action, target, text });
+  const answer = await askWrite(origin, action, target, detail);
   if (!answer.allow)
     fail('denied', `the person declined the ${action} on ${origin} (or did not answer within two minutes)`);
-  if (answer.remember) {
-    const { policy } = await loadSettings();
-    await saveSettings({ policy: withRule(policy, origin, { level: 'write', confirmWrites: false }) });
-  }
+  if (answer.remember) await rememberWrites(origin);
 }
 
 /**
@@ -435,6 +478,106 @@ const handlers: { [M in Method]: Handler<M> } = {
     const { origin, confirm } = await gate('page.click', tab.url, policy, ctx);
     if (confirm) await confirmWrite(ctx, tabId, origin, 'click', ref, undefined);
     return (await page(tabId, ctx, { beifahrer: 'click', ref })) as unknown as Result<'page.click'>;
+  },
+
+  /**
+   * Keys, or text typed one character at a time.
+   *
+   * One of `key` and `text` has to be there: a call with neither presses nothing, and a call with
+   * both has no defined order between "press this" and "type this". Refused here rather than
+   * guessed, because a guessed order is a keystroke the person did not confirm.
+   */
+  async 'page.press'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const raw = params as unknown as Record<string, unknown>;
+    const ref = raw.ref === undefined ? undefined : refOf(params);
+    const key = raw.key;
+    const text = raw.text;
+    if (key !== undefined && typeof key !== 'string') return fail('invalid', 'key must be a string');
+    if (text !== undefined && typeof text !== 'string') return fail('invalid', 'text must be a string');
+    if (key === undefined && text === undefined)
+      return fail('invalid', 'page.press needs a key ("Enter", "Tab", "Control+a") or text to type');
+    if (key !== undefined && text !== undefined)
+      return fail('invalid', 'page.press takes a key OR text, not both — call it twice if you mean both');
+    if (typeof text === 'string' && text.length > MAX_TEXT)
+      return fail('invalid', `text is longer than ${MAX_TEXT} characters`);
+    const times = parseKeyTimes(raw.times);
+    if (typeof times === 'string') return fail('invalid', times);
+    // Parsed here as well as in the page, so a bad key is refused without a round trip and the
+    // confirm window can name the key the person is agreeing to.
+    if (key !== undefined) {
+      const parsed = parseKeySpec(key);
+      if (typeof parsed === 'string') return fail('invalid', parsed);
+      // No separate check for a bare modifier here: `parseKeySpec` refuses one, and the reason it
+      // gives is the right one. What this block must NOT do is decide that a key is "only a
+      // modifier" because it types nothing — `Control+ArrowDown` types nothing either, and it is a
+      // perfectly ordinary press that a listbox answers to.
+    }
+    const tab = await getTab(tabId);
+    const { origin, confirm } = await gate('page.press', tab.url, policy, ctx);
+    if (confirm) {
+      // A press without a ref goes to the focused element, which the outline may not name at all —
+      // so the window says where the keys are going, which is the fact the person needs.
+      const where = ref
+        ? String((await page(tabId, ctx, { beifahrer: 'describe', ref })).description ?? ref)
+        : 'the focused element';
+      // Typed text is shown as the text, and named as typing: "Press text: abc in Field" is a
+      // sentence nobody would write, and the person has to read it to know what is about to happen.
+      const answer = await askWrite(
+        origin,
+        'press',
+        where,
+        text !== undefined ? clipForWindow(text) : key,
+        text !== undefined,
+      );
+      if (!answer.allow)
+        fail('denied', `the person declined the press on ${origin} (or did not answer within two minutes)`);
+      if (answer.remember) await rememberWrites(origin);
+      await stillTheSameOrigin(tabId, origin, 'page.press');
+    }
+    return (await page(tabId, ctx, {
+      beifahrer: 'press',
+      ...(ref ? { ref } : {}),
+      ...(key !== undefined ? { key } : {}),
+      ...(text !== undefined ? { text } : {}),
+      times,
+    })) as unknown as Result<'page.press'>;
+  },
+
+  async 'page.select'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const ref = refOf(params);
+    const values = params.values;
+    if (!Array.isArray(values) || values.length === 0)
+      return fail('invalid', 'values must be a non-empty array of option values or labels');
+    if (values.length > 20) return fail('invalid', 'values has more than 20 entries');
+    // An empty string is a legitimate option value — it is how a dropdown says "none of these" —
+    // so it is not refused here. Only the length is bounded, because that is what the person reads
+    // in the confirm window.
+    if (!values.every((v) => typeof v === 'string' && v.length <= 200))
+      return fail('invalid', 'every value must be a string of at most 200 characters');
+    const add = params.add === true;
+    const tab = await getTab(tabId);
+    const { origin, confirm } = await gate('page.select', tab.url, policy, ctx);
+    if (confirm) await confirmWrite(ctx, tabId, origin, 'select', ref, values.join(', '));
+    return (await page(tabId, ctx, {
+      beifahrer: 'select',
+      ref,
+      values,
+      add,
+    })) as unknown as Result<'page.select'>;
+  },
+
+  async 'page.check'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const ref = refOf(params);
+    if (params.checked !== undefined && typeof params.checked !== 'boolean')
+      return fail('invalid', 'checked must be true or false');
+    const checked = params.checked !== false;
+    const tab = await getTab(tabId);
+    const { origin, confirm } = await gate('page.check', tab.url, policy, ctx);
+    if (confirm) await confirmWrite(ctx, tabId, origin, 'check', ref, String(checked));
+    return (await page(tabId, ctx, { beifahrer: 'check', ref, checked })) as unknown as Result<'page.check'>;
   },
 
   async 'page.evaluate'(params, policy, ctx) {

@@ -16,6 +16,7 @@ import {
   downloadFilename,
   metaMatches,
   parseElementQuery,
+  parseKeySpec,
   parseMetaQuery,
   projectValue,
   queryMatches,
@@ -23,6 +24,7 @@ import {
   scriptError,
   type ElementQuery,
   type FoundElement,
+  type KeySpec,
   type MetaQuery,
 } from '@beifahrer/core';
 import { afterRepaint, hideNow, keepShown, show } from '../src/page-indicator.ts';
@@ -375,7 +377,9 @@ function outline(maxItems: number): PageResponse {
       truncated = true;
       break;
     }
-    lines.push(kind.role === 'heading' ? describe(el, kind) : `[${refOf(el)}] ${describe(el, kind)}`);
+    lines.push(
+      kind.role === 'heading' ? describe(el, kind) : `[${refOf(el)}] ${describe(el, kind)}${focusMark(el)}`,
+    );
   }
   return {
     ok: true,
@@ -514,16 +518,25 @@ function matching(query: ElementQuery, maxResults: number): { matches: Element[]
   return { matches, truncated: false };
 }
 
+/** `[focus]`, where the keyboard is right now. Without it the focus is invisible from the outside. */
+function focusMark(el: Element): string {
+  return el.ownerDocument?.activeElement === el ? ' [focus]' : '';
+}
+
 /**
  * A ref and what it points at. An element inside a frame says WHICH frame, because a `page_find` on
  * its own cannot tell a button on the page from the same button embedded in someone else's document
  * (issue #30) — and the two are a different thing to click.
+ *
+ * The focus marker is the same idea for the keyboard: `page_press` without a ref goes wherever the
+ * focus is, so an agent that cannot SEE the focus cannot use that form of the call at all — it would
+ * be pressing keys into a field it cannot name.
  */
 function found(el: Element): { ref: string; description: string } {
   const kind = kindOf(el)!;
   const frame = frameOf(el);
   const where = frame ? ` [frame: ${frame}]` : '';
-  return { ref: refOf(el), description: `${describe(el, kind)}${where}` };
+  return { ref: refOf(el), description: `${describe(el, kind)}${focusMark(el)}${where}` };
 }
 
 /** The label of the document an element is in, or '' for the page's own. */
@@ -599,13 +612,29 @@ function notFound(ref: string): PageResponse {
   };
 }
 
-/** Set a form control's value the way a framework-controlled input (React, Angular) will notice. */
-function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+/**
+ * Set a form control's value the way a framework-controlled input (React, Angular) will notice.
+ *
+ * `change` is optional because the two events mean different things: `input` is "the value is
+ * different now", `change` is "the value is different AND the field is done". Filling a field fires
+ * both, because the call ends there. A single keystroke fires only `input` — firing `change` per
+ * character would run a form's change handler once per letter, which is not what typing does.
+ */
+function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string, change = true): void {
   const proto =
     el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
   if (setter) setter.call(el, value);
   else el.value = value;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  if (change) el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/** The same for a checkbox or a radio: React reads `event.target.checked`, so the setter matters. */
+function setNativeChecked(el: HTMLInputElement, checked: boolean): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set;
+  if (setter) setter.call(el, checked);
+  else el.checked = checked;
   el.dispatchEvent(new Event('input', { bubbles: true }));
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
@@ -703,6 +732,458 @@ function click(ref: string): PageResponse {
 }
 
 /**
+ * Send a key, and do what the browser would have done with it.
+ *
+ * The honest limit first, because it shapes everything here: an event created in a content script
+ * and dispatched on the page is UNTRUSTED, and an untrusted key event performs NO default action.
+ * A real Enter submits the form, a real character appears in the field, a real Tab moves the focus.
+ * Dispatching `new KeyboardEvent('keydown', …)` does none of that — it only reaches the page's own
+ * listeners, which is enough for a widget that listens (a hotkey, a combobox, a code editor, a
+ * game) and for nothing else.
+ *
+ * So beifahrer does the second half itself, per key, where the browser's own behaviour is defined
+ * and reproducible: it inserts the text, moves the selection, submits the form, focuses the next
+ * element, toggles the box. That is not a simulation of the keyboard; it is the list of things a
+ * key does that a page cannot be relied upon to do for itself. What stays out is deliberately:
+ *
+ * - Any key whose effect only the BROWSER can have (Ctrl+T, Alt+F4, the back gesture, a print
+ *   dialog, anything in browser chrome). Those are refused by name rather than sent and ignored.
+ * - Modifier-only presses. Nobody pressing Control wants an action; they want the next key with it,
+ *   and the page gets `ctrlKey: true` on that one.
+ *
+ * Why not refuse the whole method as untrusted and leave the person to press keys? Because the
+ * common case is a page that listens — and for that, an untrusted event is indistinguishable from
+ * a real one. The rest is a documented approximation, and `page_evaluate` (ADR 0012) is the honest
+ * answer when even this is not enough.
+ */
+
+/** Keys that belong to the browser, not to the page. Refused rather than silently ignored. */
+const BROWSER_KEYS = new Set([
+  'F11',
+  'F12',
+  'PrintScreen',
+  'ScrollLock',
+  'Pause',
+  'BrowserBack',
+  'BrowserForward',
+  'BrowserHome',
+  'BrowserSearch',
+  'BrowserFavorites',
+  'ContextMenu',
+]);
+
+/**
+ * The options of a real `<select>`, or the ARIA options of a dropdown built from divs.
+ *
+ * Both are returned because the refusal below needs to NAME what the choices are — an agent told
+ * only "not a select" has to go and read the page to find out what it missed. What it may not do
+ * is set `selected` on the second kind: a div has no selected state, so the widget would look
+ * chosen while the page's own model never heard of it. For that, `page_click` on the option is the
+ * real mechanism and the honest instruction.
+ */
+function selectOptions(el: Element): { options: HTMLOptionElement[]; settable: boolean } {
+  if (el instanceof HTMLSelectElement) return { options: [...el.options], settable: true };
+  const aria = [...el.querySelectorAll<HTMLElement>('[role="option"]')];
+  if (el.getAttribute('role') === 'listbox' && aria.length > 0)
+    return { options: aria as unknown as HTMLOptionElement[], settable: false };
+  return { options: [], settable: false };
+}
+
+function press(
+  ref: string | undefined,
+  keyName: string | undefined,
+  text: string | undefined,
+  times: number,
+): PageResponse {
+  // Checked HERE as well as in the handler, because a script reaches this function directly and the
+  // handler is not in the path. "Press a, then type b" has no defined order between the two, and
+  // picking one would be a keystroke neither the caller nor the person in the confirm window was
+  // shown; a call with neither presses nothing and must not answer "done".
+  if (keyName !== undefined && text !== undefined) {
+    return { ok: false, code: 'invalid', message: 'press takes a key OR text, not both' };
+  }
+  if (keyName === undefined && text === undefined) {
+    return { ok: false, code: 'invalid', message: 'press needs a key or text — one of the two' };
+  }
+  // Where the keys go: the element the caller named, or whatever the page already has focused —
+  // which is what a person pressing a key does, and is the only way to reach a widget that took
+  // focus itself (a date picker that opened, a search field that grabbed the keyboard).
+  const el = ref ? byRef(ref) : (document.activeElement as Element | null);
+  if (ref && !el) return notFound(ref);
+  const target = el ?? document.body;
+  if (target instanceof HTMLInputElement && target.type === 'password') {
+    return {
+      ok: false,
+      code: 'invalid',
+      message: 'password fields are never typed into — the person types those',
+    };
+  }
+  if (target instanceof HTMLInputElement) target.scrollIntoView({ block: 'center', inline: 'center' });
+  if (typeof (target as HTMLElement).focus === 'function') (target as HTMLElement).focus();
+
+  if (text !== undefined) return typeText(target, text, times);
+  const parsed = parseKeySpec(keyName);
+  if (typeof parsed === 'string') return { ok: false, code: 'invalid', message: parsed };
+  if (BROWSER_KEYS.has(parsed.key)) {
+    return {
+      ok: false,
+      code: 'invalid',
+      message: `${parsed.key} belongs to the browser, not to the page — beifahrer cannot press it`,
+    };
+  }
+  for (let i = 0; i < times; i++) sendKey(target, parsed);
+  return { ok: true, data: { ref: ref ?? null, key: parsed.spec, times } };
+}
+
+/** The three events, in the order the standard says, then what the key would have done. */
+function sendKey(el: Element, key: KeySpec): void {
+  const base = {
+    key: key.key,
+    code: key.code ?? '',
+    keyCode: key.keyCode,
+    which: key.keyCode,
+    altKey: key.alt,
+    ctrlKey: key.ctrl,
+    metaKey: key.meta,
+    shiftKey: key.shift,
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    // A page that checks these reads the real modifiers, and gets the truth.
+    getModifierState: (name: string) =>
+      name === 'Alt'
+        ? key.alt
+        : name === 'Control'
+          ? key.ctrl
+          : name === 'Meta'
+            ? key.meta
+            : name === 'Shift'
+              ? key.shift
+              : false,
+  };
+  // cancelable matters: a page that calls preventDefault() on the keydown is claiming the key, and
+  // beifahrer's own default action must then not happen — otherwise the page handles Enter and
+  // beifahrer submits the form a second time.
+  const down = new KeyboardEvent('keydown', base);
+  const handled = !el.dispatchEvent(down);
+  if (key.text !== undefined && !handled) {
+    el.dispatchEvent(new KeyboardEvent('keypress', { ...base, cancelable: false }));
+  }
+  if (!handled) defaultAction(el, key);
+  el.dispatchEvent(new KeyboardEvent('keyup', base));
+}
+
+/**
+ * What the browser would have done, for the keys whose effect beifahrer can reproduce.
+ *
+ * This is the part that makes `press` more than a page listener, and every branch here is a
+ * documented platform behaviour rather than a guess about the site: Enter submits a form, Tab moves
+ * to the next focusable element, a character goes into the field, Backspace deletes the selection.
+ */
+function defaultAction(el: Element, key: KeySpec): void {
+  const field = editableField(el);
+  switch (key.key) {
+    case 'Enter': {
+      if (field) {
+        if (field instanceof HTMLTextAreaElement) {
+          // A newline, the one place Enter does not submit.
+          replaceValue(
+            field,
+            insertAtCaret(field.value, field.selectionStart ?? 0, field.selectionEnd ?? 0, '\n'),
+            'insertLineBreak',
+          );
+          return;
+        }
+        // Enter in a text input submits the form it is in — and only then: the spec's "implicit
+        // submission" needs a form with a submit button, or exactly one field.
+        const form = field.form;
+        if (form && (form.requestSubmit || form.submit)) {
+          (form.requestSubmit ? form.requestSubmit.bind(form) : form.submit.bind(form))();
+          return;
+        }
+        // No form: a person pressing Enter in a bare field does nothing at all. Not a click.
+        return;
+      }
+      // Enter on a button or a link is a click. That is what a person means by it.
+      if (isActivatable(el)) (el as HTMLElement).click();
+      return;
+    }
+    case 'Tab': {
+      focusSibling(el, key.shift);
+      return;
+    }
+    case 'Space': {
+      if (isActivatable(el) || isCheckable(el)) {
+        (el as HTMLElement).click();
+        return;
+      }
+      // In a text field, Space is a character like any other. This branch exists because the
+      // switch handles Space as a NAMED key first, and without it the space was simply dropped —
+      // the call returned and the field looked exactly as it had before.
+      if (key.text !== undefined && field) {
+        replaceValue(
+          field,
+          insertAtCaret(field.value, field.selectionStart ?? 0, field.selectionEnd ?? 0, ' '),
+        );
+      }
+      return;
+    }
+    case 'Backspace':
+    case 'Delete': {
+      if (!field) return;
+      const start = field.selectionStart ?? 0;
+      const end = field.selectionEnd ?? start;
+      const backspace = key.key === 'Backspace';
+      // A selection collapses first; otherwise one character goes, in the direction asked for.
+      const how = backspace ? 'deleteContentBackward' : 'deleteContentForward';
+      if (start !== end) deleteRange(field, start, end, how);
+      else if (backspace && start > 0) deleteRange(field, start - 1, start, how);
+      else if (!backspace && end < field.value.length) deleteRange(field, end, end + 1, how);
+      return;
+    }
+    default:
+      // A printable character into a text field. A contenteditable is not a text control and is
+      // not reached here: `fillRich` owns those, and typing into one with the caret arithmetic
+      // below would fight the editor that owns the selection.
+      if (key.text !== undefined && field) {
+        replaceValue(
+          field,
+          insertAtCaret(field.value, field.selectionStart ?? 0, field.selectionEnd ?? 0, key.text),
+          'insertText',
+          key.text,
+        );
+      }
+  }
+}
+
+function deleteRange(
+  field: HTMLInputElement | HTMLTextAreaElement,
+  start: number,
+  end: number,
+  how: 'deleteContentBackward' | 'deleteContentForward',
+): void {
+  const caret = start;
+  // A surrogate pair is ONE character to the person and two units to JavaScript. Deleting half of
+  // one leaves a broken glyph behind, and the field then holds something no key sequence produces.
+  const first = field.value.charCodeAt(start);
+  if (start === end && start > 0 && first >= 0xdc00 && first <= 0xdfff) start -= 1;
+  if (replaceValue(field, field.value.slice(0, start) + field.value.slice(end), how))
+    field.setSelectionRange?.(caret, caret);
+}
+
+function insertAtCaret(value: string, start: number, end: number, text: string): string {
+  return value.slice(0, start) + text + value.slice(end);
+}
+
+/**
+ * Set the value and tell the page, in the order the platform does it: `beforeinput` (cancelable —
+ * a widget may refuse the edit), then the value, then `input`.
+ *
+ * `beforeinput` is where a masked field or a character counter gets to say no. Dispatching it and
+ * ignoring the answer would make a widget that limits input to digits accept letters, which is
+ * exactly the kind of lie a write method must not tell.
+ */
+function replaceValue(
+  field: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+  inputType:
+    | 'insertText'
+    | 'insertLineBreak'
+    | 'deleteContentBackward'
+    | 'deleteContentForward' = 'insertText',
+  /** The one character typed, for `beforeinput.data`. Absent for a newline or a deletion. */
+  text?: string,
+): boolean {
+  const event = new InputEvent('beforeinput', {
+    inputType,
+    // `data` is the CHARACTER that was typed, not the whole new value: a page that counts
+    // characters or masks a field reads this, and handing it the field's entire contents would make
+    // every keystroke look like a paste of everything typed before it. null for a deletion.
+    data: inputType === 'insertText' ? text : null,
+    bubbles: true,
+    cancelable: true,
+  });
+  // Cancelable, and honoured: a masked field or a character counter says no here, and a write that
+  // ignored the refusal would make a digits-only field accept letters.
+  if (!field.dispatchEvent(event)) return false;
+  setNativeValue(field, value, false);
+  return true;
+}
+
+/** Type text one character at a time, so a listener that reacts per character sees each one. */
+function typeText(target: Element, text: string, times: number): PageResponse {
+  for (let round = 0; round < times; round++)
+    for (const ch of text) {
+      const spec = parseKeySpec(ch);
+      if (typeof spec === 'string') return { ok: false, code: 'invalid', message: spec };
+      sendKey(target, spec);
+    }
+  return { ok: true, data: { ref: null, text, times } };
+}
+
+/** The text control a key types into, or null when the target is not one. */
+function editableField(el: Element): HTMLInputElement | HTMLTextAreaElement | null {
+  if (el instanceof HTMLTextAreaElement) return el;
+  if (el instanceof HTMLInputElement && TEXT_INPUTS.has(el.type)) return el;
+  return null;
+}
+
+function isActivatable(el: Element): boolean {
+  if (el instanceof HTMLButtonElement || el instanceof HTMLAnchorElement) return true;
+  if (el instanceof HTMLInputElement && ['button', 'submit', 'reset'].includes(el.type)) return true;
+  const role = el.getAttribute('role');
+  return role === 'button' || role === 'link' || el.tagName === 'SUMMARY';
+}
+
+function isCheckable(el: Element): boolean {
+  const role = el.getAttribute('role');
+  return role === 'checkbox' || role === 'switch' || role === 'radio' || el.hasAttribute('aria-checked');
+}
+
+/**
+ * Tab: the next element a person could reach, in the order the browser would pick.
+ *
+ * The focusable set is the standard one (what it is, then what it may be reached by), taken from
+ * the element's OWN document — which is where a same-origin frame's fields live (issue #30) — and
+ * it wraps at both ends, because Tab in a browser wraps too. Positive `tabindex` is ordered ahead
+ * of the rest, ascending, as the spec says; a page that uses it and gets it wrong would send focus
+ * somewhere surprising, which is worse than not moving it at all.
+ */
+const FOCUSABLE =
+  'a[href], button, input, select, textarea, details > summary, [tabindex], [contenteditable="true"]';
+
+function focusSibling(from: Element, back: boolean): void {
+  const doc = from.ownerDocument ?? document;
+  const all = [...doc.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+    (el) => !el.hasAttribute('disabled') && el.getAttribute('tabindex') !== '-1' && visible(el),
+  );
+  if (all.length === 0) return;
+  const positive = all.filter((el) => Number(el.getAttribute('tabindex')) > 0);
+  const ordered = [
+    ...positive.sort((a, b) => numAttr(a) - numAttr(b)),
+    ...all.filter((el) => !positive.includes(el)),
+  ];
+  const at = ordered.indexOf(from as HTMLElement);
+  // A target that is not itself focusable (a ref on a wrapper) still moves from where focus IS.
+  const current = at >= 0 ? at : activeIndex(ordered);
+  const next = back
+    ? (current <= 0 ? ordered.length : current) - 1
+    : current < 0 || current >= ordered.length - 1
+      ? 0
+      : current + 1;
+  ordered[next]?.focus();
+}
+
+const numAttr = (el: HTMLElement): number => Number(el.getAttribute('tabindex')) || 0;
+
+/** Where in the focusable list the document's focus is now, so Tab from a wrapper still works. */
+function activeIndex(ordered: HTMLElement[]): number {
+  const active = ordered.find((el) => el === (ordered[0]?.ownerDocument?.activeElement ?? null));
+  return active ? ordered.indexOf(active) : -1;
+}
+
+function select(ref: string, values: string[], add: boolean): PageResponse {
+  const el = byRef(ref);
+  if (!el) return notFound(ref);
+  const { options, settable } = selectOptions(el);
+  const names = options
+    .slice(0, 20)
+    .map((o) => (o.textContent ?? '').trim() || o.value)
+    .filter(Boolean)
+    .join(', ');
+  if (!settable) {
+    return {
+      ok: false,
+      code: 'invalid',
+      message:
+        `${ref} is not a <select>, so it has no options to set. ` +
+        (names ? `Its choices are: ${names}. ` : '') +
+        'Use page_click on the option — a dropdown built from divs changes only when it is clicked.',
+    };
+  }
+  const wanted: HTMLOptionElement[] = [];
+  for (const value of values) {
+    // By value first, then by the text a person reads: an agent knows the label from the outline
+    // and the value from nothing, so the readable one has to work too.
+    const hit =
+      options.find((o) => o.value === value) ??
+      options.find((o) => (o.textContent ?? '').trim() === value) ??
+      options.find((o) => (o.getAttribute('aria-label') ?? '').trim() === value);
+    if (!hit) {
+      // Naming what IS there is the whole point: an agent that gets the list can choose again,
+      // while one that gets "not found" has to go and read the page to find out what it missed.
+      return {
+        ok: false,
+        code: 'invalid',
+        message: `no option "${value}" in ${ref}. Available: ${names || '(all empty)'}`,
+      };
+    }
+    if (!wanted.includes(hit)) wanted.push(hit);
+  }
+  // A single select holds ONE value. Setting two leaves the DOM with the last one, and answering
+  // with the whole list would be a confident lie: the agent builds its next step on a state the page
+  // does not have. `add` means "keep what is chosen", which is the multi-select's own way of saying
+  // the same thing, so a single select has no reading of it and it is refused there too.
+  if (!add && wanted.length > 1 && !(el instanceof HTMLSelectElement && el.multiple)) {
+    return {
+      ok: false,
+      code: 'invalid',
+      message: `${ref} holds one value at a time — choose one of ${wanted
+        .map((o) => (o.textContent ?? '').trim() || o.value)
+        .join(', ')}, or use a <select multiple>.`,
+    };
+  }
+  if (!add) for (const o of options) o.selected = false;
+  for (const o of wanted) o.selected = true;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  const chosen = wanted.map((o) => (o.textContent ?? '').trim() || o.value);
+  return { ok: true, data: { ref, selected: chosen } };
+}
+
+function check(ref: string, checked: boolean): PageResponse {
+  const el = byRef(ref);
+  if (!el) return notFound(ref);
+  if (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')) {
+    if (el.disabled) return { ok: false, code: 'invalid', message: `${ref} is disabled` };
+    if (el.checked === checked) {
+      return { ok: true, data: { ref, checked: el.checked, changed: false } };
+    }
+    setNativeChecked(el, checked);
+    return { ok: true, data: { ref, checked: el.checked, changed: true } };
+  }
+  // An ARIA checkbox is a div with a click handler and an attribute the page owns. Setting
+  // `aria-checked` by hand would make it LOOK toggled while the page's state model never heard of
+  // it — the classic fake. So it is clicked, and the answer is read back from the attribute: if
+  // the click did not land, the answer says so instead of reporting a state that is not there.
+  if (isCheckable(el) || isActivatable(el)) {
+    if (ariaChecked(el) === checked) return { ok: true, data: { ref, checked, changed: false } };
+    (el as HTMLElement).click();
+    const now = ariaChecked(el);
+    if (now === null) return { ok: true, data: { ref, clicked: true } };
+    if (now !== checked) {
+      return {
+        ok: false,
+        code: 'failed',
+        message: `clicking ${ref} left it ${now ? 'checked' : 'unchecked'} — the widget answers something else`,
+      };
+    }
+    return { ok: true, data: { ref, checked: now, changed: true } };
+  }
+  return {
+    ok: false,
+    code: 'invalid',
+    message: `${ref} is not a checkbox (${kindOf(el)?.role ?? el.tagName.toLowerCase()})`,
+  };
+}
+
+/** What a widget says about itself, or null when it says nothing (a plain input is `checked`). */
+function ariaChecked(el: Element): boolean | null {
+  const attr = el.getAttribute('aria-checked');
+  return attr === null ? null : attr === 'true';
+}
+
+/**
  * The pill says what is happening: reading for read/outline/find/meta/wait, editing for
  * describe/fill/click.
  */
@@ -795,6 +1276,9 @@ interface ScriptApi {
   describe(ref: string): string;
   click(ref: string): void;
   fill(ref: string, text: string, as?: 'text' | 'html', mode?: 'replace' | 'append'): string;
+  press(ref: string | undefined, key?: string, text?: string, times?: number): void;
+  select(ref: string, values: string[], add?: boolean): string[];
+  check(ref: string, checked?: boolean): boolean | void;
   read(maxChars?: number): string;
   outline(maxItems?: number): string;
   meta(query: MetaQuery): number;
@@ -821,6 +1305,9 @@ function scriptApi(): ScriptApi {
     describe: (ref) => String(unwrap(describeRef(ref)).description),
     click: (ref) => void click(ref),
     fill: (ref, text, as = 'text', mode = 'replace') => String(unwrap(fill(ref, text, as, mode)).value),
+    press: (ref, key, text, times) => void unwrap(press(ref, key, text, times ?? 1)),
+    select: (ref, values, add) => (unwrap(select(ref, values, add === true)).selected as string[]) ?? [],
+    check: (ref, checked) => unwrap(check(ref, checked !== false)).checked as boolean | void,
     read: (maxChars = 4_000) => String(unwrap(read(maxChars)).text),
     outline: (maxItems = 200) => String(unwrap(outline(maxItems)).outline),
     meta: (q) => {
@@ -1010,6 +1497,18 @@ function guardApi(api: ScriptApi, token: number): ScriptApi {
       check();
       return api.fill(...args);
     },
+    press: (...args) => {
+      check();
+      return api.press(...args);
+    },
+    select: (...args) => {
+      check();
+      return api.select(...args);
+    },
+    check: (...args) => {
+      check();
+      return api.check(...args);
+    },
     read: (...args) => {
       check();
       return api.read(...args);
@@ -1036,6 +1535,10 @@ const VERB: Partial<Record<PageRequest['beifahrer'], 'reading' | 'editing'>> = {
   describe: 'editing',
   fill: 'editing',
   click: 'editing',
+  // press, select and check are `editing` for the same reason fill is: they change the page.
+  press: 'editing',
+  select: 'editing',
+  check: 'editing',
   evaluate: 'editing',
 };
 
@@ -1071,6 +1574,12 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
       return fill(req.ref, req.text, req.as, req.mode);
     case 'click':
       return click(req.ref);
+    case 'press':
+      return press(req.ref, req.key, req.text, req.times);
+    case 'select':
+      return select(req.ref, req.values, req.add);
+    case 'check':
+      return check(req.ref, req.checked);
     case 'evaluate':
       return evaluate(req.script, req.maxChars);
     case 'hide':

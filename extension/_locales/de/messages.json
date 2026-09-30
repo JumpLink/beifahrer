@@ -673,5 +673,64 @@
   },
   "confirm_always": {
     "message": "Immer"
+  },
+  "method_page_press": {
+    "message": "Taste gedrückt"
+  },
+  "method_page_select": {
+    "message": "Option gewählt"
+  },
+  "method_page_check": {
+    "message": "Kontrollkästchen gesetzt"
+  },
+  "confirm_press": {
+    "message": "$KEYS$ in $TARGET$ drücken",
+    "placeholders": {
+      "keys": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "confirm_type": {
+    "message": "$TEXT$ in $TARGET$ schreiben",
+    "placeholders": {
+      "text": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "confirm_select": {
+    "message": "$VALUES$ in $TARGET$ wählen",
+    "placeholders": {
+      "values": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "confirm_check": {
+    "message": "$TARGET$ auf $STATE$ setzen",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      },
+      "state": {
+        "content": "$2"
+      }
+    }
+  },
+  "confirm_state_on": {
+    "message": "angehakt"
+  },
+  "confirm_state_off": {
+    "message": "abgehakt"
   }
 }

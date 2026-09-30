@@ -15,6 +15,16 @@ export type PageRequest = (
   | { beifahrer: 'fill'; ref: string; text: string; as: 'text' | 'html'; mode: 'replace' | 'append' }
   | { beifahrer: 'click'; ref: string }
   /**
+   * A key, on an element or wherever the focus is. `text` types characters one after another,
+   * which is a different thing from pressing one key: a page that listens for `input` per
+   * character (a search field, a filter box) needs the second.
+   */
+  | { beifahrer: 'press'; ref?: string; key?: string; text?: string; times: number }
+  /** Choose options in a `<select>`, by value or by the text the person reads. */
+  | { beifahrer: 'select'; ref: string; values: string[]; add: boolean }
+  /** Set a checkbox, a radio or a `role=checkbox` widget to checked or not. */
+  | { beifahrer: 'check'; ref: string; checked: boolean }
+  /**
    * The agent's own code, run in the page agent's isolated world (ADR 0012). The gate for
    * everything it can do was checked once, in the confirm window, before this message exists.
    */

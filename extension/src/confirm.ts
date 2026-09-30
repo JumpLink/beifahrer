@@ -18,7 +18,7 @@ export interface ConfirmRequest {
   id: string;
   /** The site a write goes to. Empty for `close`, which is about the browser, not one site. */
   origin: string;
-  action: 'fill' | 'click' | 'close' | 'access' | 'script';
+  action: 'fill' | 'click' | 'press' | 'select' | 'check' | 'close' | 'access' | 'script';
   /** What is changed, or for `access` empty. */
   target: string;
   /** `access`: the level asked for. */
@@ -28,6 +28,14 @@ export interface ConfirmRequest {
   /** `access`: whether "For this session" can be offered (the call came from a known session). */
   canScopeSession?: boolean;
   text?: string;
+  /** `press`: the key, or the text to type — what the keys will be, in the person's own reading. */
+  keys?: string;
+  /** `press`: the keys are TEXT to type, not a key to press. The window says which, in words. */
+  typed?: boolean;
+  /** `select`: the option values or labels being chosen. */
+  values?: string;
+  /** `check`: `on` or `off`. A checkbox the person cannot see the new state of is not a decision. */
+  state?: 'on' | 'off';
   /** `close`: one line per tab — host only for a tab the agent may not see. */
   items?: string[];
   /**

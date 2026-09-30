@@ -76,6 +76,24 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
 <button id="send">Send</button>
 <button id="demo">Demo</button>
 <p id="demo-output"></p>
+<!-- Keys, dropdowns and checkboxes: the three shapes page_press / page_select / page_check act on.
+     Each writes into the page's own state and says so in the text, so a check can tell "the call
+     returned" from "the page changed" — the difference every other write here is measured by. -->
+<label for="keyboard">Keyboard field</label><input id="keyboard" name="keyboard">
+<label for="keys-log">Keys log</label><input id="keys-log" readonly>
+<label for="country">Country</label>
+<select id="country">
+  <option value="">—</option>
+  <option value="de">Germany</option>
+  <option value="nl">Netherlands</option>
+  <option value="se">Sweden</option>
+</select>
+<label for="terms"><input type="checkbox" id="terms"> Accept terms</label>
+<label for="radio-a"><input type="radio" name="choice" id="radio-a" value="a"> Choice A</label>
+<label for="radio-b"><input type="radio" name="choice" id="radio-b" value="b"> Choice B</label>
+<div role="checkbox" tabindex="0" id="aria-box" aria-checked="false" aria-label="Aria switch">Aria switch</div>
+<form id="keyform" action="/submitted"><label for="keyform-note">Key form note</label><input id="keyform-note"><button type="submit">Key form apply</button></form>
+<p id="press-output"></p>
 <a href="/sample" id="sample-link">sample link</a>
 <p>clicks: <span id="clicks">0</span> · pastes: <span id="pastes">0</span> <span id="pasteinfo"></span></p>
 <p>indicator:<span id="ind"></span>.</p>
@@ -91,6 +109,34 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
   // button and a labelled field inside it, neither reachable from the light DOM, and a label whose
   // for= can only resolve inside the root. The CLOSED root is what it must not enter: the browser
   // keeps that promise, and beifahrer has to keep it too.
+  // Every keydown, with the modifiers it carried, so a test can check that page_press reports the
+  // key the caller NAMED rather than one the browser chose. Only keydown is recorded: keypress
+  // carries the same key again, and a log that doubles every entry would make "one press" and
+  // "two presses" look alike.
+  const keys = [];
+  const MODS = [['altKey', 'alt'], ['ctrlKey', 'ctrl'], ['metaKey', 'meta'], ['shiftKey', 'shift']];
+  document.addEventListener('keydown', (e) => {
+    if (e.target !== document.getElementById('keyboard')) return;
+    const mods = MODS.filter(([prop]) => e[prop]).map(([, name]) => name).join('+');
+    keys.push((mods ? mods + '+' : '') + e.key);
+    document.getElementById('keys-log').value = keys.join(' ');
+  }, true);
+  // The div-shaped checkbox: beifahrer has to CLICK it, because the page owns that state, and
+  // setting aria-checked by hand would make it look ticked while this listener never ran.
+  document.getElementById('aria-box').addEventListener('click', (e) => {
+    const box = e.currentTarget;
+    box.setAttribute('aria-checked', box.getAttribute('aria-checked') === 'true' ? 'false' : 'true');
+  });
+  document.getElementById('country').addEventListener('change', (e) => {
+    document.getElementById('press-output').textContent = 'country:' + e.target.value;
+  });
+  document.getElementById('terms').addEventListener('change', (e) => {
+    document.getElementById('press-output').textContent = 'terms:' + e.target.checked;
+  });
+  document.getElementById('keyform').addEventListener('submit', (e) => {
+    e.preventDefault();
+    document.getElementById('press-output').textContent = 'submitted:' + document.getElementById('keyform-note').value;
+  });
   customElements.define('beifahrer-open-card', class extends HTMLElement {
     connectedCallback() {
       const root = this.attachShadow({ mode: 'open' });
@@ -758,6 +804,276 @@ async function frames(browser, client, allowed) {
   );
 }
 
+/**
+ * Keys, dropdowns, checkboxes: the three form shapes a person drives with a keyboard and an agent
+ * could not reach at all.
+ *
+ * The check that matters throughout is the same one every other write in this file is measured by —
+ * did the PAGE change, or did the call merely return? A key press is where that matters most,
+ * because the events beifahrer sends are untrusted: a browser performs no default action for them,
+ * so every effect below is one the page agent had to produce itself. The keys-log in the fixture
+ * records what the page actually received, which is the only way to tell a real keypress from a
+ * call that returned happily and changed nothing.
+ */
+async function keys(browser, client, allowed, ref) {
+  const field = ref('Keyboard field');
+  check(browser, 'the outline names the keyboard field', !!field, String(field));
+
+  // One character: the events the page hears AND the character in the field. Both, because a page
+  // that listens per keystroke and a field that shows a caret are the two halves of "typed".
+  const one = await tool(client, 'page_press', { tabId: allowed.tabId, ref: field, key: 'a' });
+  check(browser, 'page_press accepts a single character', !one.error, one.text.slice(0, 200));
+  const afterOne = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 200 });
+  check(
+    browser,
+    'and the character lands in the field, not only in an event',
+    /textbox "Keyboard field" = "a"/.test(afterOne.text),
+    afterOne.text.match(/textbox "Keyboard field"[^\n]*/)?.[0] ?? afterOne.text.slice(0, 300),
+  );
+  check(
+    browser,
+    'and the page received the key it named, in its own keydown',
+    /Keys log" = "a"/.test(afterOne.text),
+    afterOne.text.match(/Keys log[^\n]*/)?.[0] ?? afterOne.text.slice(0, 200),
+  );
+
+  // Text: one key per character. A widget that filters as you type counts these, and a single
+  // value-set would leave its counter at zero while looking perfectly right.
+  const typed = await tool(client, 'page_press', { tabId: allowed.tabId, ref: field, text: 'bc' });
+  check(browser, 'page_press types text', !typed.error, typed.text.slice(0, 200));
+  const afterText = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 200 });
+  check(
+    browser,
+    'every character arrives as its own key, so a per-keystroke widget sees each',
+    /Keys log" = "a b c"/.test(afterText.text),
+    afterText.text.match(/Keys log[^\n]*/)?.[0] ?? afterText.text.slice(0, 300),
+  );
+  check(
+    browser,
+    'and they all end up in the field',
+    /textbox "Keyboard field" = "abc"/.test(afterText.text),
+    afterText.text.match(/textbox "Keyboard field"[^\n]*/)?.[0] ?? afterText.text.slice(0, 300),
+  );
+
+  // Modifiers: the page's own handler decides what Ctrl+ArrowDown means, and it can only do that
+  // if the modifier flag on the event is the truth.
+  const mod = await tool(client, 'page_press', {
+    tabId: allowed.tabId,
+    ref: field,
+    key: 'Control+ArrowDown',
+  });
+  check(browser, 'page_press accepts modifiers', !mod.error, mod.text.slice(0, 200));
+  const afterMod = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 200 });
+  check(
+    browser,
+    'and the modifier reaches the page with the key, on one event',
+    /Keys log" = "[^"]*ctrl\+ArrowDown/.test(afterMod.text),
+    afterMod.text.match(/Keys log[^\n]*/)?.[0] ?? afterMod.text.slice(0, 300),
+  );
+
+  // Backspace is the one editing key whose effect a person would immediately miss if it silently
+  // did nothing — the field would look unchanged and the call would have returned.
+  const back = await tool(client, 'page_press', { tabId: allowed.tabId, ref: field, key: 'Backspace' });
+  check(browser, 'page_press accepts Backspace', !back.error, back.text.slice(0, 200));
+  const afterBack = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 200 });
+  check(
+    browser,
+    'and Backspace deletes, which an untrusted key event does not do by itself',
+    /textbox "Keyboard field" = "ab"/.test(afterBack.text),
+    afterBack.text.match(/textbox "Keyboard field"[^\n]*/)?.[0] ?? afterBack.text.slice(0, 300),
+  );
+
+  // Tab moves the focus on, and says where it went: an agent that cannot see the focus cannot use
+  // a tab strip at all, so the answer names the element that has it now.
+  const tabbed = await tool(client, 'page_press', { tabId: allowed.tabId, key: 'Tab' });
+  check(browser, 'page_press accepts Tab without a ref', !tabbed.error, tabbed.text.slice(0, 200));
+  const afterTab = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 200 });
+  check(
+    browser,
+    'and Tab moved the focus on, which the outline marks where it is',
+    /Keys log"[^\n]*\[focus\]/.test(afterTab.text),
+    afterTab.text.match(/Keys log[^\n]*/)?.[0] ?? afterTab.text.slice(0, 300),
+  );
+
+  // Enter is the one key that can navigate. It has to submit the form the field is in, and a
+  // browser will not do that for an untrusted event — so the answer is what the page did with it.
+  const note = ref('Key form note');
+  const entered = await tool(client, 'page_press', { tabId: allowed.tabId, ref: note, key: 'Enter' });
+  check(browser, 'page_press accepts Enter', !entered.error, entered.text.slice(0, 200));
+  const afterEnter = await tool(client, 'page_read', { tabId: allowed.tabId });
+  check(
+    browser,
+    'and Enter submits the form, which is the effect a person means by it',
+    /submitted:/.test(afterEnter.text),
+    afterEnter.text.match(/submitted:[^\n]*/)?.[0] ?? afterEnter.text.slice(0, 300),
+  );
+
+  // A key that belongs to the browser is refused BY NAME. Sending it and letting it go nowhere
+  // would look like a page that ignored it, which sends the agent looking in the wrong place.
+  const chrome = await tool(client, 'page_press', { tabId: allowed.tabId, ref: field, key: 'F12' });
+  check(
+    browser,
+    "the browser's own keys are refused by name, not silently dropped",
+    chrome.error && /belongs to the browser/.test(chrome.text),
+    chrome.text.slice(0, 200),
+  );
+
+  // A modifier on its own presses nothing. Accepting it would answer "done" for a call that did
+  // nothing at all, which is the one answer an agent cannot work around.
+  const bareMod = await tool(client, 'page_press', { tabId: allowed.tabId, ref: field, key: 'Control' });
+  check(
+    browser,
+    'a modifier on its own is refused: it presses nothing, and "done" would be a lie',
+    bareMod.error && /modifier on its own/.test(bareMod.text),
+    bareMod.text.slice(0, 200),
+  );
+
+  const both = await tool(client, 'page_press', { tabId: allowed.tabId, ref: field, key: 'a', text: 'b' });
+  check(
+    browser,
+    'key and text together are refused rather than ordered by guesswork',
+    both.error && /not both/.test(both.text),
+    both.text.slice(0, 200),
+  );
+
+  const nonsense = await tool(client, 'page_press', {
+    tabId: allowed.tabId,
+    ref: field,
+    key: 'ArrowLeftwards',
+  });
+  check(
+    browser,
+    'a name that is not a key is refused, and the refusal names it',
+    nonsense.error && /ArrowLeftwards/.test(nonsense.text),
+    nonsense.text.slice(0, 200),
+  );
+
+  // --- page_select ------------------------------------------------------------------------------
+  const country = ref('Country');
+  const chosen = await tool(client, 'page_select', { tabId: allowed.tabId, ref: country, values: ['de'] });
+  check(
+    browser,
+    'page_select chooses by value and the page hears the change',
+    !chosen.error && /country:de/.test(await outputOf(client, allowed)),
+    chosen.text.slice(0, 200),
+  );
+
+  // The label, because an agent learns "Netherlands" from the outline and never sees `nl`.
+  const byLabel = await tool(client, 'page_select', {
+    tabId: allowed.tabId,
+    ref: country,
+    values: ['Netherlands'],
+  });
+  check(
+    browser,
+    'and by the label a person reads, which is what the outline shows',
+    !byLabel.error && /country:nl/.test(await outputOf(client, allowed)),
+    byLabel.text.slice(0, 200),
+  );
+
+  const missing = await tool(client, 'page_select', { tabId: allowed.tabId, ref: country, values: ['fr'] });
+  check(
+    browser,
+    'a value that is not there is refused WITH the list, so the agent can choose again',
+    missing.error && /Germany/.test(missing.text) && /Sweden/.test(missing.text),
+    missing.text.slice(0, 240),
+  );
+
+  // A single select holds ONE value. Setting two leaves the DOM with the last one and would answer
+  // "Germany, Sweden" — a list that is not what the page has, and exactly the kind of confident lie
+  // an agent then builds its next step on.
+  const two = await tool(client, 'page_select', {
+    tabId: allowed.tabId,
+    ref: country,
+    values: ['Germany', 'Sweden'],
+  });
+  check(
+    browser,
+    'two values for a single select are refused, not silently reduced to the last one',
+    two.error && /one/i.test(two.text),
+    two.text.slice(0, 240),
+  );
+
+  // The empty option: a dropdown that starts at "—" is how a person says "none of these", and it is
+  // reachable only by its empty value, which is a value like any other.
+  const none = await tool(client, 'page_select', { tabId: allowed.tabId, ref: country, values: [''] });
+  check(
+    browser,
+    "the dropdown's empty option is reachable, which is how a form is cleared",
+    !none.error,
+    none.text.slice(0, 200),
+  );
+
+  // --- page_check -------------------------------------------------------------------------------
+  const terms = ref('Accept terms');
+  const ticked = await tool(client, 'page_check', { tabId: allowed.tabId, ref: terms });
+  check(
+    browser,
+    'page_check ticks a checkbox and the page hears it',
+    !ticked.error && /terms:true/.test(await outputOf(client, allowed)),
+    ticked.text.slice(0, 200),
+  );
+  const again = await tool(client, 'page_check', { tabId: allowed.tabId, ref: terms });
+  check(
+    browser,
+    'setting it to the state it already has changes nothing and says so',
+    !again.error && /changed":\s*false/.test(again.text),
+    again.text.slice(0, 200),
+  );
+  const unticked = await tool(client, 'page_check', { tabId: allowed.tabId, ref: terms, checked: false });
+  check(
+    browser,
+    'and unticking works too',
+    !unticked.error && /terms:false/.test(await outputOf(client, allowed)),
+    unticked.text.slice(0, 200),
+  );
+
+  // A radio is a group: checking B has to uncheck A, which only happens if the click is real.
+  const b = ref('Choice B');
+  const radio = await tool(client, 'page_check', { tabId: allowed.tabId, ref: b });
+  const afterRadio = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 200 });
+  check(
+    browser,
+    'checking a radio unchecks the one before it, so the group really moved',
+    !radio.error &&
+      /radio "Choice A" \[ \]/.test(afterRadio.text) &&
+      /radio "Choice B" \[x\]/.test(afterRadio.text),
+    afterRadio.text.match(/radio "Choice[^\n]*/g)?.join(' | ') ?? radio.text.slice(0, 200),
+  );
+  check(
+    browser,
+    'and the radio call itself succeeded (its own answer, so a failure names itself)',
+    !radio.error,
+    radio.text.slice(0, 200),
+  );
+
+  // A widget built from divs: beifahrer must CLICK it and read the state back, because setting
+  // aria-checked by hand would make it look ticked while the page's own state never moved.
+  const aria = ref('Aria switch');
+  const ariaOn = await tool(client, 'page_check', { tabId: allowed.tabId, ref: aria });
+  const afterAria = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 200 });
+  check(
+    browser,
+    'a role=checkbox widget is clicked, and its aria-checked really changed',
+    !ariaOn.error && /checkbox "Aria switch" \[x\]/.test(afterAria.text),
+    afterAria.text.match(/Aria switch[^\n]*/)?.[0] ?? ariaOn.text.slice(0, 200),
+  );
+  const ariaBack = await tool(client, 'page_check', { tabId: allowed.tabId, ref: aria, checked: false });
+  const afterAriaBack = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 200 });
+  check(
+    browser,
+    'and unticking it works, so that was a click and not a one-way flip',
+    !ariaBack.error && /checkbox "Aria switch" \[ \]/.test(afterAriaBack.text),
+    afterAriaBack.text.match(/Aria switch[^\n]*/)?.[0] ?? ariaBack.text.slice(0, 200),
+  );
+}
+
+/** The page's own `#press-output`, read as the page wrote it. */
+async function outputOf(client, allowed) {
+  const read = await tool(client, 'page_read', { tabId: allowed.tabId, maxChars: 12_000 });
+  return read.text;
+}
+
 async function shadowDom(browser, client, allowed) {
   const found = await tool(client, 'page_find', {
     tabId: allowed.tabId,
@@ -1395,6 +1711,9 @@ async function pausedChecks(browser, client) {
     ['page_screenshot', { tabId: 1 }],
     ['page_fill', { tabId: 1, ref: 'e1', text: 'x' }],
     ['page_click', { tabId: 1, ref: 'e1' }],
+    ['page_press', { tabId: 1, key: 'Enter' }],
+    ['page_select', { tabId: 1, ref: 'e1', values: ['x'] }],
+    ['page_check', { tabId: 1, ref: 'e1' }],
     ['page_find', { tabId: 1, role: 'button' }],
     ['page_wait', { tabId: 1, for: 'load' }],
     ['page_evaluate', { tabId: 1, script: 'return 1' }],
@@ -1679,6 +1998,7 @@ async function scenario(browser, gate) {
 
     await shadowDom(browser, client, allowed);
     await frames(browser, client, allowed);
+    await keys(browser, client, allowed, ref);
     await scripts(browser, client, allowed, forbidden);
     await recipes(browser, client, allowed, forbidden);
     await tabManagement(browser, client, forbidden);

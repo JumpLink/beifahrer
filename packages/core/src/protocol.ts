@@ -151,6 +151,32 @@ export interface MethodMap {
     result: { ref: string; value: string };
   };
   'page.click': { params: { tabId: number; ref: string }; result: { ref: string } };
+  /**
+   * A key, or text typed one character at a time.
+   *
+   * `ref` is optional on purpose: without it the keys go wherever the page's focus already is, which
+   * is what a person pressing a key does and the only way to reach a widget that took focus itself.
+   * `key` is one key (`Enter`, `Tab`, `ArrowDown`, `a`, `Control+s`); `text` types a string, one
+   * key per character, for a page that reacts to each one.
+   *
+   * The events are UNTRUSTED and perform no browser default action, so the page agent reproduces
+   * the ones it can (the text appears, Enter submits, Tab moves on) — see `press` in page-agent.ts
+   * for exactly what that covers and what it does not.
+   */
+  'page.press': {
+    params: { tabId: number; ref?: string; key?: string; text?: string; times?: number };
+    result: { ref: string | null; key?: string; text?: string; times: number };
+  };
+  /** Choose options in a `<select>`, by value or by the text a person reads. `add` keeps the rest. */
+  'page.select': {
+    params: { tabId: number; ref: string; values: string[]; add?: boolean };
+    result: { ref: string; selected: string[] };
+  };
+  /** Set a checkbox, a radio or a `role=checkbox` widget. Absent `checked` means checked. */
+  'page.check': {
+    params: { tabId: number; ref: string; checked?: boolean };
+    result: { ref: string; checked?: boolean; changed?: boolean; clicked?: boolean };
+  };
   'page.evaluate': {
     /**
      * The agent's own code, run in the page (ADR 0012). The script is a function BODY, so `return`

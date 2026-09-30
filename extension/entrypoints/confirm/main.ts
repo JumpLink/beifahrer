@@ -17,12 +17,7 @@ async function main(): Promise<void> {
   $('where').setAttribute('subtitle', req.origin);
   if (req.action === 'access') return askAccess(req);
   if (req.action === 'script') return askScript(req);
-  $('what').textContent =
-    req.action === 'fill'
-      ? t('confirm_fill', req.target)
-      : req.action === 'click'
-        ? t('confirm_click', req.target)
-        : t('confirm_close', req.target);
+  $('what').textContent = changeSentence(req);
   if (req.action === 'close') {
     $('heading').textContent = t('confirm_heading_close');
     $('where-group').hidden = true;
@@ -56,6 +51,37 @@ async function main(): Promise<void> {
 }
 
 void main();
+
+/**
+ * What is about to change, in one sentence the person can check against what they see on screen.
+ *
+ * Keys and chosen values go in as their own sentence rather than into the free text block: a press
+ * can SUBMIT a form, and "Allow this change?" next to a field name does not say that. This is the
+ * same reasoning as showing a script whole (ADR 0012) — consent to an effect nobody was told about
+ * is not consent.
+ */
+function changeSentence(req: ConfirmRequest): string {
+  switch (req.action) {
+    case 'fill':
+      return t('confirm_fill', req.target);
+    case 'click':
+      return t('confirm_click', req.target);
+    case 'press':
+      return req.typed
+        ? t('confirm_type', req.keys ?? '', req.target)
+        : t('confirm_press', req.keys ?? '', req.target);
+    case 'select':
+      return t('confirm_select', req.values ?? '', req.target);
+    case 'check':
+      return t(
+        'confirm_check',
+        req.target,
+        t(req.state === 'off' ? 'confirm_state_off' : 'confirm_state_on'),
+      );
+    default:
+      return t('confirm_close', req.target);
+  }
+}
 
 /**
  * "Run this script?" (ADR 0012). The code is the point of this window: it is shown whole, in a

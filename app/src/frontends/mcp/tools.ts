@@ -307,6 +307,99 @@ export function registerTools(
   );
 
   server.registerTool(
+    'page_press',
+    {
+      title: 'Press a key, or type text',
+      description:
+        'Send a key to a page: a named key ("Enter", "Tab", "Escape", "ArrowDown", "F5", "Backspace") ' +
+        'with optional modifiers ("Control+a", "Shift+Tab"), or a single character. ' +
+        'text types a string one character at a time, for a page that reacts to every keystroke (a search field, a filter box, a code editor). ' +
+        "With a ref the keys go to that element; without one they go wherever the page's focus already is, which is how you reach a widget that took focus itself. " +
+        'It also does what the key would have done in a form — the character appears, Backspace deletes, Tab moves on, Enter submits the form, Space ticks a box — ' +
+        'because the events beifahrer sends are untrusted and a browser performs no default action for those. ' +
+        'A page that checks event.isTrusted sees false; that is the honest limit, and page_evaluate is the way around it on Firefox. ' +
+        'Password fields are never typed into. ' +
+        'Needs level "read + edit"; the person is asked to confirm unless they switched that off for the site. ' +
+        POLICY_NOTE,
+      inputSchema: {
+        tabId: tabIdParam,
+        ref: z.string().optional().describe('Element ref from page_outline; omit to use the focused element'),
+        key: z
+          .string()
+          .optional()
+          .describe('A key name, a single character, or modifiers joined by + — "Enter", "Control+a"'),
+        text: z.string().optional().describe('Text to type, one key per character. Not together with key'),
+        times: z.number().int().optional().describe('Repeat the key this often (default 1, max 20)'),
+        browser: browserParam,
+      },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ tabId, ref, key, text: typed, times, browser }) => {
+      try {
+        return text(await call('page.press', { tabId, ref, key, text: typed, times }, browser));
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    'page_select',
+    {
+      title: 'Choose an option in a dropdown',
+      description:
+        'Select options in a <select> by value or by the text a person reads, and fire the change event a real choice fires. ' +
+        'Several values set a multiple-select at once; add=true keeps the options already chosen. ' +
+        'A dropdown built from divs has no options to set — beifahrer says so and names the choices, then you page_click the one you want. ' +
+        'Needs level "read + edit"; the person is asked to confirm unless they switched that off for the site. ' +
+        POLICY_NOTE,
+      inputSchema: {
+        tabId: tabIdParam,
+        ref: z.string().describe('Element ref of the <select> from page_outline, e.g. e12'),
+        values: z.array(z.string()).describe('Option values or labels to choose'),
+        add: z.boolean().optional().describe('Keep the options already selected (for a multiple select)'),
+        browser: browserParam,
+      },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ tabId, ref, values, add, browser }) => {
+      try {
+        return text(await call('page.select', { tabId, ref, values, add }, browser));
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    'page_check',
+    {
+      title: 'Tick or untick a checkbox',
+      description:
+        'Set a checkbox, a radio button or a role="checkbox" widget to checked (default) or unchecked, and answer the state it ended in. ' +
+        'A real checkbox is set the way a framework-controlled one notices, with the events a click fires; a widget built from divs is CLICKED and read back, ' +
+        'because setting its aria-checked by hand would make it look ticked while the page never heard of it. ' +
+        'Setting it to the state it already has does nothing and says so. A radio can be checked but not unchecked. ' +
+        'Needs level "read + edit"; the person is asked to confirm unless they switched that off for the site. ' +
+        POLICY_NOTE,
+      inputSchema: {
+        tabId: tabIdParam,
+        ref: z.string().describe('Element ref from page_outline, e.g. e12'),
+        checked: z.boolean().optional().describe('true (default) or false'),
+        browser: browserParam,
+      },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ tabId, ref, checked, browser }) => {
+      try {
+        return text(await call('page.check', { tabId, ref, checked }, browser));
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  server.registerTool(
     'page_evaluate',
     {
       title: 'Run a script in the page (Firefox only)',

@@ -12,3 +12,4 @@ export * from './connections.ts';
 export * from './desktop.ts';
 export * from './download.ts';
 export * from './evaluate.ts';
+export * from './keys.ts';

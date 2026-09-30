@@ -49,7 +49,12 @@ export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = 
     label: 'Take screenshots',
     detail: 'page_screenshot — of the visible tab only; Chromium also needs the all-sites grant below',
   },
-  fill: { label: 'Fill fields', detail: 'page_fill — still needs Read + edit on the site' },
+  fill: {
+    label: 'Fill in forms',
+    detail:
+      'page_fill, page_press, page_select, page_check — text into a field, keys into a form, a ' +
+      'dropdown option, a checkbox. Still needs Read + edit on the site, and a key can submit a form',
+  },
   click: { label: 'Click', detail: 'page_click — still needs Read + edit on the site' },
   script: {
     label: 'Run scripts',
@@ -107,6 +112,14 @@ export const FEATURE_OF = {
   'page.screenshot': 'screenshot',
   'page.download': 'download',
   'page.fill': 'fill',
+  // press, select and check ride on `fill`, not on switches of their own. They are the same act —
+  // putting a value into a form control — and a page agent needs all four to get through one form.
+  // The reason is consent, not tidiness: a person who switches OFF "Fill fields" means "do not type
+  // into my pages", and a key press that types would have to be switched off separately to mean the
+  // same thing. `page.click` keeps its own switch, because clicking is not filling.
+  'page.press': 'fill',
+  'page.select': 'fill',
+  'page.check': 'fill',
   'page.click': 'click',
   'page.evaluate': 'script',
   'tabs.open': 'open',

@@ -159,6 +159,12 @@ export const REQUIRED_LEVEL = {
   'page.download': 'read',
   'page.fill': 'write',
   'page.click': 'write',
+  // All three change the page, so all three are writes: a key can submit a form, an option can
+  // change what a form asks for, a checkbox can agree to a term. None of them reads anything the
+  // level below `write` would not already have let it read.
+  'page.press': 'write',
+  'page.select': 'write',
+  'page.check': 'write',
   // `write`, because a script can do what a write does and more — never `read`. The level table
   // cannot fully express how far this one reaches, which is why it also has its own feature switch
   // (off by default), always confirms, and is shown to the person as code (ADR 0012).

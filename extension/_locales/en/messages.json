@@ -674,5 +674,64 @@
   },
   "confirm_always": {
     "message": "Always"
+  },
+  "method_page_press": {
+    "message": "Pressed a key"
+  },
+  "method_page_select": {
+    "message": "Chose an option"
+  },
+  "method_page_check": {
+    "message": "Set a checkbox"
+  },
+  "confirm_press": {
+    "message": "Press $KEYS$ in $TARGET$",
+    "placeholders": {
+      "keys": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "confirm_type": {
+    "message": "Type $TEXT$ into $TARGET$",
+    "placeholders": {
+      "text": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "confirm_select": {
+    "message": "Choose $VALUES$ in $TARGET$",
+    "placeholders": {
+      "values": {
+        "content": "$1"
+      },
+      "target": {
+        "content": "$2"
+      }
+    }
+  },
+  "confirm_check": {
+    "message": "Set $TARGET$ to $STATE$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      },
+      "state": {
+        "content": "$2"
+      }
+    }
+  },
+  "confirm_state_on": {
+    "message": "checked"
+  },
+  "confirm_state_off": {
+    "message": "unchecked"
   }
 }

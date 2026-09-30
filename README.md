@@ -128,7 +128,7 @@ all (options page):
 | Read page text | `page_read` | on |
 | Outline pages | `page_outline` | on |
 | Screenshots | `page_screenshot` (turning it on asks the browser for access to all sites) | **off** |
-| Fill fields | `page_fill`, still only at *Read + edit*, and you confirm | on |
+| Fill in forms | `page_fill`, `page_press`, `page_select`, `page_check` — text into a field, keys into a form, a dropdown option, a checkbox. Still only at *Read + edit*, and you confirm | on |
 | Click | `page_click`, still only at *Read + edit*, and you confirm | on |
 | Run scripts | `page_evaluate` — the agent runs its own code in the page (Firefox only; Chromium's content-script policy forbids it), still only at *Read + edit*, and you see every script before it runs | **off** |
 | Open tabs | `tab_open`, only sites at *Read* or higher | on |
@@ -190,11 +190,48 @@ or an internal process belong in your own directory. Format and how to contribut
 [recipes/README.md](recipes/README.md). Why it is built this way:
 [ADR 0006](docs/adr/0006-recipes-are-data-run-as-ordinary-calls.md).
 
+## Keys, dropdowns and checkboxes
+
+A form is not only fields. It is keys: **Enter** to submit, **Tab** to the next field, a character
+at a time into a search box that filters as you type, an **ArrowDown** in a listbox. Three tools
+cover what a person does with a keyboard, and they all sit behind the *Fill in forms* switch at
+*Read + edit*:
+
+| Tool | Does |
+|---|---|
+| `page_press` | one key (`Enter`, `Tab`, `Escape`, `ArrowDown`, `F5`, `Backspace`, `a`) with modifiers (`Control+a`), or `text` typed one character at a time. With a `ref` the keys go to that element, without one to wherever the page's focus already is |
+| `page_select` | options in a `<select>`, by value or by the text you read, firing the change event a real choice fires |
+| `page_check` | a checkbox, a radio or a `role="checkbox"` widget, to checked or not, answering the state it ended in |
+
+**The honest limit.** The events beifahrer sends are *untrusted*, and a browser performs **no
+default action** for an untrusted key event — a real Enter submits the form, a dispatched one does
+not. So beifahrer produces those effects itself, per key, where the browser's behaviour is defined
+and reproducible: the character appears, **Backspace** deletes the selection, **Tab** moves the
+focus on, **Enter** submits the form the field is in (and types a newline in a text area), **Space**
+ticks a box. A page that *listens* for keys — a hotkey, a combobox, a code editor — needs nothing
+from that and gets exactly what it would have got.
+
+Three things it will not do, on purpose:
+
+- **A key of the browser's own** (F12, PrintScreen, Ctrl+T) is refused **by name**, not sent into
+  the void. Silently dropping it looks like a page that ignored the key, which sends an agent
+  looking in the wrong place.
+- **A modifier on its own** is refused: it presses nothing, and answering "done" for a call that did
+  nothing is the one answer no agent can work around.
+- **A password field** is never typed into, exactly like `page_fill`.
+
+A widget built from divs instead of a `<select>` has no options to set. beifahrer says so, **names
+the choices**, and points at `page_click` — setting `aria-checked` by hand would make a widget look
+ticked while the page's own state never heard of it, and that is the one thing a write must not do.
+
+The focus is marked `[focus]` in the outline, because `page_press` without a `ref` goes wherever
+the focus is, and an agent that cannot *see* the focus cannot use that form of the call at all.
+
 ## Running a script in the page
 
-A page agent is a visitor, not a keyboard. It cannot press **Enter** to submit a form, hover a menu
-open, drag something, or touch a `<canvas>` — for those pages the agent can see the thing and
-cannot operate it. `page_evaluate` is the way out, and it is guarded accordingly:
+A page agent is a visitor, not a keyboard. It cannot hover a menu open, drag something, or touch a
+`<canvas>` — for those pages the agent can see the thing and cannot operate it. `page_evaluate` is
+the way out, and it is guarded accordingly:
 
 | | |
 |---|---|
@@ -206,8 +243,8 @@ cannot operate it. `page_evaluate` is the way out, and it is guarded accordingly
 
 The script is a function **body**, so `return` gives the result and `await` works. In scope is
 `beifahrer`, with the same verbs the named tools have — `find`, `describe`, `click`, `fill`,
-`read`, `outline`, `meta`, `sleep` — so a script reads like a recipe instead of reaching into the
-DOM blind:
+`press`, `select`, `check`, `read`, `outline`, `meta`, `sleep` — so a script reads like a recipe
+instead of reaching into the DOM blind:
 
 ```js
 const b = beifahrer.find({ role: 'button', name: 'Save' })[0];
@@ -228,7 +265,7 @@ JavaScript by name (`window.appState`) on Chromium; on Firefox it can ask for it
 which is exactly why `world: "main"` is answered `unsupported` with a reason instead of being faked:
 an installed extension has no API that runs its own code as a string inside a page's world. And the
 price of all of it: a script may do anything a *Read + edit* grant allows on that site, reading a
-password field included — which `page_fill` refuses. Why the conditions above are the conditions:
+password field included — which `page_fill` and `page_press` refuse. Why the conditions above are the conditions:
 [ADR 0012](docs/adr/0012-running-the-agents-own-script-in-the-page.md).
 
 ## What it will never do

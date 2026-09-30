@@ -166,6 +166,17 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   grant prompt to win it back; measured with a throwaway probe extension, since `permissions.request`
   never resolves headless with nobody to click the browser's own bubble (had to seed the profile's
   stored extension permissions directly). Firefox removes exactly the listed patterns.
+- **A synthetic key event performs no browser default action.** An event created in a content
+  script and dispatched on the page is untrusted, and a browser does nothing for it: a real Enter
+  submits the form, a dispatched one does not, and `preventDefault()` on the keydown means "the page
+  handles this key", not "beifahrer must not". So `press` in page-agent.ts dispatches the three
+  events and then does the default action itself for the keys whose behaviour the platform fixes
+  (the character appears, Backspace deletes, Tab moves the focus, Enter submits, Space ticks) —
+  and only when the keydown was not cancelled, which is what the page claiming a key looks like.
+  Two consequences worth keeping: browser keys (F12, Ctrl+T) are refused BY NAME rather than
+  dropped, because a dropped key looks like a page that ignored it; and a page that checks
+  `event.isTrusted` sees `false`, which no amount of care in the page agent can change — only
+  `page.evaluate` in Firefox's own world is closer, and that is not the same thing.
 - **Firefox will not let an extension's synthetic paste carry data.** The page's listener receives
   the event, but `getData()` returns '' for data an extension set. This is deliberate principal
   isolation, not a bug to fix. Rich-text filling therefore uses paste in Chromium and
@@ -183,6 +194,12 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   rejects the key, so its tabs are created and then discarded once the URL has committed
   (`openLazy` in sessions-store.ts). A loading Chromium tab reports its target in `pendingUrl`
   with `url` empty, so tab listings read both.
+- **`gjsify test` reuses `app/dist/test.gjs.mjs` when only `packages/core` changed.** The bundler's
+  cache is keyed on the entry files, not on what they import, so a change in `packages/core/src` is
+  invisible to the tests until the bundle is thrown away: `rm -rf app/dist` before believing a
+  green run (or a red one). Measured while adding the key table — a refusal message that had been
+  edited three lines away was still the old one in the report. Not a beifahrer bug and not worked
+  around in the code: it is in the gap table below.
 - **A whole window is closed with `windows.remove`**, not tab by tab, so that the browser's
   recently-closed list holds it as one window (the e2e restores it from there).
 - **A confirmation window can only be answered by the person.** So a script run, a fill and a click
@@ -234,6 +251,7 @@ Fix them in gjsify, never around them (werkstatt AGENTS.md § Core deps). Found 
 | `@gjsify/ws` client: `new WebSocket(url, options)` treated as protocols; URL without path fails the handshake | tests use the three-argument form and `…/`. The extension is unaffected (browsers normalise) |
 | `@gjsify/ws` server: `connection` passes the raw `Soup.ServerMessage`, no `req.headers` | `verifyClient` gets the Origin on both runtimes and refuses anything but an extension; nothing after the handshake reads it (ADR 0007 removed the agent role that needed it) |
 | `@gjsify/ws` server: a taken port carries no `code: 'EADDRINUSE'`, only a localised Gio message | `bindFirstFree` (core) moves on to the next port after *any* bind error, so the missing code costs nothing |
+| `gjsify test` does not re-bundle when only an imported workspace package changed (`packages/core`), so the run reports a stale bundle — `rm -rf app/dist` | the traps list names it; a core change that "did nothing" is this, not a broken test |
 | `gjsify format` under GJS silently skips HTML (oxfmt-native cannot format it) — [gjsify#1807](https://github.com/gjsify/gjsify/issues/1807) | `oxfmt` is called directly, locally and in CI |
 | `app/src/frontends/mcp/runtime.ts` is the **third** verbatim copy (postbote, troedler) | extract to a shared `@gjsify/mcp`; until then change all three or none |
 | `@gjsify/adwaita-web` 0.52.0 has one entry: it defines every element and inlines its 200 KB stylesheet as a string, so a page cannot import only what it uses (the elements beifahrer uses measured ~45 KB by path) | `ui.js` is 520 KB (104 KB gzip), shared by the three pages; switch to per-element entries when they exist (ADR 0008) |
