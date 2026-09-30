@@ -16,3 +16,4 @@ export * from './keys.ts';
 export * from './navigate.ts';
 export * from './refs.ts';
 export * from './frame-messages.ts';
+export * from './expect.ts';

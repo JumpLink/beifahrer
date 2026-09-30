@@ -20,6 +20,7 @@
  */
 
 import { parseDesktop, type DesktopInfo } from './desktop.ts';
+import type { ExpectState } from './expect.ts';
 import type { ScriptWorld } from './evaluate.ts';
 import type { Navigation } from './navigate.ts';
 import type { Feature } from './features.ts';
@@ -136,6 +137,41 @@ export interface MethodMap {
     /** Until the document has loaded, or until an element matching the query is there. */
     params: { tabId: number; for: 'load' | ElementQuery; timeoutMs?: number };
     result: { waitedMs: number; match?: FoundElement };
+  };
+  'page.expect': {
+    /**
+     * Assert a STATE and report what was seen instead. Give a `ref` (one element, in this document
+     * or in a frame) or a `query` (every element of that kind), and at least one condition.
+     *
+     * The point over `page_wait` is the answer: a failed assertion says what it found — the states
+     * the elements are actually in, their values, how many — so the next move is a decision and not
+     * another read of the page.
+     *
+     * `hidden` on a query means NO match is visible, which is what "wait for the spinner to go"
+     * means; every other state means AT LEAST ONE match is in it.
+     */
+    params: {
+      tabId: number;
+      ref?: string;
+      query?: ElementQuery;
+      state?: ExpectState;
+      value?: string;
+      text?: string;
+      count?: number;
+      timeoutMs?: number;
+    };
+    result: {
+      pass: boolean;
+      /** The expectation, in words — so a failure names what was wanted, not just the code. */
+      expected: string;
+      /** What was there instead. Present on a failure, and the reason this method exists. */
+      seen: string;
+      /** How many elements the query matched in the document that decided it. */
+      matches: number;
+      /** Which document decided it: the tab's own, or `b2` and the frame number. */
+      frame: number;
+      waitedMs: number;
+    };
   };
   'page.screenshot': { params: { tabId: number }; result: { dataUrl: string } };
   /**

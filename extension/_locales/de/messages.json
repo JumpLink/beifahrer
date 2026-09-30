@@ -185,6 +185,9 @@
   "method_page_wait": {
     "message": "Auf Seite gewartet"
   },
+  "method_page_expect": {
+    "message": "Zustand bestätigt"
+  },
   "method_page_screenshot": {
     "message": "Screenshot gemacht"
   },

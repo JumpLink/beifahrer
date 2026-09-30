@@ -182,6 +182,7 @@ moment later, and only then can text go in. A **recipe** writes such a task down
 |---|---|
 | `page_find` | elements by role and accessible name ("the button named Submit comment"), with refs for fill and click |
 | `page_wait` | wait for a tab to finish loading, or for an element to appear (up to 30 s) |
+| `page_expect` | wait for a **condition** — the Save button *enabled*, the spinner *gone*, the field holding a value, the number of matches — and report what it saw when the condition does not hold |
 | `page_evaluate` | run your own script in the page, and get a JSON result back (off by default — see below) |
 | `recipes_list` | every recipe beifahrer knows, where it came from, and files it refused |
 | `recipes_for_tab` | the recipes that fit a tab, by URL or by recognising the app on the page |
@@ -192,6 +193,16 @@ beifahrer call. **The browser checks every step like a call the agent made itsel
 level, your confirmation, the Stop button. A recipe carries no code. A step that publishes
 (posting the comment, saving) runs only when the agent says you asked for exactly that.
 Otherwise the run stops before it and leaves the draft on the page for you to read.
+
+**`page_expect` is a different question from `page_wait`.** `page_wait` asks *is that element there
+yet*; `page_expect` asks *is this true yet* — the button is enabled, the spinner has gone, the field
+holds that value, the page has exactly that many of them. A failed condition is an **answer, not an
+error**: it comes back with what the elements are actually in, their values and their number, so the
+next step is a decision rather than another read of the page. A query is a claim about the whole page
+— "gone" means no match is visible, which is what waiting for a spinner to disappear means — and it
+is asked of the frames you allowed as well, the answer naming the frame that decided it. One thing
+it will not do is assert nothing: with no state, value, text or count given it is refused rather than
+answered with a default `visible`, which would be a `pass` about a page nobody looked at.
 
 beifahrer ships `openproject/add-comment` and `openproject/edit-description`. They recognise
 OpenProject on any domain. Your own recipes go in `~/.config/beifahrer/recipes/` or in the
@@ -204,8 +215,8 @@ or an internal process belong in your own directory. Format and how to contribut
 ## Frames: what the page embeds
 
 A checkout widget, a video, a comment box, a map: a modern page is mostly other people's pages in
-boxes. `page_read`, `page_outline`, `page_find` and `page_wait` see those too, each under **its own
-heading** in the answer, so a reader can tell which content belongs to which site.
+boxes. `page_read`, `page_outline`, `page_find`, `page_wait` and `page_expect` see those too, each
+under **its own heading** in the answer, so a reader can tell which content belongs to which site.
 
 **A frame is asked under its own origin, not the page's.** A frame from a site you never allowed is
 invisible — in the outline, in the text, in a search — *even when the page around it is readable*.

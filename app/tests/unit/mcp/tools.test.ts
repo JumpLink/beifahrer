@@ -16,6 +16,7 @@ const READ = [
   'sessions_recently_closed',
   'page_find',
   'page_wait',
+  'page_expect',
   'recipes_list',
   'recipes_for_tab',
 ];
@@ -75,6 +76,7 @@ export default async () => {
         'page_evaluate',
         'page_find',
         'page_wait',
+        'page_expect',
         'recipes_for_tab',
         'recipe_run',
         ...WRITE.filter((n) => n.startsWith('tabs_') || n.startsWith('sessions_')),

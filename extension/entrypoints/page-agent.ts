@@ -14,7 +14,10 @@
 import { browser } from '@wxt-dev/browser';
 import {
   downloadFilename,
+  EXPECT_STATES,
+  expectationOf,
   metaMatches,
+  normalizeText,
   parseElementQuery,
   parseKeySpec,
   parseMetaQuery,
@@ -23,6 +26,7 @@ import {
   resolveDownloadTarget,
   scriptError,
   type ElementQuery,
+  type ExpectRequest,
   type FoundElement,
   type KeySpec,
   type MetaQuery,
@@ -520,6 +524,165 @@ function find(query: ElementQuery, maxResults: number): PageResponse {
     ok: true,
     data: { url: location.href, matches: matches.map(found), count: matches.length, truncated },
   };
+}
+
+/** How many elements a state query may look at. Enough to answer "is it gone yet". */
+const EXPECT_MAX_MATCHES = 200;
+
+/**
+ * The states one element is actually in.
+ *
+ * `aria-disabled` counts as disabled even though the DOM property is not set: a control styled and
+ * announced as disabled but still clickable is disabled as far as the person reading the screen is
+ * concerned, and an assertion that said otherwise would be a false `pass` on a button that does
+ * nothing when pressed. Likewise `aria-checked` next to `checked`, for the same reason.
+ */
+function stateOf(el: Element): Record<string, boolean> {
+  const field = el as HTMLInputElement & { disabled?: boolean };
+  const ariaDisabled = el.getAttribute('aria-disabled') === 'true';
+  const checked = el.getAttribute('aria-checked');
+  return {
+    visible: visible(el),
+    enabled: !field.disabled && !ariaDisabled,
+    disabled: Boolean(field.disabled) || ariaDisabled,
+    checked: field.checked === true || checked === 'true',
+    unchecked: field.checked === false || checked === 'false',
+    focused: el.ownerDocument?.activeElement === el,
+  };
+}
+
+/** What a form control holds; for anything else, what it says. */
+function valueOf(el: Element): string {
+  const field = el as HTMLInputElement;
+  if (typeof field.value === 'string' && 'value' in el) return field.value;
+  return (el as HTMLElement).innerText ?? el.textContent ?? '';
+}
+
+/** One element as the words a failure needs: the states it is in, and what it holds. */
+function stateLine(el: Element): string {
+  const s = stateOf(el);
+  const on = EXPECT_STATES.filter((state) => state !== 'hidden' && s[state]);
+  const value = valueOf(el);
+  return `${on.join(' ') || 'no state'}${value ? `, value "${clip(value, 60)}"` : ''}`;
+}
+
+/**
+ * One look at the page: does the condition hold, and if not, what is there instead.
+ *
+ * The `hidden` case is deliberately about ALL matches and every other state about ANY. "Wait for the
+ * spinner to go" is `hidden` on a query that matches one spinner today and none in a moment, and it
+ * must not be satisfied by the spinner merely being scrolled out of the viewport. Everything else
+ * asks whether the thing is there in that state, and one match is the whole claim.
+ */
+function checkExpectation(
+  req: ExpectRequest,
+  query: ElementQuery | undefined,
+): {
+  pass: boolean;
+  seen: string;
+  matches: number;
+} {
+  let els: Element[];
+  if (req.ref !== undefined) {
+    const el = byRef(req.ref);
+    if (!el) return { pass: false, seen: `no element with ref ${req.ref} in this document`, matches: 0 };
+    els = [el];
+  } else {
+    els = matching(query as ElementQuery, EXPECT_MAX_MATCHES).matches;
+  }
+
+  const unmet: string[] = [];
+  if (req.count !== undefined && els.length !== req.count)
+    unmet.push(`found ${els.length}, wanted ${req.count}`);
+  if (req.state !== undefined) {
+    const want = req.state;
+    const holds =
+      want === 'hidden' ? !els.some((el) => visible(el)) : els.some((el) => stateOf(el)[want] === true);
+    if (!holds) {
+      const lines = [...new Set(els.map(stateLine))];
+      unmet.push(
+        lines.length
+          ? `the ${els.length === 1 ? 'element is' : `${els.length} elements are`} ${lines.slice(0, 3).join('; ')}`
+          : 'nothing matched the query',
+      );
+    }
+  }
+  if (req.value !== undefined && !els.some((el) => valueOf(el) === req.value)) {
+    const lines = [...new Set(els.map((el) => `"${clip(valueOf(el), 40)}"`))];
+    unmet.push(els.length ? `values are ${lines.slice(0, 3).join(', ')}` : 'nothing matched the query');
+  }
+  if (req.text !== undefined) {
+    const wanted = normalizeText(req.text);
+    const has = (el: Element) =>
+      normalizeText((el as HTMLElement).innerText ?? el.textContent ?? '').includes(wanted);
+    if (!els.some(has))
+      unmet.push(
+        els.length
+          ? `texts are ${[...new Set(els.map((el) => `"${clip((el as HTMLElement).innerText ?? el.textContent ?? '', 40)}"`))].slice(0, 3).join(', ')}`
+          : 'nothing matched the query',
+      );
+  }
+
+  const seen = els.length
+    ? els.length === 1
+      ? `1 match: ${stateLine(els[0]!)}`
+      : `${els.length} matches: ${[...new Set(els.map(stateLine))].slice(0, 3).join('; ')}`
+    : 'nothing matched';
+  return {
+    pass: unmet.length === 0,
+    seen: unmet.length ? `${unmet.join(' — ')}` : seen,
+    matches: els.length,
+  };
+}
+
+/**
+ * Assert, retrying until it holds or the timeout runs out — the same shape as `waitFor`, because it
+ * is the same waiting: a page changes on its own schedule and a condition checked once is a race.
+ *
+ * A timeout is NOT an error. The answer is `pass: false` with what it saw, because "this never became
+ * true" is information the agent acts on, while an exception is something it has to read the message of
+ * to learn the same thing.
+ */
+function expectCondition(req: ExpectRequest, query: ElementQuery | undefined): Promise<PageResponse> {
+  const started = Date.now();
+  const once = (): PageResponse => {
+    const out = checkExpectation(req, query);
+    return {
+      ok: true,
+      data: {
+        pass: out.pass,
+        expected: expectationOf(req),
+        seen: out.seen,
+        matches: out.matches,
+        waitedMs: Date.now() - started,
+      },
+    };
+  };
+  const first = checkExpectation(req, query);
+  if (first.pass) return Promise.resolve(once());
+  return new Promise((resolve) => {
+    let queued = false;
+    const done = (): void => {
+      observer.disconnect();
+      clearInterval(poll);
+      clearTimeout(timer);
+      resolve(once());
+    };
+    const check = (): void => {
+      queued = false;
+      if (checkExpectation(req, query).pass) done();
+    };
+    // Coalesced, for the same reason as `waitFor`: a page assembling itself fires hundreds of
+    // mutations and one check per frame is enough.
+    const observer = new MutationObserver(() => {
+      if (queued) return;
+      queued = true;
+      setTimeout(check, 50);
+    });
+    observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true });
+    const poll = setInterval(check, 250);
+    const timer = setTimeout(done, req.timeoutMs);
+  });
 }
 
 /** A `<meta>` check. Answers a count, never a content (a csrf-token is a meta too). */
@@ -1498,6 +1661,9 @@ const VERB: Partial<Record<PageRequest['beifahrer'], 'reading' | 'editing'>> = {
   find: 'reading',
   meta: 'reading',
   wait: 'reading',
+  // An assertion reads the page like `find` does, so the pill says so — a person watching the page
+  // must be able to tell "the agent is looking" from "the agent is not".
+  expect: 'reading',
   download: 'reading',
   describe: 'editing',
   fill: 'editing',
@@ -1534,6 +1700,8 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
       return meta(req.meta);
     case 'wait':
       return waitFor(req.query, req.timeoutMs);
+    case 'expect':
+      return expectCondition(req, req.query);
     case 'read':
       return read(req.maxChars);
     case 'outline':

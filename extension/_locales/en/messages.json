@@ -186,6 +186,9 @@
   "method_page_wait": {
     "message": "Waited for a page"
   },
+  "method_page_expect": {
+    "message": "Asserted a state"
+  },
   "method_page_screenshot": {
     "message": "Took a screenshot"
   },

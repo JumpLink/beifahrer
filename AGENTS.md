@@ -266,6 +266,20 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   (ADR 0010: a seeded "all sites" grant, a blocked site, and the prompt answered through
   `/__beifahrer_e2e/answer?scope=…` and `/end-wide`). The first three switch asking on demand
   off, because their refusal checks expect `forbidden` at once, not a prompt nobody answers.
+- **A `for` loop that re-reads the clock in its own update expression measures the GAP between
+  iterations, not the work in them.** `for (let waited = Date.now(); Date.now() - waited < budget;
+  waited = Date.now())` reads like a deadline and is not one: the condition is evaluated right after
+  the update, so `Date.now() - waited` is always ~0 and the loop ends only if a single body happens
+  to outlast the whole budget. Measured on `page.expect` (issue #35): an assertion asked with
+  `timeoutMs: 600` polled a tab for a full minute — the caller's own MCP timeout — and never
+  answered, while its log said `since 0 of 600` on every round. The deadline is ONE `started` outside
+  the loop and nothing inside it may reset the clock; `page.wait` gets this right by racing a single
+  `sleep(left)`, the other shape worth copying.
+- **A ref that names a frame has to go on to the page as its LOCAL part.** `routeFor` returns
+  `route.ref` (the `e12` behind a `b2e12`) beside `route.frame` and `route.index`: the namespaced ref
+  is for the AGENT, and each document resolves only its own. Forwarding the caller's ref through
+  `page()` answers "no element with ref b1e4 in this document" from inside that very frame —
+  measured, and it reads like a stale ref rather than a wrong one.
 - **`label.row { display: flex }` beats the `hidden` attribute.** The UA's `[hidden]` rule loses
   to any author `display`, so style.css forces `[hidden] { display: none !important }`. Without it
   the popup showed "Ask me before every change" at level Read.

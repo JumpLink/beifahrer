@@ -94,6 +94,17 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
 <div role="checkbox" tabindex="0" id="aria-box" aria-checked="false" aria-label="Aria switch">Aria switch</div>
 <form id="keyform" action="/submitted"><label for="keyform-note">Key form note</label><input id="keyform-note"><button type="submit">Key form apply</button></form>
 <p id="press-output"></p>
+<!-- Issue #35: what page_expect asserts on. Three shapes, and each one is a case the tool would get
+     wrong on its own: a control ENABLED by something the page itself listens for, a control that
+     HOLDS a value, and a spinner that comes back and goes away on its own — which is what makes
+     "hidden" a condition to wait for rather than a lookup. Every change is the page's own doing, so
+     a check can tell "the condition held" from "the call returned". -->
+<label for="gate-note">Gate note</label><input id="gate-note" name="gate-note">
+<button type="button" id="gate-save" disabled>Gate save</button>
+<button type="button" id="spinner" style="display:none">Spinning</button>
+<p id="gate-state">gate:disabled</p>
+<p id="spin-state"></p>
+<p id="gate-done"></p>
 <a href="/sample" id="sample-link">sample link</a>
 <p>clicks: <span id="clicks">0</span> · pastes: <span id="pastes">0</span> <span id="pasteinfo"></span></p>
 <p>indicator:<span id="ind"></span>.</p>
@@ -136,6 +147,30 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
   document.getElementById('keyform').addEventListener('submit', (e) => {
     e.preventDefault();
     document.getElementById('press-output').textContent = 'submitted:' + document.getElementById('keyform-note').value;
+  });
+  // Issue #35: the page decides when the gate opens and when the spinner goes — beifahrer only
+  // asserts. A script that flipped these itself would make every assertion pass while proving
+  // nothing, so the transitions are the page's own listener and its own timer.
+  document.getElementById('gate-note').addEventListener('input', (e) => {
+    const save = document.getElementById('gate-save');
+    save.disabled = e.target.value.trim() !== 'open';
+    // The page's OWN report of that, so a test can measure the state somewhere other than in the
+    // answer it is checking: an assertion that agreed with itself would prove nothing.
+    document.getElementById('gate-state').textContent = save.disabled ? 'gate:disabled' : 'gate:enabled';
+  });
+  document.getElementById('gate-save').addEventListener('click', () => {
+    document.getElementById('gate-done').textContent = 'saved:' + document.getElementById('gate-note').value;
+    // The spinner comes back and the PAGE takes it away again three seconds later, and the page says
+    // which of the two it is in — so a test can tell "the assertion waited" from "the spinner was
+    // already gone before the assertion started", which is what a click's own round trip decides.
+    const spin = document.getElementById('spinner');
+    const state = document.getElementById('spin-state');
+    spin.style.display = '';
+    state.textContent = 'spin:shown';
+    setTimeout(() => {
+      spin.style.display = 'none';
+      state.textContent = 'spin:hidden';
+    }, 3000);
   });
   customElements.define('beifahrer-open-card', class extends HTMLElement {
     connectedCallback() {
@@ -995,6 +1030,266 @@ async function keys(browser, client, allowed, ref) {
     !ariaBack.error && /checkbox "Aria switch" \[ \]/.test(afterAriaBack.text),
     afterAriaBack.text.match(/Aria switch[^\n]*/)?.[0] ?? ariaBack.text.slice(0, 200),
   );
+}
+
+/**
+ * `page_expect` (issue #35): a condition, the wait for it, and — the reason the method exists — the
+ * report a FAILED assertion gives.
+ *
+ * Every case is measured on the PAGE as well as in the answer: a condition that held and a call that
+ * returned look the same from the outside, and a wait is only a wait if the page moved on its own
+ * while nobody was looking. The answers are logged whole, because a red check here is worth nothing
+ * without the string it printed.
+ */
+async function assertions(browser, client, allowed, _ref) {
+  const ask = async (label, args) => {
+    const r = await tool(client, 'page_expect', { tabId: allowed.tabId, ...args });
+    // The diagnosable channel: `check` clips its detail to a line, and this is the line that says
+    // what the page looked like.
+    console.log(`  · [${browser}] ${label} → error=${r.error} ${r.text.replace(/\s+/g, ' ').slice(0, 300)}`);
+    return r;
+  };
+  const json = (r) => {
+    try {
+      return JSON.parse(r.text);
+    } catch {
+      return {};
+    }
+  };
+  // Refs from a FRESH outline rather than the one the scenario started with: a ref is a fact about
+  // this document, and asking for it again costs one call and removes a stale-namespace guess.
+  const fresh = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 400 });
+  const refOf = (label) => new RegExp(`\\[(e\\d+)\\] [a-z]+ "${label}`).exec(fresh.text)?.[1];
+
+  // --- a condition that does not hold yet ------------------------------------------------------
+  // The button starts `disabled` and the PAGE's own input listener is what opens it. So a `pass`
+  // here could only come from the page: beifahrer does not and cannot enable a control.
+  const off = await ask('gate save enabled (before)', {
+    role: 'button',
+    name: 'Gate save',
+    state: 'enabled',
+    timeoutMs: 600,
+  });
+  const offJson = json(off);
+  check(
+    browser,
+    'a condition that does not hold fails instead of erroring, and says what it saw',
+    !off.error && offJson.pass === false && /disabled/.test(offJson.seen ?? ''),
+    off.text.replace(/\s+/g, ' ').slice(0, 300),
+  );
+  check(
+    browser,
+    'and the failure names what was wanted, so it can be acted on',
+    /Gate save/.test(offJson.expected ?? '') && /enabled/.test(offJson.expected ?? ''),
+    offJson.expected ?? off.text.slice(0, 200),
+  );
+  check(
+    browser,
+    'the page itself reported the button as disabled, so that was not a bad query',
+    /gate:disabled/.test(await outputOf(client, allowed)),
+    (await outputOf(client, allowed)).match(/gate:\w+/)?.[0] ?? '',
+  );
+
+  // --- the same condition, after the page opened it ---------------------------------------------
+  const note = refOf('Gate note');
+  const opened = await tool(client, 'page_fill', { tabId: allowed.tabId, ref: note, text: 'open' });
+  const on = await ask('gate save enabled (after fill)', {
+    role: 'button',
+    name: 'Gate save',
+    state: 'enabled',
+  });
+  const onJson = json(on);
+  check(
+    browser,
+    'the fill reached the page (its own listener opened the gate), and the assertion now holds',
+    !opened.error && !on.error && onJson.pass === true,
+    `${opened.text.replace(/\s+/g, ' ').slice(0, 120)} | ${on.text.replace(/\s+/g, ' ').slice(0, 200)}`,
+  );
+  check(
+    browser,
+    'and the page agrees: its own report changed to enabled',
+    /gate:enabled/.test(await outputOf(client, allowed)),
+    (await outputOf(client, allowed)).match(/gate:\w+/)?.[0] ?? '',
+  );
+
+  // --- a value, exactly ------------------------------------------------------------------------
+  const held = await ask('gate note holds "open"', { ref: note, value: 'open' });
+  check(
+    browser,
+    'a value is asserted exactly, and what the field holds passes',
+    !held.error && json(held).pass === true,
+    held.text.replace(/\s+/g, ' ').slice(0, 200),
+  );
+  const wrong = await ask('gate note holds "shut"', { ref: note, value: 'shut', timeoutMs: 900 });
+  const wrongJson = json(wrong);
+  check(
+    browser,
+    'a value that is not there fails WITH the value that is — the reason the method exists',
+    !wrong.error && wrongJson.pass === false && /"open"/.test(wrongJson.seen ?? ''),
+    wrong.text.replace(/\s+/g, ' ').slice(0, 200),
+  );
+
+  // --- a ref and a count are two different questions -------------------------------------------
+  const counted = await ask('count with a ref', { ref: note, count: 1 });
+  check(
+    browser,
+    'count with a ref is refused: a ref is one element, and "count: 0" on it would pass',
+    counted.error && /ref is one element/.test(counted.text),
+    counted.text.replace(/\s+/g, ' ').slice(0, 200),
+  );
+
+  // --- text, as a substring --------------------------------------------------------------------
+  const said = await ask('gate save says save', { role: 'button', name: 'Gate save', text: 'save' });
+  const unheard = await ask('gate save says apply', {
+    role: 'button',
+    name: 'Gate save',
+    text: 'Apply',
+    timeoutMs: 900,
+  });
+  const unheardJson = json(unheard);
+  check(
+    browser,
+    'text is a substring of what the element says, and the failure quotes what it says',
+    !said.error &&
+      json(said).pass === true &&
+      !unheard.error &&
+      unheardJson.pass === false &&
+      /Gate save/.test(unheardJson.seen ?? ''),
+    `${said.text.replace(/\s+/g, ' ').slice(0, 120)} | ${unheard.text.replace(/\s+/g, ' ').slice(0, 200)}`,
+  );
+
+  // --- count, and the absence a caller asks for ------------------------------------------------
+  const one = await ask('one gate save', { role: 'button', name: 'Gate save', count: 1 });
+  const none = await ask('no button called Nothing', { role: 'button', name: 'Nothing', count: 0 });
+  const some = await ask('two gate saves', { role: 'button', name: 'Gate save', count: 2, timeoutMs: 900 });
+  check(
+    browser,
+    'count: 0 on a query that matches nothing passes, and count: 1 on the one that does',
+    !one.error && json(one).pass === true && !none.error && json(none).pass === true,
+    `${one.text.replace(/\s+/g, ' ').slice(0, 120)} | ${none.text.replace(/\s+/g, ' ').slice(0, 120)}`,
+  );
+  check(
+    browser,
+    'a count that is wrong fails and reports the number it found',
+    !some.error && json(some).pass === false && /found 1/.test(some.text),
+    some.text.replace(/\s+/g, ' ').slice(0, 200),
+  );
+
+  // --- the wait: the page's own timer, and nobody watching --------------------------------------
+  // The click brings the spinner back and the page hides it again 3 s later. So an assertion on
+  // "hidden" has to WAIT: it cannot pass on the click and it must not fail on the spinner either.
+  // The page's own report of which of the two it is in is read BEFORE the assertion, because a click
+  // that took longer than the spinner (a confirmation window on one engine, nothing on the other)
+  // would make this check pass for the wrong reason — and measured, that is what happened.
+  const saveRef = refOf('Gate save');
+  const clicked = await tool(client, 'page_click', { tabId: allowed.tabId, ref: saveRef });
+  const justAfter = await outputOf(client, allowed);
+  check(
+    browser,
+    'the click put the spinner on screen, and the page says so',
+    !clicked.error && /spin:shown/.test(justAfter),
+    justAfter.match(/spin:\w+/)?.[0] ?? justAfter.slice(0, 200),
+  );
+  const spinner = await ask('spinner gone', {
+    role: 'button',
+    name: 'Spinning',
+    state: 'hidden',
+    timeoutMs: 10_000,
+  });
+  const spinnerJson = json(spinner);
+  check(
+    browser,
+    'a condition the page satisfies later is waited for, not sampled once',
+    !spinner.error && spinnerJson.pass === true && spinnerJson.waitedMs >= 500,
+    `waitedMs=${spinnerJson.waitedMs} | ${spinner.text.replace(/\s+/g, ' ').slice(0, 200)}`,
+  );
+  const afterWait = await outputOf(client, allowed);
+  check(
+    browser,
+    'and the page really did go on and hide it, so the wait saw a change',
+    /spin:hidden/.test(afterWait) && !/Spinning/.test(afterWait) && /saved:open/.test(afterWait),
+    afterWait
+      .match(/[^\n]*(spin:|saved:|Spinning)[^\n]*/g)
+      ?.slice(0, 3)
+      .join(' | ') ?? '',
+  );
+
+  // A second run finds it already gone, so it must not wait again.
+  const again = await ask('spinner gone (again)', {
+    role: 'button',
+    name: 'Spinning',
+    state: 'hidden',
+    timeoutMs: 4000,
+  });
+  check(
+    browser,
+    'a condition that already holds answers at once, without burning the timeout',
+    !again.error && json(again).pass === true && json(again).waitedMs < 400,
+    again.text.replace(/\s+/g, ' ').slice(0, 200),
+  );
+
+  // --- a blocked frame satisfies nothing -------------------------------------------------------
+  // The frame on localhost holds a button the person never allowed. An assertion must not be able to
+  // find it — otherwise "is it still there?" would be answered by a frame the policy hides.
+  const foreign = await ask('foreign frame button visible', {
+    role: 'button',
+    name: 'Foreign frame button',
+    state: 'visible',
+    timeoutMs: 600,
+  });
+  check(
+    browser,
+    'a frame on a blocked origin cannot satisfy an assertion',
+    !foreign.error && json(foreign).pass === false,
+    foreign.text.replace(/\s+/g, ' ').slice(0, 200),
+  );
+
+  // --- the same condition, answered by the frame ------------------------------------------------
+  // "Frame act" only exists inside the allowed frame, so the deciding document is that frame and the
+  // answer has to say so — otherwise a failure there reads as a statement about the page.
+  const inFrame = await ask('frame act visible', { role: 'button', name: 'Frame act', state: 'visible' });
+  const inFrameJson = json(inFrame);
+  check(
+    browser,
+    'a condition that only a frame can satisfy passes, and the answer names that frame',
+    !inFrame.error && inFrameJson.pass === true && inFrameJson.frame >= 1,
+    `frame=${inFrameJson.frame} | ${inFrame.text.replace(/\s+/g, ' ').slice(0, 200)}`,
+  );
+
+  // A ref into a frame routes to that document, like any other ref'd call.
+  const frameAct = [...fresh.text.matchAll(/\[(b\d+e\d+)\] button "Frame act"/g)].map((m) => m[1])[0];
+  if (frameAct) {
+    const viaRef = await ask(`frame ref ${frameAct}`, { ref: frameAct, state: 'visible' });
+    const viaRefJson = json(viaRef);
+    check(
+      browser,
+      'a ref inside a frame is asserted in THAT frame, and the answer says which',
+      !viaRef.error && viaRefJson.pass === true && viaRefJson.frame === Number(frameAct.match(/^b(\d+)/)[1]),
+      `ref=${frameAct} frame=${viaRefJson.frame} | ${viaRef.text.replace(/\s+/g, ' ').slice(0, 200)}`,
+    );
+  } else {
+    check(
+      browser,
+      "the frame's button has a namespaced ref for the ref assertion",
+      false,
+      fresh.text.replace(/\s+/g, ' ').slice(0, 400),
+    );
+  }
+
+  // --- refusals: an assertion with nothing to assert -------------------------------------------
+  for (const [label, args, why] of [
+    ['neither a ref nor a query', { state: 'visible' }, /needs a ref or a query/],
+    ['both a ref and a query', { ref: note, role: 'button', state: 'visible' }, /not both/],
+    ['nothing to check', { role: 'button', name: 'Gate save' }, /needs a state, a value, a text or a count/],
+  ]) {
+    const r = await ask(label, args);
+    check(
+      browser,
+      `page_expect with ${label} is refused: ${why}`,
+      r.error && why.test(r.text),
+      r.text.replace(/\s+/g, ' ').slice(0, 200),
+    );
+  }
 }
 
 /** The page's own `#press-output`, read as the page wrote it. */
@@ -1949,6 +2244,7 @@ async function pausedChecks(browser, client) {
     ['page_check', { tabId: 1, ref: 'e1' }],
     ['page_find', { tabId: 1, role: 'button' }],
     ['page_wait', { tabId: 1, for: 'load' }],
+    ['page_expect', { tabId: 1, role: 'button', state: 'visible' }],
     ['page_evaluate', { tabId: 1, script: 'return 1' }],
     ['page_download', { tabId: 1, url }],
     ['recipes_for_tab', { tabId: 1 }],
@@ -2232,6 +2528,7 @@ async function scenario(browser, gate) {
     await shadowDom(browser, client, allowed);
     await framesAndOrigins(browser, client, allowed);
     await keys(browser, client, allowed, ref);
+    await assertions(browser, client, allowed, ref);
     await navigation(browser, client, allowed, forbidden);
     await scripts(browser, client, allowed, forbidden);
     await recipes(browser, client, allowed, forbidden);

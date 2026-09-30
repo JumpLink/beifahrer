@@ -43,7 +43,10 @@ export type Features = Record<Feature, boolean>;
 export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = {
   tabs: { label: 'See open tabs', detail: 'tabs_list, tab_active — sites below Read show their host only' },
   read: { label: 'Read page text', detail: 'page_read' },
-  outline: { label: 'Outline pages', detail: 'page_outline, page_find, page_wait — links, buttons, fields' },
+  outline: {
+    label: 'Outline pages',
+    detail: 'page_outline, page_find, page_wait, page_expect — links, buttons, fields',
+  },
   download: { label: 'Download documents', detail: 'page_download — a file the page links to' },
   screenshot: {
     label: 'Take screenshots',
@@ -112,6 +115,10 @@ export const FEATURE_OF = {
   // find + wait see the same element model outline shows, so the same switch covers them.
   'page.find': 'outline',
   'page.wait': 'outline',
+  // An assertion is a question about the same elements in the same documents — one switch, and
+  // switching "Outline pages" off has to take the questions with it, or an agent could still learn
+  // what a page is made of out of yes/no answers.
+  'page.expect': 'outline',
   'page.screenshot': 'screenshot',
   'page.download': 'download',
   'page.fill': 'fill',

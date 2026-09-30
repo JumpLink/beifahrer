@@ -15,6 +15,7 @@ import desktop from './unit/core/desktop.test.ts';
 import download from './unit/core/download.test.ts';
 import evaluate from './unit/core/evaluate.test.ts';
 import keys from './unit/core/keys.test.ts';
+import expectRules from './unit/core/expect.test.ts';
 import navigate from './unit/core/navigate.test.ts';
 import refs from './unit/core/refs.test.ts';
 import toolbar from './unit/core/toolbar.test.ts';
@@ -38,6 +39,7 @@ run({
   download,
   evaluate,
   keys,
+  expectRules,
   navigate,
   refs,
   toolbar,

@@ -1,6 +1,6 @@
 /** Messages between the background and the page agent injected into a tab. */
 
-import type { ElementQuery, MetaQuery } from '@beifahrer/core';
+import type { ElementQuery, ExpectState, MetaQuery } from '@beifahrer/core';
 
 /**
  * The page agent's Stop button → background. The only message a content script may send, and it
@@ -52,6 +52,21 @@ export type PageRequest = PageTarget &
     | { beifahrer: 'find'; query: ElementQuery; maxResults: number }
     | { beifahrer: 'meta'; meta: MetaQuery }
     | { beifahrer: 'wait'; query: ElementQuery; timeoutMs: number }
+    /**
+     * Assert a state and answer `pass` plus what was seen (issue #35). `ref` names one element in this
+     * document, `query` names a kind — and with a query the addressee frame is this document, because
+     * every document the person allowed is asked separately and the extension decides.
+     */
+    | {
+        beifahrer: 'expect';
+        ref?: string;
+        query?: ElementQuery;
+        state?: ExpectState;
+        value?: string;
+        text?: string;
+        count?: number;
+        timeoutMs: number;
+      }
   ) & {
     /** The agent session that asked (ADR 0007), named on the in-page pill. */
     session?: string;

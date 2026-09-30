@@ -152,6 +152,7 @@ export const REQUIRED_LEVEL = {
   // find + wait read what outline reads (the same element model), so they need the same level.
   'page.find': 'read',
   'page.wait': 'read',
+  'page.expect': 'read',
   'page.screenshot': 'read',
   // A document the page links to, fetched in the tab's own session. `read`, not `write`: it only
   // ever reads, and demanding `write` would push a bank or insurer origin up a level for the one

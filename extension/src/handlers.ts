@@ -23,8 +23,10 @@ import {
   preflight,
   preflightMessage,
   evaluateRequestOf,
+  expectationOf,
   levelFor,
   parseElementQuery,
+  parseExpect,
   parseKeySpec,
   parseKeyTimes,
   parseNavigate,
@@ -33,6 +35,7 @@ import {
   namespaceRefs,
   scriptPreview,
   type ElementQuery,
+  type ExpectRequest,
   type FoundElement,
   type Navigation,
   type ParsedRef,
@@ -466,6 +469,25 @@ async function askWhere(tabId: number, frame: number): Promise<string | null> {
  */
 type WriteAction = 'fill' | 'click' | 'press' | 'select' | 'check';
 
+/**
+ * One document's answer to a `page.expect` query, with the beifahrer frame number it came from.
+ *
+ * 0 is the page itself. The pairing is only ever made HERE, because a page agent cannot know which
+ * frame of several it is (see the `frame.expect` note in the handler).
+ */
+interface Answered {
+  index: number;
+  data: Record<string, unknown>;
+}
+
+/**
+ * How long ONE document is given to answer a `page.expect` query, when the extension is the one
+ * waiting. Below the 250 ms between rounds, so a document's own timer is never what makes the next
+ * round late, and far below any caller's timeout, so the caller's deadline is the only clock that
+ * decides how long the whole assertion takes.
+ */
+const EXPECT_PROBE_MS = 50;
+
 /** What the confirm window may show of the agent's own text: enough to judge, never a wall. */
 const WINDOW_PREVIEW_CHARS = 200;
 
@@ -803,6 +825,132 @@ const handlers: { [M in Method]: Handler<M> } = {
     ]);
     const data = answers ?? (await Promise.all(attempts)).find((a) => a.match) ?? {};
     return { waitedMs: Date.now() - started, match: data.match as Result<'page.wait'>['match'] };
+  },
+
+  async 'page.expect'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const req = parseExpect({
+      ref: (params as { ref?: unknown }).ref,
+      query: (params as { query?: unknown }).query,
+      state: (params as { state?: unknown }).state,
+      value: (params as { value?: unknown }).value,
+      text: (params as { text?: unknown }).text,
+      count: (params as { count?: unknown }).count,
+      timeoutMs: params.timeoutMs,
+    });
+    if (typeof req === 'string') return fail('invalid', req);
+    const started = Date.now();
+    const want = req as ExpectRequest;
+
+    if (want.ref !== undefined) {
+      // A ref says which document, so this is a routed call like any other write — only the gate is
+      // `read`. Routing it through the frame table is what keeps a `b2e12` from being resolved in the
+      // top document, where the ref would silently point at a different element or at nothing.
+      const route = await routeFor('page.expect', tabId, want.ref, policy, ctx);
+      const answered = (await page(
+        tabId,
+        ctx,
+        // `route.ref`, the LOCAL ref, and not the one that came in: each document has its own
+        // registry, so a `b2e12` handed to the frame is a ref that frame has never heard of — which
+        // answers "no element with ref b2e12 in this document" for an element that is right there.
+        { beifahrer: 'expect', ...want, ref: route.ref },
+        route.frame,
+        route.index,
+      )) as unknown as Result<'page.expect'>;
+      // The page agent names no frame — it is a document and does not know it is one of several. The
+      // answer says which document decided, so a `b2e12` that fails inside an embedded widget cannot
+      // be read as a statement about the page around it.
+      return { ...answered, frame: route.index };
+    }
+
+    // A query is asked of every document the person allowed, at the same time, and the first one that
+    // satisfies it decides. "Is the spinner gone" and "is there a Save button" are questions about the
+    // PAGE, and on a page with an embedded widget the answer may live in either document — while a
+    // frame the person did not allow is not asked at all, so it cannot satisfy anything.
+    //
+    // Each answer is kept WITH the frame number it came from. The documents cannot name themselves —
+    // a page agent is a document and does not know it is one of several — so this is the only place
+    // the pairing exists, and an answer that could not say which document it was would send an agent
+    // looking in the wrong one. The extension's own index, not the browser's: `frame: 2` is what the
+    // agent reads and what a `b2e12` is built from.
+    //
+    // The DOCUMENTS do not wait here, they look once: the clock belongs to the loop below, which is
+    // the only place that knows the caller's deadline. Several documents each polling to their own
+    // timeout turns one assertion into N long-lived message channels on one tab at once, and a tab
+    // that busy stops answering — a call that should take a second then takes the caller's whole
+    // timeout. A probe far below the loop's 250 ms spacing keeps every answer short.
+    const deadline = started + want.timeoutMs;
+    const probe: PageRequest = { beifahrer: 'expect', ...want, timeoutMs: EXPECT_PROBE_MS };
+    const attempts = async (): Promise<Answered[]> => {
+      // Injected before the parallel asks, for the same reason `readAcrossFrames` does it: a frame's
+      // agent has to be THERE before anything is asked of it, and asking several frames while they
+      // are still being injected races the injection rather than the page.
+      await inject(tabId, true).catch(() => undefined);
+      const here = (await getTab(tabId)).url ?? '';
+      const rows = framesAtLevel(await locateFrames(tabId, here), policy, ctx, 'read');
+      const all = await Promise.all([
+        page(tabId, ctx, probe),
+        ...rows.map((row) =>
+          page(tabId, ctx, probe, row.frameId, row.index).catch(() => ({}) as Record<string, unknown>),
+        ),
+      ]);
+      return all.map((data, i) => ({ index: i === 0 ? 0 : (rows[i - 1]?.index ?? 0), data }));
+    };
+    let answers = await attempts();
+    // Is the condition an ABSENCE or a PRESENCE? It decides how the documents combine, and getting
+    // it wrong is a green answer about the wrong thing.
+    //
+    // "Is the spinner gone?" is about the PAGE, and on a page with an embed every document has to
+    // agree: a frame that holds no spinner at all satisfies its half vacuously, and "first document
+    // that passes wins" therefore answered "gone" from inside the embed while the page was still
+    // showing it — measured, with `frame: 1, matches: 0` in the answer. A presence ("some Save button
+    // is enabled") only has to hold ONCE, and asking every document to agree about it would be the
+    // mirror-image mistake: the widget's own Save button is exactly the one that satisfies it.
+    const absence = want.state === 'hidden' || want.count === 0;
+    const satisfied = (all: Answered[]): boolean => {
+      // A document that said nothing at all is silence, not a "yes" — and it must not hold an absence
+      // open either: a frame torn down mid-call is a normal event, not a reason to wait out the whole
+      // timeout on a condition that is already true everywhere else.
+      const said = all.filter((a) => typeof a.data.pass === 'boolean');
+      return absence ? said.every((a) => a.data.pass === true) : said.some((a) => a.data.pass === true);
+    };
+    // Retried until the timeout, because a page changes on its own schedule — and re-asked rather
+    // than re-used, so a frame that announced itself in the meantime gets its turn in the race.
+    //
+    // Against `started`, and never against a clock this loop resets itself. A `for` that re-reads the
+    // time in its own update expression measures the GAP between two iterations, not the work in
+    // them: every iteration then begins 0 ms after the last one ended, the condition holds for as
+    // long as the page takes to answer, and the loop runs until the CALLER's own timeout — measured,
+    // an assertion that should have answered in 0.6 s held the tab for a minute and never returned.
+    // The caller's timeout covers the whole call, the first look included, so `started` is the honest
+    // clock and one slow document cannot buy the assertion more time than was asked for.
+    while (!satisfied(answers) && Date.now() - started < want.timeoutMs) {
+      await sleep(Math.min(250, Math.max(deadline - Date.now(), 1)));
+      answers = await attempts();
+    }
+
+    const passed = answers.find((a) => a.data.pass === true);
+    if (passed)
+      return {
+        ...passed.data,
+        frame: passed.index,
+        waitedMs: Date.now() - started,
+      } as unknown as Result<'page.expect'>;
+    // The failure names what it saw, and WHICH document said so: "nothing here" on the page and "the
+    // element is disabled" in the widget need different next moves, and an agent that cannot tell
+    // them apart reads the wrong page. The document that FOUND something is the informative one, so
+    // it wins over a document that matched nothing at all.
+    const deciding = answers.find((a) => Number(a.data.matches ?? 0) > 0) ??
+      answers.find((a) => typeof a.data.seen === 'string') ??
+      answers[0] ?? { index: 0, data: {} as Record<string, unknown> };
+    return {
+      pass: false,
+      expected: answers[0]?.data.expected ?? expectationOf(want),
+      seen: String(deciding.data.seen ?? 'nothing answered'),
+      matches: Number(deciding.data.matches ?? 0),
+      frame: deciding.index,
+      waitedMs: Date.now() - started,
+    } as unknown as Result<'page.expect'>;
   },
 
   async 'page.screenshot'(params, policy, ctx) {
