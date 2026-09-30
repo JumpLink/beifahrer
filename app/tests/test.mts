@@ -20,6 +20,7 @@ import networkRules from './unit/core/network.test.ts';
 import navigate from './unit/core/navigate.test.ts';
 import refs from './unit/core/refs.test.ts';
 import toolbar from './unit/core/toolbar.test.ts';
+import shortcut from './unit/core/shortcut.test.ts';
 import bridge from './unit/bridge/bridge.test.ts';
 import bridgeDesktop from './unit/bridge/desktop.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
@@ -46,6 +47,7 @@ run({
   navigate,
   refs,
   toolbar,
+  shortcut,
   bridge,
   bridgeDesktop,
   mcpGate,

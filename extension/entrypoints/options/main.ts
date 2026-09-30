@@ -18,6 +18,7 @@ import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../../src/bridge-client.ts';
 import { GRANTS_MESSAGE, type WideView } from '../../src/grants-messages.ts';
 import { featureLabel, plural, t, uiLanguage, type MessageKey } from '../../src/i18n.ts';
+import { toggleShortcut } from '../../src/shortcut.ts';
 import {
   capture,
   loadSessions,
@@ -94,10 +95,10 @@ async function renderState(): Promise<void> {
 
 async function setupPause(): Promise<void> {
   const pause = $<Adw.SwitchRow>('pause');
-  // The shortcut is the person's to change (browser settings), so show the one they have.
-  const commands = await browser.commands?.getAll?.().catch(() => []);
-  const shortcut = commands?.find((c) => c.name === 'toggle-pause')?.shortcut;
-  if (shortcut) pause.setAttribute('subtitle', shortcut);
+  // The shortcut is the person's to change (browser settings), so show the one they have,
+  // formatted for this platform (mac: glyphs; see shortcut.ts).
+  const shortcut = await toggleShortcut();
+  pause.setAttribute('subtitle', shortcut ? t('pause_shortcut', shortcut) : t('pause_shortcut_unset'));
   onToggle(pause, async (paused) => {
     await saveSettings({ paused });
     await renderState();
