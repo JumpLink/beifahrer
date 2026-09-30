@@ -19,7 +19,7 @@ import {
   type ElementQuery,
 } from '@beifahrer/core';
 
-import { browserParam, failure, text, type Call } from './tools.ts';
+import { answer, browserParam, failure, foundElement, text, type Call } from './tools.ts';
 
 const POLICY_NOTE =
   'Needs level "read" on the site. A "forbidden" error is the person\'s decision, not a malfunction: tell them which site and which level it needs.';
@@ -51,6 +51,15 @@ export function pickQuery(args: Record<string, unknown>, except: string[] = []):
 }
 
 export function registerFindTools(server: McpServer, call: Call): void {
+  // `url` is the tab's OWN url, not the document a match came from: a match in a frame says which
+  // frame in its ref (b2e12), and a `meta` check answers a count with no matches at all.
+  const findAnswer = answer({
+    url: z.string().describe("The tab's own URL"),
+    matches: z.array(foundElement).describe('Each ref works in page_fill / page_click / page_expect'),
+    count: z.number().int().describe('How many matched; for a meta check, how many there are'),
+    truncated: z.boolean().describe('True when more matched than maxResults'),
+  });
+
   server.registerTool(
     'page_find',
     {
@@ -75,14 +84,17 @@ export function registerFindTools(server: McpServer, call: Call): void {
           ),
         browser: browserParam,
       },
+      outputSchema: findAnswer.schema,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async (args) => {
       try {
         if (args.meta)
-          return text(await call('page.find', { tabId: args.tabId, meta: args.meta }, args.browser));
+          return findAnswer.result(
+            await call('page.find', { tabId: args.tabId, meta: args.meta }, args.browser),
+          );
         const query = pickQuery(args);
-        return text(
+        return findAnswer.result(
           await call('page.find', { tabId: args.tabId, maxResults: args.maxResults, ...query }, args.browser),
         );
       } catch (err) {
@@ -124,6 +136,21 @@ export function registerFindTools(server: McpServer, call: Call): void {
       }
     },
   );
+
+  // Every field is there on a pass as well as on a failure: `seen` says what WAS true, and on a
+  // pass that is the expectation itself. A FAILED assertion is an answer, not an error, so it
+  // arrives here as one and never as a refusal.
+  const expectAnswer = answer({
+    pass: z.boolean().describe('True when the condition held; false is an answer, not an error'),
+    expected: z.string().describe('The condition in words, so a failure names what was wanted'),
+    seen: z.string().describe('What the elements were actually in — act on this, not on another read'),
+    matches: z.number().int().describe('How many elements the query matched in the deciding document'),
+    frame: z
+      .number()
+      .int()
+      .describe("Which document decided: 0 is the page, otherwise beifahrer's own frame index"),
+    waitedMs: z.number().int().describe('How long the assertion waited before it answered'),
+  });
 
   server.registerTool(
     'page_expect',
@@ -180,6 +207,7 @@ export function registerFindTools(server: McpServer, call: Call): void {
         timeoutMs: z.number().int().min(100).max(MAX_EXPECT_MS).optional(),
         browser: browserParam,
       },
+      outputSchema: expectAnswer.schema,
       annotations: { readOnlyHint: true, idempotentHint: false, openWorldHint: true },
     },
     async (args) => {
@@ -189,7 +217,7 @@ export function registerFindTools(server: McpServer, call: Call): void {
         // no fields in it, and "ref OR query" is its rule to judge.
         const picked = pickQuery(args, ['text']);
         const query = Object.keys(picked).length ? picked : undefined;
-        return text(
+        return expectAnswer.result(
           await call(
             'page.expect',
             {

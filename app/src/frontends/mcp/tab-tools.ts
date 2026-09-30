@@ -11,7 +11,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { GROUP_COLORS, type Method, type Params, type Result } from '@beifahrer/core';
 
-import { browserParam, failure, text } from './tools.ts';
+import { answer, browserParam, failure, tabInfo, text, type Answer } from './tools.ts';
 
 type Call = <M extends Method>(method: M, params: Params<M>, browser?: string) => Promise<Result<M>>;
 
@@ -32,11 +32,17 @@ const DESTRUCTIVE = { ...WRITE, destructiveHint: true };
 const READ = { readOnlyHint: true, openWorldHint: false };
 
 export function registerTabTools(server: McpServer, call: Call): void {
+  /**
+   * A call, wrapped: the result as text — and as `structuredContent` where the tool declares an
+   * `outputSchema` (issue #26), a refusal as an error. The `answer` is the SAME object the tool
+   * config hands to the server, so the declared shape and the returned value cannot drift apart.
+   */
   const run =
-    <M extends Method>(method: M, pick: (args: Record<string, unknown>) => Params<M>) =>
+    <M extends Method>(method: M, pick: (args: Record<string, unknown>) => Params<M>, shaped?: Answer) =>
     async (args: Record<string, unknown>) => {
       try {
-        return text(await call(method, pick(args), args.browser as string | undefined));
+        const result = await call(method, pick(args), args.browser as string | undefined);
+        return shaped ? shaped.result(result) : text(result);
       } catch (err) {
         return failure(err);
       }
@@ -135,6 +141,11 @@ export function registerTabTools(server: McpServer, call: Call): void {
     run('tabs.ungroup', (a) => ({ tabIds: a.tabIds as number[] })),
   );
 
+  const windowCreateAnswer = answer({
+    windowId: z.number().int().describe('The new window — what tabs_close and tabs_move name'),
+    tabs: z.array(tabInfo).describe('The tabs that are in it now, each with its tabId'),
+  });
+
   server.registerTool(
     'window_create',
     {
@@ -142,6 +153,7 @@ export function registerTabTools(server: McpServer, call: Call): void {
       description:
         'A new window with new tabs (tabs: url + pinned), existing tabs moved into it (tabIds), or both — existing ones first. ' +
         'Every new URL needs level "read" on its site, like tab_open. ' +
+        'The tabs come back with their tabIds, so the window is usable without a tabs_list. ' +
         MANAGE_NOTE,
       inputSchema: {
         tabs: z
@@ -151,12 +163,17 @@ export function registerTabTools(server: McpServer, call: Call): void {
         tabIds: tabIds.optional().describe('Existing tabs to move into the new window'),
         browser: browserParam,
       },
+      outputSchema: windowCreateAnswer.schema,
       annotations: { ...WRITE, openWorldHint: true },
     },
-    run('windows.create', (a) => ({
-      tabs: a.tabs as { url: string; pinned?: boolean }[] | undefined,
-      tabIds: a.tabIds as number[] | undefined,
-    })),
+    run(
+      'windows.create',
+      (a) => ({
+        tabs: a.tabs as { url: string; pinned?: boolean }[] | undefined,
+        tabIds: a.tabIds as number[] | undefined,
+      }),
+      windowCreateAnswer,
+    ),
   );
 
   server.registerTool(
