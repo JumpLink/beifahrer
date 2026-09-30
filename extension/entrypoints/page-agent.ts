@@ -74,11 +74,19 @@ function visible(el: Element): boolean {
  * do not cross a shadow boundary, so `document.getElementById('save')` and
  * `document.querySelector('label[for=…]')` both come back empty for a label written inside a shadow
  * root — and an element the walk can see but cannot name is an element `page_find` cannot find by
- * name, which is how it looks to an agent: a nameless button.
+ * name, which is how it looks to an agent: a nameless button (issue #4). The same is true one
+ * boundary further out, for a label written inside a same-origin frame (issue #30).
+ *
+ * Which is why this does NOT ask `instanceof Document`, though that reads like the obvious thing to
+ * write: a same-origin frame has its own global, so its document is not an instance of THIS realm's
+ * `Document` constructor, and the check quietly answers "not a document" and hands back the top one
+ * — which is then asked for an id that is not in it. Duck typing on the one method every root has.
+ * The wrong version fails silently: names come back empty rather than as an error, so every element
+ * in a frame looks unnamed and `page_find` reports nothing.
  */
 function rootOf(el: Element): Document | ShadowRoot {
-  const root = el.getRootNode();
-  return root instanceof ShadowRoot || root instanceof Document ? root : document;
+  const root = el.getRootNode() as Document | ShadowRoot | null;
+  return root && typeof root.querySelectorAll === 'function' ? root : document;
 }
 
 function labelFor(el: Element): string {
@@ -271,8 +279,67 @@ const MAX_SHADOW_DEPTH = 12;
  * is `null` for it. Nothing here keeps the promise and breaks it; the tool description says so, because
  * an agent that cannot see inside a closed root should ask for another way in.
  */
+/** How deep frames are followed. Nesting three deep is a layout; ten deep is a mistake. */
+const MAX_FRAME_DEPTH = 3;
+
+/** One document the walk visits, and how it got there. */
+interface Doc {
+  doc: Document;
+  /** The frame element it was reached through; absent for the page's own document. */
+  via?: Element;
+  depth: number;
+  /** What to call it in the outline: where it is, not where it came from. */
+  label?: string;
+}
+
+/**
+ * The page's own document, then every same-origin frame in it, in the order the frames sit (issue
+ * #30).
+ *
+ * `contentDocument` is `null` for a cross-origin frame. That is the browser holding the line, and it
+ * is the whole reason this needs no new policy: a cross-origin frame belongs to a DIFFERENT origin,
+ * the one whose `read` the person never gave. Granting the page does not grant the frames inside it,
+ * and `all_frames` in the manifest would have granted them by accident — that is issue #32, and it is
+ * a different, larger decision.
+ */
+function* documents(root: Document = document, depth = 0, via?: Element): Generator<Doc> {
+  yield { doc: root, depth, via, ...frameLabel(via) };
+  if (depth >= MAX_FRAME_DEPTH) return;
+  for (const frame of frameElements(root)) {
+    const inner = (frame as HTMLIFrameElement).contentDocument;
+    // No body yet, or gone: a frame that never loaded or was torn down. Not an error, just nothing
+    // to read — and asking again later is how `page_wait` for a frame works.
+    if (!inner?.body) continue;
+    yield* documents(inner, depth + 1, frame);
+  }
+}
+
+/** Where a frame is, for the outline. The live location, because `src` goes stale on a redirect. */
+function frameLabel(via?: Element): { label?: string } {
+  if (!via) return {};
+  const href = (via as HTMLIFrameElement).contentWindow?.location?.href ?? via.getAttribute('src');
+  return { label: href ?? 'about:blank' };
+}
+
+/** The frame elements in a document, including the ones inside open shadow roots (issue #4). */
+function* frameElements(root: Document | ShadowRoot): Generator<Element> {
+  for (const el of root.querySelectorAll('iframe, frame')) yield el;
+  for (const shadow of openRootsIn(root, 0)) {
+    for (const el of shadow.querySelectorAll('iframe, frame')) yield el;
+  }
+}
+
 function* elements(): Generator<{ el: Element; kind: Kind }> {
-  yield* inTree(document.body ?? document.documentElement, document, 0);
+  for (const { doc } of documents()) yield* inTree(doc.body ?? doc.documentElement, doc, 0);
+}
+
+/** As `elements`, but each element with the document it lives in — what `outline` and `read` need. */
+function* elementsByDocument(): Generator<{ entry: Doc; el: Element; kind: Kind }> {
+  for (const entry of documents()) {
+    for (const { el, kind } of inTree(entry.doc.body ?? entry.doc.documentElement, entry.doc, 0)) {
+      yield { entry, el, kind };
+    }
+  }
 }
 
 function* inTree(root: ParentNode, doc: Document, depth: number): Generator<{ el: Element; kind: Kind }> {
@@ -288,10 +355,22 @@ function* inTree(root: ParentNode, doc: Document, depth: number): Generator<{ el
   }
 }
 
+/** The heading that separates one document from the next in an outline or a read (issue #30). */
+const FRAME_MARK = '— frame: ';
+
 function outline(maxItems: number): PageResponse {
   const lines: string[] = [];
   let truncated = false;
-  for (const { el, kind } of elements()) {
+  // One section per document, headed by the frame's URL rather than running the texts together. A
+  // reader cannot see where one embedded document ends and the next begins, and with two frames side
+  // by side there is nothing in the text that says which content belongs to which — so every ref in
+  // the outline is attributable to a document by looking up from it.
+  let current: Doc | undefined;
+  for (const { entry, el, kind } of elementsByDocument()) {
+    if (entry !== current) {
+      current = entry;
+      if (entry.label) lines.push(`${FRAME_MARK}${entry.label}`);
+    }
     if (lines.length >= maxItems) {
       truncated = true;
       break;
@@ -341,7 +420,24 @@ function textOf(el: Element): string {
  */
 function visibleText(): string {
   const parts: string[] = [];
-  for (const node of document.body?.childNodes ?? []) {
+  for (const entry of documents()) {
+    // A frame's text is introduced by the same marker the outline uses, because two frames side by
+    // side produce two texts that are visually adjacent and not one text: running them together
+    // destroys the arrangement AND invents an order the page never had (issue #30).
+    if (entry.label) parts.push(FRAME_MARK + entry.label);
+    parts.push(...documentText(entry.doc));
+  }
+  return parts
+    .filter((part) => part.trim())
+    .join('\n\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** The text of one document: its own blocks, and what its open shadow roots render. */
+function documentText(doc: Document): string[] {
+  const parts: string[] = [];
+  for (const node of doc.body?.childNodes ?? []) {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as Element;
       if (!visible(el)) continue;
@@ -355,11 +451,7 @@ function visibleText(): string {
       parts.push(node.textContent);
     }
   }
-  return parts
-    .filter((part) => part.trim())
-    .join('\n\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  return parts;
 }
 
 /**
@@ -371,7 +463,7 @@ function visibleText(): string {
  * the children misses the root of the very element you started from — the one case that is not a
  * nested component at all.
  */
-function* openRootsIn(el: Element | ShadowRoot, depth: number): Generator<ShadowRoot> {
+function* openRootsIn(el: Element | ShadowRoot | Document, depth: number): Generator<ShadowRoot> {
   if (depth >= MAX_SHADOW_DEPTH) return;
   const host = 'shadowRoot' in el ? el : null;
   if (host?.shadowRoot) {
@@ -422,9 +514,24 @@ function matching(query: ElementQuery, maxResults: number): { matches: Element[]
   return { matches, truncated: false };
 }
 
+/**
+ * A ref and what it points at. An element inside a frame says WHICH frame, because a `page_find` on
+ * its own cannot tell a button on the page from the same button embedded in someone else's document
+ * (issue #30) — and the two are a different thing to click.
+ */
 function found(el: Element): { ref: string; description: string } {
   const kind = kindOf(el)!;
-  return { ref: refOf(el), description: describe(el, kind) };
+  const frame = frameOf(el);
+  const where = frame ? ` [frame: ${frame}]` : '';
+  return { ref: refOf(el), description: `${describe(el, kind)}${where}` };
+}
+
+/** The label of the document an element is in, or '' for the page's own. */
+function frameOf(el: Element): string {
+  for (const entry of documents()) {
+    if (entry.label && entry.doc.contains(el)) return entry.label;
+  }
+  return '';
 }
 
 function find(query: ElementQuery, maxResults: number): PageResponse {

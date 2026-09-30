@@ -81,6 +81,11 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
 <p>indicator:<span id="ind"></span>.</p>
 <beifahrer-open-card>slotted text</beifahrer-open-card>
 <beifahrer-closed-card></beifahrer-closed-card>
+<!-- Issue #30: one frame on the page's own origin (127.0.0.1, like the page) and one on another
+     (localhost — the same server, a different origin). The second is the negative case:
+     contentDocument is null for it, so it must stay invisible and the walk must not even name it. -->
+<iframe id="frame-inside" title="Editor frame" src="http://127.0.0.1:${FIXTURE_PORT}/frame-inside"></iframe>
+<iframe id="frame-foreign" title="Foreign frame" src="http://localhost:${FIXTURE_PORT}/frame-foreign"></iframe>
 <script>
   // Issue #4: a web-component-shaped page. The OPEN root is what the walk must enter — a labelled
   // button and a labelled field inside it, neither reachable from the light DOM, and a label whose
@@ -665,6 +670,94 @@ async function accessScenario(browser) {
  * name resolution, which decides whether an element is findable at all — and leaves a CLOSED one
  * alone, because the browser keeps that promise and so does beifahrer.
  */
+/**
+ * Issue #30: a frame on the page's own origin is followed, one on another origin is not. The
+ * difference is the browser's, not ours — `contentDocument` is null for a cross-origin frame — and
+ * the negative case matters as much as the positive one: a frame that is invisible in the walk must
+ * be invisible in `read` too, or its text comes out the way a closed shadow root once did.
+ */
+async function frames(browser, client, allowed) {
+  const inside = await tool(client, 'page_find', {
+    tabId: allowed.tabId,
+    role: 'button',
+    name: 'Frame done',
+  });
+  const hit = inside.error ? null : JSON.parse(inside.text);
+  check(
+    browser,
+    'page_find reaches a button inside a same-origin frame',
+    hit?.count === 1,
+    inside.text.slice(0, 200),
+  );
+  check(
+    browser,
+    'and says which frame the ref belongs to',
+    !!hit && /\[frame: [^\]]*\/frame-inside/.test(hit.matches[0].description),
+    hit?.matches[0]?.description ?? inside.text.slice(0, 200),
+  );
+
+  const named = await tool(client, 'page_find', {
+    tabId: allowed.tabId,
+    role: 'textbox',
+    name: 'Frame note',
+  });
+  check(
+    browser,
+    'a label inside a frame names its field (ids resolve in the frame document)',
+    !named.error && JSON.parse(named.text).count === 1,
+    named.text.slice(0, 200),
+  );
+
+  const foreign = await tool(client, 'page_find', {
+    tabId: allowed.tabId,
+    name: 'Foreign frame button',
+  });
+  check(
+    browser,
+    'a cross-origin frame stays invisible — no contentDocument, no gate to pass',
+    !foreign.error && JSON.parse(foreign.text).count === 0,
+    foreign.text.slice(0, 200),
+  );
+
+  const read = await tool(client, 'page_read', { tabId: allowed.tabId, maxChars: 12_000 });
+  check(
+    browser,
+    'page_read has the frame text, behind its own heading',
+    !read.error &&
+      /frame: [^\n]*\/frame-inside/.test(read.text) &&
+      /Text inside the frame document\./.test(read.text),
+    read.text.slice(0, 240),
+  );
+  check(
+    browser,
+    'and neither the heading nor the text of the cross-origin frame',
+    !read.error && !/frame-foreign/.test(read.text) && !/Foreign frame button/.test(read.text),
+    read.text.match(/frame: [^\n]*/)?.[0] ?? read.text.slice(0, 200),
+  );
+
+  const outline = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 200 });
+  check(
+    browser,
+    'page_outline gives each document its own section, headed by the frame URL',
+    !outline.error &&
+      /frame: [^\n]*\/frame-inside/.test(outline.text) &&
+      outline.text.indexOf('Frame done') > outline.text.indexOf('frame-inside'),
+    outline.text.slice(0, 240),
+  );
+
+  if (!hit) return;
+  const ref = hit.matches[0].ref;
+  const clicked = await tool(client, 'page_click', { tabId: allowed.tabId, ref });
+  check(browser, 'a ref into a frame clicks there', !clicked.error, clicked.text.slice(0, 160));
+  const after = await tool(client, 'page_read', { tabId: allowed.tabId, maxChars: 12_000 });
+  check(
+    browser,
+    "and the frame's own listener ran, which the page's text shows",
+    !after.error && /frame-clicks:1/.test(after.text),
+    after.text.match(/frame-clicks:\d/)?.[0] ?? after.text.slice(0, 200),
+  );
+}
+
 async function shadowDom(browser, client, allowed) {
   const found = await tool(client, 'page_find', {
     tabId: allowed.tabId,
@@ -1585,6 +1678,7 @@ async function scenario(browser, gate) {
     );
 
     await shadowDom(browser, client, allowed);
+    await frames(browser, client, allowed);
     await scripts(browser, client, allowed, forbidden);
     await recipes(browser, client, allowed, forbidden);
     await tabManagement(browser, client, forbidden);
@@ -1605,7 +1699,31 @@ async function scenario(browser, gate) {
 const which = process.argv[2] ?? 'all';
 const browsers = which === 'all' ? ['chromium', 'firefox'] : [which];
 
-const page = (req) => (req.url?.startsWith('/openproject') ? OP_FIXTURE : FIXTURE);
+const FRAME_FIXTURE = `<!doctype html><html><head><title>Frame document</title></head><body>
+<h2>Editor frame</h2>
+<p>Text inside the frame document.</p>
+<label for="frame-note">Frame note</label><input id="frame-note">
+<button id="frame-save">Frame save</button>
+<button id="frame-done">Frame done</button>
+<p id="frame-output">frame-clicks:0</p>
+<script>
+  let n = 0;
+  document.getElementById('frame-done').addEventListener('click', () => {
+    document.getElementById('frame-output').textContent = 'frame-clicks:' + ++n;
+  });
+</script>
+</body></html>`;
+const FOREIGN_FRAME_FIXTURE = `<!doctype html><html><head><title>Foreign frame</title></head><body>
+<button>Foreign frame button</button>
+</body></html>`;
+const page = (req) =>
+  req.url?.startsWith('/openproject')
+    ? OP_FIXTURE
+    : req.url?.startsWith('/frame-foreign')
+      ? FOREIGN_FRAME_FIXTURE
+      : req.url?.startsWith('/frame')
+        ? FRAME_FIXTURE
+        : FIXTURE;
 const fixture = createServer((req, res) => {
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
   res.end(page(req));
