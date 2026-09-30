@@ -171,6 +171,9 @@
   "method_tabs_active": {
     "message": "Looked up the active tab"
   },
+  "method_access_check": {
+    "message": "Checked what an action would be allowed to do"
+  },
   "method_page_read": {
     "message": "Read a page"
   },

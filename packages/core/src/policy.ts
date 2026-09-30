@@ -147,6 +147,11 @@ export function atLeast(have: Level, need: Level): boolean {
 export const REQUIRED_LEVEL = {
   'tabs.list': null,
   'tabs.active': null,
+  // The QUESTION about another method, answered without calling it (issue #27). `null` like
+  // `tabs.list`, because asking is not doing: it reads settings, a permission and the policy, and
+  // touches no page. It carries the `tabs` feature, so a paused or switched-off person silences the
+  // question too — and the refusal is the honest answer then.
+  'access.check': null,
   'page.read': 'read',
   'page.outline': 'read',
   // find + wait read what outline reads (the same element model), so they need the same level.

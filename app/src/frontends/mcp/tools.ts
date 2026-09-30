@@ -10,6 +10,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import {
+  FEATURES,
   MAX_NETWORK_LIMIT,
   MAX_RESULT_CHARS,
   WORLDS,
@@ -702,6 +703,66 @@ export function registerTools(
   );
 
   const tabOpenAnswer = answer({ tab: tabInfo });
+
+  const accessCheckAnswer = answer({
+    allowed: z.boolean().describe('True only when the call would be served with no window and nobody asked'),
+    stage: z
+      .enum(['ok', 'feature', 'level', 'grant', 'unsupported'])
+      .describe('Which check decides it, in the order every call runs: feature, level, grant, confirm'),
+    feature: z.enum(FEATURES).optional().describe('The one feature this method belongs to'),
+    featureOn: z.boolean().describe("Whether the person's switch for it is on right now"),
+    origin: z.string().nullable().describe('The origin decided about; null on a non-web page'),
+    have: z.enum(LEVELS).describe('The level the person set for that origin — "none" if they set none'),
+    need: z.enum(LEVELS).describe('What this method needs on that origin'),
+    confirm: z.boolean().describe('Whether the person would be asked to confirm it (writes)'),
+    askable: z
+      .boolean()
+      .describe('Whether the person could be asked for this site at all; false where they blocked it'),
+    hostGranted: z
+      .boolean()
+      .nullable()
+      .describe('Whether the browser granted beifahrer that origin; null where no grant applies'),
+    reason: z.string().describe('One sentence: what decides it, and whom to ask'),
+  });
+
+  server.registerTool(
+    'access_check',
+    {
+      title: 'Would this call be served?',
+      description:
+        'Ask what WOULD happen if you called a tool on a tab or a URL — without calling it. ' +
+        "It answers what browsers_list cannot: the state that gates the call, which is yours and not the browser's. " +
+        'Give the method (`page.read`, `page_click`, `page.screenshot`, …) and either a `tabId` from tabs_list or a `url` for one you have in mind. ' +
+        'Use it BEFORE a call that may be refused, and after a refusal: it names the step that stops you (`feature` the switch is off, ' +
+        '`level` the site is not at the level this needs, `grant` the browser has not opened that origin up, `unsupported` this browser cannot do it) ' +
+        'and whether the person would be asked to confirm a write. ' +
+        'It asks nothing, opens no window and grants nothing, so a `level: none` site stays blocked after you have asked about it. ' +
+        "A refusal is the person's decision, not a malfunction: `reason` says which site and which level it needs, so tell them and let them decide. " +
+        'Do not retry, rephrase or look for a workaround; ask them. ' +
+        POLICY_NOTE,
+      inputSchema: {
+        method: z
+          .string()
+          .describe(
+            'The method you are about to call, as browsers_list names it: page.read, page.click, tabs.close',
+          ),
+        tabId: tabIdParam.optional().describe('A tab from tabs_list; the answer is about the page it is on'),
+        url: z.string().optional().describe('A URL instead of a tab — for a site you have not opened yet'),
+        browser: browserParam,
+      },
+      outputSchema: accessCheckAnswer.schema,
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ method, tabId, url, browser }) => {
+      try {
+        return accessCheckAnswer.result(
+          await call('access.check', { method: method as Method, tabId, url }, browser),
+        );
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
 
   server.registerTool(
     'tab_open',

@@ -2345,6 +2345,9 @@ async function pausedChecks(browser, client) {
   const calls = [
     ['tabs_list', {}],
     ['tab_active', {}],
+    // The check itself is a method like any other: while paused, asking what would be allowed is
+    // refused exactly like doing it, and that refusal is the answer (issue #27).
+    ['access_check', { method: 'page.read', tabId: 1 }],
     ['page_read', { tabId: 1 }],
     ['page_outline', { tabId: 1 }],
     ['page_navigate', { tabId: 1, url }],
@@ -2490,6 +2493,24 @@ async function scenario(browser, gate) {
             : r.error && new RegExp(`^feature_disabled:.*"${label}".*Ask them`).test(r.text);
         check(browser, `${name} is refused by default ("${label}")`, asExpected, r.text);
       }
+      // Issue #27: the refusals above were the person's answer, told afterwards. Asking FIRST is the
+      // point of access_check, so here it must name the switch that is off rather than a level or a
+      // site the agent could go and try to work around.
+      const offShot = await tool(client, 'access_check', {
+        method: 'page.screenshot',
+        tabId: allowed.tabId,
+      });
+      const offShotAnswer = JSON.parse(offShot.text ?? '{}');
+      check(
+        browser,
+        'access_check names the switch a refused method is behind, without being called',
+        !offShot.error &&
+          offShotAnswer.allowed === false &&
+          offShotAnswer.stage === 'feature' &&
+          offShotAnswer.feature === 'screenshot' &&
+          offShotAnswer.featureOn === false,
+        offShot.text.replace(/\s+/g, ' ').slice(0, 220),
+      );
       // The extension's own pages, once per browser: they do not depend on the build's switches.
       if (browser === 'chromium')
         await chromiumPages(check, DEVTOOLS_PORT, process.env.BEIFAHRER_E2E_SCREENSHOTS);
@@ -2646,6 +2667,54 @@ async function scenario(browser, gate) {
     await keys(browser, client, allowed, ref);
     await assertions(browser, client, allowed, ref);
     await requests(browser, client, allowed, forbidden, ref);
+    // Issue #27: the state that gates a call is the person's, and none of it was visible before the
+    // call. So ask it, and check all three shapes an agent meets: a read that would be served, a
+    // write with the confirmation this build's site rule has, and a site nobody allowed, which must
+    // come back refused and askable rather than as a page worth opening.
+    const accessOf_ = (r) => {
+      try {
+        return JSON.parse(r.text);
+      } catch {
+        return {};
+      }
+    };
+    const wouldRead = await tool(client, 'access_check', { method: 'page.read', tabId: allowed.tabId });
+    const readAnswer = accessOf_(wouldRead);
+    check(
+      browser,
+      'access_check says a read on the allowed tab would be served, and at which level',
+      !wouldRead.error &&
+        readAnswer.allowed === true &&
+        readAnswer.stage === 'ok' &&
+        readAnswer.have === 'write' &&
+        readAnswer.need === 'read',
+      wouldRead.text.replace(/\s+/g, ' ').slice(0, 220),
+    );
+    const wouldClick = await tool(client, 'access_check', { method: 'page.click', tabId: allowed.tabId });
+    const clickAnswer = accessOf_(wouldClick);
+    check(
+      browser,
+      'access_check says a click there is served, and reports the confirmation as this build has it',
+      // The seed gives this site `confirmWrites: false`, so THIS build does not ask. Getting
+      // `confirm` wrong in either direction misreports the site to every agent that asks.
+      !wouldClick.error &&
+        clickAnswer.allowed === true &&
+        clickAnswer.need === 'write' &&
+        clickAnswer.confirm === false,
+      wouldClick.text.replace(/\s+/g, ' ').slice(0, 220),
+    );
+    const wouldReadBlocked = await tool(client, 'access_check', { method: 'page.read', url: FORBIDDEN });
+    const blockedAnswer = accessOf_(wouldReadBlocked);
+    check(
+      browser,
+      'access_check says a read on a site nobody allowed is refused, at the level step and askable',
+      !wouldReadBlocked.error &&
+        blockedAnswer.allowed === false &&
+        blockedAnswer.stage === 'level' &&
+        blockedAnswer.have === 'none' &&
+        blockedAnswer.askable === true,
+      wouldReadBlocked.text.replace(/\s+/g, ' ').slice(0, 220),
+    );
     await navigation(browser, client, allowed, forbidden);
     await scripts(browser, client, allowed, forbidden);
     await recipes(browser, client, allowed, forbidden);

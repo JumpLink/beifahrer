@@ -19,6 +19,7 @@
  * extension keeps one socket per bridge (ADR 0007). A bridge never talks to another bridge.
  */
 
+import type { AccessCheck } from './access-check.ts';
 import { parseDesktop, type DesktopInfo } from './desktop.ts';
 import type { ExpectState } from './expect.ts';
 import type { ScriptWorld } from './evaluate.ts';
@@ -118,6 +119,22 @@ export interface TabSelection {
 export interface MethodMap {
   'tabs.list': { params: Record<string, never>; result: { tabs: TabInfo[] } };
   'tabs.active': { params: Record<string, never>; result: { tab: TabInfo | null } };
+  /**
+   * What WOULD happen if `method` ran on this page — asked without running it (issue #27).
+   *
+   * The gating state is the person's: the feature switches, the level for the origin, the browser's
+   * host grant, and whether a write would be confirmed. All of it is in the extension and none of
+   * it is visible to the agent before the call, so a refusal used to be the only way to learn it.
+   *
+   * `url` and `tabId` name the same thing two ways and exactly one belongs here: a method with no
+   * page behind it takes neither. A `tabId` is resolved to the tab's own URL in the EXTENSION, not
+   * in the bridge — the bridge cannot read a tab, and a URL the bridge guessed would be a gate on
+   * the wrong page.
+   */
+  'access.check': {
+    params: { method: Method; url?: string; tabId?: number };
+    result: AccessCheck;
+  };
   'page.read': {
     params: { tabId: number; maxChars?: number };
     result: { url: string; title: string; text: string; truncated: boolean };

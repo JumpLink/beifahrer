@@ -170,6 +170,9 @@
   "method_tabs_active": {
     "message": "Aktiven Tab abgefragt"
   },
+  "method_access_check": {
+    "message": "Geprüft, was eine Aktion tun dürfte"
+  },
   "method_page_read": {
     "message": "Seite gelesen"
   },

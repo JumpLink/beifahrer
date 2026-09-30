@@ -125,6 +125,7 @@ all (options page):
 | Feature | Tools | Default |
 |---|---|---|
 | See open tabs | `tabs_list`, `tab_active` (sites below *Read* show their host only) | on |
+| Ask before spending a call | `access_check` — what **would** happen if the agent called a method on a tab or a URL, answered without doing it: which switch is off, what the site is at, what the method needs, whether the browser has granted access, whether **you** would confirm | on |
 | Read page text | `page_read` | on |
 | Outline pages | `page_outline` | on |
 | Screenshots | `page_screenshot` (turning it on asks the browser for access to all sites) | **off** |

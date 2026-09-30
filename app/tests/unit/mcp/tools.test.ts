@@ -8,6 +8,7 @@ const READ = [
   'browsers_list',
   'tabs_list',
   'tab_active',
+  'access_check',
   'page_read',
   'page_outline',
   'page_screenshot',
@@ -66,6 +67,7 @@ export default async () => {
       registerTools(rec.server, { bridge: null });
       for (const name of [
         'tabs_list',
+        'access_check',
         'page_read',
         'page_outline',
         'page_navigate',
