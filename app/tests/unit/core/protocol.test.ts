@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@gjsify/unit';
 
 import {
+  CLOSE,
   PROTOCOL_VERSION,
   SESSION_LABEL_MAX,
   cleanSessionLabel,
@@ -180,6 +181,25 @@ export default async () => {
       expect(defaultSessionLabel('claude-code', '/home/p/werkstatt/')).toBe('claude-code · werkstatt');
       expect(defaultSessionLabel('beifahrer tool', 'C:\\work\\repo')).toBe('beifahrer tool · repo');
       expect(defaultSessionLabel('mcp', '/')).toBe('mcp · /');
+    });
+  });
+
+  await describe('CLOSE', async () => {
+    // Issue #28: the person disconnecting a session and a browser that went away must not share a
+    // code, or the bridge cannot tell them apart — and both are sent over the same socket.
+    await it("gives the person's dismissal a code of its own, in the application range", async () => {
+      const codes = Object.values(CLOSE);
+      expect(CLOSE.personDisconnected).toBe(4404);
+      expect(codes.includes(CLOSE.personDisconnected)).toBe(true);
+      for (const code of codes) expect(code >= 4000 && code <= 4999).toBe(true);
+      expect(new Set(codes).size).toBe(codes.length);
+    });
+
+    await it('keeps a dismissal apart from the bridge refusing that same dismissal', async () => {
+      // `dismissed` is the BRIDGE closing (the extension's hello names the instance); the new code
+      // is the EXTENSION closing. Confusing them would make a refusal look like a decision.
+      expect(CLOSE.dismissed).not.toBe(CLOSE.personDisconnected);
+      expect(CLOSE.dismissed).toBeGreaterThan(4400);
     });
   });
 };

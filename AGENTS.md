@@ -238,6 +238,10 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   `where` request — immediately before the gate for a write, and again after the content for a read.
   The two are different messages, so a read is a window; the answer carries the frame's own
   `location.href` from the SAME message as its content, which is the smallest the platform allows.
+- **A peer's close code and reason DO reach the bridge on GJS** (measured 2026-09-30, `@gjsify/ws`
+  0.52.0): `4404` + reason arrives as `4404` + that reason, `1000` likewise, a socket killed without a
+  close frame as `1005` and empty — SECONDS later. So a close code can carry a person's decision
+  (`CLOSE.personDisconnected`, issue #28), and a dropped socket is not one to wait on tightly.
 - **`gjsify check` colours its output, so `grep "error TS"` finds NOTHING.** The ANSI codes sit
   *between* `error` and `TS` (`[91merror[0m[90m TS2554:`), so the obvious filter matches zero lines,
   exits 1, and a piped `check | grep … | head` looks exactly like a clean run. Cost: a whole session

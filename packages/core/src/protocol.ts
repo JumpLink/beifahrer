@@ -38,6 +38,18 @@ export const CLOSE = {
    * refuses before it registers the connection, so no call of that session can reach the browser.
    */
   dismissed: 4403,
+  /**
+   * The person disconnected THIS session while calls were in flight: the extension closing its own
+   * socket (popup "Disconnect", `disconnectSession`) — the mirror of `dismissed`, in the other
+   * direction. Without a code of its own that close went out as 1000 and read on the agent's side
+   * exactly like a browser that went away, and the two call for opposite next moves (issue #28).
+   *
+   * Measured on GJS, 2026-09-30: a peer's application code AND its reason do reach the bridge's
+   * `close` handler (@gjsify/ws reads Soup's `get_close_code`/`get_close_data`), so the bridge can
+   * tell a dismissal from a dropped socket. A socket that dies without a close frame arrives as
+   * 1005 with an empty reason, seconds later — also not this code.
+   */
+  personDisconnected: 4404,
   /** Token missing or wrong. The extension shows "not paired" and stops retrying. */
   unauthorized: 4401,
   /** Protocol version mismatch. The extension shows which side is too old. */
@@ -433,12 +445,28 @@ export interface ConnectedBrowser {
   connectedAt: string;
 }
 
+/**
+ * A browser that was connected and is not any more, and WHY. The two causes call for opposite next
+ * moves (issue #28): `person` is the person disconnecting this session in the browser — their
+ * decision (ADR 0005), so ask them — while `lost` is a closed socket or a browser that went away,
+ * possibly transient, so check again. Absent while a browser is connected and after a new one
+ * arrives.
+ */
+export interface BrowserGone {
+  by: 'person' | 'lost';
+  /** The connection as `browsers_list` names it: "Firefox 155.0 (e12cd41c)". */
+  browser: string;
+  /** ISO 8601. */
+  at: string;
+}
+
 /** What one bridge reports about itself and its browsers: what `browsers_list` is built from. */
 export interface BridgeStatus {
   port: number;
   version: string;
   session: AgentSession;
   browsers: ConnectedBrowser[];
+  disconnected?: BrowserGone;
 }
 
 export const SESSION_LABEL_MAX = 80;

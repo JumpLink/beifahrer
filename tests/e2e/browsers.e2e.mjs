@@ -632,6 +632,21 @@ async function multiSession(browser) {
       stillGone.browsers?.length === 0 && refused.error && tabsOk(cStill),
       `${JSON.stringify(stillGone)} | ${refused.text.slice(0, 120)}`,
     );
+    // Issue #28: this close was the person's decision, so both the list and the next call have to
+    // say so — read as "the browser went away", an agent retries, and retrying past a dismissal is
+    // what ADR 0005 exists to prevent.
+    check(
+      name,
+      'browsers_list names the dismissal as the person, not as a browser that went away',
+      stillGone.disconnected?.by === 'person',
+      JSON.stringify(stillGone).slice(0, 200),
+    );
+    check(
+      name,
+      'the refused call names the person and does not suggest retrying',
+      refused.error && /disconnected because the person disconnected this session/.test(refused.text),
+      refused.text.slice(0, 200),
+    );
 
     // B restarts: a new bridge instance on the port it held is welcome again.
     await b.client.close();
@@ -644,6 +659,12 @@ async function multiSession(browser) {
       name,
       'a restarted session on the disconnected port is connected again',
       sd.browsers?.length === 1 && sd.port === sb.port,
+      JSON.stringify(sd).slice(0, 200),
+    );
+    check(
+      name,
+      'the new bridge instance carries no cause over from the one the person dismissed',
+      sd.disconnected === undefined,
       JSON.stringify(sd).slice(0, 200),
     );
   } finally {

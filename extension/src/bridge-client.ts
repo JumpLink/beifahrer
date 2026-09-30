@@ -46,6 +46,8 @@ export type Status =
 
 export const RECONNECT_ALARM = 'beifahrer-reconnect';
 const PING_MS = 20_000;
+/** The close reason beside `CLOSE.personDisconnected`: short, and never read for anything else. */
+const DISMISSED_REASON = 'dismissed';
 
 const table = new ConnectionTable(DEFAULT_PORT_RANGE);
 const sockets = new Map<number, WebSocket>();
@@ -168,7 +170,10 @@ function probe(port: number): void {
     if (frame.type === 'welcome') {
       const welcome = parseWelcome(frame);
       if (!welcome || !table.welcomed(port, welcome, Date.now())) {
-        ws.close(1000, 'the person disconnected this session');
+        // The person dismissed an older bridge on this port. Same message to the bridge as the
+        // popup's Disconnect (CLOSE.personDisconnected): it is the same decision, so an agent
+        // waiting on a call hears the same words.
+        ws.close(CLOSE.personDisconnected, DISMISSED_REASON);
         return;
       }
       endSessionOn(port);
@@ -251,10 +256,14 @@ export async function connect(): Promise<void> {
 /**
  * The person's "Disconnect" in the popup: close that session's socket and ignore its bridge
  * until it restarts (a new instance on the port is welcome again).
+ *
+ * The close carries `CLOSE.personDisconnected` and not the plain 1000, because the bridge has to
+ * tell this from a browser that went away (issue #28): an agent that reads it as a dropped socket
+ * retries, and retrying past a dismissal is exactly what ADR 0005 exists to prevent.
  */
 export function disconnectSession(port: number): boolean {
   if (!table.dismiss(port)) return false;
-  sockets.get(port)?.close(1000, 'the person disconnected this session');
+  sockets.get(port)?.close(CLOSE.personDisconnected, DISMISSED_REASON);
   return true;
 }
 

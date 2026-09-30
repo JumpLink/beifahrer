@@ -243,6 +243,30 @@ export default async () => {
       }
     });
 
+    await it('browsers_list says WHY the list is empty, when the bridge knows (issue #28)', async () => {
+      // The person's dismissal and a browser that went away are the two closes an agent used to
+      // read as one sentence, and they need opposite next moves.
+      for (const by of ['person', 'lost'] as const) {
+        const gone = {
+          port: 47813,
+          version: '0.1.0',
+          session: STATUS.session,
+          browsers: [],
+          disconnected: { by, browser: 'Firefox 155.0 (e12cd41c)', at: '2026-09-30T10:00:00.000Z' },
+        };
+        const rec = createRecorder();
+        applyReadOnlyGate(rec.server, true);
+        registerTools(rec.server, { bridge: { ...stubBridge(), status: () => gone } });
+        const result = await rec.invoke('browsers_list');
+        const out = result.structuredContent as { browsers: unknown[]; disconnected?: { by: string } };
+        expect(out.browsers).toEqualArray([]);
+        expect(out.disconnected?.by).toBe(by);
+        // The published schema has to accept it, or a client sees a validation error where the
+        // work succeeded.
+        expect(schemaOf(rec, 'browsers_list').safeParse(result.structuredContent).success).toBe(true);
+      }
+    });
+
     await it('a refusal carries no structured content — an error is not an answer', async () => {
       const rec = createRecorder();
       applyReadOnlyGate(rec.server, true);

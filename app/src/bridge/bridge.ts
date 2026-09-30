@@ -36,6 +36,7 @@ import {
   tokensEqual,
   type AgentSession,
   type BridgeStatus,
+  type BrowserGone,
   type ConnectedBrowser,
   type DesktopInfo,
   type Hello,
@@ -131,6 +132,12 @@ export class Bridge extends EventEmitter implements BrowserAccess {
   #session: AgentSession;
   #desktop: DesktopInfo = {};
   #unfollowDesktop: () => void = () => undefined;
+  /**
+   * The browser that was connected and is not any more, and why. Kept so the calls and the
+   * `browsers_list` that come AFTER the close still say it: the socket is gone, and with it the
+   * evidence (issue #28). Cleared as soon as a browser is connected again.
+   */
+  #disconnected: BrowserGone | null = null;
 
   constructor(readonly options: BridgeOptions) {
     super();
@@ -223,6 +230,9 @@ export class Bridge extends EventEmitter implements BrowserAccess {
       version: this.options.version,
       session: this.#session,
       browsers: this.connections().map(toConnectedBrowser),
+      // Present only while nobody is connected, so `browsers_list` names the cause rather than
+      // leaving "empty" to be read (issue #28).
+      ...(this.#disconnected ? { disconnected: this.#disconnected } : {}),
     };
   }
 
@@ -245,7 +255,7 @@ export class Bridge extends EventEmitter implements BrowserAccess {
 
   /** Pick the connection a call goes to — see `resolveBrowser`. */
   resolve(browser?: string): BrowserConnection {
-    return resolveBrowser(this.connections(), browser);
+    return resolveBrowser(this.connections(), browser, this.#disconnected ?? undefined);
   }
 
   async call<M extends Method>(method: M, params: Params<M>, browser?: string): Promise<Result<M>> {
@@ -317,6 +327,8 @@ export class Bridge extends EventEmitter implements BrowserAccess {
       pending: new PendingCalls(),
     };
     this.#live.set(conn.id, conn);
+    // A browser is here, so whatever ended the last one no longer describes this session.
+    this.#disconnected = null;
     const welcome: Welcome = {
       type: 'welcome',
       protocol: PROTOCOL_VERSION,
@@ -327,7 +339,7 @@ export class Bridge extends EventEmitter implements BrowserAccess {
     };
     socket.send(JSON.stringify(welcome));
     socket.on('message', (frame) => this.#onFrame(conn, frame));
-    socket.on('close', () => this.#drop(conn));
+    socket.on('close', (code) => this.#drop(conn, code));
     this.emit('connected', { id: conn.id, hello, connectedAt: conn.connectedAt });
   }
 
@@ -348,11 +360,14 @@ export class Bridge extends EventEmitter implements BrowserAccess {
     else conn.pending.reject(res.id, new BridgeError(res.error));
   }
 
-  #drop(conn: Live): void {
+  #drop(conn: Live, code: number): void {
     this.#live.delete(conn.id);
-    conn.pending.rejectAll(
-      () => new BridgeError({ code: 'failed', message: `${label(conn)} disconnected before answering` }),
-    );
+    this.#disconnected = {
+      by: code === CLOSE.personDisconnected ? 'person' : 'lost',
+      browser: label(conn),
+      at: new Date().toISOString(),
+    };
+    conn.pending.rejectAll(() => new BridgeError({ code: 'failed', message: goneMessage(conn, code) }));
     this.emit('disconnected', conn.id);
   }
 }
@@ -371,15 +386,57 @@ export async function listenInRange(range: PortRange, options: Omit<BridgeOption
 }
 
 /**
+ * The one sentence that says WHICH close this was, shared by the message a pending call fails with
+ * and by the ones that follow it — the same cause must not read two ways (issue #28).
+ *
+ * Two very different things close a socket mid-call: the person disconnected THIS session in the
+ * browser, which is their decision (ADR 0005, so ask them and do not work around it), or the
+ * browser went away / the connection dropped, which may be transient (so look again).
+ *
+ * The extension sends `CLOSE.personDisconnected` for a dismissal (its popup's Disconnect), and the
+ * code reaches this side on both runtimes (measured on GJS). Anything else — 1000, 1005 from a
+ * socket that died without a close frame, 1006 — is a connection that went away.
+ */
+function goneHead(who: string, by: BrowserGone['by']): string {
+  return by === 'person'
+    ? `${who} disconnected because the person disconnected this session in the browser — their decision`
+    : `${who} went away — the browser closed or the connection dropped, which may be temporary`;
+}
+
+/** For a call that was already in flight when the socket closed. */
+export function goneMessage(conn: BrowserConnection, code: number): string {
+  const by = code === CLOSE.personDisconnected ? 'person' : 'lost';
+  return by === 'person'
+    ? `${goneHead(label(conn), by)}: do not reconnect or retry, ask them to reconnect it.`
+    : `${goneHead(label(conn), by)}: check browsers_list, it may come back.`;
+}
+
+/** The same distinction for a call that finds nobody connected after a close the bridge saw. */
+function goneSentence(gone: BrowserGone): string {
+  return gone.by === 'person'
+    ? `${goneHead(gone.browser, gone.by)}: do not reconnect or retry, ask them to reconnect it. `
+    : `${goneHead(gone.browser, gone.by)}: check browsers_list, it may come back. `;
+}
+
+/**
  * Pick the connection a call goes to. With one browser connected, that one. With several, the
  * caller must say which — guessing would send a write to the wrong browser.
+ *
+ * `gone` is what the bridge knows about the browser that was connected and is not any more; it
+ * names the cause in the empty case instead of listing the three possibilities every time.
  */
-export function resolveBrowser<C extends BrowserConnection>(all: C[], browser?: string): C {
+export function resolveBrowser<C extends BrowserConnection>(
+  all: C[],
+  browser?: string,
+  gone?: BrowserGone,
+): C {
   if (all.length === 0) {
     throw new BridgeError({
       code: 'failed',
       message:
-        'no browser is connected to this beifahrer session. The person needs the extension installed and ' +
+        'no browser is connected to this beifahrer session. ' +
+        (gone ? goneSentence(gone) : '') +
+        'The person needs the extension installed and ' +
         'paired (`beifahrer token`), the browser open, and this session not disconnected in the popup. ' +
         'A session that just started is found within a few seconds.',
     });

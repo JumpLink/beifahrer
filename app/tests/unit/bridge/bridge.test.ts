@@ -1,20 +1,30 @@
 import { describe, expect, it } from '@gjsify/unit';
 import { WebSocket } from 'ws';
-import { ASK_TIMEOUT_MS, CLOSE, PROTOCOL_VERSION, PortRangeFull, type AgentSession } from '@beifahrer/core';
+import {
+  ASK_TIMEOUT_MS,
+  CLOSE,
+  PROTOCOL_VERSION,
+  PortRangeFull,
+  type AgentSession,
+  type Hello,
+} from '@beifahrer/core';
 
 import {
   Bridge,
   BridgeError,
   DEFAULT_TIMEOUT_MS,
   WRITE_TIMEOUT_MS,
+  goneMessage,
   listenInRange,
   timeoutFor,
+  type BrowserConnection,
 } from '../../../src/bridge/bridge.ts';
 
 const TOKEN = 'test-token-123';
 const EXT = 'moz-extension://0e1f2a3b-4c5d-6e7f-8091-a2b3c4d5e6f7';
 
-function hello(extra: Record<string, unknown> = {}) {
+/** A hello as the wire carries it. Typed, so a test can build a `BrowserConnection` from it. */
+function hello(extra: Record<string, unknown> = {}): Hello {
   return {
     type: 'hello',
     protocol: PROTOCOL_VERSION,
@@ -188,9 +198,93 @@ export default async () => {
       const r = await connect(bridge, { onRequest: (_req, ws) => ws.close() });
       let caught: unknown;
       await bridge.call('tabs.list', {}).catch((e) => (caught = e));
-      expect((caught as BridgeError).wire.message).toMatch(/disconnected/);
+      expect((caught as BridgeError).wire.message).toMatch(/went away/);
       r.ws.close();
       await bridge.stop();
+    });
+
+    // Issue #28: two closes that read as one sentence, and call for opposite next moves — the
+    // person disconnecting this session is their decision (ADR 0005), a browser that went away may
+    // come back. The extension closes with CLOSE.personDisconnected for the first.
+    await describe('a close that says which of the two it was', async () => {
+      await it('names the person when they disconnected this session mid-call', async () => {
+        const bridge = await startBridge();
+        const r = await connect(bridge, {
+          onRequest: (_req, ws) => ws.close(CLOSE.personDisconnected, 'dismissed'),
+        });
+        let caught: unknown;
+        await bridge.call('tabs.list', {}).catch((e) => (caught = e));
+        const wire = (caught as BridgeError).wire;
+        expect(wire.code).toBe('failed');
+        expect(wire.message).toMatch(/disconnected because the person disconnected this session/);
+        expect(wire.message).toMatch(/do not reconnect or retry, ask them to reconnect it/);
+        expect(bridge.status().disconnected?.by).toBe('person');
+        // The next call says it too: the socket that carried the evidence is gone (issue #28).
+        let after: unknown;
+        await bridge.call('tabs.list', {}).catch((e) => (after = e));
+        expect((after as BridgeError).wire.message).toMatch(
+          /disconnected because the person disconnected this session/,
+        );
+        r.ws.close();
+        await bridge.stop();
+      });
+
+      await it('names a plain close as a browser that went away, possibly temporary', async () => {
+        const bridge = await startBridge();
+        const r = await connect(bridge, { onRequest: (_req, ws) => ws.close(1000, 'bye') });
+        let caught: unknown;
+        await bridge.call('tabs.list', {}).catch((e) => (caught = e));
+        const wire = (caught as BridgeError).wire;
+        expect(wire.message).toMatch(/went away/);
+        expect(wire.message).toMatch(/check browsers_list/);
+        expect(wire.message.includes('the person disconnected this session')).toBe(false);
+        expect(bridge.status().disconnected?.by).toBe('lost');
+        let after: unknown;
+        await bridge.call('tabs.list', {}).catch((e) => (after = e));
+        expect((after as BridgeError).wire.message).toMatch(/went away/);
+        r.ws.close();
+        await bridge.stop();
+      });
+
+      await it('counts every other close code as a connection that went away', async () => {
+        // The codes a peer sends when nobody pressed Disconnect: a plain 1000, 1005 for "no status
+        // code present" (a socket that died without a close frame) and 1006 (abnormal). The
+        // dismissal code is the ONLY one that means the person, so none of these may.
+        const conn: BrowserConnection = {
+          id: 'abcd1234',
+          hello: hello(),
+          connectedAt: new Date('2026-09-30T10:00:00Z'),
+        };
+        for (const code of [1000, 1001, 1005, 1006, CLOSE.dismissed, CLOSE.unauthorized]) {
+          expect(goneMessage(conn, code)).toMatch(/went away/);
+        }
+        expect(goneMessage(conn, CLOSE.personDisconnected)).toMatch(
+          /disconnected because the person disconnected this session/,
+        );
+      });
+
+      await it('forgets the cause once a browser is connected again', async () => {
+        const bridge = await startBridge();
+        const r = await connect(bridge, {
+          onRequest: (_req, ws) => ws.close(CLOSE.personDisconnected, 'dismissed'),
+        });
+        await bridge.call('tabs.list', {}).catch(() => undefined);
+        expect(bridge.status().disconnected?.by).toBe('person');
+        r.ws.close();
+        const back = await connect(bridge);
+        expect(bridge.status().disconnected).toBeUndefined();
+        back.ws.close();
+        await bridge.stop();
+      });
+
+      await it('leaves the cause out when nothing ever connected', async () => {
+        const bridge = await startBridge();
+        let caught: unknown;
+        await bridge.call('tabs.list', {}).catch((e) => (caught = e));
+        expect((caught as BridgeError).wire.message).toMatch(/no browser is connected/);
+        expect(bridge.status().disconnected).toBeUndefined();
+        await bridge.stop();
+      });
     });
 
     await it('says so when nothing is connected', async () => {

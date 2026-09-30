@@ -200,6 +200,17 @@ export function registerTools(
         }),
       )
       .describe('Empty when nobody is connected — then ask the person, do not retry'),
+    // Why the list is empty, when the bridge saw the browser go: the two causes need opposite
+    // moves, and "empty" alone reads the same for both (issue #28).
+    disconnected: loose({
+      by: z
+        .enum(['person', 'lost'])
+        .describe(
+          '"person" — the person disconnected this session in the browser: ask them, do not retry. "lost" — the browser went away or the socket dropped, possibly temporary',
+        ),
+      browser: z.string().describe('The connection that went, as it is labelled above'),
+      at: z.string().describe('ISO 8601'),
+    }).optional(),
   });
 
   server.registerTool(
@@ -210,6 +221,8 @@ export function registerTools(
         "Which of the person's browsers are connected to beifahrer right now (Firefox, Chromium-based, …), with version, manifest version and what each can do. Empty means: the extension is not installed, not paired, or the browser is closed. " +
         'Every agent session has its own direct connection: this lists the browsers connected to THIS session, its port and the label the person sees for it in the beifahrer popup. ' +
         'Empty also when the person disconnected this session in the popup — then ask them; it stays disconnected until this session restarts. ' +
+        'When the list is empty and a browser WAS connected, `disconnected.by` says why, and the two are not the same problem: ' +
+        '"person" is their decision (do not retry, ask them), "lost" may be temporary (the browser closed or the socket dropped — look again). ' +
         'BROWSERS DIFFER, and this is where you find that out before you call anything: `capabilities` is what this browser can serve, ' +
         'and `unsupported` is what it left out WITH THE REASON. Read the two apart — "cannot" means use another tool, ' +
         '"not allowed" (forbidden, feature_disabled) means a person has to decide, so ask them instead of retrying. ' +
@@ -238,6 +251,8 @@ export function registerTools(
           port: status.port,
           session: { label: status.session.label, pid: status.session.pid, version: status.version },
           browsers,
+          // Only while the list is empty, and then it says whether the person stopped it (issue #28).
+          ...(status.disconnected ? { disconnected: status.disconnected } : {}),
         });
       } catch (err) {
         return failure(err);
