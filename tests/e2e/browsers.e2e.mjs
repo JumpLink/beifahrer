@@ -2920,7 +2920,7 @@ async function scenario(browser, gate) {
       wouldClick.text.replace(/\s+/g, ' ').slice(0, 220),
     );
     const wouldReadBlocked = await tool(client, 'access_check', { method: 'page.read', url: FORBIDDEN });
-    const blockedAnswer = accessOf_(wouldReadBlocked);
+    const blockedAnswer = accessAnswer(wouldReadBlocked);
     check(
       browser,
       'access_check says a read on a site nobody allowed is refused, at the level step and askable',
