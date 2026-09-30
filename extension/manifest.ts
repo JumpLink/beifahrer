@@ -98,7 +98,10 @@ export function manifestFor(
     description: '__MSG_extDescription__',
     version,
     icons: iconPaths(target, 'active'),
-    permissions: [...permissions, ...(mv3 ? [] : e2eHosts), ...e2eApiPermissions],
+    // `<all_urls>` is both a host and an "API" permission as far as an E2E build is concerned
+    // (scripts/build.ts puts it on both lists, because MV3 reads one and MV2 the other), and the
+    // second copy on MV2 would be a duplicate entry in `permissions`. A set, once.
+    permissions: [...new Set([...permissions, ...(mv3 ? [] : e2eHosts), ...e2eApiPermissions])],
     ...(mv3
       ? {
           optional_host_permissions: HOSTS,

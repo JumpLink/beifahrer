@@ -4,8 +4,8 @@
  *   gjsify workspace beifahrer-extension build        → .output/<target>/
  *   … build --zip                                     → also .output/beifahrer-<version>-<target>.zip
  *
- * BEIFAHRER_E2E_SEED='{"token","port","policy"}' makes an E2E build instead: pre-paired, the
- * fixture hosts granted, written to .output-e2e/ and never zipped (see src/e2e-seed.ts).
+ * BEIFAHRER_E2E_SEED='{"token","port","policy","e2eAllUrls"}' makes an E2E build instead: pre-paired,
+ * the fixture hosts granted, written to .output-e2e/ and never zipped (see src/e2e-seed.ts).
  *
  * Every script is bundled ONCE as an IIFE — content scripts injected by file and an MV3 service
  * worker both need a classic script — and copied into each target; only the manifest differs.
@@ -79,21 +79,44 @@ function page(name: string, source: string): string {
     .replace(/href="(\.\.\/)+src\/ui\/style\.css"/, 'href="style.css"');
 }
 
+const ALL_URLS = '<all_urls>';
+
+/** The seed an E2E build carries (see the header), parsed once per question asked of it. */
+type E2eSeed = {
+  policy?: { origins?: object };
+  e2eHostOrigins?: string[];
+  e2eApiPermissions?: string[];
+  /**
+   * `e2eAllUrls`: `<all_urls>` in the manifest, which no per-origin pattern can stand in for —
+   * Chromium's `captureVisibleTab` accepts nothing narrower and Firefox does not even define it
+   * without (AGENTS.md "Traps already paid for"). The person asks for it in the same click as the
+   * Screenshots switch; a headless test cannot press Allow on the browser's bubble, so the build
+   * carries it. The build that proves the REFUSAL is the one that does not set this.
+   */
+  e2eAllUrls?: boolean;
+};
+const e2eSeed = (): E2eSeed | null => (seed ? (JSON.parse(seed) as E2eSeed) : null);
+
 /** API permissions an E2E build is given up front; a test cannot click a permission prompt. */
-function e2eApiPermissions(seedValue: string): string[] {
-  if (!seedValue) return [];
-  const parsed = JSON.parse(seedValue) as { e2eApiPermissions?: string[] };
-  return parsed.e2eApiPermissions ?? [];
+function e2eApiPermissions(): string[] {
+  const parsed = e2eSeed();
+  if (!parsed) return [];
+  const perms = [...(parsed.e2eApiPermissions ?? [])];
+  return parsed.e2eAllUrls && !perms.includes(ALL_URLS) ? [...perms, ALL_URLS] : perms;
 }
 
 function e2eHosts(): string[] {
-  if (!seed) return [];
-  const parsed = JSON.parse(seed) as { policy?: { origins?: object }; e2eHostOrigins?: string[] };
+  const parsed = e2eSeed();
+  if (!parsed) return [];
   // `e2eHostOrigins`: sites the test reaches through a temporary grant or a prompt's answer
   // (ADR 0010), whose browser prompt it cannot click either.
   const origins = [...Object.keys(parsed.policy?.origins ?? {}), ...(parsed.e2eHostOrigins ?? [])];
   // Host only, no port — see originPattern() in src/settings.ts for why.
-  return origins.map((o) => `${new URL(o).protocol}//${new URL(o).hostname}/*`);
+  const hosts = origins.map((o) => `${new URL(o).protocol}//${new URL(o).hostname}/*`);
+  // `<all_urls>` lands on BOTH lists: which one a target reads is the target's business
+  // (manifest.ts — `host_permissions` on MV3, `permissions` on MV2), and a seed that put it on one
+  // side only would build a manifest that asks for what it does not grant.
+  return parsed.e2eAllUrls && !hosts.includes(ALL_URLS) ? [...hosts, ALL_URLS] : hosts;
 }
 
 /** Every file under `dir`, as zip entries relative to it. */
@@ -142,7 +165,7 @@ for (const target of TARGETS) {
   const manifest = manifestFor(target, {
     version: pkg.version,
     e2eHosts: e2eHosts(),
-    e2eApiPermissions: e2eApiPermissions(seed),
+    e2eApiPermissions: e2eApiPermissions(),
   });
   writeFileSync(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   if (zip && !seed) {
