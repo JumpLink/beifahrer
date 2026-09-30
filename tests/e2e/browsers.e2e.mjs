@@ -79,6 +79,35 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
 <a href="/sample" id="sample-link">sample link</a>
 <p>clicks: <span id="clicks">0</span> · pastes: <span id="pastes">0</span> <span id="pasteinfo"></span></p>
 <p>indicator:<span id="ind"></span>.</p>
+<beifahrer-open-card>slotted text</beifahrer-open-card>
+<beifahrer-closed-card></beifahrer-closed-card>
+<script>
+  // Issue #4: a web-component-shaped page. The OPEN root is what the walk must enter — a labelled
+  // button and a labelled field inside it, neither reachable from the light DOM, and a label whose
+  // for= can only resolve inside the root. The CLOSED root is what it must not enter: the browser
+  // keeps that promise, and beifahrer has to keep it too.
+  customElements.define('beifahrer-open-card', class extends HTMLElement {
+    connectedCallback() {
+      const root = this.attachShadow({ mode: 'open' });
+      root.innerHTML =
+        '<p>Text inside the open root.</p><slot></slot>' +
+        '<label for="shadow-name">Shadow name</label><input id="shadow-name">' +
+        '<button id="shadow-save">Shadow save</button>' +
+        '<span id="shadow-clicks">shadow-clicks:0</span>';
+      root.getElementById('shadow-save').addEventListener('click', () => {
+        const count = root.getElementById('shadow-clicks');
+        count.textContent = 'shadow-clicks:' + (Number(count.textContent.split(':')[1]) + 1);
+      });
+    }
+  });
+  customElements.define('beifahrer-closed-card', class extends HTMLElement {
+    connectedCallback() {
+      this.attachShadow({ mode: 'closed' }).innerHTML =
+        '<button>Secret in a closed root</button>' +
+        '<label for="hidden-name">Hidden name</label><input id="hidden-name">';
+    }
+  });
+</script>
 <script>
   let clicks = 0, pastes = 0;
   document.getElementById('send').addEventListener('click', () => { document.getElementById('clicks').textContent = ++clicks; });
@@ -631,7 +660,144 @@ async function accessScenario(browser) {
  * Every allowed run needs its own hook tab (ADR 0012's e2e hooks): the person answers every run, and
  * a test that answered once and then carried on would prove nothing about the second one.
  */
+/**
+ * Issue #4: a page built from web components. The walk enters an OPEN shadow root — including the
+ * name resolution, which decides whether an element is findable at all — and leaves a CLOSED one
+ * alone, because the browser keeps that promise and so does beifahrer.
+ */
+async function shadowDom(browser, client, allowed) {
+  const found = await tool(client, 'page_find', {
+    tabId: allowed.tabId,
+    role: 'button',
+    name: 'Shadow save',
+  });
+  const hit = found.error ? null : JSON.parse(found.text);
+  check(
+    browser,
+    'page_find reaches a button inside an open shadow root, by role and name',
+    hit?.count === 1 && /^e\d+$/.test(hit.matches[0].ref),
+    found.text.slice(0, 200),
+  );
+
+  // The label resolves only where it is written: `label[for]` inside the root, never the document's.
+  const named = await tool(client, 'page_find', {
+    tabId: allowed.tabId,
+    role: 'textbox',
+    name: 'Shadow name',
+  });
+  check(
+    browser,
+    'a label inside a shadow root names the field it labels',
+    !named.error && JSON.parse(named.text).count === 1,
+    named.text.slice(0, 200),
+  );
+
+  const closed = await tool(client, 'page_find', { tabId: allowed.tabId, name: 'Secret in a closed root' });
+  check(
+    browser,
+    'a closed shadow root stays closed',
+    !closed.error && JSON.parse(closed.text).count === 0,
+    closed.text.slice(0, 200),
+  );
+  const hidden = await tool(client, 'page_find', {
+    tabId: allowed.tabId,
+    role: 'textbox',
+    name: 'Hidden name',
+  });
+  check(
+    browser,
+    'and nothing inside it is findable by name either',
+    !hidden.error && JSON.parse(hidden.text).count === 0,
+    hidden.text.slice(0, 200),
+  );
+
+  const read = await tool(client, 'page_read', { tabId: allowed.tabId, maxChars: 8_000 });
+  check(
+    browser,
+    'page_read includes the text a person can see inside the open root',
+    !read.error && /Text inside the open root\./.test(read.text),
+    read.text.slice(0, 200),
+  );
+  check(
+    browser,
+    'and not the text in the closed one',
+    !read.error && !/Secret in a closed root/.test(read.text),
+    read.text.slice(0, 200),
+  );
+  check(
+    browser,
+    'slotted content is counted once, not twice',
+    !read.error && read.text.split('slotted text').length === 2,
+    `${read.text.split('slotted text').length - 1}x`,
+  );
+
+  const outline = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 200 });
+  check(
+    browser,
+    'page_outline lists it, with a ref',
+    !outline.error && /button "Shadow save"/.test(outline.text),
+    outline.text.slice(0, 200),
+  );
+
+  if (!hit) return;
+  const ref = hit.matches[0].ref;
+  const clicked = await tool(client, 'page_click', { tabId: allowed.tabId, ref });
+  check(
+    browser,
+    'a ref from inside a shadow root clicks that button',
+    !clicked.error,
+    clicked.text.slice(0, 160),
+  );
+  const after = await tool(client, 'page_read', { tabId: allowed.tabId, maxChars: 8_000 });
+  check(
+    browser,
+    "and the page's own listener inside the root ran",
+    !after.error && after.text.includes('shadow-clicks:1'),
+    after.text.match(/shadow-clicks:\d/)?.[0] ?? after.text.slice(0, 160),
+  );
+}
+
 async function scripts(browser, client, allowed, forbidden) {
+  // 0. The capability list is a contract, not a courtesy (issue #31). `browsers_list` has to tell an
+  //    agent what this browser can serve BEFORE it calls anything: on a Manifest V3 build a content
+  //    script may not compile a string, so `page.evaluate` must be absent from the list — with the
+  //    reason, because "cannot" and "not allowed" are different problems.
+  const listed = JSON.parse((await tool(client, 'browsers_list')).text).browsers[0];
+  const canRunCode = browser !== 'chromium';
+  check(
+    browser,
+    `browsers_list ${canRunCode ? 'carries' : 'omits'} page.evaluate`,
+    canRunCode
+      ? listed.capabilities.includes('page.evaluate')
+      : !listed.capabilities.includes('page.evaluate'),
+    `MV${listed.manifestVersion}: ${listed.capabilities.length} methods`,
+  );
+  if (!canRunCode) {
+    check(
+      browser,
+      'and says why, in a sentence',
+      typeof listed.unsupported?.['page.evaluate'] === 'string' &&
+        /content security policy/.test(listed.unsupported['page.evaluate']),
+      JSON.stringify(listed.unsupported ?? {}).slice(0, 200),
+    );
+    // The refusal comes from the capability list, before any page is opened and before any window.
+    const walled = await quickly(client, 'page_evaluate', {
+      tabId: allowed.tabId,
+      script: 'return 1',
+    });
+    check(
+      browser,
+      'page_evaluate answers unsupported from the bridge gate, naming the browser',
+      walled.error && /^unsupported:/.test(walled.text) && /cannot do page.evaluate/.test(walled.text),
+      walled.text.slice(0, 240),
+    );
+    // Nothing below can happen here, and pretending otherwise would test a browser that does not
+    // have the method: the gate that refuses is in the BRIDGE, ahead of every check in the
+    // extension — ahead of the switch, the level and the window. That ordering is the point: an
+    // agent is told the truest reason first ("this browser cannot"), not the next one in line.
+    return;
+  }
+
   // 1. Below the level: a site with no rule refuses a script, naming write.
   const onNothing = await quickly(client, 'page_evaluate', {
     tabId: forbidden.tabId,
@@ -708,12 +874,11 @@ async function scripts(browser, client, allowed, forbidden) {
     return Promise.race([call, sleep(ms).then(() => null)]);
   };
 
-  // 5. The same script, answered Allow. WHAT HAPPENS NOW IS A PLATFORM FACT, and the run measures
+  // 5. The same script, answered Allow. WHAT HAPPENS HERE IS A PLATFORM FACT, and the run measures
   //    it instead of assuming it (ADR 0012): a Manifest V3 content script shares the extension's
-  //    content security policy, and that policy cannot name 'unsafe-eval' — Chrome refuses to
-  //    install such an extension. So Chromium answers `unsupported` with that reason, and only
-  //    Firefox (Manifest V2, no content-script CSP) actually runs the code.
-  const canRunCode = browser !== 'chromium';
+  //    content security policy, and that policy cannot name 'unsafe-eval'. A Manifest V3 browser
+  //    never gets this far — check 0 caught it at the capability list — so only Firefox
+  //    (Manifest V2, no content-script CSP) actually runs the code.
   const ran = await allowScript({
     tabId: allowed.tabId,
     script: `document.getElementById('demo').click();
@@ -724,33 +889,26 @@ async function scripts(browser, client, allowed, forbidden) {
         extensionApis: [typeof chrome, typeof browser],
       };`,
   });
-  if (canRunCode) {
-    check(browser, 'a script the person allowed runs', ran && !ran.error, String(ran?.text).slice(0, 200));
-    if (ran && !ran.error) {
-      const out = JSON.parse(ran.text);
-      check(browser, 'the script read the page title', out.value?.title === 'beifahrer fixture', ran.text);
-      check(
-        browser,
-        "it clicked the page and the page's own listener ran",
-        out.value?.pageChanged === 'demo ran',
-        ran.text,
-      );
-      check(
-        browser,
-        "the extension APIs are not in the script's scope (ADR 0012)",
-        Array.isArray(out.value?.extensionApis) && out.value.extensionApis.every((t) => t === 'undefined'),
-        ran.text,
-      );
-      check(browser, 'the result says it is complete', out.truncated === false, ran.text);
-      check(browser, 'the result names the world it ran in', out.world === 'isolated', ran.text);
-    }
-  } else {
+  if (!canRunCode) return;
+
+  check(browser, 'a script the person allowed runs', ran && !ran.error, String(ran?.text).slice(0, 200));
+  if (ran && !ran.error) {
+    const out = JSON.parse(ran.text);
+    check(browser, 'the script read the page title', out.value?.title === 'beifahrer fixture', ran.text);
     check(
       browser,
-      'a Manifest V3 content script answers unsupported, naming the content security policy',
-      ran && ran.error && /^unsupported:/.test(ran.text) && /content security policy/.test(ran.text),
-      String(ran?.text).slice(0, 240),
+      "it clicked the page and the page's own listener ran",
+      out.value?.pageChanged === 'demo ran',
+      ran.text,
     );
+    check(
+      browser,
+      "the extension APIs are not in the script's scope (ADR 0012)",
+      Array.isArray(out.value?.extensionApis) && out.value.extensionApis.every((t) => t === 'undefined'),
+      ran.text,
+    );
+    check(browser, 'the result says it is complete', out.truncated === false, ran.text);
+    check(browser, 'the result names the world it ran in', out.world === 'isolated', ran.text);
   }
 
   if (!canRunCode) return;
@@ -1177,7 +1335,14 @@ async function pausedChecks(browser, client) {
   const notPaused = [];
   for (const [name, args] of calls) {
     const r = await tool(client, name, args);
-    if (!(r.error && /^paused:.*ask them to resume/.test(r.text))) notPaused.push(`${name}: ${r.text}`);
+    // `page.evaluate` on a Manifest V3 build never reaches the pause: the bridge's capability gate
+    // is ahead of it, and "this browser cannot" is the truer answer for an agent than "paused"
+    // (issue #31). Everything else must answer `paused` — that is the whole promise of ADR 0005.
+    const wanted =
+      name === 'page_evaluate' && browser === 'chromium'
+        ? { error: true, text: /^unsupported:.*cannot do page.evaluate/ }
+        : { error: true, text: /^paused:.*ask them to resume/ };
+    if (!(r.error && wanted.text.test(r.text))) notPaused.push(`${name}: ${r.text}`);
   }
   check(browser, `all ${calls.length} tools answer "paused"`, notPaused.length === 0, notPaused.join(' | '));
 }
@@ -1258,12 +1423,15 @@ async function scenario(browser, gate) {
         ['page_evaluate', { tabId: allowed.tabId, script: 'return 1' }, 'Run scripts'],
       ]) {
         const r = await tool(client, name, args);
-        check(
-          browser,
-          `${name} is feature_disabled by default ("${label}")`,
-          r.error && new RegExp(`^feature_disabled:.*"${label}".*Ask them`).test(r.text),
-          r.text,
-        );
+        // ADR 0012 + issue #31: a script is refused on a Manifest V3 build by the BRIDGE's capability
+        // gate, which sits ahead of the switch in the extension. That is the better order to refuse
+        // in — "this browser cannot" is truer than "the person has not switched it on", and it is
+        // what an agent needs in order to stop retrying — so the test expects each, per engine.
+        const asExpected =
+          name === 'page_evaluate' && browser === 'chromium'
+            ? r.error && /^unsupported:.*cannot do page.evaluate/.test(r.text)
+            : r.error && new RegExp(`^feature_disabled:.*"${label}".*Ask them`).test(r.text);
+        check(browser, `${name} is refused by default ("${label}")`, asExpected, r.text);
       }
       // The extension's own pages, once per browser: they do not depend on the build's switches.
       if (browser === 'chromium')
@@ -1416,6 +1584,7 @@ async function scenario(browser, gate) {
       shot.text,
     );
 
+    await shadowDom(browser, client, allowed);
     await scripts(browser, client, allowed, forbidden);
     await recipes(browser, client, allowed, forbidden);
     await tabManagement(browser, client, forbidden);

@@ -256,7 +256,13 @@ export class Bridge extends EventEmitter implements BrowserAccess {
     const target = this.resolve(browser);
     const conn = this.#live.get(target.id)!;
     if (!conn.hello.capabilities.includes(method)) {
-      throw new BridgeError({ code: 'unsupported', message: `${label(conn)} cannot do ${method}` });
+      // The extension's own reason, not a sentence invented here: "not allowed" and "cannot" call
+      // for different next moves, and one of them is the person (issue #31).
+      const why = conn.hello.unsupported?.[method];
+      throw new BridgeError({
+        code: 'unsupported',
+        message: `${label(conn)} cannot do ${method}${why ? `: ${why}` : ''}`,
+      });
     }
     const timeoutMs = timeoutFor(method, this.options.timeoutMs);
     const { id, promise } = conn.pending.open<Result<M>>(
@@ -405,6 +411,7 @@ export function toConnectedBrowser(c: BrowserConnection): ConnectedBrowser {
     browser: c.hello.browser,
     extension: c.hello.extension,
     capabilities: c.hello.capabilities,
+    ...(c.hello.unsupported ? { unsupported: c.hello.unsupported } : {}),
     connectedAt: c.connectedAt.toISOString(),
   };
 }

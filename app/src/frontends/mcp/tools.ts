@@ -84,7 +84,12 @@ export function registerTools(
       description:
         "Which of the person's browsers are connected to beifahrer right now (Firefox, Chromium-based, …), with version, manifest version and what each can do. Empty means: the extension is not installed, not paired, or the browser is closed. " +
         'Every agent session has its own direct connection: this lists the browsers connected to THIS session, its port and the label the person sees for it in the beifahrer popup. ' +
-        'Empty also when the person disconnected this session in the popup — then ask them; it stays disconnected until this session restarts.',
+        'Empty also when the person disconnected this session in the popup — then ask them; it stays disconnected until this session restarts. ' +
+        'BROWSERS DIFFER, and this is where you find that out before you call anything: `capabilities` is what this browser can serve, ' +
+        'and `unsupported` is what it left out WITH THE REASON. Read the two apart — "cannot" means use another tool, ' +
+        '"not allowed" (forbidden, feature_disabled) means a person has to decide, so ask them instead of retrying. ' +
+        'Calling a method this browser does not have answers `unsupported` with the reason, without touching the page. ' +
+        'When more than one browser is connected, pass `browser` (a family, a name, or the `id` from here) — beifahrer never guesses which one you meant.',
       inputSchema: {},
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -98,6 +103,9 @@ export function registerTools(
           manifestVersion: b.extension.manifestVersion,
           extensionVersion: b.extension.version,
           capabilities: b.capabilities,
+          // What it left out and why, so an agent can tell "cannot" from "not allowed" without
+          // spending a call (issue #31).
+          ...(b.unsupported ? { unsupported: b.unsupported } : {}),
           connectedAt: b.connectedAt,
         }));
         return text({

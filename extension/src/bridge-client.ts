@@ -37,7 +37,7 @@ import { forgetDenials } from './access-prompt.ts';
 import { rememberDesktop } from './accent.ts';
 import { browserInfo, manifestVersion } from './browser-info.ts';
 import { endSession, liveSessions } from './grants.ts';
-import { MethodError, capabilities, runMethod } from './handlers.ts';
+import { MethodError, capabilities, runMethod, unsupportedReasons } from './handlers.ts';
 import { loadSettings } from './settings.ts';
 
 export type Status =
@@ -142,6 +142,7 @@ function probe(port: number): void {
   ws.onopen = async () => {
     opened = true;
     const dismissed = table.dismissedInstance(port);
+    const reasons = unsupportedReasons();
     const hello: Hello = {
       type: 'hello',
       protocol: PROTOCOL_VERSION,
@@ -149,6 +150,9 @@ function probe(port: number): void {
       browser: await browserInfo(),
       extension: { version: browser.runtime.getManifest().version, manifestVersion: manifestVersion() },
       capabilities: capabilities(),
+      // Present only when something is missing, so a browser that serves everything sends the
+      // same hello it always did (issue #31).
+      ...(Object.keys(reasons).length ? { unsupported: reasons } : {}),
       ...(dismissed ? { dismissed } : {}),
     };
     send(ws, hello);

@@ -67,6 +67,20 @@ function visible(el: Element): boolean {
   return style.visibility !== 'hidden' && style.display !== 'none';
 }
 
+/**
+ * The tree an element lives in: its document, or the shadow root it was written in.
+ *
+ * Everything that resolves a NAME has to ask here, not the top document. Ids are document-local and
+ * do not cross a shadow boundary, so `document.getElementById('save')` and
+ * `document.querySelector('label[for=…]')` both come back empty for a label written inside a shadow
+ * root — and an element the walk can see but cannot name is an element `page_find` cannot find by
+ * name, which is how it looks to an agent: a nameless button.
+ */
+function rootOf(el: Element): Document | ShadowRoot {
+  const root = el.getRootNode();
+  return root instanceof ShadowRoot || root instanceof Document ? root : document;
+}
+
 function labelFor(el: Element): string {
   const aria = el.getAttribute('aria-label');
   if (aria) return aria;
@@ -74,12 +88,12 @@ function labelFor(el: Element): string {
   if (labelledBy) {
     const text = labelledBy
       .split(/\s+/)
-      .map((id) => document.getElementById(id)?.textContent ?? '')
+      .map((id) => rootOf(el).getElementById(id)?.textContent ?? '')
       .join(' ');
     if (text.trim()) return text;
   }
   if (el.id) {
-    const label = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+    const label = rootOf(el).querySelector(`label[for="${CSS.escape(el.id)}"]`);
     if (label?.textContent?.trim()) return label.textContent;
   }
   const wrapping = el.closest('label');
@@ -239,23 +253,38 @@ function describe(el: Element, kind: Kind): string {
   }
 }
 
+/** How deep open shadow roots are followed. A component inside a component is not a bug, and a
+ *  walk with no floor is a tab that stops answering. */
+const MAX_SHADOW_DEPTH = 12;
+
 /**
- * Every visible element the outline shows, in document order. `page.outline`, `page.find` and
- * `page.wait` all walk THIS, so an element find returns is one the outline shows, with the same ref.
+ * Every visible element the outline shows, in document order, descending into OPEN shadow roots.
+ * `page.outline`, `page.find` and `page.wait` all walk THIS, so an element find returns is one the
+ * outline shows, with the same ref.
+ *
+ * A host's shadow root is entered where the host is, before the host's own light-DOM children: a
+ * reader meets a component's contents where the component is, and those children are slotted content,
+ * met where it is written (issue #4).
+ *
+ * A CLOSED root stays closed, and that is the platform answering rather than a limit worked around:
+ * `attachShadow({mode: 'closed'})` is a promise that the inside is unreachable, and `el.shadowRoot`
+ * is `null` for it. Nothing here keeps the promise and breaks it; the tool description says so, because
+ * an agent that cannot see inside a closed root should ask for another way in.
  */
 function* elements(): Generator<{ el: Element; kind: Kind }> {
-  const walker = document.createTreeWalker(
-    document.body ?? document.documentElement,
-    NodeFilter.SHOW_ELEMENT,
-    {
-      acceptNode: (node) =>
-        SKIP.has((node as Element).tagName) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
-    },
-  );
+  yield* inTree(document.body ?? document.documentElement, document, 0);
+}
+
+function* inTree(root: ParentNode, doc: Document, depth: number): Generator<{ el: Element; kind: Kind }> {
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (node) =>
+      SKIP.has((node as Element).tagName) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+  });
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const el = node as Element;
     const kind = kindOf(el);
     if (kind && visible(el)) yield { el, kind };
+    if (depth < MAX_SHADOW_DEPTH && el.shadowRoot) yield* inTree(el.shadowRoot, doc, depth + 1);
   }
 }
 
@@ -281,8 +310,84 @@ function outline(maxItems: number): PageResponse {
   };
 }
 
+/**
+ * The text of one block, without the shadow boundary's secrets.
+ *
+ * `innerText` is computed from the RENDERED output, and a shadow root is rendered — including a
+ * CLOSED one, which the page has promised its author is unreachable. So `hostEl.innerText` hands
+ * back the contents of a closed root to any content script that asks: the promise holds for
+ * `shadowRoot`, and `innerText` walks straight past it. `textContent` stops at the boundary, which
+ * is why this is `textContent` and not the prettier one (issue #4).
+ *
+ * What that costs, stated rather than hidden: `innerText` would also have dropped text that is
+ * `visibility: hidden` inside a visible block. That text is reported now. Measuring rendered text
+ * without measuring the closed roots would mean measuring the closed roots, which is the one thing
+ * this method must not do — and a block that is `display: none` is still left out, because that is
+ * the check `visible` does.
+ */
+function textOf(el: Element): string {
+  return el.textContent ?? '';
+}
+
+/**
+ * The text of a page, in the order a person meets it.
+ *
+ * `body.innerText` stops at the shadow boundary, so a page built from web components would be read
+ * as its own chrome with the interface missing. Each top-level block contributes its own text and
+ * then whatever open shadow roots it hosts — a reader meets a block's text and the things that block
+ * renders together. Only the roots' OWN children are taken: slotted content lives in the host's light
+ * DOM, is already part of the block's text, and would otherwise be counted twice. A closed root
+ * contributes nothing, for the same reason the walk cannot see it (issue #4).
+ */
+function visibleText(): string {
+  const parts: string[] = [];
+  for (const node of document.body?.childNodes ?? []) {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as Element;
+      if (!visible(el)) continue;
+      parts.push(textOf(el));
+      for (const shadow of openRootsIn(el, 0)) {
+        for (const child of shadow.children) {
+          if (visible(child)) parts.push(textOf(child));
+        }
+      }
+    } else if (node.textContent?.trim()) {
+      parts.push(node.textContent);
+    }
+  }
+  return parts
+    .filter((part) => part.trim())
+    .join('\n\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * The open shadow roots inside a light-DOM subtree, INCLUDING the subtree's own element, in document
+ * order.
+ *
+ * The element itself first, because that is the common case and the one `querySelectorAll('*')`
+ * cannot answer: a host's shadow root is not a DESCENDANT in the light DOM, so searching only among
+ * the children misses the root of the very element you started from — the one case that is not a
+ * nested component at all.
+ */
+function* openRootsIn(el: Element | ShadowRoot, depth: number): Generator<ShadowRoot> {
+  if (depth >= MAX_SHADOW_DEPTH) return;
+  const host = 'shadowRoot' in el ? el : null;
+  if (host?.shadowRoot) {
+    yield host.shadowRoot;
+    yield* openRootsIn(host.shadowRoot, depth + 1);
+  }
+  for (const node of el.querySelectorAll('*')) {
+    const shadow = node.shadowRoot;
+    if (!shadow) continue;
+    yield shadow;
+    yield* openRootsIn(shadow, depth + 1);
+  }
+}
+
 function read(maxChars: number): PageResponse {
-  const text = (document.body?.innerText ?? '').replace(/\n{3,}/g, '\n\n').trim();
+  const text = visibleText();
   const selection = window.getSelection()?.toString().trim() ?? '';
   return {
     ok: true,
@@ -722,19 +827,25 @@ function codeExecutionAllowed(): boolean {
   return canCompile;
 }
 
-const NO_CODE_HERE =
-  'this browser does not let an extension compile a string into code inside a page: in Manifest V3 ' +
-  "a content script shares the extension's content security policy, and that policy cannot name " +
-  "'unsafe-eval' — Chrome refuses to install such an extension. Firefox (Manifest V2) does, and " +
-  'beifahrer runs scripts there.';
+/**
+ * The refusal, naming the place it came from. The background answers the same failure differently —
+ * it knows the manifest version and CANNOT measure the fact — so this one says what the content
+ * script found where the script would have run. That is what lets an agent tell "this browser
+ * cannot" from "the person has not allowed it", which are different problems with different next
+ * moves (issue #31).
+ */
+function noCodeHere(): string {
+  const mv = browser.runtime.getManifest().manifest_version;
+  return (
+    'beifahrer will not run a script in this page: in Manifest V3 a content script shares the ' +
+    "extension's content security policy, and that policy cannot name 'unsafe-eval' — Chrome " +
+    `refuses to install an extension that tries. This browser reports Manifest V${mv}, and the ` +
+    'probe here failed where the script would have run. Firefox (Manifest V2) runs scripts.'
+  );
+}
 
 async function evaluate(script: string, maxChars: number): Promise<PageResponse> {
-  if (!codeExecutionAllowed())
-    return {
-      ok: false,
-      code: 'unsupported',
-      message: `beifahrer will not run a script here: ${NO_CODE_HERE}`,
-    };
+  if (!codeExecutionAllowed()) return { ok: false, code: 'unsupported', message: noCodeHere() };
   const names = scriptParams();
   let run: ScriptRunner;
   try {

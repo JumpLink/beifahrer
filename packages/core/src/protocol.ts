@@ -53,6 +53,15 @@ export interface Hello {
   /** Methods this browser can actually serve — e.g. no `page.screenshot` on Epiphany. */
   capabilities: Method[];
   /**
+   * Why it cannot serve a method, per method, in a sentence an agent can act on (issue #31).
+   *
+   * The list alone leaves the agent guessing: "this browser cannot do it" and "this browser is not
+   * allowed to do it" call for different next moves — the second is a person to ask, the first is
+   * another tool. So the extension supplies the reason once, at hello, and the bridge passes it on
+   * instead of inventing a sentence that would be right for one method and wrong for the next.
+   */
+  unsupported?: Partial<Record<Method, string>>;
+  /**
    * The `AgentSession.instance` the person disconnected on this port, if any. A bridge that IS
    * that instance closes with `CLOSE.dismissed` instead of welcoming; any other bridge ignores it.
    */
@@ -257,6 +266,8 @@ export function parseHello(raw: unknown): Hello | string {
   const e = h.extension;
   if (!e || (e.manifestVersion !== 2 && e.manifestVersion !== 3)) return 'bad extension';
   if (!Array.isArray(h.capabilities)) return 'bad capabilities';
+  if (h.unsupported !== undefined && (typeof h.unsupported !== 'object' || h.unsupported === null))
+    return 'bad unsupported';
   if (h.dismissed !== undefined && typeof h.dismissed !== 'string') return 'bad dismissed';
   return h as Hello;
 }
@@ -286,6 +297,11 @@ export interface ConnectedBrowser {
   browser: Hello['browser'];
   extension: Hello['extension'];
   capabilities: Method[];
+  /**
+   * The methods this browser left out, and why — so an agent can tell "not allowed" (ask the
+   * person) from "cannot" (use another tool) without spending a call to find out (issue #31).
+   */
+  unsupported?: Partial<Record<Method, string>>;
   /** ISO 8601. */
   connectedAt: string;
 }

@@ -542,13 +542,65 @@ export async function runMethod(method: Method, params: unknown, ctx: CallContex
  * so the agent never sees a tool the browser cannot serve: Safari 27 has neither `tabGroups` nor
  * `sessions`, and still announced all four until this filter existed.
  */
-const NEEDS_API: Partial<Record<Method, () => boolean>> = {
-  'tabs.group': () => groupApi() !== null,
-  'tabs.ungroup': () => groupApi() !== null,
-  'sessions.recentlyClosed': () => sessionsApi() !== null,
-  'sessions.restoreClosed': () => sessionsApi() !== null,
+/**
+ * A Manifest V2 content script has NO content security policy of its own, so it may compile a string
+ * into a function. A Manifest V3 content script SHARES the extension's policy, and that policy
+ * cannot be relaxed — Chrome refuses to install an extension whose `extension_pages` CSP names
+ * `'unsafe-eval'`. So `page.evaluate` is not something a Manifest V3 build can ever serve
+ * (ADR 0012, issue #31).
+ *
+ * The manifest version is the FILTER because it is available before the first page is opened, which
+ * is what keeps `capabilities()` — and therefore `browsers_list` — honest for an agent that has not
+ * called anything yet. It is deliberately not the last word: the page agent PROBES `new Function`
+ * in the place the script would run and answers `unsupported` itself, because the background cannot
+ * measure it (a Manifest V2 extension page forbids eval while a Manifest V2 content script does not).
+ */
+const NO_CODE_HERE =
+  "a Manifest V3 content script shares the extension's content security policy, and that policy " +
+  "cannot name 'unsafe-eval' — Chrome refuses to install an extension that tries. Firefox " +
+  '(Manifest V2, no content-script CSP) can.';
+
+/** A method this browser cannot serve, and the sentence it refuses with. */
+interface Need {
+  ok: () => boolean;
+  why: () => string;
+}
+
+const NEEDS: Partial<Record<Method, Need>> = {
+  'tabs.group': {
+    ok: () => groupApi() !== null,
+    why: () => 'this browser has no tab groups (MV3 chrome.tabs.group)',
+  },
+  'tabs.ungroup': {
+    ok: () => groupApi() !== null,
+    why: () => 'this browser has no tab groups (MV3 chrome.tabs.group)',
+  },
+  'sessions.recentlyClosed': {
+    ok: () => sessionsApi() !== null,
+    why: () => 'this browser has no sessions API',
+  },
+  'sessions.restoreClosed': {
+    ok: () => sessionsApi() !== null,
+    why: () => 'this browser has no sessions API',
+  },
+  'page.evaluate': {
+    ok: () => browser.runtime.getManifest().manifest_version < 3,
+    why: () => NO_CODE_HERE,
+  },
 };
 
 export function capabilities(): Method[] {
-  return (Object.keys(handlers) as Method[]).filter((m) => NEEDS_API[m]?.() ?? true);
+  return (Object.keys(handlers) as Method[]).filter((m) => NEEDS[m]?.ok() ?? true);
+}
+
+/**
+ * Why this browser cannot serve a method, per method (issue #31). Travels in the handshake, so an
+ * agent reads "not allowed" and "cannot" apart before it spends a call — and the bridge quotes this
+ * instead of a sentence that would fit one method and mislead about the next.
+ */
+export function unsupportedReasons(): Partial<Record<Method, string>> {
+  const out: Partial<Record<Method, string>> = {};
+  for (const [method, need] of Object.entries(NEEDS) as [Method, Need][])
+    if (!need.ok()) out[method] = need.why();
+  return out;
 }
