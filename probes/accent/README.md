@@ -109,13 +109,13 @@ the code:
 - **The nearest-Adwaita mapping is not beifahrer's to add.** An arbitrary RGB has to become the
   nearest `AdwAccentColor` the way libadwaita does it (`adw_accent_color_nearest_from_rgba()`), so
   the UI stays Adwaita in the person's hue. That function belongs in **`@gjsify/adwaita-core`**
-  (gjsify), never in this repo. **It is not there**: `@gjsify/adwaita-core` 0.52.0 ships
-  `adwaitaAccentBgColor`, `adwaitaAccentColor`, `adwaitaStandaloneColor`, the nine-name table
-  `ADW_ACCENT_BG_COLORS` and the measured `ACCENT_COLOR_VECTORS` — the *for* direction only, from
-  an accent name to a colour. Nothing takes a colour in. So mapping a Windows `AccentColor` to an
-  Adwaita accent is blocked on a gjsify addition, and this probe adds nothing towards it.
+  (gjsify), never in this repo. **It is there now**: `@gjsify/adwaita-core` 0.53.0 ships
+  `nearestAccent`, ported from libadwaita and tested against its own reference cases (gjsify#1827),
+  next to `adwaitaAccentBgColor`, `adwaitaAccentColor`, `adwaitaStandaloneColor` and the nine-name
+  table `ADW_ACCENT_BG_COLORS`. So a Windows `AccentColor` maps to an Adwaita accent without
+  anything here, and this probe adds nothing towards it.
 
-  The probe deliberately does **not** map anything. The comparison it enables is exact — an
+  The probe deliberately still does **not** map anything. The comparison it enables is exact — an
   arbitrary `#RRGGBB` from the registry against the browser's `AccentColor` — so a nearest-accent
   guess could only blur the one reading that decides the work.
 

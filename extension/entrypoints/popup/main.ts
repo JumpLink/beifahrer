@@ -120,7 +120,7 @@ async function main(): Promise<void> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   const origin = originOf(tab?.url);
 
-  // gjsify gap (unfixed, @gjsify/adwaita-web 0.52.0): <adw-toggle> has no tooltip, so the
+  // gjsify gap (unfixed, @gjsify/adwaita-web 0.53.0): <adw-toggle> has no tooltip, so the
   // explanation of each level goes on its rendered button as a native hover text.
   for (const button of levels.querySelectorAll<HTMLButtonElement>('button.adw-toggle')) {
     const name = (['none', 'read', 'write'] as const)[[...button.parentElement!.children].indexOf(button)];

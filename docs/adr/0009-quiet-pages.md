@@ -56,6 +56,6 @@ The pages follow the GNOME HIG's quiet defaults, with the elements `@gjsify/adwa
   check often (state, this site, what the agent did) stays in the popup.
 - The icons the package does not compile in are registered from `@gjsify/adwaita-icons`
   (`src/ui/icons.ts`, loaded by `ui.js` only). `ui.js` grew by about 12 KB.
-- Gaps met in `@gjsify/adwaita-web` 0.52.0 are listed in AGENTS.md: `<adw-switch-row>` has no
+- Gaps met in `@gjsify/adwaita-web` are listed in AGENTS.md: `<adw-switch-row>` has no
   prefix slot, `<adw-toggle>` no tooltip, `<gtk-popover>` no non-menu role, and the compact
   status page is too large for an empty list in a popup.

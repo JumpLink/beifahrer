@@ -8,7 +8,7 @@
  */
 
 import { browser } from '@wxt-dev/browser';
-import { adwaitaAccentBgColor, adwaitaAccentColor } from '@gjsify/adwaita-core';
+import { adwaitaAccentBgColor } from '@gjsify/adwaita-core';
 import { chooseAccent, parseDesktop, type AccentChoice } from '@beifahrer/core';
 
 export const ACCENT_KEY = 'desktopAccent';
@@ -39,20 +39,18 @@ export async function loadAccentChoice(): Promise<AccentChoice> {
 }
 
 /**
- * The fill (`--accent-bg-color`) and the standalone colour (`--accent-color`) for a choice.
+ * The accent FILL (`--accent-bg-color`) for a choice.
  *
- * gjsify gap (unfixed, gjsify#1821): adwaita-web has no way to follow the browser's
- * `AccentColor`, so the `system` branch is a local shim. It derives the standalone colour the way
- * libadwaita's stylesheet does (OkLab L clamped to 0.5 on light, 0.85 on dark), where the engine
- * supports relative colours, and uses the fill unchanged where it does not. Delete it once
- * adwaita-web can do this itself.
+ * `system` is the engine's own `AccentColor` keyword, passed through: this module is bundled into
+ * the CONTENT SCRIPT (the in-page pill, `page-indicator.ts`), which cannot ask adwaita-web to
+ * follow the system colour — `applySystemAccent` writes `document.documentElement` of the page
+ * beifahrer is reading, and it lives in adwaita-web, whose import registers every element and
+ * inlines the stylesheet. The three extension PAGES do follow it, through adwaita-web's own
+ * `applySystemAccent` (`ui/accent.ts`); this is the pill, a few pixels in a closed shadow root,
+ * where the keyword is the whole answer.
  */
-export function accentColors(choice: AccentChoice, dark: boolean): { bg: string; fg: string } {
-  if (choice.from !== 'system') {
-    return { bg: adwaitaAccentBgColor(choice.name), fg: adwaitaAccentColor(choice.name, dark) };
-  }
-  const derived = `oklab(from AccentColor ${dark ? 'max(l, 0.85)' : 'min(l, 0.5)'} a b)`;
-  return { bg: 'AccentColor', fg: CSS.supports('color', derived) ? derived : 'AccentColor' };
+export function accentFill(choice: AccentChoice): string {
+  return choice.from === 'system' ? 'AccentColor' : adwaitaAccentBgColor(choice.name);
 }
 
 /**

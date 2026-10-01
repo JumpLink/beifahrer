@@ -10,7 +10,8 @@
  * accent: the extension then falls back on its own.
  */
 
-import { parseDesktop, type DesktopAccent, type DesktopInfo } from '@beifahrer/core';
+import { onMacosAccentColorChanged, readMacosAccentColor } from '@gjsify/adwaita-app/system-accent';
+import { parseDesktop, type DesktopInfo } from '@beifahrer/core';
 
 /** Where the raw setting comes from. A fake in the tests, GSettings on GNOME. */
 export interface AccentSource {
@@ -56,100 +57,23 @@ export function gnomeAccentSource(): AccentSource | null {
   };
 }
 
-// fixed upstream in gjsify: `adwAccentFromAppleAccentColor` (@gjsify/adwaita-core) and
-// `readMacosAccentColor` + `onMacosAccentColorChanged` (@gjsify/adwaita-app/system-accent).
-// Replace the three below with those once the app is on a gjsify release that ships them.
-
 /**
- * `AppleAccentColor` → the libadwaita accent of the same name; graphite (-1) is slate. `null` means
- * the key is absent, "Multicolor", where apps keep their own accent: Adwaita's own is blue. Any
- * value macOS does not define gives null.
- */
-export function adwAccentFromAppleAccentColor(value: string | null): DesktopAccent | null {
-  if (value === null) return 'blue';
-  const text = value.trim();
-  if (!/^-?\d+$/.test(text)) return null;
-  return APPLE_ACCENTS[Number(text)] ?? null;
-}
-
-const APPLE_ACCENTS: Readonly<Record<number, DesktopAccent>> = {
-  [-1]: 'slate',
-  0: 'red',
-  1: 'orange',
-  2: 'yellow',
-  3: 'green',
-  4: 'blue',
-  5: 'purple',
-  6: 'pink',
-};
-
-/** `defaults read -g AppleAccentColor`; what `defaults` says on stderr when the key is not set. */
-const APPLE_ACCENT_ARGV = ['defaults', 'read', '-g', 'AppleAccentColor'];
-const KEY_ABSENT = /Could not find key|does not exist/;
-
-/** Seconds between two reads of the macOS accent. */
-export const MACOS_POLL_SECONDS = 5;
-
-/** The bits of GJS's Gio and GLib the macOS source uses, typed by hand like `GioLike`. */
-interface MacGi {
-  Gio: {
-    Subprocess: {
-      // A property, not `new (…)`: in a type literal that would be a construct signature.
-      new: (
-        argv: string[],
-        flags: number,
-      ) => {
-        communicate_utf8(stdin: null, cancellable: null): [boolean, string | null, string | null];
-        get_successful(): boolean;
-      };
-    };
-    SubprocessFlags: { STDOUT_PIPE: number; STDERR_PIPE: number };
-  };
-  GLib: {
-    PRIORITY_LOW: number;
-    SOURCE_CONTINUE: boolean;
-    timeout_add_seconds(priority: number, interval: number, fn: () => boolean): number;
-    source_remove(id: number): boolean;
-  };
-}
-
-/**
- * The macOS system accent on GJS, or null without GJS. There is no change signal GI can reach
- * (macOS posts a distributed notification only AppKit observes), so `watch` re-reads every
- * {@link MACOS_POLL_SECONDS}: one `defaults` process, about 7 ms. The bridge drops an unchanged
- * accent itself (`setDesktop`), so a tick that finds the same one sends nothing.
+ * The macOS system accent on GJS, or null without GJS. Reading and watching are gjsify's
+ * (`@gjsify/adwaita-app/system-accent`, gjsify#1832): the mapping from `AppleAccentColor` to
+ * libadwaita's nine names is `@gjsify/adwaita-core`'s, so there is no table here. There is no
+ * change signal GI can reach, so it re-reads every few seconds — one `defaults` process, about
+ * 7 ms. The bridge drops an unchanged accent itself (`setDesktop`), so a tick that finds the same
+ * one sends nothing.
+ *
+ * `imports.gi` rather than a plain `import Gio from 'gi://Gio'` is the GJS check, not a workaround:
+ * the same bundle source also runs on Node, where there is no system accent to read.
  */
 export function macosAccentSource(): AccentSource | null {
-  const gi = (globalThis as { imports?: { gi?: Partial<MacGi> } }).imports?.gi;
-  if (!gi?.Gio || !gi.GLib) return null;
-  const { Gio, GLib } = gi as MacGi;
+  const gi = (globalThis as { imports?: { gi?: { Gio?: unknown } } }).imports?.gi;
+  if (!gi?.Gio) return null;
   return {
-    read() {
-      let ok: boolean;
-      let stdout: string | null;
-      let stderr: string | null;
-      try {
-        const child = Gio.Subprocess.new(
-          APPLE_ACCENT_ARGV,
-          Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE,
-        );
-        [, stdout, stderr] = child.communicate_utf8(null, null);
-        ok = child.get_successful();
-      } catch {
-        // Spawning throws where there is no `defaults`, communicating on an I/O error: either
-        // way there is no accent to follow, which the extension handles as "unknown".
-        return null;
-      }
-      if (ok) return adwAccentFromAppleAccentColor(stdout ?? '');
-      return KEY_ABSENT.test(stderr ?? '') ? adwAccentFromAppleAccentColor(null) : null;
-    },
-    watch(changed) {
-      const id = GLib.timeout_add_seconds(GLib.PRIORITY_LOW, MACOS_POLL_SECONDS, () => {
-        changed();
-        return GLib.SOURCE_CONTINUE;
-      });
-      return () => GLib.source_remove(id);
-    },
+    read: () => readMacosAccentColor(),
+    watch: (changed) => onMacosAccentColorChanged(changed),
   };
 }
 

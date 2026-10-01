@@ -5,7 +5,7 @@
  */
 
 :root:root {
-  /* gjsify gap (unfixed, @gjsify/adwaita-web 0.52.0): the font stack has no macOS face.
+  /* gjsify gap (unfixed, @gjsify/adwaita-web 0.53.0): the font stack has no macOS face.
      Doubled so it outranks the package's own `:root`, which is injected after this file.
      The package ships no font on purpose (GNOME has Adwaita Sans installed). Its stack names
      'Segoe UI' for Windows but nothing for macOS, which would fall through to Helvetica:
@@ -27,7 +27,7 @@ adw-preferences-group.empty .adw-preferences-group-listbox {
   display: none;
 }
 
-/* gjsify gap (unfixed, @gjsify/adwaita-web 0.52.0): row titles and subtitles are
+/* gjsify gap (unfixed, @gjsify/adwaita-web 0.53.0): row titles and subtitles are
    `white-space: nowrap` with an ellipsis, and the rows have no `title-lines` / `subtitle-lines`.
    libadwaita's default for both is 0, "no limit": the text wraps. Without this the popup cut the
    pause switch's explanation off mid-sentence. Remove once the package wraps by default. */
