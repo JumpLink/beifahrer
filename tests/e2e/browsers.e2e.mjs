@@ -16,8 +16,10 @@
  *
  * Needs: the app bundle (`gjsify workspace beifahrer-cli build`), a Chromium that still loads
  * unpacked extensions (Chrome for Testing / Playwright's build — branded Chrome ≥ 137 does not)
- * via $BEIFAHRER_E2E_CHROMIUM or ~/.cache/ms-playwright, and Firefox via $BEIFAHRER_E2E_FIREFOX
- * or `firefox` on PATH. Both run headless with a throw-away profile — never the person's own.
+ * via $BEIFAHRER_E2E_CHROMIUM or Playwright's browser cache for this platform, and Firefox via
+ * $BEIFAHRER_E2E_FIREFOX, the platform's own install, or `firefox` on PATH. Both paths are
+ * resolved by extension/scripts/platform.ts. Both browsers run headless with a throw-away
+ * profile — never the person's own.
  *
  * The fixture page lives on 127.0.0.1 and is allowed (write, no confirmation — except in the
  * `confirm` build, which leaves the confirmation on and answers the window as the person does); the
@@ -26,22 +28,16 @@
  */
 
 import { spawn, execFileSync } from 'node:child_process';
-import {
-  createWriteStream,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-  existsSync,
-} from 'node:fs';
+import { createWriteStream, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { WebSocketServer } from 'ws';
+import { configDir } from '../../app/src/config-dir.ts';
+import { chromiumBinary, firefoxBinary, localBin } from '../../extension/scripts/platform.ts';
 import { chromiumPages, firefoxPages } from './ui-pages.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -350,28 +346,15 @@ async function tool(client, name, args = {}) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function findChromium() {
-  if (process.env.BEIFAHRER_E2E_CHROMIUM) return process.env.BEIFAHRER_E2E_CHROMIUM;
-  const base = join(homedir(), '.cache/ms-playwright');
-  const dirs = existsSync(base)
-    ? readdirSync(base)
-        .filter((d) => /^chromium-\d+$/.test(d))
-        .sort()
-    : [];
-  for (const d of dirs.reverse()) {
-    const bin = join(base, d, 'chrome-linux64', 'chrome');
-    if (existsSync(bin)) return bin;
-  }
-  return null;
-}
-
 function buildExtension(seed) {
   // The extension builds on GJS (scripts/build.ts); the seed makes it an E2E build in .output-e2e/.
   const env = { ...process.env, BEIFAHRER_E2E_SEED: JSON.stringify(seed) };
-  execFileSync(join(ROOT, 'node_modules/.bin/gjsify'), ['run', 'build'], {
+  const gjsify = localBin('gjsify', ROOT);
+  execFileSync(gjsify.command, ['run', 'build'], {
     cwd: join(ROOT, 'extension'),
     env,
     stdio: 'ignore',
+    shell: gjsify.shell,
   });
 }
 
@@ -381,6 +364,33 @@ function buildExtension(seed) {
  * fail on the machine rather than on the code.
  */
 const BROWSER_ERROR = /JavaScript error|ERROR:CONSOLE|Uncaught \(in promise\)|Uncaught \w*Error/;
+
+/**
+ * Stop a browser and everything it started.
+ *
+ * Firefox is spawned `detached`, so `-pid` is a POSIX process-GROUP id and one signal reaches the
+ * whole group; Chromium is not detached, so only its own pid is signalled. That distinction is
+ * POSIX semantics: a negative pid is not a process group on Windows, and there `taskkill /t` walks
+ * the parent/child tree instead.
+ *
+ * Fail-safe by design: a browser that is already gone (the common case, `sleep` races and all) or
+ * a `taskkill` that cannot start must not take the run with it — hence no `await`, no `throw`,
+ * and the swallowed exit status. Every call site is a `finally` block whose next statement deletes
+ * the profile.
+ */
+function killBrowser(proc, group) {
+  try {
+    if (process.platform === 'win32') {
+      // /t = the child processes, /f = no grace period. Spawned, not awaited: a failing taskkill
+      // reports through its exit code, and nothing here may throw into a `finally`.
+      spawn('taskkill', ['/pid', String(proc.pid), '/t', '/f'], { stdio: 'ignore', windowsHide: true });
+      return;
+    }
+    process.kill(group ? -proc.pid : proc.pid, 'SIGTERM');
+  } catch {
+    /* already gone */
+  }
+}
 
 /**
  * The error lines a browser process printed, in memory. Some checks have nothing else to look at —
@@ -409,7 +419,7 @@ function captureOutput(proc) {
 function launch(browser, profile) {
   const url = `${ALLOWED}/fixture`;
   if (browser === 'chromium') {
-    const bin = findChromium();
+    const bin = chromiumBinary();
     if (!bin) throw new Error('no Chromium that loads unpacked extensions — set BEIFAHRER_E2E_CHROMIUM');
     const ext = join(ROOT, 'extension/.output-e2e/chrome-mv3');
     const proc = spawn(
@@ -442,9 +452,10 @@ function launch(browser, profile) {
     captureOutput(proc);
     return proc;
   }
-  const firefox = process.env.BEIFAHRER_E2E_FIREFOX ?? 'firefox';
+  const firefox = firefoxBinary();
+  const webExt = localBin('web-ext', ROOT);
   const started = spawn(
-    join(ROOT, 'node_modules/.bin/web-ext'),
+    webExt.command,
     [
       'run',
       '--source-dir',
@@ -464,16 +475,35 @@ function launch(browser, profile) {
       '--start-url',
       `${FORBIDDEN}/fixture`,
     ],
-    { stdio: ['ignore', 'pipe', 'pipe'], detached: true },
+    { stdio: ['ignore', 'pipe', 'pipe'], detached: true, shell: webExt.shell },
   );
   captureOutput(started);
   return started;
 }
 
+/**
+ * The `XDG_CONFIG_HOME` a run hands to the app, so a person's own recipes stay out of it.
+ *
+ * Asked of the app's own `configDir()` rather than spelled out here, which is the whole point: the
+ * driver and the bridge resolve the config directory through the same function, so a change to one
+ * cannot silently stop applying to the other. With `$XDG_CONFIG_HOME` set it wins on every
+ * platform, and the assertion keeps that true.
+ */
+function throwawayConfigHome(tokenFile) {
+  const home = join(dirname(tokenFile), 'config');
+  if (!configDir({ XDG_CONFIG_HOME: home }).startsWith(home)) {
+    throw new Error(`the app would read its config outside the throw-away profile (${home})`);
+  }
+  return home;
+}
+
 /** Start one `beifahrer mcp` over stdio, as an agent session would. */
 async function startMcp(tokenFile, logName, env = {}) {
   const transport = new StdioClientTransport({
-    command: join(ROOT, 'node_modules/.bin/gjsify'),
+    // The SDK spawns through `cross-spawn` with `shell: false` fixed, and cross-spawn is what
+    // resolves a `node_modules/.bin` shim on Windows (it re-runs a `.cmd` through cmd.exe) — so
+    // here only the FILE NAME may be corrected; no `shell` option exists to pass.
+    command: localBin('gjsify', ROOT).command,
     args: [
       'run',
       join(ROOT, 'app/dist/beifahrer.gjs.mjs'),
@@ -485,11 +515,13 @@ async function startMcp(tokenFile, logName, env = {}) {
       '--allow-write',
     ],
     // Recipes from the test's own directory; XDG_CONFIG_HOME inside the throw-away profile so the
-    // person's own ~/.config/beifahrer/recipes never takes part.
+    // person's own recipes never take part. It is the ONE variable the app's configDir() honours on
+    // every platform (app/src/config-dir.ts), so this fake is enough on all of them — and the
+    // assertion below is what makes "enough" checked rather than assumed.
     env: {
       ...process.env,
       BEIFAHRER_TOKEN_FILE: tokenFile,
-      XDG_CONFIG_HOME: join(dirname(tokenFile), 'config'),
+      XDG_CONFIG_HOME: throwawayConfigHome(tokenFile),
       BEIFAHRER_RECIPES: writeRecipeDir(dirname(tokenFile)),
       BEIFAHRER_DESKTOP_ACCENT: DESKTOP_ACCENT,
       ...env,
@@ -524,8 +556,9 @@ const tabsOk = (r) => !r.error && JSON.parse(r.text).tabs.some((t) => t.url?.sta
 /** `beifahrer tool <name>` as a separate process: binds its own port and waits for the browser. */
 function runTool(tokenFile, name, args = {}) {
   return new Promise((resolveRun) => {
+    const gjsify = localBin('gjsify', ROOT);
     const child = spawn(
-      join(ROOT, 'node_modules/.bin/gjsify'),
+      gjsify.command,
       [
         'run',
         join(ROOT, 'app/dist/beifahrer.gjs.mjs'),
@@ -542,6 +575,7 @@ function runTool(tokenFile, name, args = {}) {
       {
         env: { ...process.env, BEIFAHRER_TOKEN_FILE: tokenFile, BEIFAHRER_DESKTOP_ACCENT: DESKTOP_ACCENT },
         stdio: ['ignore', 'pipe', 'pipe'],
+        shell: gjsify.shell,
       },
     );
     let out = '';
@@ -712,11 +746,7 @@ async function multiSession(browser) {
   } finally {
     for (const s of sessions) await s.client.close().catch(() => undefined);
     old.server.close();
-    try {
-      process.kill(browser === 'firefox' ? -proc.pid : proc.pid, 'SIGTERM');
-    } catch {
-      /* already gone */
-    }
+    killBrowser(proc, browser === 'firefox');
     await sleep(1500);
     rmSync(profile, { recursive: true, force: true });
   }
@@ -809,11 +839,7 @@ async function accessScenario(browser) {
     );
   } finally {
     await a.client.close().catch(() => undefined);
-    try {
-      process.kill(browser === 'firefox' ? -proc.pid : proc.pid, 'SIGTERM');
-    } catch {
-      /* already gone */
-    }
+    killBrowser(proc, browser === 'firefox');
     await sleep(1500);
     rmSync(profile, { recursive: true, force: true });
   }
@@ -940,11 +966,7 @@ async function confirmScenario(browser) {
     );
   } finally {
     await a.client.close().catch(() => undefined);
-    try {
-      process.kill(browser === 'firefox' ? -proc.pid : proc.pid, 'SIGTERM');
-    } catch {
-      /* already gone */
-    }
+    killBrowser(proc, browser === 'firefox');
     await sleep(1500);
     rmSync(profile, { recursive: true, force: true });
   }
@@ -2937,11 +2959,7 @@ async function scenario(browser, gate) {
     await tabManagement(browser, client, forbidden);
   } finally {
     await client.close().catch(() => undefined);
-    try {
-      process.kill(browser === 'firefox' ? -proc.pid : proc.pid, 'SIGTERM');
-    } catch {
-      /* already gone */
-    }
+    killBrowser(proc, browser === 'firefox');
     await sleep(1500);
     rmSync(profile, { recursive: true, force: true });
   }

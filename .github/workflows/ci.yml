@@ -85,3 +85,76 @@ jobs:
         with:
           name: extension-zips
           path: extension/.output/*.zip
+
+  # The Node-hosted half of the checks on a Windows host, and nothing else — read the scope before
+  # reading a green tick as "the project works on Windows". It does not.
+  #
+  # THERE IS NO GJS HOST ON WINDOWS. gjsify's own platform-support statement says so, and its
+  # `windows-suites.yml` runs the NODE leg of each package's suite for exactly that reason. Three
+  # of this project's steps above are therefore absent here, not skipped for convenience:
+  # `gjsify foreach -A check` type-checks through `gjsify tsc`, whose GJS bundle it prefers and
+  # which only falls back to Node's tsc as a degraded path; `gjsify workspace beifahrer-cli test`
+  # runs its suite under GJS as one of the two declared runtimes, and the bridge serves WebSockets
+  # through libsoup (@gjsify/ws → Soup.Server), which has no Windows build; and the extension build
+  # renders icons through GdkPixbuf/librsvg. So the e2e and the unit suite CANNOT run on Windows
+  # today — that is a platform fact about the toolchain, not something a CI job could fix, and this
+  # job does not pretend otherwise. `gjsify foreach -A lint` is left out for a second, smaller
+  # reason: it is oxlint under Node and would very likely work, but "very likely" on a host nobody
+  # has run is a guess, and the honest form of that is a step that does not exist yet.
+  #
+  # WHAT IS HERE is what genuinely needs only Node: install the tree, lint tests/, format-check the
+  # tree, and parse-check the e2e driver. The last one is the point of this job — it is the file
+  # that carries every platform assumption the driver makes, and `node --check` is all that stands
+  # between a typo there and a suite that cannot even start.
+  windows-node-checks:
+    runs-on: windows-latest
+    # A Windows runner's default shell is PowerShell, where `$(…)` is not command substitution — the
+    # bootstrap below would fail with "is not recognized as a name of a cmdlet". Git Bash ships with
+    # the runner, so ask for it by name rather than rewriting the steps in PowerShell: the point of
+    # this job is that the SAME commands run on every platform, not that each one is spelled twice.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # Measured, not assumed: a Windows runner's git checks out CRLF (core.autocrlf=true) while the
+      # repository and oxfmt both use LF, so `--check` reported all 120 files — the whole repo. That
+      # is a property of the checkout, not a formatting defect. Dropping the format check here would
+      # have hidden it; asking git for the repository's own line endings keeps the check meaning what
+      # it means on Linux. Before `actions/checkout`, which builds a fresh repo the global config
+      # therefore reaches.
+      - name: Keep the repository's line endings
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+
+      # Node 24 here for the same reason as the Linux job: gjsify's native prebuilds target it.
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      # Same bootstrap as the Linux job, read from app/package.json so the two cannot drift. No
+      # tarball cache step: that cache lives under ~/.cache/gjsify, a Linux path, and this job does
+      # not guess where gjsify puts it on Windows.
+      - name: Bootstrap the gjsify CLI
+        run: |
+          VERSION=$(node -p "require('./app/package.json').devDependencies['@gjsify/cli']")
+          echo "Bootstrapping @gjsify/cli@$VERSION (from app/package.json)"
+          npm install -g "@gjsify/cli@$VERSION"
+
+      # npm-based, and the one gjsify step this job depends on. If it cannot install here, that is
+      # a finding to report, not a step to delete.
+      - name: Install dependencies (gjsify install --immutable)
+        run: gjsify install --immutable
+
+      # `node node_modules/<pkg>/bin/…` rather than `node_modules/.bin/…`: on Windows the .bin
+      # entry is a .cmd shim, and the file behind it is the Node host these two tools are anyway.
+      # Same binary, one spelling per platform.
+      - name: Lint tests/
+        run: node node_modules/oxlint/bin/oxlint --deny-warnings tests
+
+      - name: Format check
+        run: node node_modules/oxfmt/bin/oxfmt --check .
+
+      - name: Parse-check the e2e driver
+        run: node --check tests/e2e/browsers.e2e.mjs && node --check tests/e2e/ui-pages.mjs

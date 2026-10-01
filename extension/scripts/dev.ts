@@ -23,6 +23,8 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { chromiumBinary, localBin } from './platform.ts';
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = '.output-dev';
 const PORT = Number(process.env.BEIFAHRER_DEV_PORT) || 47830;
@@ -51,10 +53,14 @@ const env = {
 
 function build(): boolean {
   const started = Date.now();
-  const res = spawnSync('gjsify', ['run', join(ROOT, 'dist/build.gjs.mjs')], {
+  // The bare name the dev script has always used (PATH), not a repo-local path: this runs inside
+  // `gjsify workspace beifahrer-extension dev`, whose CLI is the one already on PATH.
+  const gjsify = localBin('gjsify');
+  const res = spawnSync(gjsify.command, ['run', join(ROOT, 'dist/build.gjs.mjs')], {
     cwd: ROOT,
     env,
     encoding: 'utf8',
+    shell: gjsify.shell,
   });
   if (res.status !== 0) {
     console.error(`✖ build failed:\n${res.stderr || res.stdout}`);
@@ -74,21 +80,6 @@ function newest(path: string): number {
   return max;
 }
 const stamp = () => Math.max(...WATCH.map(newest));
-
-function chromiumBinary(): string | undefined {
-  if (process.env.BEIFAHRER_E2E_CHROMIUM) return process.env.BEIFAHRER_E2E_CHROMIUM;
-  const base = join(homedir(), '.cache/ms-playwright');
-  if (!existsSync(base)) return undefined;
-  const dirs = readdirSync(base)
-    .filter((d) => /^chromium-\d+$/.test(d))
-    .sort()
-    .reverse();
-  for (const d of dirs) {
-    const bin = join(base, d, 'chrome-linux64', 'chrome');
-    if (existsSync(bin)) return bin;
-  }
-  return undefined;
-}
 
 function launch(): ChildProcess {
   const target = chromium ? 'chrome-mv3' : 'firefox-mv2';
@@ -112,7 +103,8 @@ function launch(): ChildProcess {
   console.log(
     `▶ ${chromium ? 'Chromium' : 'Firefox'} with the dev build (profile ${profile}, bridge ports from ${PORT})`,
   );
-  return spawn(join(ROOT, '../node_modules/.bin/web-ext'), args, { cwd: ROOT, stdio: 'inherit' });
+  const webExt = localBin('web-ext', resolve(ROOT, '..'));
+  return spawn(webExt.command, args, { cwd: ROOT, stdio: 'inherit', shell: webExt.shell });
 }
 
 if (!build()) process.exit(1);
