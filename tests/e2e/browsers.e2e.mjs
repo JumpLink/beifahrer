@@ -36,6 +36,7 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { WebSocketServer } from 'ws';
+import { configDir } from '../../app/src/config-dir.ts';
 import { chromiumBinary, firefoxBinary, localBin } from '../../extension/scripts/platform.ts';
 import { chromiumPages, firefoxPages } from './ui-pages.mjs';
 
@@ -480,6 +481,22 @@ function launch(browser, profile) {
   return started;
 }
 
+/**
+ * The `XDG_CONFIG_HOME` a run hands to the app, so a person's own recipes stay out of it.
+ *
+ * Asked of the app's own `configDir()` rather than spelled out here, which is the whole point: the
+ * driver and the bridge resolve the config directory through the same function, so a change to one
+ * cannot silently stop applying to the other. With `$XDG_CONFIG_HOME` set it wins on every
+ * platform, and the assertion keeps that true.
+ */
+function throwawayConfigHome(tokenFile) {
+  const home = join(dirname(tokenFile), 'config');
+  if (!configDir({ XDG_CONFIG_HOME: home }).startsWith(home)) {
+    throw new Error(`the app would read its config outside the throw-away profile (${home})`);
+  }
+  return home;
+}
+
 /** Start one `beifahrer mcp` over stdio, as an agent session would. */
 async function startMcp(tokenFile, logName, env = {}) {
   const transport = new StdioClientTransport({
@@ -498,11 +515,13 @@ async function startMcp(tokenFile, logName, env = {}) {
       '--allow-write',
     ],
     // Recipes from the test's own directory; XDG_CONFIG_HOME inside the throw-away profile so the
-    // person's own ~/.config/beifahrer/recipes never takes part.
+    // person's own recipes never take part. It is the ONE variable the app's configDir() honours on
+    // every platform (app/src/config-dir.ts), so this fake is enough on all of them — and the
+    // assertion below is what makes "enough" checked rather than assumed.
     env: {
       ...process.env,
       BEIFAHRER_TOKEN_FILE: tokenFile,
-      XDG_CONFIG_HOME: join(dirname(tokenFile), 'config'),
+      XDG_CONFIG_HOME: throwawayConfigHome(tokenFile),
       BEIFAHRER_RECIPES: writeRecipeDir(dirname(tokenFile)),
       BEIFAHRER_DESKTOP_ACCENT: DESKTOP_ACCENT,
       ...env,

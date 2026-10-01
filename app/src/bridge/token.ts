@@ -2,20 +2,21 @@
  * The pairing token: a random secret the bridge keeps in the person's config directory and the
  * person pastes into the extension once.
  *
- * It lives OUTSIDE the repository, in `$XDG_CONFIG_HOME/beifahrer/token`, readable by the owner
- * only. It is not a credential for anything else — losing it costs one re-pairing (`beifahrer
- * token --rotate`) — so it is regenerable, not precious.
+ * It lives OUTSIDE the repository, in the person's config directory (`$XDG_CONFIG_HOME/beifahrer`
+ * when that is set, else the platform's own convention — `configDir()` in ../config-dir.ts),
+ * readable by the owner only. It is not a credential for anything else — losing it costs one
+ * re-pairing (`beifahrer token --rotate`) — so it is regenerable, not precious.
  */
 
 import { randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+
+import { configDir } from '../config-dir.ts';
 
 export function tokenPath(env: NodeJS.ProcessEnv = process.env): string {
   if (env.BEIFAHRER_TOKEN_FILE) return env.BEIFAHRER_TOKEN_FILE;
-  const base = env.XDG_CONFIG_HOME || join(homedir(), '.config');
-  return join(base, 'beifahrer', 'token');
+  return join(configDir(env), 'token');
 }
 
 export function newToken(): string {

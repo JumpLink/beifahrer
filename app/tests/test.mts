@@ -23,6 +23,7 @@ import refs from './unit/core/refs.test.ts';
 import toolbar from './unit/core/toolbar.test.ts';
 import shortcut from './unit/core/shortcut.test.ts';
 import bridge from './unit/bridge/bridge.test.ts';
+import configDir from './unit/bridge/config-dir.test.ts';
 import bridgeDesktop from './unit/bridge/desktop.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
 import mcpTools from './unit/mcp/tools.test.ts';
@@ -52,6 +53,7 @@ run({
   shortcut,
   bridge,
   bridgeDesktop,
+  configDir,
   mcpGate,
   mcpTools,
   mcpOutput,
