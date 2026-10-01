@@ -116,6 +116,15 @@ jobs:
       run:
         shell: bash
     steps:
+      # Measured, not assumed: a Windows runner's git checks out CRLF (core.autocrlf=true) while the
+      # repository and oxfmt both use LF, so `--check` reported all 120 files — the whole repo. That
+      # is a property of the checkout, not a formatting defect. Dropping the format check here would
+      # have hidden it; asking git for the repository's own line endings keeps the check meaning what
+      # it means on Linux. Before `actions/checkout`, which builds a fresh repo the global config
+      # therefore reaches.
+      - name: Keep the repository's line endings
+        run: git config --global core.autocrlf false
+
       - uses: actions/checkout@v4
 
       # Node 24 here for the same reason as the Linux job: gjsify's native prebuilds target it.
