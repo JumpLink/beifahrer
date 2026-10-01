@@ -16,8 +16,10 @@
  *
  * Needs: the app bundle (`gjsify workspace beifahrer-cli build`), a Chromium that still loads
  * unpacked extensions (Chrome for Testing / Playwright's build — branded Chrome ≥ 137 does not)
- * via $BEIFAHRER_E2E_CHROMIUM or ~/.cache/ms-playwright, and Firefox via $BEIFAHRER_E2E_FIREFOX
- * or `firefox` on PATH. Both run headless with a throw-away profile — never the person's own.
+ * via $BEIFAHRER_E2E_CHROMIUM or Playwright's browser cache for this platform, and Firefox via
+ * $BEIFAHRER_E2E_FIREFOX, the platform's own install, or `firefox` on PATH. Both paths are
+ * resolved by extension/scripts/platform.ts. Both browsers run headless with a throw-away
+ * profile — never the person's own.
  *
  * The fixture page lives on 127.0.0.1 and is allowed (write, no confirmation — except in the
  * `confirm` build, which leaves the confirmation on and answers the window as the person does); the
@@ -26,22 +28,15 @@
  */
 
 import { spawn, execFileSync } from 'node:child_process';
-import {
-  createWriteStream,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-  existsSync,
-} from 'node:fs';
+import { createWriteStream, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { WebSocketServer } from 'ws';
+import { chromiumBinary, firefoxBinary } from '../../extension/scripts/platform.ts';
 import { chromiumPages, firefoxPages } from './ui-pages.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -350,21 +345,6 @@ async function tool(client, name, args = {}) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function findChromium() {
-  if (process.env.BEIFAHRER_E2E_CHROMIUM) return process.env.BEIFAHRER_E2E_CHROMIUM;
-  const base = join(homedir(), '.cache/ms-playwright');
-  const dirs = existsSync(base)
-    ? readdirSync(base)
-        .filter((d) => /^chromium-\d+$/.test(d))
-        .sort()
-    : [];
-  for (const d of dirs.reverse()) {
-    const bin = join(base, d, 'chrome-linux64', 'chrome');
-    if (existsSync(bin)) return bin;
-  }
-  return null;
-}
-
 function buildExtension(seed) {
   // The extension builds on GJS (scripts/build.ts); the seed makes it an E2E build in .output-e2e/.
   const env = { ...process.env, BEIFAHRER_E2E_SEED: JSON.stringify(seed) };
@@ -409,7 +389,7 @@ function captureOutput(proc) {
 function launch(browser, profile) {
   const url = `${ALLOWED}/fixture`;
   if (browser === 'chromium') {
-    const bin = findChromium();
+    const bin = chromiumBinary();
     if (!bin) throw new Error('no Chromium that loads unpacked extensions — set BEIFAHRER_E2E_CHROMIUM');
     const ext = join(ROOT, 'extension/.output-e2e/chrome-mv3');
     const proc = spawn(
@@ -442,7 +422,7 @@ function launch(browser, profile) {
     captureOutput(proc);
     return proc;
   }
-  const firefox = process.env.BEIFAHRER_E2E_FIREFOX ?? 'firefox';
+  const firefox = firefoxBinary();
   const started = spawn(
     join(ROOT, 'node_modules/.bin/web-ext'),
     [

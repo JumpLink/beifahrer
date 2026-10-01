@@ -23,6 +23,8 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { chromiumBinary } from './platform.ts';
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = '.output-dev';
 const PORT = Number(process.env.BEIFAHRER_DEV_PORT) || 47830;
@@ -74,21 +76,6 @@ function newest(path: string): number {
   return max;
 }
 const stamp = () => Math.max(...WATCH.map(newest));
-
-function chromiumBinary(): string | undefined {
-  if (process.env.BEIFAHRER_E2E_CHROMIUM) return process.env.BEIFAHRER_E2E_CHROMIUM;
-  const base = join(homedir(), '.cache/ms-playwright');
-  if (!existsSync(base)) return undefined;
-  const dirs = readdirSync(base)
-    .filter((d) => /^chromium-\d+$/.test(d))
-    .sort()
-    .reverse();
-  for (const d of dirs) {
-    const bin = join(base, d, 'chrome-linux64', 'chrome');
-    if (existsSync(bin)) return bin;
-  }
-  return undefined;
-}
 
 function launch(): ChildProcess {
   const target = chromium ? 'chrome-mv3' : 'firefox-mv2';
