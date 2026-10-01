@@ -13,6 +13,13 @@ like postbote and troedler. Together they let an agent use the person's *own* br
 per-site policy the person sets in that browser. Why it exists and what else was considered:
 [ADR 0001](docs/adr/0001-a-browser-extension-not-a-driven-browser.md).
 
+**Linux ships GJS; any host with Node 24 can run the bridge.** GJS stays the default because the
+Linux releases are built and tested there, but the bridge needs no GJS of its own: the e2e runs the
+whole chain with the bridge started by plain `node` under `BEIFAHRER_E2E_BRIDGE=node`. Each runtime
+needs its own bundle (`build` → `beifahrer.gjs.mjs`, `build:node` → `beifahrer.node.mjs`), because
+the GJS bundle imports `gi://` and Node's ESM loader refuses that scheme — a build difference, not a
+source one.
+
 ## Leitplanken (hard rules)
 
 These are not style. Removing one silently changes what this project *is*.
@@ -126,7 +133,7 @@ descriptions and wire error messages are never translated. A new method needs `m
 | `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`, `tool`. The bridge (`src/bridge/`: `bridge.ts`, one per session, `session.ts` port range + session label), MCP tools, recipe runner + sources (`src/recipes/`) | GJS (bundled by gjsify); tests also on Node |
 | `extension/` | background, page agent (+ its pill, `src/page-indicator.ts`), popup, options, confirm window (on `@gjsify/adwaita-web`, shared `src/ui/kit.ts` → `ui.js`), `_locales/` (en default, de); `manifest.ts` + `scripts/build.ts` (runs on GJS; `scripts/icons.ts` renders the sparkles icons from `icons/sparkles.svg`) build both targets | browser (build: GJS + GdkPixbuf/librsvg) |
 | `recipes/` | Built-in recipes (JSON), bundled into the app via `app/src/recipes/builtin.ts` | data |
-| `tests/e2e/` | Full chain in headless Chromium + Firefox | Node driver, GJS app |
+| `tests/e2e/` | Full chain in headless Chromium + Firefox | Node driver; bridge on GJS, or on Node (`BEIFAHRER_E2E_BRIDGE=node`) |
 | `probes/epiphany/` | The probe that measured Epiphany (ADR 0001 § 3). Re-run it before claiming support | Epiphany |
 
 ## Commands
@@ -139,6 +146,7 @@ gjsify workspace beifahrer-extension build      # both browser builds
 gjsify foreach -A check && gjsify foreach -A lint
 node_modules/.bin/oxfmt --check .                # not `gjsify format`: under GJS it skips HTML
 node tests/e2e/browsers.e2e.mjs all             # chromium + firefox, each also with several sessions; needs Playwright's Chromium + firefox
+BEIFAHRER_E2E_BRIDGE=node node tests/e2e/browsers.e2e.mjs all   # the same chain, bridge on Node (needs build:node)
 ```
 
 The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144). Launch
