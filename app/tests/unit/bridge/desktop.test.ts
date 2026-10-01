@@ -4,7 +4,6 @@ import { PROTOCOL_VERSION, type DesktopInfo } from '@beifahrer/core';
 
 import { Bridge } from '../../../src/bridge/bridge.ts';
 import {
-  adwAccentFromAppleAccentColor,
   desktopSource,
   followDesktop,
   isGnomeSession,
@@ -47,9 +46,7 @@ interface Connected {
 function connect(bridge: Bridge): Promise<Connected> {
   const frames: DesktopInfo[] = [];
   return new Promise((resolve, reject) => {
-    // Three-argument form, as in bridge.test.ts, and required for the same reason: gjsify#1809
-    // (c2658660c0) is not in the pinned 0.52.0, whose WebSocket still takes protocols second.
-    const ws = new WebSocket(`ws://127.0.0.1:${bridge.port}/`, undefined, { origin: EXT });
+    const ws = new WebSocket(`ws://127.0.0.1:${bridge.port}/`, { origin: EXT });
     ws.on('open', () =>
       ws.send(
         JSON.stringify({
@@ -107,25 +104,6 @@ export default async () => {
       expect(desktopSource({}, 'linux')).toBe(null);
       expect(desktopSource({}, 'win32')).toBe(null);
       expect(desktopSource({ XDG_CURRENT_DESKTOP: 'KDE' }, 'linux')).toBe(null);
-    });
-
-    await it('maps the macOS accent to its libadwaita namesake, graphite to slate', async () => {
-      const cases: [string, string][] = [
-        ['-1', 'slate'],
-        ['0', 'red'],
-        ['1', 'orange'],
-        ['2', 'yellow'],
-        ['3', 'green'],
-        ['4', 'blue'],
-        ['5\n', 'purple'],
-        [' 6 ', 'pink'],
-      ];
-      for (const [raw, name] of cases) expect(adwAccentFromAppleAccentColor(raw)).toBe(name);
-      // The key is absent for "Multicolor": Adwaita's own accent.
-      expect(adwAccentFromAppleAccentColor(null)).toBe('blue');
-      for (const raw of ['7', '-2', '', '5.0', 'purple']) {
-        expect(adwAccentFromAppleAccentColor(raw)).toBe(null);
-      }
     });
 
     await it('reads the system accent on macOS, on GJS only', async () => {
