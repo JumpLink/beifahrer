@@ -1,11 +1,17 @@
 /**
  * The manifest, per build target. One function instead of a framework config: the two flavours
  * differ in five keys, and spelling those out is shorter than learning which ones a tool converts.
+ *
+ * A target names what to PACKAGE, never what is RUNNING: `chrome-mv3` and `edge-mv3` ship the same
+ * bundle and the same manifest, because Edge is Chromium — one engine, one manifest — and the
+ * family the agent is told about comes from the browser's own user agent at hello
+ * (packages/core/src/browser-family.ts). So a target added here can never leak a new family onto
+ * the wire.
  */
 
-export type Target = 'chrome-mv3' | 'firefox-mv2' | 'safari-mv3';
+export type Target = 'chrome-mv3' | 'edge-mv3' | 'firefox-mv2' | 'safari-mv3';
 
-export const TARGETS: readonly Target[] = ['chrome-mv3', 'firefox-mv2', 'safari-mv3'];
+export const TARGETS: readonly Target[] = ['chrome-mv3', 'edge-mv3', 'firefox-mv2', 'safari-mv3'];
 
 // Host access is OPTIONAL and granted per host, at the moment the person raises a site above
 // `none` in the popup. The browser's own permission prompt therefore mirrors beifahrer's policy: a
@@ -76,7 +82,8 @@ export function manifestFor(
 ): Record<string, unknown> {
   // Safari takes the Chromium flavour: MV3, a service worker, `scripting`. What it lacks
   // (tab groups, the recently-closed list, per-origin optional hosts) is feature-detected at
-  // run time, like on every other engine, rather than trimmed from the manifest.
+  // run time, like on every other engine, rather than trimmed from the manifest. Edge is Chromium,
+  // so it needs no branch of its own: it is the `chrome-mv3` manifest, deliberately and in full.
   const mv3 = target !== 'firefox-mv2';
   // `sessions`: the browser's recently-closed list, so a window closed by mistake comes back.
   // `tabGroups`: naming and colouring tab groups (Chromium; Firefox ≥ 139). Both are used only
