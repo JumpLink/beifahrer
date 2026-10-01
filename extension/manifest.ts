@@ -53,6 +53,12 @@ const API = ['webRequest'];
  * `https://release-assets.githubusercontent.com/…` URL, which is what `update_link` must be). It
  * also means the ASSET must be named without a version — the same reason gjsify publishes
  * `cli.gjs.mjs` rather than `cli-0.52.0.mjs`, so one URL serves every release.
+ *
+ * **`web-ext lint` calls this key an error (MANIFEST_UPDATE_URL), and it is not one.** The rule it
+ * enforces (addons-linter.js:3559) is that a Mozilla-HOSTED add-on may not name its own update
+ * source; an unlisted add-on is self-hosted by definition, and `web-ext sign` never runs the linter
+ * at all (util/manifest.js checks only name, version and id). Lint with `--self-hosted`. Do not
+ * "fix" this by deleting the key: an installed copy keeps whatever URL it was handed.
  */
 export const UPDATE_URL = 'https://github.com/JumpLink/beifahrer/releases/latest/download/updates.json';
 

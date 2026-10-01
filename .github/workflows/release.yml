@@ -40,6 +40,18 @@ jobs:
           gh release create "$TAG" zips/*.zip --title "$TAG" --generate-notes
           gh release view "$TAG" --json assets --jq '.assets[].name'
 
+      # The signed Firefox build and `updates.json` (issue #3), signed from a person's machine and
+      # dropped in as release assets. Deliberately NOT a CI step: it needs AMO's API key, which is a
+      # credential with a quota and a review queue behind it, and a release that silently spends
+      # someone's key is worse than one that waits for them.
+      #
+      #   sh extension/scripts/sign.sh v0.2.0
+      #   gh release upload v0.2.0 extension/.output/signed/*.xpi extension/.output/signed/updates.json
+      #
+      # `updates.json` must keep its exact name — `browser_specific_settings.gecko.update_url` asks
+      # for `releases/latest/download/updates.json`, and Firefox keeps that URL from the INSTALLED
+      # version, so it cannot be moved later.
+
       # -----------------------------------------------------------------------------------------
       # STORE SUBMISSIONS GO HERE, and are deliberately absent: each one needs an account in a
       # store nobody can be created for from CI, plus a secret this repository does not hold and

@@ -391,6 +391,11 @@ else in the build knows the difference.
   put `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` from [your AMO API key page](https://addons.mozilla.org/developers/addon/api/key/)
   into `~/.config/beifahrer/amo.env`, run `gjsify workspace beifahrer-extension sign`, and open
   the `.xpi` from `extension/.output/signed/` in Firefox.
+- **Firefox, to keep up to date:** pass the tag — `gjsify workspace beifahrer-extension sign v0.2.0`
+  — and sign.sh also writes `updates.json`, the file Firefox polls to find a newer build. Attach it
+  to the release **under exactly that name**: the build names its update URL
+  `releases/latest/download/updates.json`, and Firefox keeps the URL from the installed version for
+  good, so it has to stay put and stay version-free.
 
 Pair it:
 

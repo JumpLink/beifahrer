@@ -97,13 +97,19 @@ function sha256(path: string): string {
   return checksum.get_string() as string;
 }
 
+/** The `gecko` block of a manifest — the place an id and an update_url live. */
+interface GeckoBlock {
+  id?: string;
+  update_url?: string;
+}
+
 /** `manifest.json` out of a signed .xpi, which is a zip. */
-function manifestIn(xpi: string): { version: string; gecko?: { id?: string; update_url?: string } } {
+function manifestIn(xpi: string): { version: string; browser_specific_settings?: { gecko?: GeckoBlock } } {
   const entry = unzipSync(readFileSync(xpi))['manifest.json'];
   if (!entry) throw new Error(`${xpi} carries no manifest.json`);
   return JSON.parse(new TextDecoder().decode(entry)) as {
     version: string;
-    gecko?: { id?: string; update_url?: string };
+    browser_specific_settings?: { gecko?: GeckoBlock };
   };
 }
 
@@ -119,13 +125,14 @@ if (isMain) {
     throw new Error('usage: updates-json <signed.xpi> <tag, e.g. v0.1.0>');
   }
   const manifest = manifestIn(xpi);
+  const gecko = manifest.browser_specific_settings?.gecko;
   // Both are refusals rather than corrections: a signed .xpi whose manifest disagrees with this
   // repository was built from something else, and "fixing" the entry would publish an update for a
   // version nobody can install.
-  if (manifest.gecko?.id !== GECKO_ID) {
-    throw new Error(`the signed build carries gecko id ${manifest.gecko?.id}, expected ${GECKO_ID}`);
+  if (gecko?.id !== GECKO_ID) {
+    throw new Error(`the signed build carries gecko id ${gecko?.id}, expected ${GECKO_ID}`);
   }
-  if (manifest.gecko?.update_url !== UPDATE_URL) {
+  if (gecko.update_url !== UPDATE_URL) {
     throw new Error(
       'the signed build carries no matching update_url — manifest.ts and this script must agree',
     );
