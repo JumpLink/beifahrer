@@ -1,0 +1,65 @@
+name: Release
+
+# A tag is a release: `git tag v0.1.0 && git push --tags` builds every target, runs the whole of
+# CI, and hangs the four zips off the tag on GitHub. The build itself is NOT repeated here — the
+# `build` job below calls .github/workflows/ci.yml, so there is exactly one definition of how the
+# toolchain is installed and what "green" means. A release therefore cannot be cut from a commit
+# whose tests, type check or lint did not pass.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: build
+    # Only this job needs the token; the build above needs nothing but the checkout.
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      # The zips are the ones CI already packaged and uploaded as `extension-zips` — the artifact
+      # a person has been downloading from a CI run by hand. Note they are NOT bit-reproducible
+      # yet: fflate stamps the build time into every zip entry and scripts/build.ts collects the
+      # entries in `readdir` order, so two builds of one tag differ. The release is built once and
+      # is the artifact of record; rebuilding it would need `{ mtime: 0 }` plus a sorted collect.
+      - name: Fetch the zips CI built
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-zips
+          path: zips
+
+      - name: Attach the zips to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # `--generate-notes` is GitHub's own, from the previous tag: no note to keep in step here.
+          gh release create "$TAG" zips/*.zip --title "$TAG" --generate-notes
+          gh release view "$TAG" --json assets --jq '.assets[].name'
+
+      # -----------------------------------------------------------------------------------------
+      # STORE SUBMISSIONS GO HERE, and are deliberately absent: each one needs an account in a
+      # store nobody can be created for from CI, plus a secret this repository does not hold and
+      # this workflow must not need. A step per store, once a person has decided to submit:
+      #
+      #   Chrome Web Store  — $CHROME_WEB_STORE_CLIENT_ID, $CHROME_WEB_STORE_CLIENT_SECRET,
+      #                       $CHROME_WEB_STORE_REFRESH_TOKEN  (Google Cloud OAuth client;
+      #                       a Web Store API key alone cannot publish)
+      #   Edge Add-ons      — $EDGE_ADDONS_PRODUCT_ID, $EDGE_ADDONS_CLIENT_ID,
+      #                       $EDGE_ADDONS_CLIENT_SECRET, $EDGE_ADDONS_API_TOKEN  (Partner Center
+      #                       product + Entra app; Edge's API is a Microsoft Graph extension of
+      #                       the Store API)
+      #   AMO               — $AMO_WEB_EXT_API_KEY, $AMO_WEB_EXT_API_SECRET  (the same pair
+      #                       extension/scripts/sign.sh already reads from
+      #                       ~/.config/beifahrer/amo.env; unlisted needs no review queue)
+      #   Safari            — none of these help: a macOS Safari App Extension is signed by Xcode
+      #                       against a provisioning profile and uploaded through App Store
+      #                       Connect by a person. It stays a manual step, and `safari-mv3` ships
+      #                       unsigned on purpose so a person can load it from Xcode.
+      #
+      # Until then the zips on the release ARE the distribution: unpack one into a browser's
+      # extension page, or point a person at the download.
+      # -----------------------------------------------------------------------------------------
