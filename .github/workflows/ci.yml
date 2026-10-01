@@ -84,10 +84,180 @@ jobs:
       - name: Package the extension
         run: gjsify workspace beifahrer-extension zip
 
+      # The CLI's own installable artifacts (issue #44), out of the same bundle the tests above ran
+      # against. `.deb` and `.rpm` only, and that is not a half-measure: gjsify writes both itself
+      # and execs nothing for them, so this step needs no tool this job does not already install —
+      # `utils/ship/formats.ts` marks the two rows `requiredTools: []`, against the Flatpak's
+      # `['flatpak-builder', 'flatpak']`. The Flatpak is the separate job below, which needs both of
+      # those and a privileged container.
+      - name: Package the bridge (.deb + .rpm)
+        working-directory: app
+        run: gjsify ship linux --skip-build --target deb,rpm
+
+      # `ship` exits 0 after writing NOTHING when every target is filtered away, so each file is
+      # asserted by name rather than assumed. The names are the ones `utils/ship/formats.ts` renders,
+      # not guesses, and `$GITHUB_WORKSPACE` is spelled out because `working-directory` here is
+      # `app/ship/out` and `node -p` resolves relative to THAT.
+      #
+      # `all` and `noarch`, not `x86_64`, and that is the payload talking rather than the runner:
+      # `isArchIndependent()` is true for a `kind: "cli"` tree of a JS bundle and a launcher, and apt
+      # and dnf both REFUSE a package whose architecture is not the machine's. The `.flatpak` below
+      # spells the arch out anyway — Flatpak has no `noarch`, and an app with no arch does not
+      # install — so the three names differ in a way that looks like a typo and is not.
+      - name: Assert the two packages arrived
+        working-directory: app/ship/out
+        run: |
+          set -eu
+          ls -la
+          version=$(node -p "require('$GITHUB_WORKSPACE/app/package.json').version")
+          for f in "beifahrer_${version}-1_all.deb" "beifahrer-${version}-1.noarch.rpm"; do
+            if [ ! -s "$f" ]; then
+              echo "::error::missing or empty artifact: $f"
+              exit 1
+            fi
+          done
+
       - uses: actions/upload-artifact@v4
         with:
           name: extension-zips
           path: extension/.output/*.zip
+
+      # Both formats in ONE upload under one name: `release.yml` downloads artifacts by name, and two
+      # uploads of the same artifact name is an error, not a merge.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ship-deb-rpm
+          path: |
+            app/ship/out/*.deb
+            app/ship/out/*.rpm
+          # Already-compressed packages; the default level 6 would spend minutes re-compressing them
+          # on the way up and again on the way down for no gain.
+          compression-level: 0
+
+  # The Flatpak half of `gjsify ship`, split out for two reasons the job above must not inherit.
+  #
+  # flatpak-builder is one: gjsify writes `.deb` and `.rpm` itself and EXECS nothing, but a
+  # Flatpak is an OSTree static delta and `flatpak build-bundle` is the only thing that writes one —
+  # `utils/ship/formats.ts` declares `['flatpak-builder', 'flatpak']` as its required tools, against
+  # `[]` for the two packages above.
+  #
+  # PRIVILEGE is the other, and it is measured, not guessed: flatpak-builder runs every module's
+  # `build-commands` under `bwrap`, and in a `fedora:44` container WITHOUT `options: --privileged`
+  # that dies on its first command with
+  #
+  #     bwrap: Can't mount proc on /proc: Permission denied
+  #     Error: module <name>: Child process exited with code 1
+  #
+  # — on `mkdir -p /app`, the first line of the manifest `ship` renders, measured with a probe
+  # manifest holding a single `cp` module and none of this repository's payload in it, so the
+  # failure belongs to the container and not to the tree. With the flag added, the same three steps
+  # run to `flatpak build-bundle` on GNOME 50 and export the file. `gjsify ship` already passes
+  # `--disable-rofiles-fuse` for the same family of reason (no FUSE in a container); the privilege
+  # is the part it cannot pass for itself.
+  ship-flatpak:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+      options: --privileged
+    steps:
+      # The same list as the job above — gjs and libsoup3 because this job builds the bundle the
+      # payload carries, and a bundle cannot be built without the host it runs on — plus the two
+      # flatpak tools. A `.flatpak` needs no GUI stack: `kind: "cli"` stages no desktop entry and
+      # `gjsify.ship.flatpak.finishArgs` here is `--share=network` alone.
+      - name: Install system prerequisites
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          git tar xz findutils gjs libsoup3 flatpak flatpak-builder
+
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Cache gjsify tarball store
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/gjsify/tarballs
+          key: gjsify-tarballs-${{ hashFiles('gjsify-lock.json') }}
+          restore-keys: gjsify-tarballs-
+
+      # Read out of `app/package.json`, never repeated here — the same rule as the bootstrap below.
+      # The value is what makes the install step ahead of `ship` name the runtime the manifest will
+      # ask for: `gjsify.ship.flatpak.runtimeVersion` when a project sets one, else gjsify's
+      # `DEFAULT_GNOME_RUNTIME_VERSION`. Hard-coding 50 here instead would make a bump fail as
+      # "runtime not installed" in the middle of a build rather than at the line that has to change.
+      - name: Resolve the runtime version
+        id: runtime
+        run: |
+          set -eu
+          version=$(node -p "require('./app/package.json').gjsify.ship?.flatpak?.runtimeVersion ?? 50")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "building the Flatpak against org.gnome.Platform//$version + org.gnome.Sdk//$version"
+
+      # ~1.5 GB of runtimes, keyed by the version that decides them, so a run after the first pays
+      # the download once rather than every time. Before the install below, not after: the action
+      # restores where it stands, and a cache saved on a later step restores nothing. A miss is a
+      # slower build, never a wrong one — the install re-checks whatever it finds.
+      - name: Cache the flatpak runtimes
+        uses: actions/cache@v4
+        with:
+          path: /var/lib/flatpak
+          key: flatpak-gnome-${{ steps.runtime.outputs.version }}-f44
+
+      # The GNOME runtime and SDK are the two things a bare container image does not carry.
+      # `--system`, because that is the installation `flatpak-builder` reads when gjsify invokes it
+      # (it passes no `--user`), and a runtime installed for a person would leave the build looking
+      # for one that is not there.
+      - name: Install the GNOME runtime and SDK
+        run: |
+          set -eu
+          flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak remote-modify --enable flathub
+          flatpak install --system --noninteractive \
+            "org.gnome.Platform//${{ steps.runtime.outputs.version }}" \
+            "org.gnome.Sdk//${{ steps.runtime.outputs.version }}"
+          flatpak list --runtime --columns=ref | grep "^org.gnome.\(Platform\|Sdk\)/"
+
+      - name: Bootstrap the gjsify CLI
+        run: |
+          VERSION=$(node -p "require('./app/package.json').devDependencies['@gjsify/cli']")
+          echo "Bootstrapping @gjsify/cli@$VERSION (from app/package.json)"
+          npm install -g "@gjsify/cli@$VERSION"
+
+      - name: Install dependencies (gjsify install --immutable)
+        run: gjsify install --immutable
+
+      # The GJS bundle is the Linux payload; `build:node` is what the macOS and Windows rows carry,
+      # and there is no runner here that could verify either.
+      - name: Build the bridge bundle
+        run: gjsify workspace beifahrer-cli build
+
+      - name: Package the bridge (.flatpak)
+        working-directory: app
+        run: gjsify ship linux --skip-build --target flatpak
+
+      # Same reason as the `.deb`/`.rpm` assert: `ship` writes nothing and still exits 0 when the
+      # target is filtered away, and a Flatpak is the format where a filtered-away target is
+      # easiest to miss — the build prints nothing that looks like a bundle.
+      - name: Assert the bundle arrived
+        working-directory: app/ship/out
+        run: |
+          set -eu
+          ls -la
+          version=$(node -p "require('$GITHUB_WORKSPACE/app/package.json').version")
+          f="eu.jumplink.beifahrer-${version}-1.x86_64.flatpak"
+          if [ ! -s "$f" ]; then
+            echo "::error::missing or empty artifact: $f"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ship-flatpak
+          path: app/ship/out/*.flatpak
+          compression-level: 0
 
   # The Node-hosted half of the checks on a Windows host, and nothing else — read the scope before
   # reading a green tick as "the project works on Windows". It does not.

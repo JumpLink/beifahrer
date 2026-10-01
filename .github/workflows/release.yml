@@ -5,6 +5,13 @@ name: Release
 # `build` job below calls .github/workflows/ci.yml, so there is exactly one definition of how the
 # toolchain is installed and what "green" means. A release therefore cannot be cut from a commit
 # whose tests, type check or lint did not pass.
+#
+# The CLI's Linux packages follow the same rule and are built there too, not here: ci.yml ships
+# `ship-deb-rpm` (`.deb`, `.rpm`) and `ship-flatpak` (`.flatpak`) as uploaded artifacts, and the
+# `release` job below only attaches them. `gjsify ship` needs a Fedora container with `gjs`, the
+# gjsify CLI and — for the Flatpak — flatpak-builder plus org.gnome.Platform//50 and org.gnome.Sdk//50
+# under `options: --privileged`; repeating that here would be the second copy of a toolchain this
+# repository has decided to define once.
 on:
   push:
     tags: ['v*']
@@ -31,14 +38,46 @@ jobs:
           name: extension-zips
           path: zips
 
-      - name: Attach the zips to the release
+      # The CLI's own Linux packages, again out of CI rather than built here (see the header).
+      # TWO artifacts, not one: `.deb` + `.rpm` come out of the container that already runs the
+      # bridge's tests, the `.flatpak` out of the privileged flatpak-builder job, and merging them
+      # into a single upload would mean one of those jobs losing its packages whenever the other
+      # half of the run did not happen.
+      - name: Fetch the Linux packages CI built
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ship-*
+          merge-multiple: true
+          path: cli
+
+      # Everything is attached by ONE `gh release create`, so a release either carries the zips and
+      # the CLI packages or does not exist yet — a release that got the zips and silently lost the
+      # `.deb` would be the shape of failure worth the two directory checks. They are checks on the
+      # DIRECTORIES, not on a glob: a glob that matches nothing expands to itself, so
+      # `gh release create … cli/*.deb` would upload a file literally named `cli/*.deb` and report
+      # success.
+      - name: Attach everything to the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
+          set -eu
+          ls -la zips cli
+          [ -n "$(ls -A zips)" ] || { echo "::error::no extension zips were downloaded"; exit 1; }
+          [ -n "$(ls -A cli)" ] || { echo "::error::no CLI packages were downloaded"; exit 1; }
           # `--generate-notes` is GitHub's own, from the previous tag: no note to keep in step here.
-          gh release create "$TAG" zips/*.zip --title "$TAG" --generate-notes
+          gh release create "$TAG" zips/*.zip cli/* --title "$TAG" --generate-notes
           gh release view "$TAG" --json assets --jq '.assets[].name'
+
+      # macOS and Windows are deliberately absent, and they need runners of their own rather than a
+      # step here. `app/package.json#gjsify.ship` carries `dist/beifahrer.node.mjs` for both, and
+      # `@gjsify/node-runtime-{darwin-arm64,darwin-x64,win32-x64}` are `optionalDependencies` that
+      # `gjsify install` SKIPS on a Linux host — a plain install here would stage a package with no
+      # interpreter in it, and `ship` exits 0 having said so loudly. Naming the target installs the
+      # runtimes (`gjsify install --os darwin --cpu arm64 --immutable`, then `gjsify ship darwin
+      # --arch arm64 --skip-build --target macos-app-zip`), which cross-builds the payload but
+      # cannot RUN it: a Mach-O or PE binary is verified on its own OS or not at all, so a
+      # `macos-latest` / `windows-latest` job is the honest place for this.
 
       # The signed Firefox build and `updates.json` (issue #3), signed from a person's machine and
       # dropped in as release assets. Deliberately NOT a CI step: it needs AMO's API key, which is a
@@ -72,6 +111,8 @@ jobs:
       #                       Connect by a person. It stays a manual step, and `safari-mv3` ships
       #                       unsigned on purpose so a person can load it from Xcode.
       #
-      # Until then the zips on the release ARE the distribution: unpack one into a browser's
-      # extension page, or point a person at the download.
+      # Until then the zips on the release ARE the distribution for a browser: unpack one into an
+      # extension page, or point a person at the download. The Linux packages beside them are the
+      # CLI — a bridge on their own needs an extension that talks to it, which is the native-messaging
+      # host manifest no package registers yet (issue #44).
       # -----------------------------------------------------------------------------------------
