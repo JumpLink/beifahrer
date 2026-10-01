@@ -367,12 +367,15 @@ injected instruction has nothing to write with.
 
 ## Install (from source, for now)
 
-Requires [gjsify](https://github.com/gjsify/gjsify) and GJS, nothing else: the app runs on GJS and the
-extension is bundled on GJS too ([ADR 0002](docs/adr/0002-build-on-gjs-not-wxt.md)).
+Requires [gjsify](https://github.com/gjsify/gjsify) and GJS, nothing else: the extension is
+bundled on GJS ([ADR 0002](docs/adr/0002-build-on-gjs-not-wxt.md)), and the bridge runs on GJS or
+on Node 24 — gjsify routes GJS-only imports per `--app` while building, so the two need separate
+bundles: the GJS one keeps its `gi://`, which a bare `node` refuses.
 
 ```sh
 gjsify install
-gjsify workspace beifahrer-cli build          # app/dist/beifahrer.gjs.mjs
+gjsify workspace beifahrer-cli build          # app/dist/beifahrer.gjs.mjs, run on GJS
+gjsify workspace beifahrer-cli build:node     # app/dist/beifahrer.node.mjs, run on Node 24
 gjsify workspace beifahrer-extension build    # extension/.output/<target>/, on GJS
 ```
 

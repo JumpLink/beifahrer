@@ -2,7 +2,11 @@
 /**
  * End-to-end, through the whole chain, in real browsers:
  *
- *   MCP client (this file) → `beifahrer mcp` on GJS → loopback bridge → extension → fixture page
+ *   MCP client (this file) → `beifahrer mcp` → loopback bridge → extension → fixture page
+ *
+ * The bridge runs on GJS by default (what Linux ships); $BEIFAHRER_E2E_BRIDGE=node starts it with
+ * plain `node` instead, from the `--app node` bundle — the same sources, built for Node. Needs
+ * that bundle (`gjsify workspace beifahrer-cli build:node`).
  *
  * Usage:  node tests/e2e/browsers.e2e.mjs [chromium|firefox|all]
  *
@@ -14,7 +18,8 @@
  * $BEIFAHRER_E2E_PORT_BASE (default 47900) so two runs can share a machine. Never the person's
  * 47813–47822.
  *
- * Needs: the app bundle (`gjsify workspace beifahrer-cli build`), a Chromium that still loads
+ * Needs: the app bundle for the chosen runtime (`gjsify workspace beifahrer-cli build`, or
+ * `… build:node` under $BEIFAHRER_E2E_BRIDGE=node), a Chromium that still loads
  * unpacked extensions (Chrome for Testing / Playwright's build — branded Chrome ≥ 137 does not)
  * via $BEIFAHRER_E2E_CHROMIUM or Playwright's browser cache for this platform, and Firefox via
  * $BEIFAHRER_E2E_FIREFOX, the platform's own install, or `firefox` on PATH. Both paths are
@@ -64,6 +69,25 @@ const LOGS = process.env.BEIFAHRER_E2E_LOGS;
 const logTo = (name) => (LOGS ? createWriteStream(join(LOGS, name)) : null);
 /** Set BEIFAHRER_E2E_LANG=de to run Chromium in another UI language (for localized screenshots). */
 const LANG = process.env.BEIFAHRER_E2E_LANG;
+
+/**
+ * Which runtime starts the bridge: `gjsify run` on GJS (the default, and what Linux ships) or
+ * plain `node`. Set BEIFAHRER_E2E_BRIDGE=node to run the whole chain on a Node host.
+ *
+ * This is the driver, not the product: the app is built and started either way, and nothing in
+ * `app/` reads the variable. What it measures is exactly one thing — whether the bridge needs
+ * GJS — and the answer is a build question rather than a source one, which is why each runtime
+ * gets its own bundle: gjsify routes GJS-only imports per `--app` while building, so the GJS bundle
+ * keeps its `gi://Soup` (through @gjsify/ws) and a bare `node` refuses that scheme. `gjsify build
+ * --app node` is the same sources with those imports resolved away.
+ */
+const BRIDGE_RUNTIME = (() => {
+  const asked = process.env.BEIFAHRER_E2E_BRIDGE;
+  if (asked === undefined || asked === 'gjs') return 'gjs';
+  if (asked === 'node') return 'node';
+  throw new Error(`BEIFAHRER_E2E_BRIDGE is "${asked}" — "gjs" (default) or "node"`);
+})();
+const BRIDGE_BUNDLE = join(ROOT, `app/dist/beifahrer.${BRIDGE_RUNTIME}.mjs`);
 
 const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></head><body>
 <h1>Ticket 3279</h1>
@@ -497,16 +521,25 @@ function throwawayConfigHome(tokenFile) {
   return home;
 }
 
+/**
+ * The command that runs the bridge bundle on the runtime the run chose: `gjsify run …` on GJS,
+ * plain `node …` on Node. The SDK spawns through `cross-spawn` with `shell: false` fixed, and
+ * cross-spawn is what resolves a `node_modules/.bin` shim on Windows (it re-runs a `.cmd`
+ * through cmd.exe) — so here only the FILE NAME may be corrected; no `shell` option exists.
+ */
+function bridgeCommand() {
+  if (BRIDGE_RUNTIME === 'node') return { command: process.execPath, args: [BRIDGE_BUNDLE], shell: false };
+  const gjsify = localBin('gjsify', ROOT);
+  return { command: gjsify.command, args: ['run', BRIDGE_BUNDLE], shell: gjsify.shell };
+}
+
 /** Start one `beifahrer mcp` over stdio, as an agent session would. */
 async function startMcp(tokenFile, logName, env = {}) {
+  const { command, args: launch } = bridgeCommand();
   const transport = new StdioClientTransport({
-    // The SDK spawns through `cross-spawn` with `shell: false` fixed, and cross-spawn is what
-    // resolves a `node_modules/.bin` shim on Windows (it re-runs a `.cmd` through cmd.exe) — so
-    // here only the FILE NAME may be corrected; no `shell` option exists to pass.
-    command: localBin('gjsify', ROOT).command,
+    command,
     args: [
-      'run',
-      join(ROOT, 'app/dist/beifahrer.gjs.mjs'),
+      ...launch,
       'mcp',
       '--port',
       String(RANGE.base),
@@ -556,12 +589,13 @@ const tabsOk = (r) => !r.error && JSON.parse(r.text).tabs.some((t) => t.url?.sta
 /** `beifahrer tool <name>` as a separate process: binds its own port and waits for the browser. */
 function runTool(tokenFile, name, args = {}) {
   return new Promise((resolveRun) => {
-    const gjsify = localBin('gjsify', ROOT);
+    // The same runtime as every other bridge in the run: on a Node host this check must not be
+    // the one place that quietly needs gjsify on PATH.
+    const { command, args: launch, shell } = bridgeCommand();
     const child = spawn(
-      gjsify.command,
+      command,
       [
-        'run',
-        join(ROOT, 'app/dist/beifahrer.gjs.mjs'),
+        ...launch,
         'tool',
         '--port',
         String(RANGE.base),
@@ -575,7 +609,7 @@ function runTool(tokenFile, name, args = {}) {
       {
         env: { ...process.env, BEIFAHRER_TOKEN_FILE: tokenFile, BEIFAHRER_DESKTOP_ACCENT: DESKTOP_ACCENT },
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: gjsify.shell,
+        shell,
       },
     );
     let out = '';

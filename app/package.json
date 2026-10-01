@@ -19,6 +19,7 @@
     "lint": "gjsify lint .",
     "lint:fix": "gjsify lint --fix .",
     "build": "gjsify build src/index.ts --app gjs --outfile dist/beifahrer.gjs.mjs",
+    "build:node": "gjsify build src/index.ts --app node --outfile dist/beifahrer.node.mjs",
     "start": "gjsify run dist/beifahrer.gjs.mjs",
     "test": "gjsify test",
     "test:mcp": "node tests/integration/mcp-gjs-smoke.mjs"

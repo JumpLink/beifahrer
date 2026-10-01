@@ -100,6 +100,11 @@ export interface BridgeOptions {
  * JS references it, GJS collects it and the port silently stops listening after ~10 s (measured).
  * @gjsify/http and @gjsify/net keep an `_activeServers` set for exactly this; until ws does, the
  * bridge keeps itself alive while it listens. Delete this at the bump that carries the fix.
+ *
+ * The gap is in `@gjsify/ws` while the import above says `ws`: the GJS build rewrites that
+ * specifier to `@gjsify/ws` (resolve-npm's ALIASES_NODE_FOR_GJS, `ws: '@gjsify/ws'`), which is
+ * also why `@gjsify/ws` is a listed dependency and stays one — on Node the same import is the
+ * upstream `ws` package, which has no such gap, so this set is a no-op there.
  */
 const listening = new Set<Bridge>();
 
