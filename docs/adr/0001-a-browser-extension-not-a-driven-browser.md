@@ -89,6 +89,28 @@ Epiphany was measured on 2026-09-25 with a probe extension:
 | Background page runs | yes — WebSocket and `fetch` to `127.0.0.1` work | **no**, for all five manifest variants tried, and silently |
 | Stability | **the UI process aborts ~1 s after start** with any extension active — [#2801](https://gitlab.gnome.org/GNOME/epiphany/-/work_items/2801), fixed only on main (49b37a7, 2026-09-10), not in 50.6/51.0/51.1 | stable |
 
+Re-measured on 2026-10-01 for issue #6, against the Flatpaks on the workstation
+(`org.gnome.Epiphany` 50.6 and `org.gnome.Epiphany.Devel` 51.1), the probe run from a copy on a
+free port so a person's own sessions stay untouched. **The abort is gone** — two 50.6 runs with an
+extension active never died, so #2801's fix has reached stable. What replaces it:
+
+- **50.6 loads the extension and runs the background page.** The WebSocket opens and `env`,
+  `api-shape` and `fetch` to loopback all pass — but only once the first-run *set as default
+  browser* modal is out of the way (`default-browser=false` in the probe's keyfile). While that
+  modal is up, the handshake reaches the probe's server and no `open` event ever follows, which is
+  what made the earlier runs read as a dead background page. The server is not at fault: a plain
+  `ws` client connects to it at once.
+- **The `tabs` namespace does not answer.** `tabs.query({})` times out after 5 s with no
+  extension-created tab pending, and the page's timers keep running around it — so this is the API,
+  not a frozen page.
+- **A tab the extension creates never loads.** Its URL is never even requested, the tab stays
+  *wird geladen …*, and while it is pending every later `tabs.*` call blocks and the background
+  page's timers stop with it.
+- **51.1 (nightly) starts no background page at all** and connects nothing — silently, as before.
+
+So the blocker is no longer the abort; it is a `tabs` API that does not answer, in stable and in
+nightly alike.
+
 From Epiphany's source: `tabs.executeScript` (main frame only), `tabs.query/create/update/remove`,
 `tabs.sendMessage`, `windows.*`, `cookies`, `downloads` exist; `tabs.captureVisibleTab`,
 `scripting`, `webNavigation`, `webRequest`, native messaging and `runtime.connect` do not; of the
