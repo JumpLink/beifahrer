@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>beifahrer accent probe</title>
+    <style>
+      /* `color-scheme: light dark` is what makes the engine paint its own widgets with the SYSTEM
+         colours at all; a page that leaves it out is painted with the page's own light defaults,
+         so the swatches below would show nothing about the desktop. */
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+        margin: 1.5rem;
+        max-width: 60rem;
+      }
+      h1 {
+        font-size: 1.1rem;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin: 0.6rem 0;
+        flex-wrap: wrap;
+      }
+      .label {
+        min-width: 14rem;
+        font-weight: 600;
+      }
+      /* Two swatches, because they answer two different questions and an engine may answer only one
+         of them. `AccentColor` is a CSS colour the engine resolves from the system by itself, with
+         no JavaScript involved. The DIV beside it is what the engine chose as the accent to use —
+         but note that `getComputedStyle` hands back the keyword `auto` for `accent-color`, not a
+         colour, so the swatch can only be painted from the system colour, never read back out of
+         `accent-color`. That gap is itself a finding, and the script below records it as one. */
+      #swatch {
+        inline-size: 4rem;
+        block-size: 2.5rem;
+        background-color: AccentColor;
+        border: 1px solid currentColor;
+        border-radius: 4px;
+      }
+      .native {
+        /* Nothing here sets a colour: the engine picks, from the system. */
+        inline-size: 2.5rem;
+        block-size: 1.6rem;
+      }
+      pre {
+        padding: 0.8rem;
+        overflow-x: auto;
+        border: 1px solid currentColor;
+        border-radius: 6px;
+        font:
+          12px/1.45 ui-monospace,
+          monospace;
+        white-space: pre-wrap;
+      }
+      .hint {
+        opacity: 0.7;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>beifahrer accent probe — what this browser tells a page about the desktop accent</h1>
+    <p class="hint">
+      Nothing here loads anything. Open the file, then copy the JSON: the compact copy is in the tab title,
+      the readable one below. The whole result is also the title, so it can be read from a tab listing.
+    </p>
+
+    <div class="row">
+      <span class="label">accent-color: auto</span>
+      <input class="native" type="checkbox" checked />
+      <input class="native" type="radio" name="probe" checked />
+      <progress class="native" id="progress" value="0.4"></progress>
+      <span id="swatch"></span>
+    </div>
+    <div class="row hint">
+      <span class="label"></span>
+      <span>checkbox, radio, progress bar and the swatch — all resolved by the engine from the system</span>
+    </div>
+
+    <pre id="out">measuring…</pre>
+
+    <script>
+      // A plain classic script, not a module: a module on a `file://` page is fetched under the
+      // file origin and refused, so the one origin this probe must work on is the one a module
+      // script cannot. That is why the page has no build step either.
+      (function () {
+        const SYSTEM_COLOURS = ['AccentColor', 'AccentColorText', 'AccentColorDark'];
+
+        /** What a system colour keyword resolves to, or why it does not resolve. */
+        function probeSystemColour(keyword) {
+          // `CSS.supports` is the gate, not the read-back. An unsupported keyword is dropped when
+          // the declaration is parsed, so the element then reports the colour it INHERITED —
+          // very often `rgb(0, 0, 0)`, which says nothing about the system accent but reads
+          // exactly like a measurement. So an unsupported keyword is reported as unsupported and
+          // the value it would have faked is not reported at all.
+          if (typeof CSS === 'undefined' || typeof CSS.supports !== 'function') {
+            return { state: 'unknown', reason: 'no CSS.supports in this engine' };
+          }
+          let supported = false;
+          try {
+            supported = CSS.supports('color', keyword);
+          } catch (error) {
+            return { state: 'unknown', reason: 'CSS.supports threw: ' + error };
+          }
+          if (!supported) return { state: 'unsupported' };
+
+          const probe = document.createElement('span');
+          // Attached, because a detached element has no computed style at all.
+          probe.style.color = keyword;
+          document.body.appendChild(probe);
+          const value = getComputedStyle(probe).color;
+          const inherited = getComputedStyle(document.body).color;
+          probe.remove();
+
+          if (!value) return { state: 'unknown', reason: 'no computed value' };
+          // A supported keyword that reads back as the inherited colour was not resolved; saying
+          // "supported" with that colour would be the same lie in a new coat.
+          if (value === inherited && /rgba\(0,\s*0,\s*0/.test(inherited)) {
+            return {
+              state: 'unknown',
+              reason: 'reads back as the inherited colour, so it cannot be told from a fallback',
+            };
+          }
+          return { state: 'supported', value: value };
+        }
+
+        function accentColorFindings() {
+          const holder = document.getElementById('swatch');
+          let computed = null;
+          try {
+            computed = getComputedStyle(holder).accentColor || null;
+          } catch (error) {
+            computed = 'threw: ' + error;
+          }
+          // `auto` is what the cascade said, not the colour it resolved to, and an engine that
+          // keeps it as a keyword cannot be asked what accent it would actually paint. Reported as
+          // a state, like the system colours, so `auto` is never mistaken for a measurement.
+          return {
+            cssSupports: supports('accent-color', 'red'),
+            computed: computed,
+            // `supported`, `unresolved` (the keyword, so the used colour is not readable) or
+            // `unsupported`.
+            computedState: computed === null ? 'unknown' : computed === 'auto' ? 'unresolved' : 'resolved',
+            // The swatch is painted by CSS, from `AccentColor`, so the number here is read back
+            // off that same declaration — a cross-check that CSS and the probe agree.
+            swatchPainted: getComputedStyle(holder).backgroundColor,
+            oklabFromAccentSupported: supports('color', 'oklab(from AccentColor l a b)'),
+          };
+        }
+
+        function supports(property, value) {
+          try {
+            return CSS.supports(property, value);
+          } catch (_error) {
+            return null;
+          }
+        }
+
+        function build() {
+          const dark = window.matchMedia('(prefers-color-scheme: dark)');
+          const systemColors = {};
+          for (const keyword of SYSTEM_COLOURS) systemColors[keyword] = probeSystemColour(keyword);
+
+          const protocol = location.protocol.replace(':', '');
+          return {
+            probe: 'beifahrer-accent',
+            version: 1,
+            browser: {
+              userAgent: navigator.userAgent,
+              platform: navigator.platform || null,
+            },
+            page: {
+              url: location.href,
+              originKind: protocol === 'file' ? 'file' : protocol,
+              // Nothing measured here is gated on a secure context, so a `file://` origin is
+              // enough and no server is needed. Set this to true (with the reason) only if a
+              // check is ever added that a `file://` origin cannot answer.
+              needsHttpOrigin: false,
+            },
+            accentColor: accentColorFindings(),
+            prefersColorScheme: {
+              query: '(prefers-color-scheme: dark)',
+              matches: dark.matches === true,
+              // An engine without the query has no boolean to read, and `undefined` must not be
+              // recorded as `false`, which would read as "this engine says light".
+              supported: typeof dark.matches === 'boolean',
+            },
+            systemColors: systemColors,
+            notes: [
+              'systemColors report a state, never a colour that may be a fallback',
+              'accentColor.computedState is `unresolved` where the engine keeps the keyword auto; the painted swatch is then the only reading',
+              'swatchPainted and systemColors.AccentColor come from different CSS declarations, so agreeing is a cross-check',
+              'native checkbox, radio and progress are painted by the engine, not by this page',
+            ],
+          };
+        }
+
+        let report;
+        try {
+          report = build();
+        } catch (error) {
+          // A probe that renders nothing is worse than one that says it broke.
+          report = { probe: 'beifahrer-accent', version: 1, error: String(error) };
+        }
+        document.getElementById('out').textContent = JSON.stringify(report, null, 2);
+        // Compact, so it survives a copy out of a tab listing, and the same object as the `<pre>`.
+        document.title = JSON.stringify(report);
+      })();
+    </script>
+  </body>
+</html>
