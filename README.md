@@ -369,7 +369,8 @@ injected instruction has nothing to write with.
 
 Requires [gjsify](https://github.com/gjsify/gjsify) and GJS, nothing else: the extension is
 bundled on GJS ([ADR 0002](docs/adr/0002-build-on-gjs-not-wxt.md)), and the bridge runs on GJS or
-on Node 24 — the two need separate bundles, because the GJS one imports `gi://`.
+on Node 24 — gjsify routes GJS-only imports per `--app` while building, so the two need separate
+bundles: the GJS one keeps its `gi://`, which a bare `node` refuses.
 
 ```sh
 gjsify install

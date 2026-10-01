@@ -16,9 +16,12 @@ per-site policy the person sets in that browser. Why it exists and what else was
 **Linux ships GJS; any host with Node 24 can run the bridge.** GJS stays the default because the
 Linux releases are built and tested there, but the bridge needs no GJS of its own: the e2e runs the
 whole chain with the bridge started by plain `node` under `BEIFAHRER_E2E_BRIDGE=node`. Each runtime
-needs its own bundle (`build` → `beifahrer.gjs.mjs`, `build:node` → `beifahrer.node.mjs`), because
-the GJS bundle imports `gi://` and Node's ESM loader refuses that scheme — a build difference, not a
-source one.
+needs its own bundle (`build` → `beifahrer.gjs.mjs`, `build:node` → `beifahrer.node.mjs`): gjsify
+routes GJS-only imports per `--app` WHILE BUILDING (`gi://` and the built-ins become
+`@gjsify/node-gi` shims on a Node target, `packages/infra/resolve-npm/lib/index.mjs`), so the GJS
+bundle keeps its `gi://` and a bare `node` refuses that scheme. A build difference, not a source
+one — and for this bridge the Node build has no `gi://` left at all, so it needs no native
+bindings.
 
 ## Leitplanken (hard rules)
 

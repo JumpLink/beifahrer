@@ -77,9 +77,9 @@ const LANG = process.env.BEIFAHRER_E2E_LANG;
  * This is the driver, not the product: the app is built and started either way, and nothing in
  * `app/` reads the variable. What it measures is exactly one thing — whether the bridge needs
  * GJS — and the answer is a build question rather than a source one, which is why each runtime
- * gets its own bundle: the GJS bundle imports `gi://Soup` (through @gjsify/ws), and Node's ESM
- * loader refuses that scheme outright, so the SAME bundle cannot be started by `node` at all.
- * `gjsify build --app node` is the same sources with the GJS-only imports resolved away.
+ * gets its own bundle: gjsify routes GJS-only imports per `--app` while building, so the GJS bundle
+ * keeps its `gi://Soup` (through @gjsify/ws) and a bare `node` refuses that scheme. `gjsify build
+ * --app node` is the same sources with those imports resolved away.
  */
 const BRIDGE_RUNTIME = (() => {
   const asked = process.env.BEIFAHRER_E2E_BRIDGE;
