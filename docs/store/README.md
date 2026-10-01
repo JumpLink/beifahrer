@@ -3,7 +3,7 @@
 The material a person needs to put beifahrer into the browser extension stores, and what is still
 undecided. Nothing here is a machine that submits anything: every store needs an account a person
 holds, and the release workflow deliberately has no store step
-([`.github/workflows/release.yml:43-65`](../../.github/workflows/release.yml)). The zips hung on a
+([`.github/workflows/release.yml:56-75`](../../.github/workflows/release.yml)). The zips hung on a
 GitHub release are the distribution until then.
 
 ## What each store wants, and which file answers it
@@ -12,13 +12,15 @@ GitHub release are the distribution until then.
 |---|---|---|---|
 | Firefox — listed on AMO | `.xpi` from the Developer Hub, or `web-ext sign` | name, summary, description, categories, support email + website, license, privacy policy, notes for reviewers | [listing.md](listing.md), [privacy.md](privacy.md) |
 | Firefox — unlisted | [`extension/scripts/sign.sh`](../../extension/scripts/sign.sh) | nothing but an AMO API key | already scripted |
+| Firefox — staying up to date | `sign.sh <tag>` also writes `updates.json` | an asset named exactly `updates.json` on the release | scripted; the URL is fixed in [`extension/manifest.ts`](../../extension/manifest.ts) and cannot be moved later |
 | Chrome Web Store | `beifahrer-0.1.0-chrome-mv3.zip` | name, summary, description, single purpose, per-permission justification, remote-code declaration, data-use certification, privacy-policy URL, icon, small promo tile, 1–5 screenshots | [listing.md](listing.md), [privacy.md](privacy.md), [screenshots.md](screenshots.md) |
 | Edge Add-ons | `beifahrer-0.1.0-edge-mv3.zip` | name, short description, per language, logo, optional tile and 6 screenshots, single purpose, privacy-policy URL | [listing.md](listing.md), [privacy.md](privacy.md), [screenshots.md](screenshots.md) |
 | Opera | `beifahrer-0.1.0-chrome-mv3.zip` | summary, screenshots at 612×408, icons, privacy | [listing.md](listing.md), [screenshots.md](screenshots.md) |
 | Safari | `beifahrer-0.1.0-safari-mv3.zip` | a person signs in Xcode against a provisioning profile and uploads through App Store Connect | a person, no document here yet |
 
 The Edge package is the `chrome-mv3` manifest in full — Edge is Chromium, so it needs no branch of
-its own ([`extension/manifest.ts:86`](../../extension/manifest.ts)).
+its own ([`extension/manifest.ts:14`](../../extension/manifest.ts): `edge-mv3` is in `TARGETS`, and
+the manifest function keys the flavour off the engine, not off the target's name).
 
 ## Read `<verify>` as a question, not a gap
 
@@ -70,7 +72,7 @@ Nothing below can be derived from the repository. Each item is a decision, a nam
 - **Do the Safari submission by hand**, or decide not to. It is the one store with no scripted route
   at all.
 - **Decide whether the release workflow gets a store step.** The secrets are already named in
-  [`.github/workflows/release.yml:47-61`](../../.github/workflows/release.yml); nobody has decided
+  [`.github/workflows/release.yml:59-73`](../../.github/workflows/release.yml); nobody has decided
   that CI should hold them.
 
 ## Files here

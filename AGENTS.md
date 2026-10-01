@@ -220,6 +220,19 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   Unit tests use port 0 or a random range above 50000; the e2e uses 47900 + offsets
   (`BEIFAHRER_E2E_PORT_BASE` shifts a second run on the same machine, whose fixture port would
   clash); the dev browser 47830–47839. Never kill a `beifahrer mcp` you did not start.
+- **`web-ext lint` calls `update_url` an error, and for this project it is not one.** `manifest.ts`
+  sets `browser_specific_settings.gecko.update_url`, without which an unlisted (self-distributed)
+  add-on never updates itself — the AMO signing path in `sign.sh` is the only thing that makes a
+  person install beifahrer, and it makes them do it by hand forever without it. The lint rule
+  (addons-linter.js:3559) forbids a **Mozilla-hosted** add-on from naming its own update source; an
+  unlisted one is self-hosted by definition, `web-ext sign` never runs the linter at all
+  (`util/manifest.js` checks only name, version and id), and `web-ext lint --self-hosted` reports 0
+  errors. So **do not "fix" this by deleting the key**: Firefox keeps the `update_url` of the
+  INSTALLED version and never re-reads it (only an enterprise `ExtensionSettings` policy can redirect
+  one), so deleting it — or moving it — is the one mistake here that cannot be undone for everyone
+  who installed that copy. It is `releases/latest/download/updates.json` precisely because that form
+  resolves to the newest release on every request while the URL stays fixed, and the ASSET name must
+  carry no version for the same reason gjsify ships `cli.gjs.mjs` rather than `cli-0.52.0.mjs`.
 - **The popup's Disconnect cannot be clicked headless.** E2E builds only (`installE2eHooks`,
   e2e-seed.ts) treat a tab on `/__beifahrer_e2e/disconnect?port=N` as that click; a release build
   carries no seed and registers nothing.
