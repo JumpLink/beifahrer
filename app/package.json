@@ -25,6 +25,39 @@
     "test:mcp": "node tests/integration/mcp-gjs-smoke.mjs"
   },
   "gjsify": {
+    "ship": {
+      "appId": "eu.jumplink.beifahrer",
+      "binaryName": "beifahrer",
+      "kind": "cli",
+      "name": "Beifahrer",
+      "bundle": {
+        "linux": "dist/beifahrer.gjs.mjs",
+        "darwin": "dist/beifahrer.node.mjs",
+        "win32": "dist/beifahrer.node.mjs"
+      },
+      "app": {
+        "darwin": "node",
+        "win32": "node"
+      },
+      "developer": {
+        "id": "eu.jumplink",
+        "name": "Pascal Garber",
+        "email": "pascal@artandcode.studio"
+      },
+      "summary": "Browser bridge for AI agents, under a per-site policy you control",
+      "license": {
+        "project": "AGPL-3.0-or-later"
+      },
+      "description": "beifahrer is the bridge between the beifahrer WebExtension and an AI agent, exposed as an MCP server. It listens on a loopback port from a fixed range; the extension, not the bridge, decides what the agent may read or change, and nothing leaves the machine.",
+      "homepageUrl": "https://github.com/JumpLink/beifahrer",
+      "bugtrackerUrl": "https://github.com/JumpLink/beifahrer/issues",
+      "vcsBrowserUrl": "https://github.com/JumpLink/beifahrer",
+      "flatpak": {
+        "finishArgs": [
+          "--share=network"
+        ]
+      }
+    },
     "excludeGlobals": [
       "document",
       "navigator",
@@ -58,6 +91,11 @@
     "ws": "^8.21.3",
     "yargs": "^18.2.0",
     "zod": "^4.6.5"
+  },
+  "optionalDependencies": {
+    "@gjsify/node-runtime-darwin-arm64": "0.53.0",
+    "@gjsify/node-runtime-darwin-x64": "0.53.0",
+    "@gjsify/node-runtime-win32-x64": "0.53.0"
   },
   "devDependencies": {
     "@gjsify/cli": "0.53.0",
