@@ -17,6 +17,7 @@ import desktop from './unit/core/desktop.test.ts';
 import download from './unit/core/download.test.ts';
 import evaluate from './unit/core/evaluate.test.ts';
 import keys from './unit/core/keys.test.ts';
+import chunks from './unit/core/chunks.test.ts';
 import expectRules from './unit/core/expect.test.ts';
 import networkRules from './unit/core/network.test.ts';
 import navigate from './unit/core/navigate.test.ts';
@@ -49,6 +50,7 @@ run({
   download,
   evaluate,
   keys,
+  chunks,
   expectRules,
   networkRules,
   navigate,

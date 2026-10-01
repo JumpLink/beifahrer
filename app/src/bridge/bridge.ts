@@ -24,6 +24,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import {
   ASK_TIMEOUT_MS,
   CLOSE,
+  ChunkAssembler,
   MAX_WAIT_MS,
   REQUIRED_LEVEL,
   PROTOCOL_VERSION,
@@ -31,6 +32,7 @@ import {
   cleanSessionLabel,
   isExtensionOrigin,
   isLoopbackAddress,
+  parseChunk,
   parseHello,
   parseResponse,
   tokensEqual,
@@ -72,6 +74,7 @@ export interface BrowserAccess {
 interface Live extends BrowserConnection {
   socket: WebSocket;
   pending: PendingCalls;
+  chunks: ChunkAssembler;
 }
 
 export interface BridgeOptions {
@@ -328,6 +331,7 @@ export class Bridge extends EventEmitter implements BrowserAccess {
       connectedAt: new Date(),
       socket,
       pending: new PendingCalls(),
+      chunks: new ChunkAssembler(),
     };
     this.#live.set(conn.id, conn);
     // A browser is here, so whatever ended the last one no longer describes this session.
@@ -357,6 +361,16 @@ export class Bridge extends EventEmitter implements BrowserAccess {
       conn.socket.send(JSON.stringify({ type: 'pong' }));
       return;
     }
+    const chunk = parseChunk(raw);
+    if (chunk) {
+      const whole = conn.chunks.add(chunk);
+      if (whole === null) return;
+      try {
+        raw = JSON.parse(whole);
+      } catch {
+        return;
+      }
+    }
     const res = parseResponse(raw);
     if (!res) return;
     if (res.ok) conn.pending.resolve(res.id, res.result);
@@ -365,6 +379,7 @@ export class Bridge extends EventEmitter implements BrowserAccess {
 
   #drop(conn: Live, code: number): void {
     this.#live.delete(conn.id);
+    conn.chunks.clear();
     this.#disconnected = {
       by: code === CLOSE.personDisconnected ? 'person' : 'lost',
       browser: label(conn),
