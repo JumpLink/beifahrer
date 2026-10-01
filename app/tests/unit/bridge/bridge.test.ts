@@ -5,6 +5,7 @@ import {
   CLOSE,
   PROTOCOL_VERSION,
   PortRangeFull,
+  splitFrame,
   type AgentSession,
   type Hello,
 } from '@beifahrer/core';
@@ -149,6 +150,25 @@ export default async () => {
       });
       const result = (await bridge.call('tabs.list', {})) as unknown as { echo: string };
       expect(result.echo).toBe('tabs.list');
+      r.ws.close();
+      await bridge.stop();
+    });
+
+    await it('accepts a multi-megabyte response without dropping the connection', async () => {
+      // A PNG screenshot is megabytes of base64; the extension chunks it: libsoup closes a socket at 128 KiB per message.
+      const bridge = await startBridge();
+      const dataUrl = `data:image/png;base64,${'A'.repeat(4 * 1024 * 1024)}`;
+      const r = await connect(bridge, {
+        onRequest: (req, ws) =>
+          // what the extension does: big answers travel as chunk frames
+          splitFrame(
+            req.id,
+            JSON.stringify({ type: 'response', id: req.id, ok: true, result: { dataUrl } }),
+          ).forEach((piece) => ws.send(piece)),
+      });
+      const result = (await bridge.call('page.read', { tabId: 1 })) as unknown as { dataUrl: string };
+      expect(result.dataUrl.length).toBe(dataUrl.length);
+      expect(bridge.connections().length).toBe(1);
       r.ws.close();
       await bridge.stop();
     });

@@ -4,6 +4,7 @@ export * from './features.ts';
 export * from './browser-family.ts';
 export * from './policy.ts';
 export * from './protocol.ts';
+export * from './chunks.ts';
 export * from './redact.ts';
 export * from './sessions.ts';
 export * from './toolbar.ts';

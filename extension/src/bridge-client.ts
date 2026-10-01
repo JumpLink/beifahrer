@@ -26,6 +26,7 @@ import {
   cleanSessionLabel,
   isMethod,
   parseWelcome,
+  splitFrame,
   type BridgeFrame,
   type Hello,
   type Overall,
@@ -97,6 +98,13 @@ function send(ws: WebSocket, frame: unknown): void {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(frame));
 }
 
+/** A response may be megabytes (screenshots); the bridge's socket closes at 128 KiB per message. */
+function sendResponse(ws: WebSocket, response: Response): void {
+  for (const piece of splitFrame(response.id, JSON.stringify(response))) {
+    if (ws.readyState === WebSocket.OPEN) ws.send(piece);
+  }
+}
+
 async function serve(
   ws: WebSocket,
   port: number,
@@ -131,7 +139,7 @@ async function serve(
       };
     }
   }
-  send(ws, response);
+  sendResponse(ws, response);
 }
 
 function probe(port: number): void {
