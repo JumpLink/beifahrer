@@ -35,6 +35,7 @@
 import { spawn, execFileSync } from 'node:child_process';
 import { createWriteStream, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -399,10 +400,9 @@ const BROWSER_ERROR = /JavaScript error|ERROR:CONSOLE|Uncaught \(in promise\)|Un
  *
  * Fail-safe by design: a browser that is already gone (the common case, `sleep` races and all) or
  * a `taskkill` that cannot start must not take the run with it — hence no `await`, no `throw`,
- * and the swallowed exit status. Every call site is a `finally` block whose next statement deletes
- * the profile.
+ * and the swallowed exit status. `stopBrowser` is what the `finally` blocks call, and it waits.
  */
-function killBrowser(proc, group) {
+function killBrowser(proc, group, signal = 'SIGTERM') {
   try {
     if (process.platform === 'win32') {
       // /t = the child processes, /f = no grace period. Spawned, not awaited: a failing taskkill
@@ -410,9 +410,73 @@ function killBrowser(proc, group) {
       spawn('taskkill', ['/pid', String(proc.pid), '/t', '/f'], { stdio: 'ignore', windowsHide: true });
       return;
     }
-    process.kill(group ? -proc.pid : proc.pid, 'SIGTERM');
+    process.kill(group ? -proc.pid : proc.pid, signal);
   } catch {
     /* already gone */
+  }
+}
+
+/** Whether a spawned process has ended, polled rather than slept through. */
+async function exited(proc, budgetMs) {
+  const started = Date.now();
+  for (;;) {
+    if (proc.exitCode !== null || proc.signalCode !== null) return true;
+    if (Date.now() - started >= budgetMs) return false;
+    await sleep(100);
+  }
+}
+
+/**
+ * Stop a browser and WAIT until it is gone, killing what ignores the signal.
+ *
+ * The blind 1.5 s that used to follow `killBrowser` was a guess, and a browser that outlived it kept
+ * the DevTools port: the next scenario's `/json/new` was then answered by THAT browser, so the tab it
+ * opened was never in the tabs the bridge listed, and ui-pages.mjs read the accent of a browser nobody
+ * was testing — measured on issue #52, where the endpoint answered 13 ms after the spawn, long before
+ * any new browser could be listening. So the wait is on the process, not on a clock, and a browser
+ * that will not go is killed rather than left holding the port.
+ */
+async function stopBrowser(proc, group) {
+  killBrowser(proc, group);
+  if (await exited(proc, 10_000)) return;
+  killBrowser(proc, group, 'SIGKILL');
+  await exited(proc, 5_000);
+}
+
+/** Whether something of ours is still listening on a loopback port. */
+function listening(port) {
+  return new Promise((done) => {
+    const socket = connect({ port, host: '127.0.0.1' });
+    socket.setTimeout(500);
+    socket.on('connect', () => {
+      socket.destroy();
+      done(true);
+    });
+    socket.on('error', () => done(false));
+    socket.on('timeout', () => {
+      socket.destroy();
+      done(false);
+    });
+  });
+}
+
+/**
+ * Wait until the ports a browser of this run owns are free, and report the ones that stayed busy.
+ *
+ * Every browser here shares two ports (Chromium's DevTools endpoint, Firefox's BiDi), so a browser
+ * left behind — a run interrupted with Ctrl-C, a crash before the `finally` — keeps answering for the
+ * next one, silently: the run would measure another browser's tabs and another browser's pages.
+ * Killing it is not this file's business (it cannot tell an orphan from the person's browser), so
+ * the run waits for the port and names it when the wait runs out.
+ */
+async function portsFree(ports, budgetMs = 10_000) {
+  const started = Date.now();
+  for (;;) {
+    const answers = await Promise.all(ports.map(listening));
+    const busy = ports.filter((_, i) => answers[i]);
+    if (!busy.length) return [];
+    if (Date.now() - started >= budgetMs) return busy;
+    await sleep(250);
   }
 }
 
@@ -440,8 +504,16 @@ function captureOutput(proc) {
   return { errors: () => [...errors] };
 }
 
-function launch(browser, profile) {
+async function launch(browser, profile) {
   const url = `${ALLOWED}/fixture`;
+  // First, before a process of ours exists: the ports this run shares have to be free, or a browser
+  // left over from an earlier run answers for the one we are about to start (issue #52 — measured:
+  // `/json/new` said yes 13 ms after the spawn, before a new browser could be listening).
+  const busy = await portsFree([DEVTOOLS_PORT, BIDI_PORT]);
+  if (busy.length)
+    console.log(
+      `  · [${browser}] port ${busy.join(', ')} was still busy — a browser from an earlier run may answer for this one`,
+    );
   if (browser === 'chromium') {
     const bin = chromiumBinary();
     if (!bin) throw new Error('no Chromium that loads unpacked extensions — set BEIFAHRER_E2E_CHROMIUM');
@@ -586,6 +658,48 @@ async function until(client, done, seconds = 30) {
 
 const tabsOk = (r) => !r.error && JSON.parse(r.text).tabs.some((t) => t.url?.startsWith(ALLOWED));
 
+/**
+ * Why a check on the tab on the site nobody allowed could not run.
+ *
+ * That tab is opened over the DevTools endpoint while the browser is still coming up (see
+ * `openForbiddenTab`), so it can be late — and it was sometimes never there at all. Reading
+ * `forbidden.tabId` then threw a `TypeError` that took the WHOLE scenario with it: 143 checks never
+ * ran, for one missing tab (issue #52). So every check that needs the tab keeps its own assertion
+ * and fails on THIS instead, which says why — the group is reported, never thrown away.
+ */
+const NO_TAB = {
+  error: true,
+  content: [],
+  text: 'no tab on the site nobody allowed: the browser never opened one (see the tabs_list check)',
+};
+
+/** The call a check on that tab makes — or the reason it could not make one. */
+const onForbidden = (forbidden, call) => (forbidden ? call(forbidden.tabId) : Promise.resolve(NO_TAB));
+
+/**
+ * The tab on the site nobody allowed, opened over the DevTools endpoint, and what the endpoint said.
+ *
+ * Headless Chromium takes one start URL (a second one makes it exit, see `launch`), so this tab has
+ * to be opened through `/json/new` — while the browser is still starting, since the endpoint answers
+ * before anything else is ready. What the old loop did not do was LOOK at the answer, so a tab that
+ * never appeared showed up far later as one check failing with no reason. The last answer is
+ * returned for exactly that, and is what the checks on the tab report.
+ */
+async function openForbiddenTab(devtoolsPort, url) {
+  const started = Date.now();
+  let last = 'never answered';
+  for (let i = 0; i < 40; i++) {
+    const r = await fetch(`http://127.0.0.1:${devtoolsPort}/json/new?${url}`, { method: 'PUT' }).then(
+      (res) => ({ ok: res.ok, status: res.status }),
+      (err) => ({ ok: false, status: String(err?.cause?.code ?? err?.message ?? err) }),
+    );
+    if (r.ok) return `opened after ${Date.now() - started} ms`;
+    last = r.status;
+    await sleep(250);
+  }
+  return `not opened (${last})`;
+}
+
 /** `beifahrer tool <name>` as a separate process: binds its own port and waits for the browser. */
 function runTool(tokenFile, name, args = {}) {
   return new Promise((resolveRun) => {
@@ -663,7 +777,7 @@ async function multiSession(browser) {
   sessions.push(b);
   // The last port of the range, out of the way of the sessions that bind from the first one.
   const old = startOldBridge(RANGE.base + RANGE.count - 1);
-  const proc = launch(browser, profile);
+  const proc = await launch(browser, profile);
   try {
     const sa = await until(a.client, (s) => s.browsers?.length === 1, 60);
     const sb = await until(b.client, (s) => s.browsers?.length === 1);
@@ -780,8 +894,7 @@ async function multiSession(browser) {
   } finally {
     for (const s of sessions) await s.client.close().catch(() => undefined);
     old.server.close();
-    killBrowser(proc, browser === 'firefox');
-    await sleep(1500);
+    await stopBrowser(proc, browser === 'firefox');
     rmSync(profile, { recursive: true, force: true });
   }
 }
@@ -814,7 +927,7 @@ async function accessScenario(browser) {
   const tokenFile = join(profile, 'token');
   writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
   const a = await startMcp(tokenFile, `${browser}-access-a.log`, { BEIFAHRER_SESSION_LABEL: 'e2e access A' });
-  const proc = launch(browser, profile);
+  const proc = await launch(browser, profile);
   const hook = (path) =>
     tool(a.client, 'tab_open', { url: `${ALLOWED}/__beifahrer_e2e/${path}`, active: false });
   try {
@@ -873,8 +986,7 @@ async function accessScenario(browser) {
     );
   } finally {
     await a.client.close().catch(() => undefined);
-    killBrowser(proc, browser === 'firefox');
-    await sleep(1500);
+    await stopBrowser(proc, browser === 'firefox');
     rmSync(profile, { recursive: true, force: true });
   }
 }
@@ -903,7 +1015,7 @@ async function confirmScenario(browser) {
   const a = await startMcp(tokenFile, `${browser}-confirm-a.log`, {
     BEIFAHRER_SESSION_LABEL: 'e2e confirm',
   });
-  const proc = launch(browser, profile);
+  const proc = await launch(browser, profile);
   /** The write runs; the person answers the window it opened, as they would. */
   const answered = async (pending, answer) => {
     await sleep(1_000);
@@ -1000,8 +1112,7 @@ async function confirmScenario(browser) {
     );
   } finally {
     await a.client.close().catch(() => undefined);
-    killBrowser(proc, browser === 'firefox');
-    await sleep(1500);
+    await stopBrowser(proc, browser === 'firefox');
     rmSync(profile, { recursive: true, force: true });
   }
 }
@@ -1625,7 +1736,7 @@ async function requests(browser, client, allowed, forbidden, ref) {
   // site's tab as its text is, so a tab on a site nobody allowed has none to ask about. (The document
   // request that LOADED this page is in no log at all — the extension's watch begins with the
   // extension, and a page the browser was already showing asked nothing since. That is honest.)
-  const blocked = await tool(client, 'page_network', { tabId: forbidden.tabId });
+  const blocked = await onForbidden(forbidden, (tabId) => tool(client, 'page_network', { tabId }));
   check(
     browser,
     'a tab on a site nobody allowed has no request log to ask about',
@@ -1827,10 +1938,9 @@ async function navigation(browser, client, allowed, forbidden) {
   );
 
   // A site the person never allowed, navigated to in a tab that is not the one being read.
-  const onBlocked = await tool(client, 'page_navigate', {
-    tabId: forbidden.tabId,
-    url: `${ALLOWED}/elsewhere`,
-  });
+  const onBlocked = await onForbidden(forbidden, (tabId) =>
+    tool(client, 'page_navigate', { tabId, url: `${ALLOWED}/elsewhere` }),
+  );
   check(
     browser,
     'moving a tab that is itself on a blocked site is refused before anything else',
@@ -2104,10 +2214,9 @@ async function scripts(browser, client, allowed, forbidden) {
   }
 
   // 1. Below the level: a site with no rule refuses a script, naming write.
-  const onNothing = await quickly(client, 'page_evaluate', {
-    tabId: forbidden.tabId,
-    script: 'return document.title',
-  });
+  const onNothing = await onForbidden(forbidden, (tabId) =>
+    quickly(client, 'page_evaluate', { tabId, script: 'return document.title' }),
+  );
   check(
     browser,
     'page_evaluate on a site below read is forbidden, naming the level it needs',
@@ -2322,7 +2431,9 @@ async function recipes(browser, client, allowed, forbidden) {
     csrf.text,
   );
 
-  const deniedFind = await tool(client, 'page_find', { tabId: forbidden.tabId, role: 'button' });
+  const deniedFind = await onForbidden(forbidden, (tabId) =>
+    tool(client, 'page_find', { tabId, role: 'button' }),
+  );
   check(
     browser,
     'page_find on a site nobody allowed is forbidden',
@@ -2383,11 +2494,9 @@ async function recipes(browser, client, allowed, forbidden) {
     privateRun.text.slice(0, 400),
   );
 
-  const wrongTab = await tool(client, 'recipe_run', {
-    tabId: forbidden.tabId,
-    id: 'openproject/add-comment',
-    params: { text: 'x' },
-  });
+  const wrongTab = await onForbidden(forbidden, (tabId) =>
+    tool(client, 'recipe_run', { tabId, id: 'openproject/add-comment', params: { text: 'x' } }),
+  );
   check(
     browser,
     'recipe_run refuses a tab below read',
@@ -2489,7 +2598,9 @@ async function tabManagement(browser, client, forbidden) {
   const win = JSON.parse(created.text).windowId;
 
   // A tab on a site nobody allowed joins the window: sessions must carry it without showing it.
-  const moved = await tool(client, 'tabs_move', { tabIds: [forbidden.tabId], windowId: win, index: -1 });
+  const moved = await onForbidden(forbidden, (tabId) =>
+    tool(client, 'tabs_move', { tabIds: [tabId], windowId: win, index: -1 }),
+  );
   check(browser, 'tabs_move moves a tab across windows', !moved.error, moved.text);
   await waitForLayout(client, win, ['?a', '?b', '?c', `host:localhost:${FIXTURE_PORT}`]);
 
@@ -2668,19 +2779,14 @@ async function scenario(browser, gate) {
 
   const { client } = await startMcp(tokenFile, `${browser}-mcp.log`);
 
-  const proc = launch(browser, profile);
+  const proc = await launch(browser, profile);
   const browserOut = captureOutput(proc);
-  if (browser === 'chromium') {
-    for (let i = 0; i < 40; i++) {
-      const ok = await fetch(`http://127.0.0.1:${DEVTOOLS_PORT}/json/new?${FORBIDDEN}/fixture`, {
-        method: 'PUT',
-      })
-        .then((r) => r.ok)
-        .catch(() => false);
-      if (ok) break;
-      await sleep(250);
-    }
-  }
+  // Where the tab on the site nobody allowed came from: Chromium's DevTools endpoint (one start URL
+  // only), Firefox's second `--start-url`. A tab that never arrives has to be able to say which.
+  let openedOn =
+    browser === 'chromium'
+      ? await openForbiddenTab(DEVTOOLS_PORT, `${FORBIDDEN}/fixture`)
+      : "the browser's second start URL";
   const browserLog = logTo(`${browser}-browser.log`);
   if (browserLog) {
     proc.stdout?.pipe(browserLog);
@@ -2694,14 +2800,22 @@ async function scenario(browser, gate) {
       tools.some((t) => t.name === 'page_fill'),
     );
 
-    let connected = false;
-    for (let i = 0; i < 60 && !connected; i++) {
+    // ONE browser: a browser left over from an earlier run connects to this bridge as well, and then
+    // the bridge may answer `tabs.list` from a browser nobody is testing — which looks exactly like a
+    // tab that never arrived (issue #52). So this counts, and a second one fails here with its name.
+    let browsersSeen = [];
+    for (let i = 0; i < 60 && !browsersSeen.length; i++) {
       const r = await tool(client, 'browsers_list');
-      connected = !r.error && JSON.parse(r.text).browsers.length > 0;
-      if (!connected) await sleep(1000);
+      browsersSeen = !r.error ? JSON.parse(r.text).browsers : [];
+      if (!browsersSeen.length) await sleep(1000);
     }
-    check(browser, 'extension connects and pairs', connected);
-    if (!connected) return;
+    check(
+      browser,
+      'extension connects and pairs, and is the only browser that does',
+      browsersSeen.length === 1,
+      browsersSeen.map((b) => `${b.label} (since ${b.connectedAt ?? '?'})`).join(' | '),
+    );
+    if (!browsersSeen.length) return;
     if (gate === 'paused') return await pausedChecks(browser, client);
     const info = JSON.parse((await tool(client, 'browsers_list')).text).browsers[0];
     check(
@@ -2710,19 +2824,25 @@ async function scenario(browser, gate) {
       info.family === (browser === 'chromium' ? 'chromium' : 'firefox'),
     );
 
-    // Give the two start pages a moment to finish loading.
+    // The two start pages, waited for as a CONDITION: the one on the site nobody allowed is opened
+    // while the browser is still coming up, so it can arrive late. If a whole window passes without
+    // it, the tab is asked for once more (the endpoint may have answered for a browser that was
+    // already on its way out) and looked for again — and if it is still not there, the checks on it
+    // report THAT (NO_TAB) instead of taking the scenario with them (issue #52).
+    const forbiddenHost = `localhost:${FIXTURE_PORT}`;
     let tabs = [];
-    for (let i = 0; i < 20; i++) {
-      tabs = JSON.parse((await tool(client, 'tabs_list')).text).tabs;
-      if (
-        tabs.some((t) => t.url?.startsWith(ALLOWED)) &&
-        tabs.some((t) => t.host === `localhost:${FIXTURE_PORT}`)
-      )
-        break;
-      await sleep(500);
+    for (let window = 0; window < 2; window++) {
+      for (let i = 0; i < 20; i++) {
+        tabs = JSON.parse((await tool(client, 'tabs_list')).text).tabs;
+        if (tabs.some((t) => t.url?.startsWith(ALLOWED)) && tabs.some((t) => t.host === forbiddenHost)) break;
+        await sleep(500);
+      }
+      if (tabs.some((t) => t.host === forbiddenHost)) break;
+      if (browser !== 'chromium') break;
+      openedOn += ` | asked again: ${await openForbiddenTab(DEVTOOLS_PORT, `${FORBIDDEN}/fixture`)}`;
     }
     const allowed = tabs.find((t) => t.url?.startsWith(ALLOWED));
-    const forbidden = tabs.find((t) => t.host === `localhost:${FIXTURE_PORT}`);
+    const forbidden = tabs.find((t) => t.host === forbiddenHost);
 
     if (gate === 'off') {
       // Built with the default feature switches: tab management, sessions and screenshots are off.
@@ -2785,7 +2905,9 @@ async function scenario(browser, gate) {
       browser,
       'tabs_list shows the forbidden tab as host only (no url, no title)',
       forbidden && forbidden.url === undefined && forbidden.title === undefined && forbidden.level === 'none',
-      JSON.stringify(forbidden),
+      // A tab that is not there has to name itself: which tabs WERE there, and what the browser was
+      // told when it was asked to open this one (issue #52).
+      `${JSON.stringify(forbidden) ?? 'undefined'} among ${JSON.stringify(tabs).slice(0, 400)} — opened: ${openedOn}`,
     );
 
     const active = await tool(client, 'tab_active');
@@ -2812,7 +2934,7 @@ async function scenario(browser, gate) {
       reread.text.slice(0, 400),
     );
 
-    const denied = await tool(client, 'page_read', { tabId: forbidden.tabId });
+    const denied = await onForbidden(forbidden, (tabId) => tool(client, 'page_read', { tabId }));
     check(
       browser,
       'page_read on a site nobody allowed is forbidden',
@@ -2901,7 +3023,9 @@ async function scenario(browser, gate) {
       openDenied.text,
     );
 
-    const writeDenied = await tool(client, 'page_fill', { tabId: forbidden.tabId, ref: 'e1', text: 'x' });
+    const writeDenied = await onForbidden(forbidden, (tabId) =>
+      tool(client, 'page_fill', { tabId, ref: 'e1', text: 'x' }),
+    );
     check(
       browser,
       'page_fill on a site nobody allowed is forbidden',
@@ -2993,8 +3117,7 @@ async function scenario(browser, gate) {
     await tabManagement(browser, client, forbidden);
   } finally {
     await client.close().catch(() => undefined);
-    killBrowser(proc, browser === 'firefox');
-    await sleep(1500);
+    await stopBrowser(proc, browser === 'firefox');
     rmSync(profile, { recursive: true, force: true });
   }
 }
