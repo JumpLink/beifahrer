@@ -158,7 +158,7 @@ export function manifestFor(
     // Safari gets a non-persistent background PAGE, not a service worker: in Safari 27's extension
     // service worker `new WebSocket('ws://127.0.0.1:…')` blocks the worker for good — no error, no
     // CPU, no further event, so every page waiting on it stays white. The same bundle in a
-    // background page connects at once (measured 2026-09-25, AGENTS.md "Traps").
+    // background page connects at once (measured 2026-09-25, docs/traps-browser-platform.md).
     background:
       target === 'safari-mv3'
         ? { scripts: ['background.js'], persistent: false }

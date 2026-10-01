@@ -15,6 +15,7 @@
     "lint": "gjsify foreach -A lint && oxlint --deny-warnings tests",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
+    "docs:links": "node tools/check-doc-links.mjs",
     "build": "gjsify workspace beifahrer-cli build && gjsify workspace beifahrer-extension build",
     "start": "gjsify workspace beifahrer-cli start",
     "test": "gjsify workspace beifahrer-cli test"

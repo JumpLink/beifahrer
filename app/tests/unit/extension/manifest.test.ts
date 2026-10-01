@@ -51,7 +51,7 @@ export default async () => {
       const edge = at('edge-mv3');
       expect(edge.manifest_version).toBe(3);
       // Not Safari's background PAGE: Edge runs the worker, and the bundle connects at once there (the
-      // hang is Safari's alone — AGENTS.md "Traps already paid for").
+      // hang is Safari's alone — docs/traps-browser-platform.md).
       expect(edge.background['service_worker']).toBe('background.js');
       expect(edge.background['scripts']).toBe(undefined);
       expect(edge.browser_specific_settings).toBe(undefined);

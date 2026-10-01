@@ -79,7 +79,7 @@ styles. Light and dark follow `prefers-color-scheme` through the package's own t
 - The pages look and behave like libadwaita preferences on GNOME and like a clean, consistent
   settings page elsewhere, in light and dark.
 - A bug or gap in the elements is fixed in gjsify, not around it here. Those met while building
-  this are listed in AGENTS.md § gjsify gaps, and a temporary local override is marked
+  this are listed in [docs/gjsify-gaps.md](../gjsify-gaps.md), and a temporary local override is marked
   `gjsify gap (unfixed, …)` so it is removed on the next bump.
 - The popup opens a 520 KB script it did not need before. Per-element entry points in
   `@gjsify/adwaita-web` would take most of it away without a change here beyond the imports.

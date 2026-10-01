@@ -71,6 +71,11 @@ jobs:
       - name: Format check
         run: node_modules/.bin/oxfmt --check .
 
+      # AGENTS.md points at docs/ one hop away, and nothing checked that those targets exist:
+      # a moved file leaves a broken link green. Cheap, and it fails loudly.
+      - name: Doc links
+        run: node tools/check-doc-links.mjs
+
       - name: Build the app bundle
         run: gjsify workspace beifahrer-cli build
 

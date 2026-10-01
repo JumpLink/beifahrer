@@ -459,7 +459,8 @@ gjsify workspace beifahrer-cli test           # unit tests, on GJS and Node
 node tests/e2e/browsers.e2e.mjs all           # the full chain in headless Chromium + Firefox
 ```
 
-Design decisions: [docs/adr/](docs/adr/). Contributor and agent rules: [AGENTS.md](AGENTS.md).
+Design decisions: [docs/adr/](docs/adr/) — index: [docs/](docs/README.md). Contributor and agent
+rules: [AGENTS.md](AGENTS.md).
 
 ## License
 

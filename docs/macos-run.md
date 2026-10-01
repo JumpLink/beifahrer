@@ -335,7 +335,7 @@ Each of these reads as an unrelated failure. Each has a known cause.
 
 | Symptom | Cause | Do |
 |---|---|---|
-| `McpError: -32000 Connection closed` on **every** scenario | `app/dist` was thrown away without a following build. `rm -rf app/dist` also deletes the bridge bundle `beifahrer.gjs.mjs` that the e2e spawns, and `gjsify workspace beifahrer-cli **test**` does not put it back — only `build` does (AGENTS.md). It reads like a broken bridge and is not one. | `gjsify workspace beifahrer-cli build` |
+| `McpError: -32000 Connection closed` on **every** scenario | `app/dist` was thrown away without a following build. `rm -rf app/dist` also deletes the bridge bundle `beifahrer.gjs.mjs` that the e2e spawns, and `gjsify workspace beifahrer-cli **test**` does not put it back — only `build` does (`docs/traps-build-and-test.md`). It reads like a broken bridge and is not one. | `gjsify workspace beifahrer-cli build` |
 | `dnf: command not found`, or a hunt for `libsoup3` | CI's system-package line is Linux. Nothing is missing on macOS; `@gjsify/ws` resolves per OS to the darwin `http-soup-bridge` prebuild. | Ignore the line. See §1.4. |
 | `gjsify install` segfaults, or an ABI/native-binding error | Wrong Node major. gjsify's install backend prebuilds for node 24 (CI sets it up for exactly this reason). | `node --version` must be `v24.x` (§1.2) |
 | No scenario finds a session; extension never loads | Branded Chrome ≥ 137 ignores `--load-extension`. You need Chrome for Testing. | §2.1: `npx playwright install chromium`, or set `BEIFAHRER_E2E_CHROMIUM` |
