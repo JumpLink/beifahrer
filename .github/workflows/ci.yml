@@ -108,6 +108,13 @@ jobs:
   # between a typo there and a suite that cannot even start.
   windows-node-checks:
     runs-on: windows-latest
+    # A Windows runner's default shell is PowerShell, where `$(…)` is not command substitution — the
+    # bootstrap below would fail with "is not recognized as a name of a cmdlet". Git Bash ships with
+    # the runner, so ask for it by name rather than rewriting the steps in PowerShell: the point of
+    # this job is that the SAME commands run on every platform, not that each one is spelled twice.
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
