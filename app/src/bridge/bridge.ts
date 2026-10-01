@@ -95,18 +95,18 @@ export interface BridgeOptions {
   desktop?: AccentSource | null;
 }
 
-/**
- * gjsify gap (unfixed, @gjsify/ws 0.52.0): its WebSocketServer has no GC guard, so once nothing in
- * JS references it, GJS collects it and the port silently stops listening after ~10 s (measured).
- * @gjsify/http and @gjsify/net keep an `_activeServers` set for exactly this; until ws does, the
- * bridge keeps itself alive while it listens. Delete this at the bump that carries the fix.
+/*
+ * A bridge has to stay reachable while it listens: once nothing in JS references it, GJS collects
+ * it and the port silently stops listening after ~10 s (measured). `@gjsify/ws` 0.53.0 keeps its own
+ * WebSocketServer in a module-level Set (gjsify#1809 — `_activeWebSocketServers`, the same guard
+ * `@gjsify/http` and `@gjsify/net` use), so nothing is needed here and the bridge holds no such Set
+ * of its own. Before that bump it had one, and it was load-bearing, not decoration.
  *
- * The gap is in `@gjsify/ws` while the import above says `ws`: the GJS build rewrites that
- * specifier to `@gjsify/ws` (resolve-npm's ALIASES_NODE_FOR_GJS, `ws: '@gjsify/ws'`), which is
- * also why `@gjsify/ws` is a listed dependency and stays one — on Node the same import is the
- * upstream `ws` package, which has no such gap, so this set is a no-op there.
+ * The import below says `ws` but the guard has to come from `@gjsify/ws`: the GJS build rewrites
+ * that specifier (resolve-npm's ALIASES_NODE_FOR_GJS, `ws: '@gjsify/ws'`), which is why
+ * `@gjsify/ws` is a listed dependency and stays one. On Node the same import is the upstream `ws`
+ * package, which never needed a guard.
  */
-const listening = new Set<Bridge>();
 
 /** Writes can wait for the confirmation window, which gives the person two minutes. */
 export const WRITE_TIMEOUT_MS = ASK_TIMEOUT_MS + 15_000;
@@ -174,7 +174,6 @@ export class Bridge extends EventEmitter implements BrowserAccess {
       server.once('listening', () => {
         server.off('error', onError);
         server.on('error', (err) => this.emit('error', err));
-        listening.add(this);
         this.#unfollowDesktop = followDesktop(this.options.desktop ?? null, (d) => this.setDesktop(d));
         resolve();
       });
@@ -187,7 +186,6 @@ export class Bridge extends EventEmitter implements BrowserAccess {
     for (const conn of this.#live.values()) conn.socket.close(CLOSE.shutdown, 'bridge stopping');
     const server = this.#server;
     this.#server = null;
-    listening.delete(this);
     this.#unfollowDesktop();
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   }
