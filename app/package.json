@@ -42,7 +42,7 @@
       "developer": {
         "id": "eu.jumplink",
         "name": "Pascal Garber",
-        "email": "pascal@artandcode.studio"
+        "email": "pascal@jumplink.eu"
       },
       "summary": "Browser bridge for AI agents, under a per-site policy you control",
       "license": {
