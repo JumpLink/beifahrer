@@ -66,7 +66,10 @@ function connect(
 }> {
   return new Promise((resolve) => {
     // Three-argument form on purpose: @gjsify/ws 0.52.0 misreads `new WebSocket(url, options)` as
-    // protocols and never sends the Origin. fixed upstream in gjsify: ws options as second argument
+    // protocols and never sends the Origin. Fixed upstream in gjsify#1809 (c2658660c0), which is
+    // NOT in 0.52.0: the shipped `@gjsify/ws` types are still
+    // `constructor(address, protocols?, options?)`, so at the pinned version this form is
+    // REQUIRED. Drop the `undefined` on the first @gjsify bump that carries the overload.
     const origin = opts.origin === undefined ? EXT : opts.origin;
     const ws = new WebSocket(`ws://127.0.0.1:${bridge.port}/`, undefined, origin ? { origin } : {});
     ws.on('open', () => ws.send(JSON.stringify(opts.hello ?? hello())));

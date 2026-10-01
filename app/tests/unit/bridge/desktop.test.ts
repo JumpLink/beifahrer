@@ -47,7 +47,8 @@ interface Connected {
 function connect(bridge: Bridge): Promise<Connected> {
   const frames: DesktopInfo[] = [];
   return new Promise((resolve, reject) => {
-    // Three-argument form, as in bridge.test.ts. fixed upstream in gjsify: ws options as second argument
+    // Three-argument form, as in bridge.test.ts, and required for the same reason: gjsify#1809
+    // (c2658660c0) is not in the pinned 0.52.0, whose WebSocket still takes protocols second.
     const ws = new WebSocket(`ws://127.0.0.1:${bridge.port}/`, undefined, { origin: EXT });
     ws.on('open', () =>
       ws.send(

@@ -56,9 +56,11 @@ export function gnomeAccentSource(): AccentSource | null {
   };
 }
 
-// fixed upstream in gjsify: `adwAccentFromAppleAccentColor` (@gjsify/adwaita-core) and
-// `readMacosAccentColor` + `onMacosAccentColorChanged` (@gjsify/adwaita-app/system-accent).
-// Replace the three below with those once the app is on a gjsify release that ships them.
+// fixed upstream in gjsify#1832 (45ff5e6f2e), which is NOT in the pinned 0.52.0: 0.52.0 was tagged
+// on 2026-09-24, the fix landed on 2026-09-27, and `git tag --contains 45ff5e6f2e` lists no tag.
+// So at 0.52.0 `adwAccentFromAppleAccentColor` is not exported at all and `@gjsify/adwaita-app`
+// carries no system-accent module, which makes the mapping and the macOS source below the only
+// implementation rather than a workaround. Delete them on the first @gjsify bump carrying #1832.
 
 /**
  * `AppleAccentColor` → the libadwaita accent of the same name; graphite (-1) is slate. `null` means

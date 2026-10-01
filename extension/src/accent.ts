@@ -41,11 +41,13 @@ export async function loadAccentChoice(): Promise<AccentChoice> {
 /**
  * The fill (`--accent-bg-color`) and the standalone colour (`--accent-color`) for a choice.
  *
- * gjsify gap (unfixed, gjsify#1821): adwaita-web has no way to follow the browser's
- * `AccentColor`, so the `system` branch is a local shim. It derives the standalone colour the way
- * libadwaita's stylesheet does (OkLab L clamped to 0.5 on light, 0.85 on dark), where the engine
- * supports relative colours, and uses the fill unchanged where it does not. Delete it once
- * adwaita-web can do this itself.
+ * gjsify gap (unfixed, gjsify#1821 — fixed in gjsify#1827, b9b343c67d, which is NOT in the pinned
+ * 0.52.0: `git grep applySystemAccent v0.52.0 -- packages/web/adwaita-web` is empty and
+ * `git tag --contains b9b343c67d` lists no tag): adwaita-web at 0.52.0 has no way to follow the
+ * browser's `AccentColor`, so the `system` branch is a local shim. It derives the standalone colour
+ * the way libadwaita's stylesheet does (OkLab L clamped to 0.5 on light, 0.85 on dark), where the
+ * engine supports relative colours, and uses the fill unchanged where it does not. Replace it with
+ * `readSystemAccent` / `applySystemAccent` on the first @gjsify bump that carries #1827.
  */
 export function accentColors(choice: AccentChoice, dark: boolean): { bg: string; fg: string } {
   if (choice.from !== 'system') {
