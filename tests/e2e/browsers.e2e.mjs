@@ -365,6 +365,33 @@ function buildExtension(seed) {
 const BROWSER_ERROR = /JavaScript error|ERROR:CONSOLE|Uncaught \(in promise\)|Uncaught \w*Error/;
 
 /**
+ * Stop a browser and everything it started.
+ *
+ * Firefox is spawned `detached`, so `-pid` is a POSIX process-GROUP id and one signal reaches the
+ * whole group; Chromium is not detached, so only its own pid is signalled. That distinction is
+ * POSIX semantics: a negative pid is not a process group on Windows, and there `taskkill /t` walks
+ * the parent/child tree instead.
+ *
+ * Fail-safe by design: a browser that is already gone (the common case, `sleep` races and all) or
+ * a `taskkill` that cannot start must not take the run with it — hence no `await`, no `throw`,
+ * and the swallowed exit status. Every call site is a `finally` block whose next statement deletes
+ * the profile.
+ */
+function killBrowser(proc, group) {
+  try {
+    if (process.platform === 'win32') {
+      // /t = the child processes, /f = no grace period. Spawned, not awaited: a failing taskkill
+      // reports through its exit code, and nothing here may throw into a `finally`.
+      spawn('taskkill', ['/pid', String(proc.pid), '/t', '/f'], { stdio: 'ignore', windowsHide: true });
+      return;
+    }
+    process.kill(group ? -proc.pid : proc.pid, 'SIGTERM');
+  } catch {
+    /* already gone */
+  }
+}
+
+/**
  * The error lines a browser process printed, in memory. Some checks have nothing else to look at —
  * a screenshot that works answers with an image and no words — so "the browser logged nothing while
  * it was taken" is measured from the browser itself rather than assumed.
@@ -700,11 +727,7 @@ async function multiSession(browser) {
   } finally {
     for (const s of sessions) await s.client.close().catch(() => undefined);
     old.server.close();
-    try {
-      process.kill(browser === 'firefox' ? -proc.pid : proc.pid, 'SIGTERM');
-    } catch {
-      /* already gone */
-    }
+    killBrowser(proc, browser === 'firefox');
     await sleep(1500);
     rmSync(profile, { recursive: true, force: true });
   }
@@ -797,11 +820,7 @@ async function accessScenario(browser) {
     );
   } finally {
     await a.client.close().catch(() => undefined);
-    try {
-      process.kill(browser === 'firefox' ? -proc.pid : proc.pid, 'SIGTERM');
-    } catch {
-      /* already gone */
-    }
+    killBrowser(proc, browser === 'firefox');
     await sleep(1500);
     rmSync(profile, { recursive: true, force: true });
   }
@@ -928,11 +947,7 @@ async function confirmScenario(browser) {
     );
   } finally {
     await a.client.close().catch(() => undefined);
-    try {
-      process.kill(browser === 'firefox' ? -proc.pid : proc.pid, 'SIGTERM');
-    } catch {
-      /* already gone */
-    }
+    killBrowser(proc, browser === 'firefox');
     await sleep(1500);
     rmSync(profile, { recursive: true, force: true });
   }
@@ -2925,11 +2940,7 @@ async function scenario(browser, gate) {
     await tabManagement(browser, client, forbidden);
   } finally {
     await client.close().catch(() => undefined);
-    try {
-      process.kill(browser === 'firefox' ? -proc.pid : proc.pid, 'SIGTERM');
-    } catch {
-      /* already gone */
-    }
+    killBrowser(proc, browser === 'firefox');
     await sleep(1500);
     rmSync(profile, { recursive: true, force: true });
   }
