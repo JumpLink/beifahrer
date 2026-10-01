@@ -12,7 +12,7 @@
  */
 
 import { browser } from '@wxt-dev/browser';
-import { accentColors, loadAccentChoice } from './accent.ts';
+import { accentFill, loadAccentChoice } from './accent.ts';
 import { t } from './i18n.ts';
 import { STOP_MESSAGE } from './page-messages.ts';
 
@@ -67,9 +67,7 @@ function build(): HTMLElement {
   });
   pill.append(dot, label, stop);
   // The desktop's accent, as the extension pages show it. The pill is always dark.
-  void loadAccentChoice().then((choice) =>
-    pill.style.setProperty('--accent-bg-color', accentColors(choice, true).bg),
-  );
+  void loadAccentChoice().then((choice) => pill.style.setProperty('--accent-bg-color', accentFill(choice)));
   root.append(style, pill);
   return el;
 }
