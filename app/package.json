@@ -50,6 +50,9 @@
   },
   "dependencies": {
     "@beifahrer/core": "*",
+    "@gjsify/adwaita-app": "0.53.0",
+    "@gjsify/adwaita-core": "0.53.0",
+    "@gjsify/node-gi": "0.53.0",
     "@gjsify/ws": "0.53.0",
     "@modelcontextprotocol/sdk": "^1.30.1",
     "ws": "^8.21.3",

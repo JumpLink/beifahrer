@@ -1,6 +1,9 @@
 {
   "lockfileVersion": 4,
   "requested": [
+    "@gjsify/adwaita-app@0.53.0",
+    "@gjsify/adwaita-core@0.53.0",
+    "@gjsify/node-gi@0.53.0",
     "@gjsify/ws@0.53.0",
     "@modelcontextprotocol/sdk@^1.30.1",
     "ws@^8.21.3",
@@ -17,7 +20,6 @@
     "oxfmt@^0.70.0",
     "oxlint@^1.85.0",
     "typescript@^6.0.3",
-    "@gjsify/adwaita-core@0.53.0",
     "@gjsify/adwaita-icons@0.53.0",
     "@gjsify/adwaita-web@0.53.0",
     "@wxt-dev/browser@^0.3.0",
@@ -629,6 +631,22 @@
         "@gjsify/dom-events": "^0.53.0"
       }
     },
+    "node_modules/@gjsify/adwaita-app": {
+      "version": "0.53.0",
+      "resolved": "https://registry.npmjs.org/@gjsify/adwaita-app/-/adwaita-app-0.53.0.tgz",
+      "integrity": "sha512-oBtkNLlRV9HDFo1q26My/vo8UHnRZ17T899wqcl459gHF7U0Naq7lIuwYQYYS3Z1wduiBJPxKHtKw+W5PLSE2A==",
+      "dependencies": {
+        "@girs/gjs": "5.4.0",
+        "@girs/adw-1": "5.4.0",
+        "@girs/gdk-4.0": "5.4.0",
+        "@girs/gio-2.0": "5.4.0",
+        "@girs/gtk-4.0": "5.4.0",
+        "@girs/glib-2.0": "5.4.0",
+        "@gjsify/devtools": "^0.53.0",
+        "@girs/gobject-2.0": "5.4.0",
+        "@gjsify/adwaita-core": "^0.53.0"
+      }
+    },
     "node_modules/@gjsify/adwaita-core": {
       "version": "0.53.0",
       "resolved": "https://registry.npmjs.org/@gjsify/adwaita-core/-/adwaita-core-0.53.0.tgz",
@@ -806,6 +824,27 @@
         "@gjsify/stream": "^0.53.0",
         "@gjsify/webcrypto": "^0.53.0"
       }
+    },
+    "node_modules/@gjsify/devtools": {
+      "version": "0.53.0",
+      "resolved": "https://registry.npmjs.org/@gjsify/devtools/-/devtools-0.53.0.tgz",
+      "integrity": "sha512-A9r3KKb2sGfUOoYvnS9E6FX/9+sElzKvbfUJGpkJnM2n37YNW2BiEKNuSchroZCX15hCKN0B37w1dQ+EFsdmOQ==",
+      "dependencies": {
+        "@girs/gjs": "5.4.0",
+        "@girs/adw-1": "5.4.0",
+        "@girs/gdk-4.0": "5.4.0",
+        "@girs/gio-2.0": "5.4.0",
+        "@girs/gtk-4.0": "5.4.0",
+        "@girs/glib-2.0": "5.4.0",
+        "@girs/gobject-2.0": "5.4.0",
+        "@girs/graphene-1.0": "5.4.0",
+        "@gjsify/devtools-protocol": "^0.53.0"
+      }
+    },
+    "node_modules/@gjsify/devtools-protocol": {
+      "version": "0.53.0",
+      "resolved": "https://registry.npmjs.org/@gjsify/devtools-protocol/-/devtools-protocol-0.53.0.tgz",
+      "integrity": "sha512-mYpcD7aMV3pQ6o6k3bE3i9gpnIDCGdFOnKgvWu3DN09b0dlYV+QS1D3A+M+mLBhKdf/gQVz4CUIR+DQ4UwVdDA=="
     },
     "node_modules/@gjsify/dgram": {
       "version": "0.53.0",
@@ -1308,6 +1347,14 @@
         "@gjsify/buffer": "^0.53.0",
         "@gjsify/events": "^0.53.0",
         "@gjsify/stream": "^0.53.0"
+      }
+    },
+    "node_modules/@gjsify/node-gi": {
+      "version": "0.53.0",
+      "resolved": "https://registry.npmjs.org/@gjsify/node-gi/-/node-gi-0.53.0.tgz",
+      "integrity": "sha512-flA36tMsLzwz4Vcx5NLGgVknRcMWfoHAwzgnZXjvKt2CMxT9aR14FbRpfHb3OABhZHypmLGfazdm7RCpUmRWjQ==",
+      "dependencies": {
+        "node-addon-api": "^8.0.0"
       }
     },
     "node_modules/@gjsify/node-globals": {
@@ -3024,6 +3071,12 @@
       "cpu": [
         "x64"
       ],
+      "optional": true
+    },
+    "node_modules/@parcel/watcher/node_modules/node-addon-api": {
+      "version": "7.1.1",
+      "resolved": "https://registry.npmjs.org/node-addon-api/-/node-addon-api-7.1.1.tgz",
+      "integrity": "sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ==",
       "optional": true
     },
     "node_modules/@pinojs/redact": {
@@ -5568,10 +5621,9 @@
       "integrity": "sha512-mj7UPXE0jaqaOsukNZRUEfEi2AcL7C/vwmwcHV0O97eO1E1pxBZuyjlZrx5seTaNBg1U6+o35wpa35Qfcc+7ag=="
     },
     "node_modules/node-addon-api": {
-      "version": "7.1.1",
-      "resolved": "https://registry.npmjs.org/node-addon-api/-/node-addon-api-7.1.1.tgz",
-      "integrity": "sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ==",
-      "optional": true
+      "version": "8.9.2",
+      "resolved": "https://registry.npmjs.org/node-addon-api/-/node-addon-api-8.9.2.tgz",
+      "integrity": "sha512-VijLXbi3UACN69I0JVXJsX4tjACjNoQDgv2gTF6sx2wWEi8tkSg2eX8p5gSIFi8z2+DL3oHmY6OyKce38SDolg=="
     },
     "node_modules/node-forge": {
       "version": "1.4.0",
