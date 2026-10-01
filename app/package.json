@@ -74,7 +74,7 @@
     ],
     "test": {
       "entry": "tests/test.mts",
-      "outdir": "dist",
+      "outdir": "dist-test",
       "runtimes": [
         "gjs",
         "node"

@@ -278,17 +278,17 @@ The werkstatt sandbox kills a long-running **foreground** GJS process (Exit 144)
   `export const fail = (...): never => {}` leaves every line after a `fail(...)` reporting its value
   as possibly undefined, so handlers grow `!` and `as` that no one needed. `errors.ts` annotates the
   const, which is why `return fail(...)` is the way to write it there.
-- **`gjsify test` reuses `app/dist/test.gjs.mjs` when only `packages/core` changed.** The bundler's
+- **`gjsify test` reuses `app/dist-test/test.gjs.mjs` when only `packages/core` changed.** The bundler's
   cache is keyed on the entry files, not on what they import, so a change in `packages/core/src` is
-  invisible to the tests until the bundle is thrown away: `rm -rf app/dist` before believing a
+  invisible to the tests until the bundle is thrown away: `rm -rf app/dist-test` before believing a
   green run (or a red one). Measured while adding the key table — a refusal message that had been
   edited three lines away was still the old one in the report. Not a beifahrer bug and not worked
   around in the code: it is in the gap table below.
-  **`rm -rf app/dist` also deletes the bridge bundle** (`beifahrer.gjs.mjs`) that the e2e spawns, and
-  `gjsify workspace beifahrer-cli test` does NOT put it back — only `… build` does. An e2e run after
-  it fails with `McpError: -32000 Connection closed` on EVERY scenario, which reads like a broken
-  bridge and is not one. Hit exactly once, so: `rm -rf app/dist && gjsify workspace beifahrer-cli test
-  && gjsify workspace beifahrer-cli build` — the `build` is not optional after the `rm`.
+  **The test bundle has its own directory (`gjsify.test.outdir: "dist-test"`) for two incidents.**
+  When it shared `app/dist`, this `rm` also deleted the bridge bundle the e2e spawns, and every
+  scenario then failed with `McpError: -32000 Connection closed`, which reads like a broken bridge.
+  And `gjsify ship` carries everything beside the bundle, so the first CI-built `.rpm` carried
+  `test.gjs.mjs` + `test.node.mjs` (1.35 MB unpacked, more than the bridge). Do not move it back.
 - **A whole window is closed with `windows.remove`**, not tab by tab, so that the browser's
   recently-closed list holds it as one window (the e2e restores it from there).
 - **A confirmation window can only be answered by the person.** So a script run, a fill and a click
@@ -377,7 +377,7 @@ Fix them in gjsify, never around them (werkstatt AGENTS.md § Core deps). Found 
 | ~~`@gjsify/ws` server: `connection` passes the raw `Soup.ServerMessage`, no `req.headers`~~ | **GONE at 0.53.0** (same commit): `connection` carries an `IncomingMessage`-shaped `req`, built from the same header read `verifyClient` already used |
 | ~~`@gjsify/ws` server: no GC guard, so an unreferenced server stops listening after ~10 s~~ | **GONE at 0.53.0** (same commit): `_activeWebSocketServers`, the `_activeServers` pattern `@gjsify/http` and `@gjsify/net` already use. Measured: a probe that holds nothing but a port number stays reachable for 28 s under heap churn on 0.53.0 and dies at ~8 s on 0.52.0, so the bridge's own `listening` set is gone |
 | `@gjsify/ws` server: a taken port carries no `code: 'EADDRINUSE'`, only a localised Gio message | **also fixed in 0.53.0** (same commit, `createNodeError`), and left as it was: `bindFirstFree` (core) moves on to the next port after *any* bind error, so the missing code never cost anything |
-| `gjsify test` does not re-bundle when only an imported workspace package changed (`packages/core`), so the run reports a stale bundle — `rm -rf app/dist` | the traps list names it; a core change that "did nothing" is this, not a broken test |
+| `gjsify test` does not re-bundle when only an imported workspace package changed (`packages/core`), so the run reports a stale bundle — `rm -rf app/dist-test` | the traps list names it; a core change that "did nothing" is this, not a broken test |
 | `gjsify format` under GJS silently skips HTML (oxfmt-native cannot format it) — [gjsify#1807](https://github.com/gjsify/gjsify/issues/1807) | `oxfmt` is called directly, locally and in CI |
 | `app/src/frontends/mcp/runtime.ts` is the **third** verbatim copy (postbote, troedler) | extract to a shared `@gjsify/mcp`; until then change all three or none |
 | `@gjsify/adwaita-web` 0.52.0 has one entry: it defines every element and inlines its 200 KB stylesheet as a string, so a page cannot import only what it uses (the elements beifahrer uses measured ~45 KB by path) | `ui.js` is 520 KB (104 KB gzip), shared by the three pages; switch to per-element entries when they exist (ADR 0008) |
