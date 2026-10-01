@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # Also callable, so a tag's release runs this exact job instead of a second copy of it that has
+  # to be kept in step with this one. Nothing here needs a secret, so a caller forwards none.
+  workflow_call:
 
 # The gjsify toolchain, as in postbote/troedler: `gjsify install --immutable`, the bundled
 # `gjsify tsc` type-check, `gjsify build` for the app, and the unit tests under BOTH gjs and node.

@@ -373,10 +373,16 @@ extension is bundled on GJS too ([ADR 0002](docs/adr/0002-build-on-gjs-not-wxt.m
 ```sh
 gjsify install
 gjsify workspace beifahrer-cli build          # app/dist/beifahrer.gjs.mjs
-gjsify workspace beifahrer-extension build    # extension/.output/{chrome-mv3,firefox-mv2}, on GJS
+gjsify workspace beifahrer-extension build    # extension/.output/<target>/, on GJS
 ```
 
+Every target is a folder and, with `--zip`, its own download: `chrome-mv3`, `edge-mv3`,
+`firefox-mv2`, `safari-mv3`. **Edge gets the `chrome-mv3` manifest unchanged** — one Chromium, one
+manifest — and reports itself as `Microsoft Edge` under the `chromium` family at runtime, so nothing
+else in the build knows the difference.
+
 - **Chromium:** `chrome://extensions` → Developer mode → *Load unpacked* → `extension/.output/chrome-mv3`
+- **Edge:** the same folder loads as `edge://extensions` → Developer mode → *Load unpacked*. Edge and Chrome are the same build; `edge-mv3` exists so the extension can be handed to a person on Edge without asking them to rename a folder.
 - **Firefox, to try it:** `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on* → `extension/.output/firefox-mv2/manifest.json`. Firefox forgets it on restart.
 - **Firefox, to keep it:** sign it as an unlisted add-on (AMO signs it, nothing is published):
   put `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` from [your AMO API key page](https://addons.mozilla.org/developers/addon/api/key/)

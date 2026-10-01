@@ -4,6 +4,7 @@
 import { run } from '@gjsify/unit';
 
 import features from './unit/core/features.test.ts';
+import browserFamily from './unit/core/browser-family.test.ts';
 import accessCheck from './unit/core/access-check.test.ts';
 import find from './unit/core/find.test.ts';
 import recipes from './unit/core/recipes.test.ts';
@@ -25,6 +26,7 @@ import shortcut from './unit/core/shortcut.test.ts';
 import bridge from './unit/bridge/bridge.test.ts';
 import configDir from './unit/bridge/config-dir.test.ts';
 import bridgeDesktop from './unit/bridge/desktop.test.ts';
+import extensionManifest from './unit/extension/manifest.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
 import mcpTools from './unit/mcp/tools.test.ts';
 import mcpOutput from './unit/mcp/output.test.ts';
@@ -33,6 +35,7 @@ import recipeSources from './unit/recipes/sources.test.ts';
 
 run({
   features,
+  browserFamily,
   accessCheck,
   find,
   recipes,
@@ -54,6 +57,7 @@ run({
   bridge,
   bridgeDesktop,
   configDir,
+  extensionManifest,
   mcpGate,
   mcpTools,
   mcpOutput,
