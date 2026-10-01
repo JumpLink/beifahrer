@@ -20,6 +20,7 @@ import { zipSync } from 'fflate';
 import { TARGETS, manifestFor } from '../manifest.ts';
 import { copyIcons, renderIcons } from './icons.ts';
 import { checkLocales, sourceFiles } from './locales.ts';
+import { localBin } from './platform.ts';
 
 // The bundle runs from extension/dist/, the source from extension/scripts/ — one level down either way.
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -66,7 +67,11 @@ function bundle(name: string, entry: string): void {
     '--outfile',
     join(STAGE, `${name}.js`),
   ];
-  const res = spawnSync('gjsify', args, { cwd: ROOT, encoding: 'utf8' });
+  // The bare name build.ts has always spawned (PATH), not a repo-local path: `gjsify` here is
+  // whatever CLI is running this script. On Windows that file is `gjsify.cmd`, which Node cannot
+  // execute without a shell.
+  const gjsify = localBin('gjsify');
+  const res = spawnSync(gjsify.command, args, { cwd: ROOT, encoding: 'utf8', shell: gjsify.shell });
   if (res.status !== 0) {
     throw new Error(`gjsify build ${entry} failed (${res.status}):\n${res.stderr || res.stdout}`);
   }

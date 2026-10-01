@@ -103,3 +103,26 @@ export function firefoxBinary(env: Env = process.env, platform: string = process
   for (const bin of candidates) if (existsSync(bin)) return bin;
   return 'firefox';
 }
+
+/**
+ * The launcher for a local dependency, e.g. `localBin('gjsify')` → `<repo>/node_modules/.bin/gjsify`.
+ *
+ * npm writes THREE files there on Windows: a `.cmd`, a `.ps1` and an extensionless shell script.
+ * Node refuses to execute a `.cmd` without a shell, and the extensionless file has no shebang it
+ * can use — so a hardcoded `node_modules/.bin/gjsify` is ENOENT there while working fine on POSIX.
+ * Hence the suffix and the `shell` flag, which callers pass on: `spawn(cmd, args, { ...opts })`.
+ * POSIX keeps both defaults, so a Linux run is byte-identical to the naive call.
+ *
+ * The suffix is NOT verified on Windows (no host available here); it is npm's documented layout.
+ */
+export function localBin(
+  name: string,
+  root?: string,
+  platform: string = process.platform,
+): { command: string; shell: boolean } {
+  const suffix = isWindows(platform) ? '.cmd' : '';
+  return {
+    command: root ? join(root, 'node_modules/.bin', `${name}${suffix}`) : `${name}${suffix}`,
+    shell: isWindows(platform),
+  };
+}

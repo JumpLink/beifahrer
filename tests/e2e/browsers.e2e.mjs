@@ -36,7 +36,7 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { WebSocketServer } from 'ws';
-import { chromiumBinary, firefoxBinary } from '../../extension/scripts/platform.ts';
+import { chromiumBinary, firefoxBinary, localBin } from '../../extension/scripts/platform.ts';
 import { chromiumPages, firefoxPages } from './ui-pages.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -348,10 +348,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function buildExtension(seed) {
   // The extension builds on GJS (scripts/build.ts); the seed makes it an E2E build in .output-e2e/.
   const env = { ...process.env, BEIFAHRER_E2E_SEED: JSON.stringify(seed) };
-  execFileSync(join(ROOT, 'node_modules/.bin/gjsify'), ['run', 'build'], {
+  const gjsify = localBin('gjsify', ROOT);
+  execFileSync(gjsify.command, ['run', 'build'], {
     cwd: join(ROOT, 'extension'),
     env,
     stdio: 'ignore',
+    shell: gjsify.shell,
   });
 }
 
@@ -423,8 +425,9 @@ function launch(browser, profile) {
     return proc;
   }
   const firefox = firefoxBinary();
+  const webExt = localBin('web-ext', ROOT);
   const started = spawn(
-    join(ROOT, 'node_modules/.bin/web-ext'),
+    webExt.command,
     [
       'run',
       '--source-dir',
@@ -444,7 +447,7 @@ function launch(browser, profile) {
       '--start-url',
       `${FORBIDDEN}/fixture`,
     ],
-    { stdio: ['ignore', 'pipe', 'pipe'], detached: true },
+    { stdio: ['ignore', 'pipe', 'pipe'], detached: true, shell: webExt.shell },
   );
   captureOutput(started);
   return started;
@@ -453,7 +456,10 @@ function launch(browser, profile) {
 /** Start one `beifahrer mcp` over stdio, as an agent session would. */
 async function startMcp(tokenFile, logName, env = {}) {
   const transport = new StdioClientTransport({
-    command: join(ROOT, 'node_modules/.bin/gjsify'),
+    // The SDK spawns through `cross-spawn` with `shell: false` fixed, and cross-spawn is what
+    // resolves a `node_modules/.bin` shim on Windows (it re-runs a `.cmd` through cmd.exe) — so
+    // here only the FILE NAME may be corrected; no `shell` option exists to pass.
+    command: localBin('gjsify', ROOT).command,
     args: [
       'run',
       join(ROOT, 'app/dist/beifahrer.gjs.mjs'),
@@ -504,8 +510,9 @@ const tabsOk = (r) => !r.error && JSON.parse(r.text).tabs.some((t) => t.url?.sta
 /** `beifahrer tool <name>` as a separate process: binds its own port and waits for the browser. */
 function runTool(tokenFile, name, args = {}) {
   return new Promise((resolveRun) => {
+    const gjsify = localBin('gjsify', ROOT);
     const child = spawn(
-      join(ROOT, 'node_modules/.bin/gjsify'),
+      gjsify.command,
       [
         'run',
         join(ROOT, 'app/dist/beifahrer.gjs.mjs'),
@@ -522,6 +529,7 @@ function runTool(tokenFile, name, args = {}) {
       {
         env: { ...process.env, BEIFAHRER_TOKEN_FILE: tokenFile, BEIFAHRER_DESKTOP_ACCENT: DESKTOP_ACCENT },
         stdio: ['ignore', 'pipe', 'pipe'],
+        shell: gjsify.shell,
       },
     );
     let out = '';
