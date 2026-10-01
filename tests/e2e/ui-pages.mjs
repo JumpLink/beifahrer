@@ -29,6 +29,8 @@ const HASH = { confirm: '#e2e-preview' };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** What BEIFAHRER_DESKTOP_ACCENT=green (browsers.e2e.mjs) must paint, from adwaita-core's palette. */
 const ACCENT_BG = ADW_ACCENT_BG_COLORS.green;
+/** How long a page may take to paint it. A local read of what the background stored, so this is long. */
+const ACCENT_BUDGET_MS = 10_000;
 
 /** Evaluated in each page: what "the Adwaita UI came up" means. */
 const PROBE = `JSON.stringify({
@@ -38,6 +40,10 @@ const PROBE = `JSON.stringify({
   translated: !document.querySelector('[data-i18n]') || [...document.querySelectorAll('[data-i18n]')].every((e) => e.textContent.trim() !== ''),
   lang: document.documentElement.lang,
   accent: getComputedStyle(document.documentElement).getPropertyValue('--accent-bg-color').trim(),
+  // What the page wrote ITSELF, which tells the two accent failures apart: nothing here means it never
+  // applied one (nothing stored, or the read still outstanding), and a colour here that is not
+  // \`accent\` means it applied a choice of its own, the browser's over the bridge's.
+  inline: document.documentElement.style.getPropertyValue('--accent-bg-color').trim(),
   // The copy's house style, as the person sees it (scripts/locales.ts checks the catalogue).
   copy: !/[\u2013\u2014!\u201C\u201D\u201E]/.test(document.body.innerText),
   words: document.body.innerText.split(/\\s+/).filter(Boolean).length,
@@ -90,6 +96,85 @@ function judge(check, browser, page, raw) {
   );
 }
 
+/** One `Runtime.evaluate` of the probe: what the page says about itself, as raw JSON. */
+const chromiumProbe = (c) =>
+  c
+    .send('Runtime.evaluate', { expression: PROBE, returnByValue: true })
+    .then((res) => res.result?.result?.value ?? JSON.stringify(res));
+
+/**
+ * The page's own answer, asked again until it carries the accent the bridge reported.
+ *
+ * The accent is not there when a page loads: `followAccent` (extension/src/accent.ts) writes it after
+ * an async read of what the background stored from the bridge's welcome, so it lands some time after
+ * the document did. A fixed sleep after `Page.reload` is a race with that, and the check that lost it
+ * could not tell the two failures apart — the page painted Chromium's own blue, and the run said "the
+ * bridge reported nothing" (issue #52). So the wait is on the CONDITION, and the LAST answer is what
+ * the checks judge when it never comes: late and never are different bugs.
+ *
+ * One `started` outside the loop, and nothing in the body touches the clock again — a deadline that
+ * re-reads `Date.now()` in its own update measures the gap between rounds, not the budget.
+ */
+async function readUntilAccent(read) {
+  const started = Date.now();
+  let last = '';
+  for (;;) {
+    try {
+      last = await read();
+    } catch (err) {
+      // A document that is still being replaced answers nothing; that is a "not yet", not a crash.
+      last = `the page did not answer: ${String(err?.message ?? err).slice(0, 200)}`;
+    }
+    let accent = '';
+    try {
+      accent = JSON.parse(last).accent;
+    } catch {
+      /* not JSON: judge reports it */
+    }
+    const waitedMs = Date.now() - started;
+    if (accent === ACCENT_BG) return { raw: last, waitedMs, ok: true };
+    if (waitedMs >= ACCENT_BUDGET_MS) return { raw: last, waitedMs, ok: false };
+    await sleep(250);
+  }
+}
+
+/**
+ * Wait for the document the RELOAD created: a new execution context, so a probe cannot answer out
+ * of the document being replaced — which would be the previous load's, and would pass for this one's.
+ */
+async function reloaded(c, known, budgetMs = 10_000) {
+  const fresh = (e) => e.method === 'Runtime.executionContextCreated' && !known.has(e.params?.context?.id);
+  const started = Date.now();
+  while (Date.now() - started < budgetMs) {
+    if (c.events.some(fresh)) return true;
+    await sleep(100);
+  }
+  return false;
+}
+
+/** The contexts this target had before the reload, so `reloaded` can tell a new one from them. */
+const contextIds = (c) =>
+  new Set(
+    c.events.filter((e) => e.method === 'Runtime.executionContextCreated').map((e) => e.params?.context?.id),
+  );
+
+/**
+ * What the BACKGROUND had stored, asked of the service worker, so a page that paints the browser's
+ * own accent says which of the two failures it was: a bridge that reported no desktop accent (nothing
+ * stored), or a page that never read what one did report (the accent is stored and nobody painted it).
+ */
+async function storedAccent(worker) {
+  const res = await worker
+    .send('Runtime.evaluate', {
+      expression:
+        "chrome.storage.local.get('desktopAccent').then((s) => JSON.stringify(s.desktopAccent ?? null))",
+      awaitPromise: true,
+      returnByValue: true,
+    })
+    .catch((err) => ({ nothing: String(err?.message ?? err) }));
+  return res.nothing ?? res.result?.result?.value ?? 'no answer';
+}
+
 /** Chromium: over the DevTools endpoint the e2e already opened. */
 export async function chromiumPages(check, devtoolsPort, shotsDir) {
   const list = () => fetch(`http://127.0.0.1:${devtoolsPort}/json/list`).then((r) => r.json());
@@ -136,10 +221,19 @@ export async function chromiumPages(check, devtoolsPort, shotsDir) {
       mobile: false,
     });
     // Reload with the listeners on, so a CSP report or an exception during load is seen.
+    const before = contextIds(c);
     await c.send('Page.reload');
-    await sleep(1500);
-    const probe = await c.send('Runtime.evaluate', { expression: PROBE, returnByValue: true });
-    judge(check, 'chromium', page, probe.result?.result?.value ?? JSON.stringify(probe));
+    await reloaded(c, before);
+    const { raw, waitedMs, ok } = await readUntilAccent(() => chromiumProbe(c));
+    // Only when it actually raced: how long the accent took is the whole story of issue #52.
+    if (waitedMs > 500)
+      console.log(`  · [chromium] ${page}.html: the accent landed after ${waitedMs} ms, not before`);
+    judge(
+      check,
+      'chromium',
+      page,
+      ok ? raw : `${raw} | the background has stored: ${await storedAccent(worker.c)}`,
+    );
     const problems = c.events
       .filter(
         (e) =>
@@ -264,8 +358,12 @@ export async function firefoxPages(check, bidiPort, shotsDir) {
         check('firefox', `${page}.html opens`, false);
         continue;
       }
-      await sleep(1000);
-      judge(check, 'firefox', page, String(await evalIn(context, PROBE)));
+      // The same race as Chromium's, and the same wait on the CONDITION rather than a fixed delay:
+      // the accent is written after an async read, not while the document loads.
+      const { raw, waitedMs } = await readUntilAccent(() => evalIn(context, PROBE));
+      if (waitedMs > 500)
+        console.log(`  · [firefox] ${page}.html: the accent landed after ${waitedMs} ms, not before`);
+      judge(check, 'firefox', page, String(raw));
       if (shotsDir) await firefoxShots(evalIn, win, url, page, shotsDir);
       await c.send('browsingContext.close', { context });
     }
