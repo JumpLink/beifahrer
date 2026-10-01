@@ -96,11 +96,11 @@ exactly what CI does (`.github/workflows/ci.yml:49-55`):
 ```sh
 cd /path/to/beifahrer
 npm install -g "@gjsify/cli@$(node -p "require('./app/package.json').devDependencies['@gjsify/cli']")"
-gjsify --version        # currently 0.52.0
+gjsify --version        # currently 0.53.0
 ```
 
 A globally installed `gjsify` from some other project is a different version and will fail in ways
-that have nothing to do with your machine. If `gjsify --version` does not print `0.52.0`, stop and
+that have nothing to do with your machine. If `gjsify --version` does not print `0.53.0`, stop and
 redo this step.
 
 ### 1.6 Dependencies

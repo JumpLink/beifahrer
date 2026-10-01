@@ -51,7 +51,7 @@ export function prefixIcon(name: string): HTMLElement {
 }
 
 /**
- * gjsify gap (unfixed, @gjsify/adwaita-web 0.52.0): <adw-switch-row> replaces its children when
+ * gjsify gap (unfixed, @gjsify/adwaita-web 0.53.0): <adw-switch-row> replaces its children when
  * it upgrades and has no prefix slot, though libadwaita's AdwSwitchRow is an AdwActionRow with
  * `add_prefix`. So the icon is put in front of the label column once the row is upgraded
  * (connected), and `.switch-row-prefix` in style.css spaces it like a prefix.

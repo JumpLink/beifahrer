@@ -19,7 +19,7 @@ export function infoButton(text: MessageKey): HTMLElement {
   button.toggleAttribute('circular', true);
   const popover = document.createElement('gtk-popover') as HTMLElement & { open: boolean };
   popover.setAttribute('align', 'end');
-  // gjsify gap (unfixed, @gjsify/adwaita-web 0.52.0): <gtk-popover> knows only the roles `menu`
+  // gjsify gap (unfixed, @gjsify/adwaita-web 0.53.0): <gtk-popover> knows only the roles `menu`
   // and `listbox`, but this one holds a sentence, not items. It keeps an attribute it does not
   // know, so the surface is announced as what it is.
   popover.setAttribute('role', 'dialog');
