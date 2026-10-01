@@ -38,6 +38,39 @@ const HOSTS = ['http://*/*', 'https://*/*', '<all_urls>'];
 const API = ['webRequest'];
 
 /**
+ * Where Firefox looks for a newer signed build (issue #3).
+ *
+ * The extension is signed as an UNLISTED add-on, so AMO hosts nothing a person can install from —
+ * and a self-distributed add-on installed from a file updates itself ONLY through this URL
+ * (Extension Workshop, "Distributing an add-on yourself"). Without it, `sign.sh` produces an .xpi
+ * that a person installs once and then updates by hand, forever.
+ *
+ * **The URL must never change, because Firefox keeps the one from the INSTALLED version.** A copy
+ * that moves or dies cannot be pointed anywhere else from the add-on side: only an enterprise
+ * `ExtensionSettings` policy can redirect it, so a mistake here is permanent for everyone who
+ * installed that copy. Hence `releases/latest/download/`, which GitHub resolves to the newest
+ * release on every request (measured 2026-10-01: a 302 to the per-release asset URL, ending on an
+ * `https://release-assets.githubusercontent.com/…` URL, which is what `update_link` must be). It
+ * also means the ASSET must be named without a version — the same reason gjsify publishes
+ * `cli.gjs.mjs` rather than `cli-0.52.0.mjs`, so one URL serves every release.
+ *
+ * **`web-ext lint` calls this key an error (MANIFEST_UPDATE_URL), and it is not one.** The rule it
+ * enforces (addons-linter.js:3559) is that a Mozilla-HOSTED add-on may not name its own update
+ * source; an unlisted add-on is self-hosted by definition, and `web-ext sign` never runs the linter
+ * at all (util/manifest.js checks only name, version and id). Lint with `--self-hosted`. Do not
+ * "fix" this by deleting the key: an installed copy keeps whatever URL it was handed.
+ */
+export const UPDATE_URL = 'https://github.com/JumpLink/beifahrer/releases/latest/download/updates.json';
+
+/**
+ * The add-on id AMO signs against, and the oldest Firefox that may install it. `scripts/updates-json.ts`
+ * reads both out of here rather than repeating them: an id that differs between the manifest and the
+ * update manifest is an update nobody receives.
+ */
+export const GECKO_ID = 'beifahrer@jumplink.eu';
+export const GECKO_STRICT_MIN_VERSION = '140.0';
+
+/**
  * The manifest's suggested binding for `toggle-pause`. The person can rebind it in the browser
  * (extension/src/shortcut.ts reads what they actually have, via `commands.getAll()`); this is
  * only the default, and the fallback where that API does not exist.
@@ -144,11 +177,12 @@ export function manifestFor(
       ? {
           browser_specific_settings: {
             gecko: {
-              id: 'beifahrer@jumplink.eu',
-              strict_min_version: '140.0',
+              id: GECKO_ID,
+              strict_min_version: GECKO_STRICT_MIN_VERSION,
               // Nothing leaves the device: the only channel is the loopback socket to the bridge the
               // person runs themselves. Mozilla's category for that is "none".
               data_collection_permissions: { required: ['none'] },
+              update_url: UPDATE_URL,
             },
           },
         }

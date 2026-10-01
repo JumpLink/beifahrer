@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@gjsify/unit';
 
-import { TARGETS, manifestFor, type Target } from '../../../../extension/manifest.ts';
+import { TARGETS, UPDATE_URL, manifestFor, type Target } from '../../../../extension/manifest.ts';
 
 /**
  * `@gjsify/unit`'s `toEqual` cannot deep-compare a plain object on GJS — it reports identical
@@ -69,6 +69,10 @@ export default async () => {
           strict_min_version: '140.0',
           // Nothing leaves the device: the only channel is the loopback socket the person runs.
           data_collection_permissions: { required: ['none'] },
+          // Where Firefox looks for a newer SIGNED build (issue #3). Firefox keeps the URL from the
+          // INSTALLED version forever, so this exact string is a promise that cannot be taken back —
+          // updates-json.test.ts says why the form is the only one that can keep it.
+          update_url: UPDATE_URL,
         },
       });
 

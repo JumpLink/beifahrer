@@ -27,6 +27,7 @@ import bridge from './unit/bridge/bridge.test.ts';
 import configDir from './unit/bridge/config-dir.test.ts';
 import bridgeDesktop from './unit/bridge/desktop.test.ts';
 import extensionManifest from './unit/extension/manifest.test.ts';
+import updatesJson from './unit/extension/updates-json.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
 import mcpTools from './unit/mcp/tools.test.ts';
 import mcpOutput from './unit/mcp/output.test.ts';
@@ -58,6 +59,7 @@ run({
   bridgeDesktop,
   configDir,
   extensionManifest,
+  updatesJson,
   mcpGate,
   mcpTools,
   mcpOutput,
