@@ -94,7 +94,7 @@ type E2eSeed = {
   /**
    * `e2eAllUrls`: `<all_urls>` in the manifest, which no per-origin pattern can stand in for —
    * Chromium's `captureVisibleTab` accepts nothing narrower and Firefox does not even define it
-   * without (AGENTS.md "Traps already paid for"). The person asks for it in the same click as the
+   * without (docs/traps-browser-platform.md). The person asks for it in the same click as the
    * Screenshots switch; a headless test cannot press Allow on the browser's bubble, so the build
    * carries it. The build that proves the REFUSAL is the one that does not set this.
    */
