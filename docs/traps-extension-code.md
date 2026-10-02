@@ -46,6 +46,13 @@ Companion files: [traps-browser-platform.md](traps-browser-platform.md) ·
 
 ## Timers, listeners and UI
 
+- **The extension never gives up probing.** A port with a socket is never probed, so a socket the
+  browser does not close (a handshake that never ends, a bridge killed without a close frame) held
+  its port until the person pressed reconnect. The round drops such a socket (`stalled`/`silent`,
+  ADR 0007) and schedules the next round in a `finally`, because a chain of rounds that ended with
+  one error looks, from the person's side, like an extension that never reconnects.
+  `BEIFAHRER_E2E_ONLY=reconnect` runs the restart scenario alone.
+
 - **A `for` loop that re-reads the clock in its own update expression measures the GAP between
   iterations, not the work in them.** `for (let waited = Date.now(); Date.now() - waited < budget;
   waited = Date.now())` reads like a deadline and is not one: the condition is evaluated right after

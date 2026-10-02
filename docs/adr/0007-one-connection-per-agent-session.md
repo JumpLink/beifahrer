@@ -51,11 +51,19 @@ waits one step longer, up to 5 s. A connect to a closed loopback port fails at o
 over ten ports costs next to nothing. The only URL ever built is `ws://127.0.0.1:<port>/` with a
 port from the range.
 
-- A port whose bridge refused the token or the protocol version is retried every 30 s, not every
-  round, because a bridge with the right token may take the port later.
+- A port whose bridge refused the token or the protocol version is retried after 2 s, 5 s, 10 s,
+  then every 30 s, not every round: a bridge with the right token may take the port later, and a
+  refusal can be a hiccup (a hello that came too late) that must not cost half a minute.
 - Each socket does the full admission on its own (see Security) and pings every 20 s. In MV3 that
   keeps the service worker awake while any session is connected. With none connected, an alarm
   every 30 s (Chromium's minimum) wakes it to probe.
+- Nothing gives up. Rounds go on while a token is paired, so the browser may start before the
+  bridge and a bridge may restart, on the same port or another, with nobody touching the popup.
+  Only the person's Disconnect keeps a bridge out, and only that instance.
+- A port with a socket is not probed, so a socket that cannot close by itself would block it for
+  good. A round drops one that is neither welcomed nor closed after 10 s, and a welcomed one that
+  sent nothing (not even a pong) for 50 s, and probes the port again. The round that ends is
+  scheduled in a `finally`: an error in one must not end the chain.
 - A request arrives on a socket, and its answer goes back on the same socket. The extension
   serves every session with its own method set and protocol version, so a session started from
   an older bundle keeps working for the methods it knows while a newer session uses newer ones.
