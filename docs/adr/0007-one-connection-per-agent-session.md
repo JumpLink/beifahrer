@@ -62,8 +62,10 @@ port from the range.
   Only the person's Disconnect keeps a bridge out, and only that instance.
 - A port with a socket is not probed, so a socket that cannot close by itself would block it for
   good. A round drops one that is neither welcomed nor closed after 10 s, and a welcomed one that
-  sent nothing (not even a pong) for 50 s, and probes the port again. The round that ends is
-  scheduled in a `finally`: an error in one must not end the chain.
+  sent nothing (not even a pong) for 50 s, and probes the port again — but the second one is
+  PINGED first and dropped only after another 50 s of silence, because an MV3 service worker that
+  slept returns with a live socket and a bridge that never died. The round that ends is scheduled in
+  a `finally`: an error in one must not end the chain.
 - A request arrives on a socket, and its answer goes back on the same socket. The extension
   serves every session with its own method set and protocol version, so a session started from
   an older bundle keeps working for the methods it knows while a newer session uses newer ones.

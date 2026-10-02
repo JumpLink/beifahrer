@@ -187,12 +187,30 @@ export default async () => {
       t.connecting(47900, 0);
       t.welcomed(47900, welcome('a'), 0);
       expect(t.stalled(HANDSHAKE_MS * 10).length).toBe(0);
-      expect(t.silent(SILENCE_MS - 1).length).toBe(0);
+      expect(t.probeSilence(SILENCE_MS - 1).ping.length).toBe(0);
       t.heard(47900, 30_000); // a pong
-      expect(t.silent(SILENCE_MS).length).toBe(0);
-      expect(t.silent(30_000 + SILENCE_MS).join(',')).toBe('47900');
+      expect(t.probeSilence(30_000 + SILENCE_MS).ping.join(',')).toBe('47900');
       t.closed(47900, OPENED, 30_000 + SILENCE_MS);
       expect(t.due(30_000 + SILENCE_MS).includes(47900)).toBe(true);
+    });
+
+    await it('pings a silent socket before it gives up on it', async () => {
+      // An MV3 worker that slept brings a live socket and a bridge that never died back with it,
+      // and both look dead for the same 50 s — our own ping timer slept too.
+      const t = new ConnectionTable(range);
+      t.connecting(47900, 0);
+      t.welcomed(47900, welcome('a'), 0);
+      const quiet = t.probeSilence(SILENCE_MS);
+      expect(`${quiet.ping.join(',')}|${quiet.drop.join(',')}`).toBe('47900|');
+      t.asked(47900, SILENCE_MS);
+      // Asked and still quiet: only now is it gone for good.
+      expect(t.probeSilence(2 * SILENCE_MS - 1).drop.length).toBe(0);
+      expect(t.probeSilence(2 * SILENCE_MS).drop.join(',')).toBe('47900');
+      // An answer is an answer: the ask is forgotten and the clock starts over.
+      t.asked(47900, 2 * SILENCE_MS);
+      t.heard(47900, 2 * SILENCE_MS);
+      const again = t.probeSilence(3 * SILENCE_MS);
+      expect(`${again.ping.join(',')}|${again.drop.join(',')}`).toBe('47900|');
     });
   });
 

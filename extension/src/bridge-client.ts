@@ -261,6 +261,18 @@ function closeAll(reason: string): void {
   for (const ws of sockets.values()) ws.close(1000, reason);
 }
 
+/**
+ * Ask a silent socket whether it is still there, so a healthy one is never dropped: an MV3 worker
+ * that slept looks exactly like a dead bridge, because the ping timer slept with it.
+ */
+function ask(port: number, now: number): void {
+  const ws = sockets.get(port);
+  // No socket at all is nothing to ask and nothing to wait for, so nothing to keep the port for.
+  if (!ws) return dropSocket.get(port)?.(1006, 'no sign of life');
+  send(ws, { type: 'ping' });
+  table.asked(port, now);
+}
+
 function schedule(ms: number): void {
   clearTimeout(roundTimer);
   roundTimer = setTimeout(() => void connect(), ms);
@@ -298,8 +310,10 @@ export async function connect(): Promise<void> {
     // Sockets the browser will not end by itself, dropped so their port is probed again below.
     const now = Date.now();
     for (const port of table.stalled(now)) dropSocket.get(port)?.(1006, 'no welcome');
-    for (const port of table.silent(now)) dropSocket.get(port)?.(1006, 'no sign of life');
-    for (const port of table.due(Date.now())) if (!sockets.has(port)) probe(port);
+    const quiet = table.probeSilence(now);
+    for (const port of quiet.ping) ask(port, now);
+    for (const port of quiet.drop) dropSocket.get(port)?.(1006, 'no sign of life');
+    for (const port of table.due(now)) if (!sockets.has(port)) probe(port);
     table.roundDone();
     changed();
   } catch {
