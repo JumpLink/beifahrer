@@ -17,11 +17,11 @@
  *    where the work succeeded, long after the tests were written.
  */
 
+import { applyReadOnlyGate } from '@gjsify/mcp';
 import { describe, expect, it } from '@gjsify/unit';
 import type { Level, Method } from '@beifahrer/core';
 
 import { BridgeError, type BrowserAccess } from '../../../src/bridge/bridge.ts';
-import { applyReadOnlyGate } from '../../../src/frontends/mcp/runtime.ts';
 import { registerTools } from '../../../src/frontends/mcp/tools.ts';
 import { createRecorder, type Recorder } from './recorder.ts';
 

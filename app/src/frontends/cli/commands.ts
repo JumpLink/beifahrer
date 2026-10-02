@@ -8,7 +8,7 @@ import { loadOrCreateToken, newToken, tokenPath, writeToken } from '../../bridge
 import { VERSION } from '../../version.ts';
 import { startMcpServer } from '../mcp/server.ts';
 
-/** Every command but `mcp` finishes; this is how it ends — explicitly, see mcp/runtime.ts. */
+/** Every command but `mcp` finishes; this is how it ends — explicitly, see `serveStdio`. */
 function finish(code: number): never {
   return process.exit(code);
 }

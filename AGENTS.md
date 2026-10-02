@@ -171,10 +171,21 @@ Fix them in gjsify, never around them (werkstatt AGENTS.md § Core deps). The ta
 sha and consumer-side state: [docs/gjsify-gaps.md](docs/gjsify-gaps.md). A `@gjsify/*` bump is when
 that table is re-read: a shim whose sha is in no tag is not deletable yet, however old it looks.
 
+**The MCP runtime is upstream and the last copy of it is gone.** `app/src/frontends/mcp/runtime.ts`
+was the THIRD verbatim copy of postbote's read-only gate + stdio lifecycle; at 0.54.0 that IS
+`@gjsify/mcp`, and the file is deleted. Nothing was re-implemented on the way in — same bodies, same
+signatures — so no client surface moved: `tools/list`, a read-only `tools/call`, the dropped-write
+call and the error path are byte-identical against the two bundles. **The result helpers are NOT
+part of that, and must not become part of it:** `text` / `failure` / `answer` (mcp/tools.ts) are
+beifahrer's, because a `forbidden` carries `[origin=… have=… need=…]` for the agent to relay and
+`mcpError`'s `{"error": …}` cannot hold it. **The tests did NOT move with the code:** `gate.test.ts`
+imports the gate from the package and keeps pinning the fail-closed direction, because a gate this
+repo does not own is the one case where "it was tested here once" stops being evidence.
+
 ## Conventions
 
 - Conventional commits (`feat(extension): …`, `fix(bridge): …`), imperative, subject ≤ 50 chars.
 - This repo is a submodule of werkstatt: commit here first, then bump the pointer in the parent.
-- All `@gjsify/*` pins are the same exact version; `gjsify upgrade --check` is the gate (offline, 29
+- All `@gjsify/*` pins are the same exact version; `gjsify upgrade --check` is the gate (offline, 30
   deps) and `gjsify upgrade --align` the fix.
 - Docs in English. Comments explain *why*.

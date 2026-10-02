@@ -50,8 +50,11 @@ access, and the bridge has no call to it — `app/src/bridge/bridge.ts` imports 
 thing only, how long to wait for an answer (`app/src/bridge/bridge.ts:126`).
 
 The bridge's own MCP layer refuses to expose a tool that a client marked read-only without
-`readOnlyHint: true`, and fails closed by dropping it
-(`app/src/frontends/mcp/runtime.ts:24-31`).
+`readOnlyHint: true`, and fails closed by dropping it (`applyReadOnlyGate`, called in
+`app/src/frontends/mcp/server.ts`). The gate itself is `@gjsify/mcp`'s since 0.54.0 — it was this
+repository's own `runtime.ts`, the third verbatim copy of postbote's, until then — and
+`app/tests/unit/mcp/gate.test.ts` pins the direction it compares in, because a gate this
+repository does not own is the one case where "it was tested here once" stops being evidence.
 
 **Not verifiable in code:** what the operator of the bridge does outside this repository. If you run
 a bridge someone else built, that code decides what the agent may ask for. The statement above is
