@@ -8,9 +8,11 @@ export default async () => {
       expect(splitFrame(1, '{"a":1}')).toStrictEqual(['{"a":1}']);
     });
 
-    await it("cuts a large frame below libsoup's 128 KiB, even for 4-byte characters", async () => {
-      // An emoji is 4 UTF-8 bytes, the widest character there is; `CHUNK_CHARS`'s bound rests on it.
-      const json = JSON.stringify({ text: '🙂'.repeat(CHUNK_CHARS * 3) });
+    await it("cuts a large frame below libsoup's 128 KiB, even for the widest character", async () => {
+      // U+4E2D is 1 code unit and 3 UTF-8 bytes — the widest character PER CODE UNIT, which is what
+      // `slice` counts. An emoji is wider (4 bytes) but spans 2 units, so it costs 2 bytes each and
+      // never comes close; measuring the emoji alone would watch the slack case.
+      const json = JSON.stringify({ text: '\u4e2d'.repeat(CHUNK_CHARS * 3) });
       const frames = splitFrame(7, json);
       expect(frames.length > 3).toBe(true);
       for (const f of frames) expect(new TextEncoder().encode(f).length < 128 * 1024).toBe(true);

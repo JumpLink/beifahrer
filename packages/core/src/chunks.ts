@@ -7,16 +7,19 @@
  * and the call read "went away" (issue: Firefox 155, active tab). A response past `CHUNK_CHARS`
  * therefore travels as `chunk` frames, each well under the cap, and is put back together on the
  * other side. The pieces are cut by characters, not bytes, so the bound has to hold for the widest
- * character there is and not for an average one: a code point outside the BMP (an emoji) is 4
- * UTF-8 bytes, so 32 000 characters are up to 128 000 bytes and the envelope adds some 70. Cutting
- * between the halves of such a character is harmless — `JSON.stringify` escapes a lone surrogate,
- * and the pieces join back into the pair — and `splitFrame`'s test proves the byte bound on it.
+ * character there is and not for an average one. "Character" here is what `slice` counts, a UTF-16
+ * code unit, and the widest character PER CODE UNIT is 3 UTF-8 bytes (U+0800–U+FFFF: `€`, CJK), so
+ * 32 000 of them are at most 96 000 bytes and the envelope adds some 60. A code point outside the
+ * BMP (an emoji) is the widest character but not the widest unit: it is 4 bytes over TWO units, so
+ * it costs 2 bytes each and is never the case that breaks. Cutting between the halves of such a
+ * character is harmless — `JSON.stringify` escapes a lone surrogate and the pieces join back into
+ * the pair — and `splitFrame`'s tests prove both the byte bound and that round trip.
  */
 
 /**
- * Characters per chunk. Four bytes each plus the envelope stay under libsoup's 128 KiB per message.
- * Lowering this is free; above ~32 700 screenshots break again, and the bound is not this file's to
- * negotiate — it comes from libsoup.
+ * Characters per chunk. Three bytes per code unit plus the envelope stay under libsoup's 128 KiB
+ * per message. Lowering this is free; above ~43 600 screenshots break again, and the bound is not
+ * this file's to negotiate — it comes from libsoup.
  */
 export const CHUNK_CHARS = 32_000;
 /** An answer past this is refused rather than buffered: the bridge's memory is not the browser's. */
