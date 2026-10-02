@@ -8,11 +8,25 @@ export default async () => {
       expect(splitFrame(1, '{"a":1}')).toStrictEqual(['{"a":1}']);
     });
 
-    await it("cuts a large frame below libsoup's 128 KiB, even for 3-byte characters", async () => {
-      const json = JSON.stringify({ text: '€'.repeat(CHUNK_CHARS * 3) });
+    await it("cuts a large frame below libsoup's 128 KiB, even for 4-byte characters", async () => {
+      // An emoji is 4 UTF-8 bytes, the widest character there is; `CHUNK_CHARS`'s bound rests on it.
+      const json = JSON.stringify({ text: '🙂'.repeat(CHUNK_CHARS * 3) });
       const frames = splitFrame(7, json);
       expect(frames.length > 3).toBe(true);
       for (const f of frames) expect(new TextEncoder().encode(f).length < 128 * 1024).toBe(true);
+    });
+
+    await it('round-trips a character the cut fell in half of', async () => {
+      // `slice` can split a surrogate pair; the pieces must still join back into the emoji.
+      const text = 'a🙂b🙂c'.repeat(CHUNK_CHARS);
+      const json = JSON.stringify({ type: 'response', id: 9, ok: true, result: { text } });
+      const asm = new ChunkAssembler();
+      let whole: string | null = null;
+      for (const raw of splitFrame(9, json)) {
+        const chunk = parseChunk(JSON.parse(raw));
+        whole = asm.add(chunk!);
+      }
+      expect((JSON.parse(whole!) as { result: { text: string } }).result.text).toBe(text);
     });
 
     await it('puts the pieces back together, also when they arrive for two ids at once', async () => {
