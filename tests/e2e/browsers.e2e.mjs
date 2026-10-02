@@ -751,6 +751,7 @@ function startOldBridge(port) {
       );
       ws.on('message', (frame) => {
         const res = JSON.parse(String(frame));
+        if (res.type === 'ping') return ws.send(JSON.stringify({ type: 'pong' }));
         if (res.type === 'response' && res.id === 1) state.answered = res;
       });
       ws.send(JSON.stringify({ type: 'request', id: 1, method: 'tabs.list', params: {} }));
@@ -3122,10 +3123,61 @@ async function scenario(browser, gate) {
   }
 }
 
+/**
+ * Start order does not matter and a restart is picked up by itself: the browser runs first, no
+ * bridge anywhere; a session starts and is found; it is killed outright (no close frame) and a new
+ * one on the same port is found again; the same after a polite exit and after a long gap. Nobody
+ * touches the popup in between.
+ */
+async function reconnectScenario(browser) {
+  const name = `${browser} reconnect`;
+  const profile = mkdtempSync(join(tmpdir(), `beifahrer-e2e-reconnect-${browser}-`));
+  const tokenFile = join(profile, 'token');
+  writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
+  const sessions = [];
+  const proc = launch(browser, profile);
+  try {
+    await sleep(8000); // several probe rounds with nothing listening
+    let current = await startMcp(tokenFile, `${browser}-reconnect-a.log`);
+    sessions.push(current);
+    const first = await until(current.client, (s) => s.browsers?.length === 1, 30);
+    check(name, 'a session that starts after the browser is found', first.browsers?.length === 1);
+    const port = first.port;
+
+    const restart = async (how, letter, gapMs, seconds) => {
+      const old = current;
+      sessions.splice(sessions.indexOf(old), 1);
+      if (how === 'kill') process.kill(old.transport.pid, 'SIGKILL');
+      else await old.client.close();
+      await sleep(gapMs);
+      current = await startMcp(tokenFile, `${browser}-reconnect-${letter}.log`);
+      sessions.push(current);
+      const t0 = Date.now();
+      const s = await until(current.client, (st) => st.browsers?.length === 1, seconds);
+      check(
+        name,
+        `a session killed ${how === 'kill' ? 'hard' : 'politely'} and restarted after ${gapMs / 1000} s is found again, same port`,
+        s.browsers?.length === 1 && s.port === port,
+        `${((Date.now() - t0) / 1000).toFixed(1)} s ${JSON.stringify(s).slice(0, 160)}`,
+      );
+    };
+    await restart('kill', 'b', 300, 20);
+    await restart('close', 'c', 300, 20);
+    await restart('kill', 'd', 20_000, 45);
+  } finally {
+    for (const s of sessions) await s.client.close().catch(() => undefined);
+    killBrowser(proc, browser === 'firefox');
+    await sleep(1500);
+    rmSync(profile, { recursive: true, force: true });
+  }
+}
+
 // ---------------------------------------------------------------------------------------------
 
 const which = process.argv[2] ?? 'all';
 const browsers = which === 'all' ? ['chromium', 'firefox'] : [which];
+/** BEIFAHRER_E2E_ONLY=reconnect runs just that scenario (one build, no fixture scenarios). */
+const ONLY = process.env.BEIFAHRER_E2E_ONLY;
 
 const FRAME_FIXTURE = `<!doctype html><html><head><title>Frame document</title></head><body>
 <h2>Editor frame</h2>
@@ -3248,6 +3300,7 @@ const BUILDS = {
   },
 };
 for (const [gate, build] of Object.entries(BUILDS)) {
+  if (ONLY && gate !== 'off') continue;
   buildExtension(build);
   for (const b of browsers) {
     if (gate === 'access' || gate === 'confirm') {
@@ -3257,6 +3310,15 @@ for (const [gate, build] of Object.entries(BUILDS)) {
         else await confirmScenario(b);
       } catch (err) {
         check(b, `${gate} scenario ran`, false, err.stack ?? String(err));
+      }
+      continue;
+    }
+    if (ONLY === 'reconnect') {
+      console.log(`\n${b} (reconnect)`);
+      try {
+        await reconnectScenario(b);
+      } catch (err) {
+        check(b, 'reconnect scenario ran', false, err.stack ?? String(err));
       }
       continue;
     }
