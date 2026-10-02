@@ -6,11 +6,16 @@ name: Release
 # toolchain is installed and what "green" means. A release therefore cannot be cut from a commit
 # whose tests, type check or lint did not pass.
 #
-# The CLI's Linux packages follow the same rule and are built there too, not here: ci.yml ships
-# `ship-deb-rpm` (`.deb`, `.rpm`) and `ship-flatpak` (`.flatpak`) as uploaded artifacts, and the
-# `release` job below only attaches them. `gjsify ship` needs a Fedora container with `gjs`, the
-# gjsify CLI and — for the Flatpak — flatpak-builder plus org.gnome.Platform//50 and org.gnome.Sdk//50
-# under `options: --privileged`; repeating that here would be the second copy of a toolchain this
+# The CLI's own packages follow the same rule and are built there too, not here: ci.yml ships
+# `ship-deb-rpm` (`.deb`, `.rpm`), `ship-macos-windows` (both `macos-app-zip`s, `windows-dir-zip`,
+# `.msi`) and `ship-flatpak` (`.flatpak`) as uploaded artifacts, and the `release` job below only
+# attaches them. Every one of those assembles on the SAME `fedora:44` container: `gjsify ship`'s
+# darwin/windows targets are not host-bound to assemble, only to run (see the comment at the fetch
+# step below), so `gjsify install --os darwin --cpu arm64 --immutable` followed by `gjsify ship
+# darwin --arch arm64 --skip-build --target macos-app-zip` on that same container is the whole
+# difference — no second toolchain. Only the Flatpak needs flatpak-builder plus
+# org.gnome.Platform//50 and org.gnome.Sdk//50 under `options: --privileged`, which is why it alone
+# stays a separate job; repeating any of this here would be a second copy of a toolchain this
 # repository has decided to define once.
 on:
   push:
@@ -38,12 +43,12 @@ jobs:
           name: extension-zips
           path: zips
 
-      # The CLI's own Linux packages, again out of CI rather than built here (see the header).
-      # TWO artifacts, not one: `.deb` + `.rpm` come out of the container that already runs the
-      # bridge's tests, the `.flatpak` out of the privileged flatpak-builder job, and merging them
-      # into a single upload would mean one of those jobs losing its packages whenever the other
-      # half of the run did not happen.
-      - name: Fetch the Linux packages CI built
+      # The CLI's own packages, again out of CI rather than built here (see the header). THREE
+      # artifacts, not one: `.deb` + `.rpm` and the macOS/Windows packages come out of the container
+      # that already runs the bridge's tests, the `.flatpak` out of the privileged flatpak-builder
+      # job, and merging them into a single upload would mean one of those jobs losing its packages
+      # whenever the other half of the run did not happen.
+      - name: Fetch the CLI packages CI built
         uses: actions/download-artifact@v4
         with:
           pattern: ship-*
@@ -69,15 +74,20 @@ jobs:
           gh release create "$TAG" zips/*.zip cli/* --title "$TAG" --generate-notes
           gh release view "$TAG" --json assets --jq '.assets[].name'
 
-      # macOS and Windows are deliberately absent, and they need runners of their own rather than a
-      # step here. `app/package.json#gjsify.ship` carries `dist/beifahrer.node.mjs` for both, and
-      # `@gjsify/node-runtime-{darwin-arm64,darwin-x64,win32-x64}` are `optionalDependencies` that
-      # `gjsify install` SKIPS on a Linux host — a plain install here would stage a package with no
-      # interpreter in it, and `ship` exits 0 having said so loudly. Naming the target installs the
-      # runtimes (`gjsify install --os darwin --cpu arm64 --immutable`, then `gjsify ship darwin
-      # --arch arm64 --skip-build --target macos-app-zip`), which cross-builds the payload but
-      # cannot RUN it: a Mach-O or PE binary is verified on its own OS or not at all, so a
-      # `macos-latest` / `windows-latest` job is the honest place for this.
+      # macOS (arm64 + x64, `macos-app-zip`) and Windows (x64, `windows-dir-zip` + `.msi`) ARE
+      # attached now, from `cli/` above — assembling them does not need a Mac or a Windows runner
+      # (see the header), only naming the target so `gjsify install` does not skip the
+      # `optionalDependencies` runtime it would otherwise stage with no interpreter in it. What this
+      # does NOT do is RUN the Mach-O or PE payload: that is verified on its own OS or not at all, so
+      # a `macos-latest` / `windows-latest` job staying absent is a gap in verification, not in the
+      # release's contents, and the honest place to close it if it matters later.
+      #
+      # UNSIGNED on both, by design (ADR 0024 § A13 in gjsify) — this is a legitimate deliverable,
+      # not a placeholder. Where signing would attach, on a runner that actually holds the identity:
+      #   macOS   — `gjsify ship darwin --arch <arch> --skip-build --target macos-app-zip --sign
+      #             <identity>` (Developer ID; `--notarize <keychain-profile>` on top of that)
+      #   Windows — same shape, `--sign <certificate thumbprint or PFX path>` reaching `signtool`
+      #             (UNVERIFIED upstream: no run in gjsify has ever invoked it)
 
       # The signed Firefox build and `updates.json` (issue #3), signed from a person's machine and
       # dropped in as release assets. Deliberately NOT a CI step: it needs AMO's API key, which is a

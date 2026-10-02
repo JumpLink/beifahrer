@@ -466,6 +466,21 @@ node tests/e2e/browsers.e2e.mjs all           # the full chain in headless Chrom
 Design decisions: [docs/adr/](docs/adr/) — index: [docs/](docs/README.md). Contributor and agent
 rules: [AGENTS.md](AGENTS.md).
 
+## Releasing
+
+`git tag vX.Y.Z && git push --tags` runs the whole of CI — tests, type check, lint — and, if it
+passes, builds and attaches every installable format to the tag's GitHub release:
+
+- browser extension zips (Firefox + Chromium)
+- the CLI: `.deb`, `.rpm`, `.flatpak`, a macOS `.app.zip` (arm64 + x64), a Windows program
+  directory `.zip` and `.msi` (x64)
+
+All of it unsigned, which is a legitimate deliverable rather than a placeholder (gjsify ADR 0024
+§ A13) — see the comment above the "Attach everything to the release" step in
+[release.yml](.github/workflows/release.yml) for where `--sign`/`--notarize` would attach once a
+signing identity exists. What is NOT in the release: a signed Firefox `.xpi` (manual, needs a
+person's AMO key) and any store submission — both documented in the same file.
+
 ## License
 
 [AGPL-3.0-or-later](LICENSE)
