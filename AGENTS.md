@@ -175,6 +175,6 @@ that table is re-read: a shim whose sha is in no tag is not deletable yet, howev
 
 - Conventional commits (`feat(extension): …`, `fix(bridge): …`), imperative, subject ≤ 50 chars.
 - This repo is a submodule of werkstatt: commit here first, then bump the pointer in the parent.
-- All `@gjsify/*` pins are the same exact version; `gjsify upgrade --check` is the gate (offline, 24
+- All `@gjsify/*` pins are the same exact version; `gjsify upgrade --check` is the gate (offline, 29
   deps) and `gjsify upgrade --align` the fix.
 - Docs in English. Comments explain *why*.
