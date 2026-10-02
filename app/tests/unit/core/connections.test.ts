@@ -212,6 +212,27 @@ export default async () => {
       const again = t.probeSilence(3 * SILENCE_MS);
       expect(`${again.ping.join(',')}|${again.drop.join(',')}`).toBe('47900|');
     });
+
+    await it('a socket the round gave up on does not read as "the dismissed bridge exited"', async () => {
+      const t = new ConnectionTable(range);
+      t.connecting(47900, 0);
+      t.welcomed(47900, welcome('a'), 0);
+      expect(t.dismiss(47900)).toBe(true);
+      t.closed(47900, { opened: true, code: CLOSE.personDisconnected, reason: 'dismissed' }, 0);
+      // A handshake that never ends was never refused, so the port is not proven empty.
+      t.connecting(47900, 1_000);
+      t.closed(47900, { opened: false, code: 1006, reason: 'no welcome', givenUp: true }, 11_000);
+      expect(t.dismissedInstance(47900)).toBe('a');
+      t.connecting(47900, 12_000);
+      expect(t.welcomed(47900, welcome('a'), 12_000)).toBe(false);
+      // A refused connect really is an empty port, and ends the dismissal as it always did.
+      t.closed(47900, { opened: true, code: CLOSE.personDisconnected, reason: 'dismissed' }, 12_000);
+      t.connecting(47900, 13_000);
+      t.closed(47900, NOTHING_THERE, 13_000);
+      expect(t.dismissedInstance(47900)).toBe(undefined);
+      t.connecting(47900, 14_000);
+      expect(t.welcomed(47900, welcome('a'), 14_000)).toBe(true);
+    });
   });
 
   await describe('ConnectionTable: sessions', async () => {

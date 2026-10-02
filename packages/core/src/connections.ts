@@ -77,6 +77,12 @@ export interface CloseInfo {
   opened: boolean;
   code: number;
   reason: string;
+  /**
+   * The round gave this socket up rather than the browser closing it. A handshake hung for 10 s was
+   * never refused either, so this says nothing about the port — and the dismissal the person made
+   * on it has to survive, since nothing proved the bridge they disconnected is gone.
+   */
+  givenUp?: boolean;
 }
 
 export class ConnectionTable {
@@ -223,7 +229,7 @@ export class ConnectionTable {
   closed(port: number, info: CloseInfo, now: number): void {
     const was = this.#ports.get(port);
     this.#ports.delete(port);
-    if (!info.opened) {
+    if (!info.opened && !info.givenUp) {
       // Nothing listens there: whatever the person dismissed on that port has exited.
       this.#dismissed.delete(port);
       return;
