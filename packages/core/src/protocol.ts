@@ -6,6 +6,7 @@
  *   bridge → extension   welcome        or a close with one of the CLOSE codes below
  *   bridge → extension   request        { id, method, params }
  *   extension → bridge   response       { id, ok, result | error }
+ *   extension → bridge   chunk          one piece of a response too big for one frame (chunks.ts)
  *   extension → bridge   ping           keep-alive; a Chromium MV3 service worker sleeps without it
  *   bridge → extension   pong
  *   bridge → extension   session        { label } — the session's name changed (the MCP client
@@ -28,6 +29,7 @@ import type { NetworkRow } from './network.ts';
 import type { Feature } from './features.ts';
 import type { ElementQuery, MetaQuery } from './find.ts';
 import type { Level, Method } from './policy.ts';
+import type { ChunkFrame } from './chunks.ts';
 import type { ClosedSummary, GroupColor, SessionSummary } from './sessions.ts';
 
 export const PROTOCOL_VERSION = 1;
@@ -384,7 +386,7 @@ export type Response =
   | { type: 'response'; id: number; ok: true; result: unknown }
   | { type: 'response'; id: number; ok: false; error: WireError };
 
-export type ExtensionFrame = Hello | Response | { type: 'ping' };
+export type ExtensionFrame = Hello | Response | { type: 'ping' } | ChunkFrame;
 export type BridgeFrame =
   | Welcome
   | Request
