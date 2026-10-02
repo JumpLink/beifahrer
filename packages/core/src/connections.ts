@@ -24,8 +24,9 @@
  * Two states can outlive their peer without a close ever arriving — a socket that never finishes
  * its handshake (ADR 0001: a handshake that reaches the server and no `open` follows) and a
  * connected one whose bridge died without a close frame. Both would block their port for good,
- * since a port with an entry is not probed. `stalled` and `silent` name them; the caller drops
- * them and the port is probed again.
+ * since a port with an entry is not probed. `stalled` names the first and `probeSilence` the
+ * second, and the caller drops what they name and probes the port again. Silence is believed only
+ * after a ping, because an MV3 worker that slept makes a healthy socket look dead.
  */
 
 import { CLOSE, type AgentSession, type Welcome } from './protocol.ts';
@@ -55,6 +56,8 @@ export type PortEntry =
       since: number;
       /** When the bridge last sent anything (ms since the epoch). */
       heardAt: number;
+      /** When the round last pinged it about its silence; null while none was due. */
+      askedAt: number | null;
     }
   | { state: 'refused'; reason: 'unauthorized' | 'protocol'; detail: string; retryAt: number };
 
@@ -148,14 +151,38 @@ export class ConnectionTable {
   /** The bridge on `port` sent something (any frame, a pong included): it is alive. */
   heard(port: number, now: number): void {
     const e = this.#ports.get(port);
-    if (e?.state === 'connected') e.heardAt = now;
+    if (e?.state === 'connected') {
+      e.heardAt = now;
+      e.askedAt = null;
+    }
   }
 
-  /** Ports whose bridge was welcomed but has said nothing for `SILENCE_MS`: gone without a close. */
-  silent(now: number): number[] {
-    return [...this.#ports]
-      .filter(([, e]) => e.state === 'connected' && now - e.heardAt >= SILENCE_MS)
-      .map(([port]) => port);
+  /** The round pinged `port` about its silence; `heard` is what an answer looks like. */
+  asked(port: number, now: number): void {
+    const e = this.#ports.get(port);
+    if (e?.state === 'connected') e.askedAt = now;
+  }
+
+  /**
+   * What a round does about a welcomed bridge that has said nothing for `SILENCE_MS`: the ports to
+   * ping about it, and the ones to drop because they were asked and stayed quiet.
+   *
+   * Pinging first is not politeness. An MV3 service worker that slept comes back with a live socket
+   * and a bridge that never died, and the two look dead for the same reason: our own ping timer
+   * slept with the worker. Dropping on the first silent round tears down a healthy session and
+   * fails every call in flight on it, so a port is only given up on after a whole `SILENCE_MS` of
+   * silence that follows a ping. A bridge that was killed outright needs none of this: the kernel
+   * closes the socket and the browser reports the close at once.
+   */
+  probeSilence(now: number): { ping: number[]; drop: number[] } {
+    const ping: number[] = [];
+    const drop: number[] = [];
+    for (const [port, e] of this.#ports) {
+      if (e.state !== 'connected' || now - e.heardAt < SILENCE_MS) continue;
+      if (e.askedAt === null) ping.push(port);
+      else if (now - e.askedAt >= SILENCE_MS) drop.push(port);
+    }
+    return { ping, drop };
   }
 
   /** What the hello to `port` must carry so a dismissed bridge refuses itself. */
@@ -180,6 +207,7 @@ export class ConnectionTable {
       session: welcome.session ?? null,
       since: now,
       heardAt: now,
+      askedAt: null,
     });
     this.#refusals.delete(port);
     this.#changed();

@@ -48,10 +48,13 @@ Companion files: [traps-browser-platform.md](traps-browser-platform.md) ·
 
 - **The extension never gives up probing.** A port with a socket is never probed, so a socket the
   browser does not close (a handshake that never ends, a bridge killed without a close frame) held
-  its port until the person pressed reconnect. The round drops such a socket (`stalled`/`silent`,
-  ADR 0007) and schedules the next round in a `finally`, because a chain of rounds that ended with
-  one error looks, from the person's side, like an extension that never reconnects.
-  `BEIFAHRER_E2E_ONLY=reconnect` runs the restart scenario alone.
+  its port until the person pressed reconnect. The round drops such a socket (`stalled` for one,
+  `probeSilence` for the other) and schedules the next round in a `finally`, because a chain of
+  rounds that ended with one error looks, from the person's side, like an extension that never
+  reconnects. A socket is dropped for being silent only after it was **pinged** and stayed quiet
+  another `SILENCE_MS`: a service worker that slept makes a healthy socket look dead, and tearing it
+  down fails every call in flight on the bridge behind it. `BEIFAHRER_E2E_ONLY=reconnect` runs the
+  restart scenario alone.
 
 - **A `for` loop that re-reads the clock in its own update expression measures the GAP between
   iterations, not the work in them.** `for (let waited = Date.now(); Date.now() - waited < budget;
