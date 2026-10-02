@@ -152,7 +152,6 @@ async function serve(
 }
 
 function probe(port: number): void {
-  table.connecting(port, Date.now());
   let opened = false;
   let settled = false;
   // Loopback only, by construction: the host is a literal, the port a number from the range.
@@ -160,10 +159,12 @@ function probe(port: number): void {
   try {
     ws = new WebSocket(`ws://127.0.0.1:${port}/`);
   } catch {
-    // Not even a socket: the port stays free for the next round, not stuck in "connecting".
-    table.closed(port, { opened: false, code: 1006, reason: '' }, Date.now());
+    // Not even a socket. Nothing was marked "connecting" yet, so the table is untouched: a
+    // constructor that throws says nothing about the bridge, and must not read as "the dismissed
+    // one has exited".
     return;
   }
+  table.connecting(port, Date.now());
   sockets.set(port, ws);
   ws.onclose = (event) => settle(event.code, event.reason);
 
@@ -189,8 +190,12 @@ function probe(port: number): void {
   /**
    * The socket is over — the browser said so, or the round gave up on it. Once only; a socket
    * that was replaced or already settled changes nothing.
+   *
+   * `givenUp` marks the round's own drops. They say nothing about whether anything listens on the
+   * port — a socket hung in its handshake was never refused either — so the table must not read
+   * them as "the bridge the person dismissed has exited".
    */
-  function settle(code: number, reason: string): void {
+  function settle(code: number, reason: string, givenUp = false): void {
     if (settled) return;
     settled = true;
     clearInterval(pings.get(port));
@@ -200,14 +205,14 @@ function probe(port: number): void {
     endSessionOn(port);
     sockets.delete(port);
     dropSocket.delete(port);
-    table.closed(port, { opened, code, reason }, Date.now());
+    table.closed(port, { opened, code, reason, givenUp }, Date.now());
     changed();
     // A session that went away may come back at once (a restart): look again soon.
     if (opened && code !== CLOSE.dismissed) schedule(table.nextRoundInMs());
   }
   dropSocket.set(port, (code, reason) => {
     ws.onmessage = ws.onopen = null;
-    settle(code, reason);
+    settle(code, reason, true);
     try {
       ws.close(1000, reason);
     } catch {
