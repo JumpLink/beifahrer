@@ -153,6 +153,10 @@ export const foundElement = loose({
 });
 
 export function failure(err: unknown): CallToolResult {
+  // Deliberately NOT `@gjsify/mcp`'s `mcpError`: a refusal here carries the policy's own fields
+  // (`origin`, `have`, `need`), which are what let an agent tell the person WHICH level a site
+  // needs instead of reporting that a call failed. `{"error": …}` cannot carry them, and
+  // `structuredContent` must stay absent — a refusal is not an answer (see below).
   // An error carries NO structuredContent, on purpose: the schema describes what a tool answers
   // with, and a refusal is not an answer. A client validating one against that schema would see a
   // shape error where the person simply said no.

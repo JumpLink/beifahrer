@@ -85,6 +85,7 @@
     "@beifahrer/core": "*",
     "@gjsify/adwaita-app": "0.54.0",
     "@gjsify/adwaita-core": "0.54.0",
+    "@gjsify/mcp": "0.54.0",
     "@gjsify/node-gi": "0.54.0",
     "@gjsify/ws": "0.54.0",
     "@modelcontextprotocol/sdk": "^1.30.1",
