@@ -15,6 +15,13 @@
  *   open WebSocket that sees traffic keeps it alive (Chrome ≥ 116), hence a ping every 20 s on
  *   each socket. With no session running there is no traffic, the worker sleeps, and timers die
  *   with it, so an alarm wakes it to probe again.
+ *
+ * Start order does not matter, and nothing here ever gives up: the rounds go on while a token is
+ * paired, whether a bridge exists or not, and a bridge that restarts (same port or another) is
+ * found by the next round. Only the person's Disconnect keeps a bridge out, and only that
+ * instance (`disconnectSession`). A socket that cannot close by itself — a handshake that never
+ * ends, a bridge that died without a close frame — is dropped by the round, so its port is probed
+ * again instead of waiting on it for good.
  */
 
 import { browser } from '@wxt-dev/browser';
@@ -22,6 +29,7 @@ import {
   CLOSE,
   ConnectionTable,
   DEFAULT_PORT_RANGE,
+  PING_MS,
   PROTOCOL_VERSION,
   cleanSessionLabel,
   isMethod,
@@ -46,12 +54,13 @@ export type Status =
   | { state: Overall; range: PortRange; sessions: SessionView[]; detail?: string };
 
 export const RECONNECT_ALARM = 'beifahrer-reconnect';
-const PING_MS = 20_000;
 /** The close reason beside `CLOSE.personDisconnected`: short, and never read for anything else. */
 const DISMISSED_REASON = 'dismissed';
 
 const table = new ConnectionTable(DEFAULT_PORT_RANGE);
 const sockets = new Map<number, WebSocket>();
+/** port → ends that port's socket now, without waiting for the browser's close event. */
+const dropSocket = new Map<number, (code: number, reason: string) => void>();
 const pings = new Map<number, ReturnType<typeof setInterval>>();
 /**
  * port → the extension's OWN id for the session connected there (ADR 0010). Session-bound grants
@@ -143,11 +152,20 @@ async function serve(
 }
 
 function probe(port: number): void {
-  table.connecting(port);
+  table.connecting(port, Date.now());
   let opened = false;
+  let settled = false;
   // Loopback only, by construction: the host is a literal, the port a number from the range.
-  const ws = new WebSocket(`ws://127.0.0.1:${port}/`);
+  let ws: WebSocket;
+  try {
+    ws = new WebSocket(`ws://127.0.0.1:${port}/`);
+  } catch {
+    // Not even a socket: the port stays free for the next round, not stuck in "connecting".
+    table.closed(port, { opened: false, code: 1006, reason: '' }, Date.now());
+    return;
+  }
   sockets.set(port, ws);
+  ws.onclose = (event) => settle(event.code, event.reason);
 
   ws.onopen = async () => {
     opened = true;
@@ -168,7 +186,37 @@ function probe(port: number): void {
     send(ws, hello);
   };
 
+  /**
+   * The socket is over — the browser said so, or the round gave up on it. Once only; a socket
+   * that was replaced or already settled changes nothing.
+   */
+  function settle(code: number, reason: string): void {
+    if (settled) return;
+    settled = true;
+    clearInterval(pings.get(port));
+    pings.delete(port);
+    if (sockets.get(port) !== ws) return;
+    // The session's grants end with its connection, whatever closed it.
+    endSessionOn(port);
+    sockets.delete(port);
+    dropSocket.delete(port);
+    table.closed(port, { opened, code, reason }, Date.now());
+    changed();
+    // A session that went away may come back at once (a restart): look again soon.
+    if (opened && code !== CLOSE.dismissed) schedule(table.nextRoundInMs());
+  }
+  dropSocket.set(port, (code, reason) => {
+    ws.onmessage = ws.onopen = null;
+    settle(code, reason);
+    try {
+      ws.close(1000, reason);
+    } catch {
+      // Already closed; settled above.
+    }
+  });
+
   ws.onmessage = (event) => {
+    table.heard(port, Date.now());
     let frame: BridgeFrame;
     try {
       frame = JSON.parse(String(event.data)) as BridgeFrame;
@@ -207,19 +255,6 @@ function probe(port: number): void {
       void rememberDesktop(frame.desktop);
     }
   };
-
-  ws.onclose = (event) => {
-    clearInterval(pings.get(port));
-    pings.delete(port);
-    if (sockets.get(port) !== ws) return;
-    // The session's grants end with its connection, whatever closed it.
-    endSessionOn(port);
-    sockets.delete(port);
-    table.closed(port, { opened, code: event.code, reason: event.reason }, Date.now());
-    changed();
-    // A session that went away may come back at once (a restart): look again soon.
-    if (opened && event.code !== CLOSE.dismissed) schedule(table.nextRoundInMs());
-  };
 }
 
 function closeAll(reason: string): void {
@@ -231,12 +266,19 @@ function schedule(ms: number): void {
   roundTimer = setTimeout(() => void connect(), ms);
 }
 
-/** One probe round over the range, then the next one is scheduled. Safe to call any time. */
+/**
+ * One probe round over the range, then the next one is scheduled. Safe to call any time.
+ *
+ * The next round is scheduled in a `finally`: whatever goes wrong in this one (storage failing, a
+ * socket that cannot be opened), the chain of rounds must not end with it — a chain that died
+ * quietly looked, from the person's side, like an extension that never reconnects.
+ */
 export async function connect(): Promise<void> {
   if (probing) return;
   probing = true;
+  clearTimeout(roundTimer);
+  let paired = true;
   try {
-    clearTimeout(roundTimer);
     const settings = await loadSettings();
     if (settings.token !== token) {
       // Another token: every open socket was admitted with the old one.
@@ -245,6 +287,7 @@ export async function connect(): Promise<void> {
       closeAll('pairing changed');
     }
     if (!token) {
+      paired = false;
       changed();
       return; // storage.onChanged starts probing once the person pastes a token
     }
@@ -252,12 +295,18 @@ export async function connect(): Promise<void> {
     if (range.base !== table.range.base || range.count !== table.range.count) {
       for (const port of table.setRange(range)) sockets.get(port)?.close(1000, 'port range changed');
     }
+    // Sockets the browser will not end by itself, dropped so their port is probed again below.
+    const now = Date.now();
+    for (const port of table.stalled(now)) dropSocket.get(port)?.(1006, 'no welcome');
+    for (const port of table.silent(now)) dropSocket.get(port)?.(1006, 'no sign of life');
     for (const port of table.due(Date.now())) if (!sockets.has(port)) probe(port);
     table.roundDone();
-    schedule(table.nextRoundInMs());
     changed();
+  } catch {
+    // The next round tries again.
   } finally {
     probing = false;
+    if (paired) schedule(table.nextRoundInMs());
   }
 }
 
