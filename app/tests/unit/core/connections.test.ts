@@ -3,9 +3,12 @@ import { describe, expect, it } from '@gjsify/unit';
 import {
   CLOSE,
   ConnectionTable,
+  HANDSHAKE_MS,
   PROBE_STEPS_MS,
   PROTOCOL_VERSION,
   REFUSED_RETRY_MS,
+  REFUSED_STEPS_MS,
+  SILENCE_MS,
   type Welcome,
 } from '@beifahrer/core';
 
@@ -73,6 +76,123 @@ export default async () => {
       expect(t.setRange({ base: 47900, count: 2 }).join(',')).toBe('47902');
       expect(t.sessions().length).toBe(0);
       expect(t.due(0).join(',')).toBe('47900,47901');
+    });
+  });
+
+  await describe('ConnectionTable: a bridge that goes away and comes back', async () => {
+    await it('probes the port again at once after its session closed, whatever the code', async () => {
+      for (const code of [1006, 1005, 1000, CLOSE.shutdown]) {
+        const t = new ConnectionTable(range);
+        t.connecting(47900);
+        t.welcomed(47900, welcome('a'), 0);
+        t.closed(47900, { opened: true, code, reason: '' }, 10);
+        expect(t.due(10).includes(47900)).toBe(true);
+        expect(t.nextRoundInMs()).toBe(1_000);
+      }
+    });
+
+    await it('finds the restarted bridge on the same port with no help from the person', async () => {
+      const t = new ConnectionTable(range);
+      t.connecting(47900);
+      t.welcomed(47900, welcome('old'), 0);
+      t.closed(47900, OPENED, 5_000);
+      // Rounds with nothing listening, for as long as it takes: no give-up.
+      for (let now = 6_000; now < 600_000; now += 5_000) {
+        expect(t.due(now).includes(47900)).toBe(true);
+        t.connecting(47900, now);
+        t.closed(47900, NOTHING_THERE, now);
+        t.roundDone();
+        expect(t.nextRoundInMs() <= 5_000).toBe(true);
+      }
+      t.connecting(47900, 600_000);
+      expect(t.welcomed(47900, welcome('new'), 600_000)).toBe(true);
+      expect(
+        t
+          .sessions()
+          .map((x) => x.port)
+          .join(','),
+      ).toBe('47900');
+      expect(t.overall()).toBe('connected');
+    });
+
+    await it('a bridge started after the browser is found by the first round that sees it', async () => {
+      const t = new ConnectionTable(range);
+      for (let i = 0; i < 50; i++) {
+        for (const port of t.due(i)) {
+          t.connecting(port, i);
+          t.closed(port, NOTHING_THERE, i);
+        }
+        t.roundDone();
+      }
+      expect(t.overall()).toBe('offline');
+      expect(t.due(51).join(',')).toBe('47900,47901,47902');
+      t.connecting(47901, 51);
+      expect(t.welcomed(47901, welcome('late'), 51)).toBe(true);
+      expect(t.overall()).toBe('connected');
+    });
+
+    await it("the person's Disconnect stays off for that instance, while a restart is welcome", async () => {
+      const t = new ConnectionTable(range);
+      t.connecting(47900);
+      t.welcomed(47900, welcome('a'), 0);
+      expect(t.dismiss(47900)).toBe(true);
+      t.closed(47900, { opened: true, code: CLOSE.personDisconnected, reason: 'dismissed' }, 0);
+      // The dismissed instance comes back: refused again, however often the rounds ask.
+      for (let i = 1; i < 5; i++) {
+        t.connecting(47900, i);
+        expect(t.welcomed(47900, welcome('a'), i)).toBe(false);
+        t.closed(47900, { opened: true, code: CLOSE.personDisconnected, reason: 'dismissed' }, i);
+      }
+      expect(t.sessions().length).toBe(0);
+      // A different instance on the same port: connected again without a click.
+      t.connecting(47900, 10);
+      expect(t.welcomed(47900, welcome('b'), 10)).toBe(true);
+    });
+
+    await it('retries a refusal with a growing pause, and starts over once a bridge welcomes', async () => {
+      const t = new ConnectionTable(range);
+      const pauses: number[] = [];
+      let now = 0;
+      for (let i = 0; i < 6; i++) {
+        t.connecting(47900, now);
+        t.closed(47900, { opened: true, code: CLOSE.unauthorized, reason: 'no hello' }, now);
+        const e = t.entry(47900);
+        const retryAt = e?.state === 'refused' ? e.retryAt : -1;
+        pauses.push(retryAt - now);
+        now = retryAt;
+      }
+      expect(pauses.join(',')).toBe([...REFUSED_STEPS_MS, REFUSED_RETRY_MS, REFUSED_RETRY_MS].join(','));
+      expect(Math.max(...pauses)).toBe(REFUSED_RETRY_MS);
+      t.connecting(47900, now);
+      t.welcomed(47900, welcome('a'), now);
+      t.closed(47900, { opened: true, code: CLOSE.unauthorized, reason: 'no hello' }, now);
+      const again = t.entry(47900);
+      expect(again?.state === 'refused' ? again.retryAt - now : -1).toBe(REFUSED_STEPS_MS[0]);
+    });
+  });
+
+  await describe('ConnectionTable: sockets that never close by themselves', async () => {
+    await it('names a socket that never finished its handshake, and frees its port when dropped', async () => {
+      const t = new ConnectionTable(range);
+      t.connecting(47900, 1_000);
+      expect(t.stalled(1_000 + HANDSHAKE_MS - 1).length).toBe(0);
+      expect(t.stalled(1_000 + HANDSHAKE_MS).join(',')).toBe('47900');
+      expect(t.due(1_000 + HANDSHAKE_MS).includes(47900)).toBe(false);
+      t.closed(47900, NOTHING_THERE, 1_000 + HANDSHAKE_MS);
+      expect(t.due(1_000 + HANDSHAKE_MS).includes(47900)).toBe(true);
+    });
+
+    await it('names a welcomed bridge that went silent, and anything it sends keeps it alive', async () => {
+      const t = new ConnectionTable(range);
+      t.connecting(47900, 0);
+      t.welcomed(47900, welcome('a'), 0);
+      expect(t.stalled(HANDSHAKE_MS * 10).length).toBe(0);
+      expect(t.silent(SILENCE_MS - 1).length).toBe(0);
+      t.heard(47900, 30_000); // a pong
+      expect(t.silent(SILENCE_MS).length).toBe(0);
+      expect(t.silent(30_000 + SILENCE_MS).join(',')).toBe('47900');
+      t.closed(47900, OPENED, 30_000 + SILENCE_MS);
+      expect(t.due(30_000 + SILENCE_MS).includes(47900)).toBe(true);
     });
   });
 
