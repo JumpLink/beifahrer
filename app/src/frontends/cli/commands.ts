@@ -21,7 +21,7 @@ export const mcpCommand: CommandModule<object, RangeArgs & { 'allow-write'?: boo
     y.options(rangeOptions).option('allow-write', {
       type: 'boolean',
       describe:
-        'Expose page_fill / page_click / tab_open (also: BEIFAHRER_MCP_ALLOW_WRITE=1). The browser still asks.',
+        "Expose page_fill / page_click / tab_open (also: BEIFAHRER_MCP_ALLOW_WRITE=1). Which sites and whether the browser asks stay the extension's settings.",
     }),
   handler: (argv) => {
     startMcpServer({ range: rangeOf(argv), allowWrite: argv['allow-write'] }).catch((err) => {
