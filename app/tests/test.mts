@@ -24,6 +24,7 @@ import navigate from './unit/core/navigate.test.ts';
 import refs from './unit/core/refs.test.ts';
 import toolbar from './unit/core/toolbar.test.ts';
 import shortcut from './unit/core/shortcut.test.ts';
+import registry from './unit/core/registry.test.ts';
 import bridge from './unit/bridge/bridge.test.ts';
 import configDir from './unit/bridge/config-dir.test.ts';
 import bridgeDesktop from './unit/bridge/desktop.test.ts';
@@ -58,6 +59,7 @@ run({
   refs,
   toolbar,
   shortcut,
+  registry,
   bridge,
   bridgeDesktop,
   configDir,
