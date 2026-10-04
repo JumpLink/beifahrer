@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { configDir } from '../../../src/config-dir.ts';
+import { configDir } from '@beifahrer/local';
 import { BUILTIN } from '../../../src/recipes/builtin.ts';
 import { buildCatalog, loadCatalog, recipeDirs } from '../../../src/recipes/sources.ts';
 

@@ -20,12 +20,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { applyReadOnlyGate, serveStdio } from '@gjsify/mcp';
 import { describeRange, type PortRange } from '@beifahrer/core';
+import { loadOrCreateToken, tokenPath } from '@beifahrer/local';
 
 import { desktopSource } from '../../bridge/desktop.ts';
 import { listenInRange, type Bridge } from '../../bridge/bridge.ts';
 import { publishRegistry } from '../../registry/publisher.ts';
 import { labelOverride, sessionLabel } from '../../bridge/session.ts';
-import { loadOrCreateToken, tokenPath } from '../../bridge/token.ts';
 import { VERSION } from '../../version.ts';
 import { registerTools, type BridgeHandle } from './tools.ts';
 

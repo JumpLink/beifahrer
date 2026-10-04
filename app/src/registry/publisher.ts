@@ -10,9 +10,7 @@
 
 import { rmSync } from 'node:fs';
 import { HEARTBEAT_MS, entryOf, sweepable, type BridgeStatus } from '@beifahrer/core';
-
-import { registryDir } from './registry-dir.ts';
-import { ensureDir, readEntries, removeEntry, writeEntry } from './store.ts';
+import { ensureDir, readEntries, registryDir, removeEntry, writeEntry } from '@beifahrer/local';
 
 /** What the publisher needs of a bridge: `Bridge` satisfies it, a test passes a small fake. */
 export interface Publishable {

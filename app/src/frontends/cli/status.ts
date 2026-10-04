@@ -8,9 +8,7 @@
 
 import type { CommandModule } from 'yargs';
 import { statusOf, type Presence, type RegistryEntry, type RegistryStatus } from '@beifahrer/core';
-
-import { registryDir } from '../../registry/registry-dir.ts';
-import { readEntries } from '../../registry/store.ts';
+import { readEntries, registryDir } from '@beifahrer/local';
 
 export interface StatusReport extends RegistryStatus {
   /** Files in the registry that were not entries. Present so a silent drop is at least countable. */

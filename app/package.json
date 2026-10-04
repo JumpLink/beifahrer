@@ -85,6 +85,7 @@
   },
   "dependencies": {
     "@beifahrer/core": "*",
+    "@beifahrer/local": "*",
     "@gjsify/adwaita-app": "0.54.0",
     "@gjsify/adwaita-core": "0.54.0",
     "@gjsify/mcp": "0.54.0",

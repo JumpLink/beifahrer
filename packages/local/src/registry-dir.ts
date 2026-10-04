@@ -12,7 +12,7 @@
 import { tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 
-import type { Env } from '../config-dir.ts';
+import type { Env } from './config-dir.ts';
 
 /** A user name that is safe in a directory name; anything else becomes `_`. */
 function safe(name: string): string {

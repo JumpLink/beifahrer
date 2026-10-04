@@ -1,10 +1,10 @@
 import type { CommandModule } from 'yargs';
 import { describeRange, isMethod } from '@beifahrer/core';
+import { loadOrCreateToken, newToken, tokenPath, writeToken } from '@beifahrer/local';
 
 import { desktopSource } from '../../bridge/desktop.ts';
 import { BridgeError, label, listenInRange, type Bridge } from '../../bridge/bridge.ts';
 import { rangeOf, rangeOptions, sessionLabel, type RangeArgs } from '../../bridge/session.ts';
-import { loadOrCreateToken, newToken, tokenPath, writeToken } from '../../bridge/token.ts';
 import { publishRegistry } from '../../registry/publisher.ts';
 import { VERSION } from '../../version.ts';
 import { startMcpServer } from '../mcp/server.ts';

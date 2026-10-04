@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { entryOf, type BridgeStatus } from '@beifahrer/core';
 
-import { ensureDir, readEntries, removeEntry, writeEntry } from '../../../src/registry/store.ts';
+import { ensureDir, readEntries, removeEntry, writeEntry } from '@beifahrer/local';
 
 const status = (instance: string): BridgeStatus => ({
   port: 47813,

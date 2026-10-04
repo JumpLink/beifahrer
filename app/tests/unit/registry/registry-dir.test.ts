@@ -2,7 +2,7 @@ import { describe, expect, it } from '@gjsify/unit';
 import { relative } from 'node:path';
 
 import pkg from '../../../package.json' with { type: 'json' };
-import { registryDir } from '../../../src/registry/registry-dir.ts';
+import { registryDir } from '@beifahrer/local';
 
 export default async () => {
   await describe('registryDir', async () => {

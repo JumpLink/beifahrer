@@ -133,8 +133,9 @@ messages are never translated. A new method needs `method_<name>` (activity word
 
 | Path | Contains | Runs on |
 |---|---|---|
-| `packages/core` | **Pure, zero deps.** Wire protocol, `ports.ts`, `connections.ts`, policy (incl. `ALWAYS_CONFIRM`), `features.ts`, toolbar look, activity entries, redaction, saved sessions, `find.ts`, `recipes.ts`, the bounds of `page.evaluate` (`evaluate.ts`) | GJS, Node, browser |
-| `app/` | `beifahrer` CLI: `mcp`, `token`, `serve`, `call`, `tool`; the bridge (`src/bridge/`), MCP tools, recipe runner + sources | GJS (bundled by gjsify); tests also on Node |
+| `packages/core` | **Pure, zero deps.** Wire protocol, `ports.ts`, `connections.ts`, policy (incl. `ALWAYS_CONFIRM`), `features.ts`, toolbar look, activity entries, redaction, saved sessions, `find.ts`, `recipes.ts`, the bounds of `page.evaluate` (`evaluate.ts`), the session-registry model (`registry.ts`, ADR 0015) | GJS, Node, browser |
+| `packages/local` | What every LOCAL process shares and only `node:fs`/`os`/`path` touch: `configDir()`, the pairing token, the registry's path and files. The CLI and the desktop app both read through it | GJS, Node |
+| `app/` | `beifahrer` CLI: `mcp`, `token`, `status`, `serve`, `call`, `tool`; the bridge (`src/bridge/`), MCP tools, recipe runner + sources | GJS (bundled by gjsify); tests also on Node |
 | `extension/` | background, page agent (+ its pill), popup, options, confirm window (on `@gjsify/adwaita-web`, shared `src/ui/kit.ts` → `ui.js`), `_locales/` (en default, de), `manifest.ts` + `scripts/build.ts` | browser (build: GJS + GdkPixbuf/librsvg) |
 | `recipes/` | Built-in recipes (JSON), bundled via `app/src/recipes/builtin.ts` | data |
 | `tests/e2e/` | Full chain in headless Chromium + Firefox | Node driver; bridge on GJS or Node (`BEIFAHRER_E2E_BRIDGE=node`) |
