@@ -157,6 +157,17 @@ adw-action-row.warning gtk-image {
    Both are mixed into the surface the banner already had, so the text keeps its own colour and
    the strip follows `prefers-color-scheme` with the rest of the page. `data-severity` is written
    by src/ui/banner.ts; without it the strip stays the neutral surface it always was. */
+/* gjsify gap (docs/gjsify-gaps.md): `adw-banner` is as tall as its content, so a banner without a button
+   (the options page, which is where the token is) is a thin strip with the title flush left. libadwaita's
+   banner is at least 46px tall and centres its title. Fixed upstream in gjsify: remove when it ships. */
+adw-banner {
+  min-height: 46px;
+}
+
+adw-banner .adw-banner-title {
+  text-align: center;
+}
+
 adw-banner[data-severity='error'] {
   background-color: color-mix(in srgb, var(--error-color) 20%, var(--sidebar-bg-color));
 }
