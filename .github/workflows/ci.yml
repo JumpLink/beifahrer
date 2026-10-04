@@ -243,7 +243,7 @@ jobs:
       # The same list as the job above — gjs and libsoup3 because this job builds the bundle the
       # payload carries, and a bundle cannot be built without the host it runs on — plus the two
       # flatpak tools. A `.flatpak` needs no GUI stack: `kind: "cli"` stages no desktop entry and
-      # `gjsify.ship.flatpak.finishArgs` here is `--share=network` alone.
+      # `gjsify.ship.flatpak.finishArgs` here is the network and the config-directory grant.
       - name: Install system prerequisites
         run: >
           dnf install -y --setopt=install_weak_deps=False
