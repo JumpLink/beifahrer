@@ -466,6 +466,15 @@ node tests/e2e/browsers.e2e.mjs all           # the full chain in headless Chrom
 Design decisions: [docs/adr/](docs/adr/) — index: [docs/](docs/README.md). Contributor and agent
 rules: [AGENTS.md](AGENTS.md).
 
+## Desktop window (preview)
+
+`beifahrer status` prints which agent sessions are running and which browsers hang on them; the
+native libadwaita window in [desktop/](desktop/) shows the same live ([ADR 0017](docs/adr/0017-native-desktop-app.md)).
+It only looks: it cannot pause the agent or change what it may do, and it knows nothing of a pause
+(that is the toolbar button's to show). Not packaged yet; from a checkout:
+`gjsify workspace beifahrer-desktop build && gjsify workspace beifahrer-desktop start`.
+Run so far on macOS arm64 only.
+
 ## Releasing
 
 Bump first with `node tools/version.mjs set X.Y.Z` and commit `chore: bump to X.Y.Z`: the extension,

@@ -15,6 +15,7 @@ const places = [
   { file: 'app/package.json', pattern: /^(\s*"version":\s*")([^"]+)(")/m },
   { file: 'packages/core/package.json', pattern: /^(\s*"version":\s*")([^"]+)(")/m },
   { file: 'packages/local/package.json', pattern: /^(\s*"version":\s*")([^"]+)(")/m },
+  { file: 'desktop/package.json', pattern: /^(\s*"version":\s*")([^"]+)(")/m },
   { file: 'extension/package.json', pattern: /^(\s*"version":\s*")([^"]+)(")/m },
   // Kept by hand because a JSON import would pull a whole manifest into the bundle.
   { file: 'app/src/version.ts', pattern: /^(export const VERSION = ')([^']+)(')/m },

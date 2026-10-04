@@ -1,0 +1,15 @@
+{
+  "app.title": "Beifahrer",
+  "status.title": "Status",
+  "status.nobridge.title": "Keine Agent-Sitzung aktiv",
+  "status.nobridge.description": "Zurzeit kann kein Agent einen Browser benutzen. Starte einen Agenten, in dem Beifahrer eingerichtet ist.",
+  "status.nobrowser.title": "Kein Browser verbunden",
+  "status.nobrowser.description": "Eine Agent-Sitzung läuft, aber kein Browser ist mit ihr verbunden. Öffne den Browser mit der Erweiterung und prüfe das Kopplungs-Token.",
+  "status.ready.title": "Bereit",
+  "status.ready.description": "Eine Agent-Sitzung läuft und ein Browser ist verbunden.",
+  "sessions.title": "Agent-Sitzungen",
+  "session.port": "Port {port}",
+  "session.nobrowser": "kein Browser",
+  "session.browser": "{name} {version}",
+  "unreadable": "{count} Registry-Dateien konnten nicht gelesen werden."
+}

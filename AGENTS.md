@@ -136,6 +136,7 @@ messages are never translated. A new method needs `method_<name>` (activity word
 | `packages/core` | **Pure, zero deps.** Wire protocol, `ports.ts`, `connections.ts`, policy (incl. `ALWAYS_CONFIRM`), `features.ts`, toolbar look, activity entries, redaction, saved sessions, `find.ts`, `recipes.ts`, the bounds of `page.evaluate` (`evaluate.ts`), the session-registry model (`registry.ts`, ADR 0015) | GJS, Node, browser |
 | `packages/local` | What every LOCAL process shares and only `node:fs`/`os`/`path` touch: `configDir()`, the pairing token, the registry's path and files. The CLI and the desktop app both read through it | GJS, Node |
 | `app/` | `beifahrer` CLI: `mcp`, `token`, `status`, `serve`, `call`, `tool`; the bridge (`src/bridge/`), MCP tools, recipe runner + sources | GJS (bundled by gjsify); tests also on Node |
+| `desktop/` | The native libadwaita window (ADR 0017): reads the session registry, shows the status ladder, en/de. A view, never a policy: it has no pause, resume, feature or level control | GJS and node-gi (measured on macOS arm64) |
 | `extension/` | background, page agent (+ its pill), popup, options, confirm window (on `@gjsify/adwaita-web`, shared `src/ui/kit.ts` → `ui.js`), `_locales/` (en default, de), `manifest.ts` + `scripts/build.ts` | browser (build: GJS + GdkPixbuf/librsvg) |
 | `recipes/` | Built-in recipes (JSON), bundled via `app/src/recipes/builtin.ts` | data |
 | `tests/e2e/` | Full chain in headless Chromium + Firefox | Node driver; bridge on GJS or Node (`BEIFAHRER_E2E_BRIDGE=node`) |
