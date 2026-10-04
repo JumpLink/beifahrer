@@ -49,7 +49,7 @@ Firefox / Chromium
 - **All sites, for a while.** In the popup, *All sites* lets the agent read (or edit) every site
   you have no rule for, for one hour, until the browser closes, or for one agent session. It is
   never permanent, the toolbar shows a blue dot while it lasts, and *End* stops it at once. Every
-  change it allows still asks you first.
+  change it allows asks you first, unless you switched *Ask before changes* off for that grant.
 - **Asked when needed.** When the agent needs a site it has no level for, a window asks "*session*
   wants to read *site*": **Allow once**, **For this session**, **Always** (sets the site's level) or
   **Deny**. No answer within two minutes is a no. You can switch the asking off in the options.
@@ -408,7 +408,7 @@ gjsify run app/dist/beifahrer.gjs.mjs token   # prints the token; paste it in th
 ```
 
 Register the MCP server with your agent. It needs `mcp`, and `--allow-write` if the agent may
-fill and click at all (the browser still asks you):
+fill and click at all (the extension's per-site level and its confirmations still apply):
 
 ```json
 {
