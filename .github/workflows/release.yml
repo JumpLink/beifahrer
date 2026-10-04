@@ -123,7 +123,7 @@ jobs:
             "cli/beifahrer-${version}-1.macos.x86_64.zip" \
             "cli/beifahrer-${version}-1.windows.x64.zip" \
             "cli/beifahrer-${version}-1.x64.msi" \
-            "cli/eu.jumplink.beifahrer-${version}-1.x86_64.flatpak"; do
+            "cli/eu.jumplink.beifahrer.Cli-${version}-1.x86_64.flatpak"; do
             if [ ! -s "$f" ]; then
               echo "::error::missing or empty artifact: $f"
               missing=1

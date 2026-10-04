@@ -12,7 +12,7 @@ const t = createTranslate(pickLocale([...GLib.get_language_names()]));
 const dir = registryDir();
 
 const code = await runAdwaitaApp({
-  applicationId: 'eu.jumplink.beifahrer.Desktop',
+  applicationId: 'eu.jumplink.beifahrer',
   createWindow: (app) => {
     const ui = createStatusWindow(app, t);
     const refresh = () => {
