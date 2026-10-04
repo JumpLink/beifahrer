@@ -20,6 +20,7 @@
  */
 
 import { browser } from '@wxt-dev/browser';
+import { browserInfo } from './browser-info.ts';
 import type { PageRequest, PageResponse } from './page-messages.ts';
 
 const FILE = '/page-agent.js';
@@ -73,6 +74,48 @@ export async function askPage<T extends PageRequest>(
   // `frameId` is passed anyway, because where it works it is the cheaper path, and a request that
   // reaches exactly one frame cannot be misrouted even if the filter were wrong.
   const addressed = { ...req, frame } as T;
+  if (await asksByScript()) return askByScript(tabId, addressed, frame);
   const res = (await send(tabId, addressed, { frameId: frame })) as PageResponse | undefined;
   return res ?? undefined;
+}
+
+let byScript: boolean | undefined;
+
+/**
+ * Safari never delivers `tabs.sendMessage` to a script that `scripting.executeScript` injected: a
+ * listener in the page saw 0 of 5 messages, every send came back `undefined`, while the agent was
+ * demonstrably there (Safari 27.0.1, 2026-10-04). Asked by family, not by feature test, because the
+ * failure is silence and silence is also what a frame that is not the addressee sends.
+ */
+async function asksByScript(): Promise<boolean> {
+  byScript ??= (await browserInfo()).family === 'safari';
+  return byScript;
+}
+
+/** The same question through `executeScript`, whose `func` result does come back, promises included. */
+async function askByScript(
+  tabId: number,
+  req: PageRequest,
+  frame: number,
+): Promise<PageResponse | undefined> {
+  const scripting = (browser as unknown as { scripting: typeof browser.scripting }).scripting;
+  const results = await scripting.executeScript({
+    target: { tabId, frameIds: [frame] },
+    func: (request: unknown) =>
+      (globalThis as { __beifahrerAsk?: (r: unknown) => unknown }).__beifahrerAsk?.(request),
+    args: [req],
+  });
+  return (results[0]?.result as PageResponse | undefined) ?? undefined;
+}
+
+/**
+ * Say something to the agent that is ALREADY in the tab, without injecting it: a tab it was never
+ * injected into has no receiver, and that is an answer of "nobody", not an error.
+ */
+export async function tellPage(tabId: number, req: PageRequest): Promise<void> {
+  if (await asksByScript()) {
+    await askByScript(tabId, req, 0).catch(() => undefined);
+    return;
+  }
+  await browser.tabs.sendMessage(tabId, req).catch(() => undefined);
 }

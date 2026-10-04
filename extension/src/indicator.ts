@@ -8,6 +8,7 @@
  */
 
 import { browser } from '@wxt-dev/browser';
+import { tellPage } from './inject.ts';
 import { loadSettings, saveSettings } from './settings.ts';
 
 export { STOP_MESSAGE } from './page-messages.ts';
@@ -25,7 +26,7 @@ export async function togglePaused(): Promise<void> {
  * injected into shows no pill, and `sendMessage` then rejects for want of a receiver.
  */
 export async function hideIndicator(tabId: number): Promise<void> {
-  await browser.tabs.sendMessage(tabId, { beifahrer: 'hide' }).catch(() => undefined);
+  await tellPage(tabId, { beifahrer: 'hide' });
 }
 
 /** The keyboard shortcut (manifest `commands`): pause or resume. Only the person can press it. */
