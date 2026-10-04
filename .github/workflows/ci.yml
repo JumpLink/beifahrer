@@ -81,6 +81,11 @@ jobs:
       - name: Doc links
         run: node tools/check-doc-links.mjs
 
+      # The release derives ONE version from the tag and expects it in the extension zip and in every
+      # CLI package name; five files carry it, and a bump that missed one fails the release late.
+      - name: One product version
+        run: node tools/version.mjs check
+
       - name: Build the app bundle
         run: gjsify workspace beifahrer-cli build
 
