@@ -48,7 +48,7 @@
     "message": "Pausiert"
   },
   "state_offline": {
-    "message": "Kein Agent"
+    "message": "Nicht verbunden"
   },
   "state_unpaired": {
     "message": "Nicht gekoppelt"
@@ -61,6 +61,9 @@
   },
   "banner_unauthorized": {
     "message": "Der Agent hat das Token abgelehnt"
+  },
+  "banner_offline": {
+    "message": "Nicht verbunden. Bridge starten oder Kopplungs-Token in den Einstellungen prüfen."
   },
   "banner_protocol": {
     "message": "Erweiterung und Agent haben verschiedene Versionen"
@@ -318,7 +321,7 @@
     "message": "beifahrer verbindet sich"
   },
   "toolbar_offline_offline": {
-    "message": "beifahrer hat keinen Agenten"
+    "message": "beifahrer ist nicht verbunden"
   },
   "toolbar_offline_unauthorized": {
     "message": "Der Agent hat das Token abgelehnt"

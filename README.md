@@ -57,18 +57,22 @@ Firefox / Chromium
 
 ## Seeing it, and stopping it
 
-**The toolbar button tells you what is going on.** Its icon is a set of sparkles:
+**The toolbar button tells you what is going on.** Its icon is a set of sparkles, and the rows are
+in the order they matter:
 
 | Icon | Means |
 |---|---|
-| grey sparkles | connected to an agent, nothing happening |
+| grey + **red dot** | **no agent is connected**: not paired, or no bridge running. Nothing can reach the browser, so the extension does nothing |
+| grey + **yellow dot** | paused: the agent gets nothing |
+| grey + **blue dot** | *All sites* is on for now (the sparkles still turn coloured while the agent works) |
 | **coloured** sparkles | an agent is using this browser right now (and for 5 s after its last request) |
-| grey + **red dot** | paused: the agent gets nothing |
-| grey + **amber dot** | not paired, or no agent running: nothing can reach the browser |
-| **blue dot** | *All sites* is on for now (the sparkles still turn coloured while the agent works) |
+| grey sparkles | connected to an agent, nothing happening |
 
+A missing connection outranks a pause: with no bridge there is nothing an agent could do anyway, and
+it is the one thing only you can fix ([ADR 0014](docs/adr/0014-not-connected-speaks-first.md)).
 Hover it for the same in words. Click it for the popup: one word of state and the pause button at
-the top, the level of the site you are on, the connected **agent sessions**, and the last few
+the top, a banner over the page when something is not normal (not connected → *Settings*, paused →
+*Resume*), the level of the site you are on, the connected **agent sessions**, and the last few
 entries of the **activity** (what, which site by host, when, which session, and why a request was
 refused; the options page shows all of them). The activity list holds no page text
 and is gone when the browser closes.

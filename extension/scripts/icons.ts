@@ -6,41 +6,44 @@
  *
  *   idle      monochrome sparkles              connected, nothing running
  *   active    the sparkles in colour           an agent request running, and a few seconds after
- *   paused    monochrome + red dot             the person pressed Stop
- *   offline   monochrome + amber dot           not paired, or no bridge running
+ *   paused    monochrome + yellow dot          the person pressed Stop
+ *   offline   monochrome + red dot             no bridge connection: no agent reaches this browser
  *   wide      monochrome + blue dot            "all sites" is granted for now (ADR 0010)
  *   wide-active  colour + blue dot             the same, while an agent request runs
+ *
+ * The dot's colour is `LOOK_COLOUR` (core), the one table the badge fallback paints from too, so
+ * the icon and the badge of a browser without `setIcon` cannot say different states.
  */
 
 import GdkPixbuf from 'gi://GdkPixbuf?version=2.0';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { LOOK_COLOUR, MONOCHROME } from '@beifahrer/core';
+
 import { ICON_SIZES, ICON_VARIANTS, isSmall, type IconVariant, type Target } from '../manifest.ts';
 
-/** Mid-grey: readable on a light and on a dark toolbar alike. */
-const MONO = '#7f7f86';
-
-const LOOK: Record<IconVariant, { colour: boolean; dot: string | null }> = {
-  idle: { colour: false, dot: null },
-  active: { colour: true, dot: null },
-  paused: { colour: false, dot: '#e01b24' },
-  offline: { colour: false, dot: '#e5a50a' },
+/** Whether the sparkles carry their colour, and whether the look leads with a dot. */
+const LOOK: Record<IconVariant, { colour: boolean; dot: boolean }> = {
+  idle: { colour: false, dot: false },
+  active: { colour: true, dot: false },
+  paused: { colour: false, dot: true },
+  offline: { colour: false, dot: true },
   // GNOME's blue 3: not a warning colour, but not the quiet idle look either.
-  wide: { colour: false, dot: '#3584e4' },
-  'wide-active': { colour: true, dot: '#3584e4' },
+  wide: { colour: false, dot: true },
+  'wide-active': { colour: true, dot: true },
 };
 
 export function variantSvg(source: string, variant: IconVariant): string {
   const { colour, dot } = LOOK[variant];
-  let svg = colour ? source : source.replace('fill="url(#colour)"', `fill="${MONO}"`);
+  let svg = colour ? source : source.replace('fill="url(#colour)"', `fill="${MONOCHROME}"`);
   if (svg === source && !colour)
     throw new Error('icons/sparkles.svg: #sparkles lost its fill="url(#colour)"');
   // A white ring keeps the dot apart from the sparkles at 16 px.
   if (dot)
     svg = svg.replace(
       '</svg>',
-      `  <circle cx="102" cy="102" r="24" fill="${dot}" stroke="#ffffff" stroke-width="6"/>\n</svg>`,
+      `  <circle cx="102" cy="102" r="24" fill="${LOOK_COLOUR[variant]}" stroke="#ffffff" stroke-width="6"/>\n</svg>`,
     );
   return svg;
 }

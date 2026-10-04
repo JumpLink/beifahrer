@@ -1,13 +1,20 @@
 /**
  * The toolbar button as a status light: monochrome sparkles when connected and idle, coloured
- * while an agent is at work, a red dot while paused, an amber one without a bridge. What to show
- * is `toolbarLook` in core; this file only paints it, on whichever button API the browser has
- * (`action` in MV3, `browserAction` in MV2). The badge text is the fallback for a browser that
- * cannot set the icon.
+ * while an agent is at work, a yellow dot while paused, a red one without a bridge connection.
+ * What to show is `toolbarLook` in core, in the ladder `alarmOf` there names; this file only
+ * paints it, on whichever button API the browser has (`action` in MV3, `browserAction` in MV2).
+ * The badge text is the fallback for a browser that cannot set the icon.
  */
 
 import { browser } from '@wxt-dev/browser';
-import { ACTIVE_MS, toolbarLook, wildcardGrant, type Connection, type ToolbarIcon } from '@beifahrer/core';
+import {
+  ACTIVE_MS,
+  LOOK_COLOUR,
+  toolbarLook,
+  wildcardGrant,
+  type Connection,
+  type ToolbarIcon,
+} from '@beifahrer/core';
 import { activityState, onActivityChange } from './activity.ts';
 import { currentStatus, onStatusChange } from './bridge-client.ts';
 import { loadGrants, onGrantsChange } from './grants.ts';
@@ -33,16 +40,6 @@ function iconPath(variant: ToolbarIcon): Record<string, string> {
   for (const size of ICON_SIZES.filter((s) => s <= 32)) out[String(size)] = `/icons/${variant}-${size}.png`;
   return out;
 }
-
-/** The dot colours of scripts/icons.ts, for the badge fallback. */
-const BADGE_COLOUR: Record<ToolbarIcon, string> = {
-  idle: '#7f7f86',
-  active: '#c061cb',
-  paused: '#e01b24',
-  offline: '#e5a50a',
-  wide: '#3584e4',
-  'wide-active': '#3584e4',
-};
 
 let painted = '';
 let fadeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -72,7 +69,9 @@ export async function refreshToolbar(): Promise<void> {
     await api.setIcon({ path: iconPath(look.icon) });
   } else if (api.setBadgeText) {
     await api.setBadgeText({ text: look.badge });
-    await api.setBadgeBackgroundColor?.({ color: BADGE_COLOUR[look.icon] });
+    // The badge paints the button in the look's own colour from core, the one the icon's dot is
+    // drawn with: a fallback that showed another colour would say a different state than the icon.
+    await api.setBadgeBackgroundColor?.({ color: LOOK_COLOUR[look.icon] });
   }
   await api.setTitle?.({ title: titleFor(look.icon, currentStatus().state as Connection) });
 }
