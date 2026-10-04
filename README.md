@@ -468,7 +468,9 @@ rules: [AGENTS.md](AGENTS.md).
 
 ## Releasing
 
-`git tag vX.Y.Z && git push --tags` runs the whole of CI — tests, type check, lint — and, if it
+Bump first with `node tools/version.mjs set X.Y.Z` and commit `chore: bump to X.Y.Z`: the extension,
+the CLI, core and the root share ONE version, and the release fails before building anything if the
+tag is not `vX.Y.Z` of exactly that. Then `git tag vX.Y.Z && git push --tags` runs the whole of CI — tests, type check, lint — and, if it
 passes, builds and attaches every installable format to the tag's GitHub release:
 
 - browser extension zips (Firefox + Chromium)

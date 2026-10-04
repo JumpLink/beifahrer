@@ -42,7 +42,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # First, and cheap: a tag that is not the product version fails here, before a single package is
+  # built. The artifact assert below would catch it too, but only after every target compiled.
+  # A dispatch from a branch without a tag still gets the consistency check, just not the tag one.
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: The tag is the product version
+        env:
+          TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '' }}
+        run: node tools/version.mjs check ${TAG:+"$TAG"}
+
   build:
+    needs: version
     uses: ./.github/workflows/ci.yml
 
   release:
