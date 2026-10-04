@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { configDir } from '../../../src/config-dir.ts';
 import { BUILTIN } from '../../../src/recipes/builtin.ts';
 import { buildCatalog, loadCatalog, recipeDirs } from '../../../src/recipes/sources.ts';
 
@@ -65,6 +66,12 @@ export default async () => {
     await it('orders built-in < XDG config < BEIFAHRER_RECIPES (left to right)', async () => {
       const dirs = recipeDirs({ XDG_CONFIG_HOME: '/cfg', BEIFAHRER_RECIPES: '/one:/two:' });
       expect(dirs.map((d) => d.path).join(' ')).toBe('/cfg/beifahrer/recipes /one /two');
+    });
+
+    await it("the person's own recipes live in the same directory as the token", async () => {
+      // Two spellings of "the config directory" had drifted apart off Linux: the token followed the
+      // platform's convention, recipes stayed under ~/.config.
+      expect(recipeDirs({})[0]!.path).toBe(join(configDir({}), 'recipes'));
     });
 
     await it('reads files and subdirectories, reports bad JSON, oversize files and a missing named dir', async () => {
