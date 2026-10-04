@@ -17,7 +17,12 @@ const bridge = (instance: string, browsers: string[]): BridgeStatus => ({
     connectedAt: '2026-10-04T11:05:00.000Z',
   })),
 });
-const view = (statuses: BridgeStatus[], skipped = 0, locale: 'en' | 'de' = 'en') =>
+const view = (
+  statuses: BridgeStatus[],
+  skipped = 0,
+  locale: 'en' | 'de' = 'en',
+  unregistered: number[] = [],
+) =>
   viewOf(
     statusOf(
       statuses.map((s) => entryOf(s, NOW)),
@@ -25,6 +30,7 @@ const view = (statuses: BridgeStatus[], skipped = 0, locale: 'en' | 'de' = 'en')
     ),
     skipped,
     createTranslate(locale),
+    unregistered,
   );
 
 // The window is a view over the registry (ADR 0015) and speaks the ladder of ADR 0014: a missing
@@ -61,6 +67,20 @@ export default async () => {
       expect(view([], 3).note).toBe('3 registry files could not be read.');
     });
 
+    await it('warns about a port something holds that no session announced, one line for all of them', async () => {
+      expect(view([], 0).warnings.length).toBe(0);
+      const one = view([], 0, 'en', [47813]).warnings;
+      expect(one.length).toBe(1);
+      expect(one[0]!.title).toBe('Port 47813 is held by something that does not report');
+      expect(one[0]!.description).toMatch(/restart the agent session/);
+      expect(view([], 0, 'en', [47813, 47815]).warnings[0]!.title).toBe(
+        'Ports 47813, 47815 are held by something that does not report',
+      );
+      expect(view([], 0, 'de', [47813]).warnings[0]!.title).toBe(
+        'Port 47813 wird von etwas gehalten, das sich nicht meldet',
+      );
+    });
+
     await it("follows the person's language", async () => {
       expect(view([], 0, 'de').title).toBe('Keine Agent-Sitzung aktiv');
     });
@@ -72,7 +92,7 @@ export default async () => {
         Object.keys(view([bridge('a', ['Firefox'])]))
           .sort()
           .join(),
-      ).toBe('alarm,description,icon,note,presence,sessions,title');
+      ).toBe('alarm,description,icon,note,presence,sessions,title,warnings');
     });
   });
 };

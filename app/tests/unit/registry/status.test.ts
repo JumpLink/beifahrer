@@ -44,10 +44,24 @@ export default async () => {
       expect(renderStatus(reportOf([], 2, NOW))).toMatch(/2 files in the registry could not be read/);
     });
 
+    await it('names a port that listens without a session, and what to do about it', async () => {
+      const text = renderStatus(reportOf([entryOf(status('a', 1), NOW)], 0, NOW, [47813, 47814]));
+      // status() announces port 47813, so only 47814 is a stranger.
+      expect(text).toMatch(/Port 47814 is held by something that no running Beifahrer session announced/);
+      expect(text).toMatch(/restart the agent session/);
+      expect(renderStatus(reportOf([], 0, NOW, [47813, 47814]))).toMatch(/Ports 47813, 47814 are held/);
+    });
+
+    await it('says nothing about ports when every listener announced itself', async () => {
+      const text = renderStatus(reportOf([entryOf(status('a', 1), NOW)], 0, NOW, [47813]));
+      expect(text).not.toMatch(/held by something/);
+    });
+
     await it('the JSON form is the status plus the count of what was skipped', async () => {
       const report = reportOf([entryOf(status('a', 1), NOW)], 1, NOW);
       expect(report.presence).toBe('ready');
       expect(report.skipped).toBe(1);
+      expect(report.unregistered).toStrictEqual([]);
       expect(report.sessions.length).toBe(1);
     });
   });

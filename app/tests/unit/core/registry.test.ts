@@ -8,6 +8,7 @@ import {
   parseRegistryEntry,
   statusOf,
   sweepable,
+  unregisteredPorts,
   type BridgeStatus,
   type RegistryEntry,
 } from '@beifahrer/core';
@@ -157,6 +158,18 @@ export default async () => {
       const justDead = entry({ instance: 'just', updatedAt: ago(STALE_MS + 1) });
       const longDead = entry({ instance: 'long', updatedAt: ago(STALE_MS + 60_001) });
       expect(sweepable([fresh, justDead, longDead], NOW).map((e) => e.instance)).toStrictEqual(['long']);
+    });
+  });
+
+  await describe('unregisteredPorts', async () => {
+    await it('is the listening ports no live session announced, sorted and once', async () => {
+      const a = entry({ instance: 'a', port: 47814 });
+      expect(unregisteredPorts([47815, 47813, 47814, 47813], [a])).toStrictEqual([47813, 47815]);
+    });
+
+    await it('is empty when everything that listens announced itself, or nothing listens', async () => {
+      expect(unregisteredPorts([47813], [entry({ port: 47813 })])).toStrictEqual([]);
+      expect(unregisteredPorts([], [])).toStrictEqual([]);
     });
   });
 };

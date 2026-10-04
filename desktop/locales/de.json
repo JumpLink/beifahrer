@@ -22,5 +22,8 @@
   "pairing.path": "Gespeichert in",
   "pairing.other.title": "Es gibt eine weitere Token-Datei",
   "pairing.other.description": "{path} enthält ein anderes Token. Ein Browser, der damit gekoppelt wurde, kann sich nicht verbinden: Füge stattdessen das Token oben ein. Ein älteres Beifahrer, das noch läuft, benutzt möglicherweise die andere Datei, bis es neu gestartet wird.",
-  "pairing.error": "Das Token konnte nicht gelesen werden: {reason}"
+  "pairing.error": "Das Token konnte nicht gelesen werden: {reason}",
+  "foreign.one": "Port {ports} wird von etwas gehalten, das sich nicht meldet",
+  "foreign.many": "Die Ports {ports} werden von etwas gehalten, das sich nicht meldet",
+  "foreign.description": "Keine laufende Agent-Sitzung hat ihn angekündigt. Es kann ein älteres Beifahrer sein, eine Bridge, die nicht mehr antwortet, oder ein anderes Programm. Ein Browser probiert ihn wie jeden anderen Port. Ist es ein Beifahrer, starte die Agent-Sitzung neu, die ihn gestartet hat."
 }

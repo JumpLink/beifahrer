@@ -40,15 +40,18 @@ export function clamped(child: Gtk.Widget): Gtk.Widget {
 function createStatusPage(t: Translate) {
   const status = new Adw.StatusPage({ vexpand: false });
   const group = new Adw.PreferencesGroup({ title: t('sessions.title') });
+  const warnings = new Adw.PreferencesGroup({ visible: false });
   const note = new Gtk.Label({ wrap: true, xalign: 0, visible: false });
   note.add_css_class('dim-label');
 
   const column = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 24 });
   column.append(status);
+  column.append(warnings);
   column.append(group);
   column.append(note);
 
   let rows: Adw.ActionRow[] = [];
+  let warningRows: Adw.ActionRow[] = [];
   return {
     widget: clamped(column),
     show(view: StatusView) {
@@ -59,6 +62,14 @@ function createStatusPage(t: Translate) {
       rows = view.sessions.map((s) => new Adw.ActionRow({ title: s.title, subtitle: s.subtitle }));
       for (const row of rows) group.add(row);
       group.set_visible(rows.length > 0);
+      for (const row of warningRows) warnings.remove(row);
+      warningRows = view.warnings.map((w) => {
+        const row = new Adw.ActionRow({ title: w.title, subtitle: w.description });
+        row.add_prefix(new Gtk.Image({ iconName: 'dialog-warning-symbolic' }));
+        return row;
+      });
+      for (const row of warningRows) warnings.add(row);
+      warnings.set_visible(warningRows.length > 0);
       note.set_label(view.note ?? '');
       note.set_visible(view.note !== null);
     },
