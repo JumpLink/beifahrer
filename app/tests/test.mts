@@ -36,6 +36,7 @@ import mcpTools from './unit/mcp/tools.test.ts';
 import mcpOutput from './unit/mcp/output.test.ts';
 import recipeRunner from './unit/recipes/runner.test.ts';
 import recipeSources from './unit/recipes/sources.test.ts';
+import localPairing from './unit/local/pairing.test.ts';
 import registryDir from './unit/registry/registry-dir.test.ts';
 import registryStore from './unit/registry/store.test.ts';
 import registryPublisher from './unit/registry/publisher.test.ts';
@@ -75,6 +76,7 @@ run({
   mcpOutput,
   recipeRunner,
   recipeSources,
+  localPairing,
   registryDir,
   registryStore,
   registryPublisher,
