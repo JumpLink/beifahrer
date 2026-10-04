@@ -11,4 +11,5 @@ Reference material for beifahrer. The rules an agent needs on nearly every task 
 | [traps-browser-platform.md](traps-browser-platform.md) | Engine facts paid for: Safari's dead worker, the MV3 CSP that forbids `eval`, `permissions.remove` subtracting by coverage, synthetic input, headless drivers |
 | [traps-extension-code.md](traps-extension-code.md) | Code facts paid for: `decide()`'s union, the three layers of a frame's identity, the loop that measured the gap instead of the work |
 | [traps-build-and-test.md](traps-build-and-test.md) | Build and test facts paid for: the stale test bundle, `gjsify check`'s colours, `update_url`, the person's port range, what the e2e cannot do headless |
+| [desktop-app-spikes.md](desktop-app-spikes.md) | What was measured before the native app: an Adwaita window under node-gi, one project vs two packages, registry liveness |
 | [gjsify-gaps.md](gjsify-gaps.md) | gjsify capabilities this project lacks and how each is worked around — each gap fixed UPSTREAM, never around |

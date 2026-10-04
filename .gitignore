@@ -37,3 +37,6 @@ screenshots/
 
 # Agent worktrees (Claude Code)
 .claude/
+
+# Spike build output
+probes/adw-window/*.mjs
