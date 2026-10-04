@@ -86,9 +86,15 @@ export function createWindow(app: Adw.Application, t: Translate): DesktopWindow 
   const agentsPage = createAgentsPage(t, toast);
 
   const stack = new Adw.ViewStack();
-  stack.add_titled(statusPage.widget, 'status', t('page.status'));
-  stack.add_titled(pairingPage.widget, 'browser', t('page.browser'));
-  stack.add_titled(agentsPage.widget, 'agent', t('page.agent'));
+  // A page without an icon name is drawn with `image-missing` in the switcher, so each one names one.
+  stack.add_titled_with_icon(
+    statusPage.widget,
+    'status',
+    t('page.status'),
+    'network-transmit-receive-symbolic',
+  );
+  stack.add_titled_with_icon(pairingPage.widget, 'browser', t('page.browser'), 'web-browser-symbolic');
+  stack.add_titled_with_icon(agentsPage.widget, 'agent', t('page.agent'), 'utilities-terminal-symbolic');
 
   const toolbar = new Adw.ToolbarView();
   toolbar.add_top_bar(
