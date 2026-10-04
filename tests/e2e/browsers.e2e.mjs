@@ -42,7 +42,9 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { WebSocketServer } from 'ws';
-import { configDir } from '../../app/src/config-dir.ts';
+// The file, not the package index: plain Node strips types but cannot run core's parameter
+// properties, which the index would pull in. config-dir.ts has no imports of its own.
+import { configDir } from '../../packages/local/src/config-dir.ts';
 import { chromiumBinary, firefoxBinary, localBin } from '../../extension/scripts/platform.ts';
 import { chromiumPages, firefoxPages } from './ui-pages.mjs';
 
@@ -621,7 +623,7 @@ async function startMcp(tokenFile, logName, env = {}) {
     ],
     // Recipes from the test's own directory; XDG_CONFIG_HOME inside the throw-away profile so the
     // person's own recipes never take part. It is the ONE variable the app's configDir() honours on
-    // every platform (app/src/config-dir.ts), so this fake is enough on all of them — and the
+    // every platform (packages/local/src/config-dir.ts), so this fake is enough on all of them — and the
     // assertion below is what makes "enough" checked rather than assumed.
     env: {
       ...process.env,

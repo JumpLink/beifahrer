@@ -19,8 +19,8 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { MAX_RECIPE_BYTES, parseRecipe, type Recipe } from '@beifahrer/core';
+import { configDir } from '@beifahrer/local';
 
-import { configDir } from '../config-dir.ts';
 import { BUILTIN } from './builtin.ts';
 
 export interface LoadedRecipe {

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { entryOf, STALE_MS, type BridgeStatus } from '@beifahrer/core';
 
 import { publishRegistry } from '../../../src/registry/publisher.ts';
-import { readEntries } from '../../../src/registry/store.ts';
+import { readEntries } from '@beifahrer/local';
 
 /** The part of a bridge the publisher uses: a status that changes, and the three events. */
 class FakeBridge extends EventEmitter {

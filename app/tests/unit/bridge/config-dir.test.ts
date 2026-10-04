@@ -2,7 +2,7 @@ import { describe, expect, it } from '@gjsify/unit';
 import { basename, join } from 'node:path';
 
 import pkg from '../../../package.json' with { type: 'json' };
-import { configDir } from '../../../src/config-dir.ts';
+import { configDir } from '@beifahrer/local';
 
 const HOME = '/home/person';
 
