@@ -23,3 +23,4 @@ export * from './expect.ts';
 export * from './network.ts';
 export * from './shortcut.ts';
 export * from './registry.ts';
+export * from './agents.ts';
