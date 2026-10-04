@@ -3,6 +3,7 @@ import { originOf, withRule, type Level } from '@beifahrer/core';
 import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../../src/bridge-client.ts';
 import { GRANTS_MESSAGE, type WideDuration, type WideView } from '../../src/grants-messages.ts';
+import { browserInfo } from '../../src/browser-info.ts';
 import { t, type MessageKey } from '../../src/i18n.ts';
 import { WILDCARD_PATTERNS, loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
 import { renderBanner } from '../../src/ui/banner.ts';
@@ -112,6 +113,11 @@ function renderWide(view: WideView | null, status: Status | undefined): void {
 async function main(): Promise<void> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   const origin = originOf(tab?.url);
+
+  // Safari grants host access per site, through its own prompt, and answers a request for every
+  // site with `false` (measured on Safari 27.0.1, 2026-10-04). A button that can only fail is worse
+  // than none, so "all sites" is not offered there.
+  if ((await browserInfo()).family === 'safari') $('wide').hidden = true;
 
   // gjsify gap (unfixed, @gjsify/adwaita-web 0.53.0): <adw-toggle> has no tooltip, so the
   // explanation of each level goes on its rendered button as a native hover text.
