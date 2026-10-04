@@ -480,7 +480,11 @@ passes, builds and attaches every installable format to the tag's GitHub release
 All of it unsigned, which is a legitimate deliverable rather than a placeholder (gjsify ADR 0024
 § A13) — see the comment above the "Attach everything to the release" step in
 [release.yml](.github/workflows/release.yml) for where `--sign`/`--notarize` would attach once a
-signing identity exists. What is NOT in the release: a signed Firefox `.xpi` (manual, needs a
+signing identity exists. On macOS an unsigned `.app` downloaded in a browser carries the quarantine
+attribute and is killed at launch without a message; run `xattr -dr com.apple.quarantine
+Beifahrer.app` once after unzipping. (Measured with a hand-set attribute, not a real browser
+download; ad-hoc signing with `--sign -` did not change the result, so it is not used.) What is NOT
+in the release: a signed Firefox `.xpi` (manual, needs a
 person's AMO key) and any store submission — both documented in the same file.
 
 ## License
