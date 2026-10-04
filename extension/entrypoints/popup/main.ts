@@ -88,6 +88,7 @@ async function renderSite(origin: string | null): Promise<void> {
 
 const wideLevel = $<Adw.ComboRow>('wide-level');
 const wideFor = $<Adw.ComboRow>('wide-for');
+const wideConfirm = $<Adw.SwitchRow>('wide-confirm');
 
 /** The durations offered: an hour, until the browser closes, or one connected session. */
 function renderWideChoices(status: Status | undefined): void {
@@ -108,12 +109,18 @@ function renderWideChoices(status: Status | undefined): void {
 function renderWide(view: WideView | null, status: Status | undefined): void {
   $('wide-start').hidden = view !== null;
   $('wide-on').hidden = view === null;
+  // Only where it decides something: a read grant has no writes to ask about, and a switch that
+  // says "Ask before changes" over a grant that cannot change anything is a control that lies.
+  wideConfirm.hidden = view === null || view.level !== 'write';
   if (!view) return renderWideChoices(status);
   const level = t(view.level === 'write' ? 'level_write' : 'level_read');
   const left = view.until
     ? t('wide_left', Math.max(1, Math.ceil((view.until - Date.now()) / 60_000)))
     : t(view.session ? 'wide_for_session' : 'wide_for_browser');
   $('wide-on').setAttribute('subtitle', `${level} · ${left}`);
+  // Absent means asking, so the switch is on unless the person turned it off. The same word the
+  // site rule's own switch uses, because it is the same promise.
+  setQuietly(wideConfirm, view.confirmWrites !== false);
 }
 
 async function main(): Promise<void> {
@@ -216,6 +223,10 @@ async function main(): Promise<void> {
   });
   $('wide-end').addEventListener('click', async () => {
     await browser.runtime.sendMessage({ type: GRANTS_MESSAGE, op: 'end' });
+    await refresh();
+  });
+  onToggle(wideConfirm, async (confirmWrites) => {
+    await browser.runtime.sendMessage({ type: GRANTS_MESSAGE, op: 'quiet', confirmWrites });
     await refresh();
   });
 

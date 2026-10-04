@@ -87,7 +87,10 @@ origin, and the person's confirmation, unless they switched confirmation off for
 "All sites" and a prompt's "For this session" are `Grant`s (policy.ts) in `storage.session`, never
 in the stored policy; `decide` checks their end at decision time, and `grants.ts` gives the host
 access back when they end (`hostsToRelease`). An explicit rule beats the wildcard, an explicit
-`none` blocks every grant and every prompt, and a write only a grant allows ALWAYS confirms.
+`none` blocks every grant and every prompt, and a write only a grant allows asks unless the person
+switched asking off for that grant (`Grant.confirmWrites`, `*` only, read from the grant live for
+the session asking, [ADR 0013](docs/adr/0013-all-sites-without-asking.md)) — `page.evaluate` still
+always asks.
 Session-bound grants name the extension's own id for the connection, never the bridge's.
 |**Asking on demand fails closed.** Below the level, `gate` may open the confirm window
 (`access-prompt.ts`): not when paused, not for a switched-off feature (preflight refuses first),

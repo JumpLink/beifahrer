@@ -157,7 +157,7 @@ function refuse(
  *
  * Below the site's level, or without the browser's grant for it, the person may be asked
  * (access-prompt.ts) — never for a non-web page or a site they blocked. An access that only a
- * prompt's answer allowed always confirms its writes, like a temporary grant.
+ * prompt's answer allowed always confirms its writes: a prompt is one question about one site.
  */
 async function gate(
   method: Method,
