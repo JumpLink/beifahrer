@@ -332,7 +332,7 @@ jobs:
           set -eu
           ls -la
           version=$(node -p "require('$GITHUB_WORKSPACE/app/package.json').version")
-          f="eu.jumplink.beifahrer-${version}-1.x86_64.flatpak"
+          f="eu.jumplink.beifahrer.Cli-${version}-1.x86_64.flatpak"
           if [ ! -s "$f" ]; then
             echo "::error::missing or empty artifact: $f"
             exit 1

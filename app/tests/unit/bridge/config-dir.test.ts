@@ -50,7 +50,7 @@ export default async () => {
     // the sandbox writes a token the host's extension never sees.
     await it('the flatpak grant binds the directory configDir() resolves to', async () => {
       const grants: string[] = pkg.gjsify.ship.flatpak.finishArgs;
-      const sandbox = '/home/person/.var/app/eu.jumplink.beifahrer/config';
+      const sandbox = '/home/person/.var/app/eu.jumplink.beifahrer.Cli/config';
       const dir = basename(configDir({ XDG_CONFIG_HOME: sandbox }, 'linux', HOME));
       expect(grants).toContain(`--filesystem=xdg-config/${dir}:create`);
     });

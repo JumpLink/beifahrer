@@ -43,8 +43,9 @@ A test fails when a key or placeholder exists in one language only.
 
 **6. It is its own package.** `gjsify ship` takes one `kind` per project (app or cli) and documents no
 second binary ([desktop-app-spikes.md](../desktop-app-spikes.md), S2), so the window ships as its
-own project with its own application id, `eu.jumplink.beifahrer.Desktop`, next to the CLI's
-`eu.jumplink.beifahrer`. A person installs either or both. Packaging is not part of this decision.
+own project with its own application id. The window is the product a person looks for, so it
+takes the short id, `eu.jumplink.beifahrer`; the CLI is `eu.jumplink.beifahrer.Cli`. A Flatpak id can
+be held once, which is why the two cannot share one. A person installs either or both. Packaging is not part of this decision.
 
 ## Consequences
 
