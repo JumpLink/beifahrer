@@ -104,6 +104,11 @@ jobs:
       - name: Unit tests (gjs + node)
         run: gjsify workspace beifahrer-cli test
 
+      - name: Desktop app bundle and unit tests (gjs + node)
+        run: |
+          gjsify workspace beifahrer-desktop build
+          gjsify workspace beifahrer-desktop test
+
       # The builds a person would install. Not a release — just proof they package.
       - name: Package the extension
         run: gjsify workspace beifahrer-extension zip

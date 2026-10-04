@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": [
+      "node",
+      "@girs/glib-2.0/ambient",
+      "@girs/gio-2.0/ambient",
+      "@girs/gtk-4.0/ambient",
+      "@girs/adw-1/ambient"
+    ]
+  },
+  "include": [
+    "./src/**/*",
+    "./tests/**/*"
+  ]
+}
