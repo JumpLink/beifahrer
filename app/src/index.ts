@@ -2,6 +2,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
 import { callCommand, mcpCommand, serveCommand, tokenCommand } from './frontends/cli/commands.ts';
+import { statusCommand } from './frontends/cli/status.ts';
 import { toolCommand } from './frontends/cli/tool.ts';
 import { VERSION } from './version.ts';
 
@@ -14,6 +15,7 @@ const parseArgs = () =>
   yargs(hideBin(process.argv))
     .command(mcpCommand)
     .command(tokenCommand)
+    .command(statusCommand)
     .command(serveCommand)
     .command(callCommand)
     .command(toolCommand)

@@ -36,6 +36,10 @@ import mcpTools from './unit/mcp/tools.test.ts';
 import mcpOutput from './unit/mcp/output.test.ts';
 import recipeRunner from './unit/recipes/runner.test.ts';
 import recipeSources from './unit/recipes/sources.test.ts';
+import registryDir from './unit/registry/registry-dir.test.ts';
+import registryStore from './unit/registry/store.test.ts';
+import registryPublisher from './unit/registry/publisher.test.ts';
+import statusCommand from './unit/registry/status.test.ts';
 
 run({
   features,
@@ -71,4 +75,8 @@ run({
   mcpOutput,
   recipeRunner,
   recipeSources,
+  registryDir,
+  registryStore,
+  registryPublisher,
+  statusCommand,
 });

@@ -5,6 +5,7 @@ import { desktopSource } from '../../bridge/desktop.ts';
 import { BridgeError, label, listenInRange, type Bridge } from '../../bridge/bridge.ts';
 import { rangeOf, rangeOptions, sessionLabel, type RangeArgs } from '../../bridge/session.ts';
 import { loadOrCreateToken, newToken, tokenPath, writeToken } from '../../bridge/token.ts';
+import { publishRegistry } from '../../registry/publisher.ts';
 import { VERSION } from '../../version.ts';
 import { startMcpServer } from '../mcp/server.ts';
 
@@ -125,6 +126,9 @@ export const serveCommand: CommandModule<object, RangeArgs> = {
         version: VERSION,
         desktop: desktopSource(),
         label: sessionLabel('beifahrer serve'),
+      });
+      publishRegistry(bridge, {
+        onError: (err) => console.error(`not announcing this session: ${err.message}`),
       });
       bridge.on('connected', (c) =>
         console.log(

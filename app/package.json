@@ -55,7 +55,8 @@
       "flatpak": {
         "finishArgs": [
           "--share=network",
-          "--filesystem=xdg-config/beifahrer:create"
+          "--filesystem=xdg-config/beifahrer:create",
+          "--filesystem=xdg-run/beifahrer:create"
         ]
       }
     },

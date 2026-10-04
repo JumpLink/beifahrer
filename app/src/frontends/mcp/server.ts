@@ -23,6 +23,7 @@ import { describeRange, type PortRange } from '@beifahrer/core';
 
 import { desktopSource } from '../../bridge/desktop.ts';
 import { listenInRange, type Bridge } from '../../bridge/bridge.ts';
+import { publishRegistry } from '../../registry/publisher.ts';
 import { labelOverride, sessionLabel } from '../../bridge/session.ts';
 import { loadOrCreateToken, tokenPath } from '../../bridge/token.ts';
 import { VERSION } from '../../version.ts';
@@ -65,6 +66,7 @@ export async function startBridge(
         browserWaitMs: opts.browserWaitMs,
       });
       started.on('error', (err: Error) => log(`bridge error: ${err.message}`));
+      publishRegistry(started, { onError: (err) => log(`not announcing this session: ${err.message}`) });
       handle.bridge = started;
       handle.unavailable = undefined;
       handle.relabel = (name) => {

@@ -214,6 +214,7 @@ export class Bridge extends EventEmitter implements BrowserAccess {
       if (conn.socket.readyState === conn.socket.OPEN)
         conn.socket.send(JSON.stringify({ type: 'session', label: clean }));
     }
+    this.emit('session');
   }
 
   /** The desktop's accent changed (or was read first): connected browsers hear it at once. */
