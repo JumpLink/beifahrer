@@ -53,3 +53,12 @@ the window was open. `Gdk.Clipboard.set` takes a GValue that the two fill differ
 goes in as a `Gdk.ContentProvider` over bytes. The content is gone once the process exits (the
 provider is lazy), which is how GTK clipboards behave and matters only to a test. Not measured:
 Windows, Linux (X11 and Wayland).
+
+## S5: do the Agent page's combo row and switch re-render the snippet?
+
+Measured 2026-10-04 on macOS arm64 ([agents.ts](../probes/adw-window/agents.ts)): selecting Codex in the
+`Adw.ComboRow` swaps the JSON snippet for the TOML one, and turning the `Adw.SwitchRow` on adds
+`--allow-write`, on GJS and on node-gi. The probe finds the widgets by walking the tree
+(`get_first_child` / `get_next_sibling`), which is the same call on both runtimes. Not measured:
+Windows, Linux, the page on a real screen.
+

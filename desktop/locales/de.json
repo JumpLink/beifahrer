@@ -25,5 +25,21 @@
   "pairing.error": "Das Token konnte nicht gelesen werden: {reason}",
   "foreign.one": "Port {ports} wird von etwas gehalten, das sich nicht meldet",
   "foreign.many": "Die Ports {ports} werden von etwas gehalten, das sich nicht meldet",
-  "foreign.description": "Keine laufende Agent-Sitzung hat ihn angekündigt. Es kann ein älteres Beifahrer sein, eine Bridge, die nicht mehr antwortet, oder ein anderes Programm. Ein Browser probiert ihn wie jeden anderen Port. Ist es ein Beifahrer, starte die Agent-Sitzung neu, die ihn gestartet hat."
+  "foreign.description": "Keine laufende Agent-Sitzung hat ihn angekündigt. Es kann ein älteres Beifahrer sein, eine Bridge, die nicht mehr antwortet, oder ein anderes Programm. Ein Browser probiert ihn wie jeden anderen Port. Ist es ein Beifahrer, starte die Agent-Sitzung neu, die ihn gestartet hat.",
+  "page.agent": "Agent",
+  "agents.title": "Agent verbinden",
+  "agents.description": "Wähle den Coding-Agenten, den du benutzt, und füge das Snippet in dessen MCP-Konfiguration ein.",
+  "agents.agent": "Agent",
+  "agents.write.title": "Ausfüllen und Klicken erlauben",
+  "agents.write.subtitle": "Fügt --allow-write hinzu; der Agent bekommt damit page_fill, page_click und tab_open.",
+  "agents.snippet": "Snippet",
+  "agents.copy": "Snippet kopieren",
+  "agents.copied": "Snippet kopiert",
+  "agents.userfile": "Eintragen in",
+  "agents.nofile": "Keine feste Datei: siehe die Dokumentation des Agenten",
+  "agents.projectfile": "Oder für ein Projekt",
+  "agents.command": "Oder in einem Befehl",
+  "agents.docs": "Dokumentation",
+  "agents.checked": "Am {date} gegen die Dokumentation des Agenten geprüft. Funktioniert es nicht mehr, folge dem Link.",
+  "agents.note": "Welche Seiten der Agent erreichen darf und ob der Browser vor einer Änderung fragt, stellst du in der Erweiterung ein. --allow-write lässt den Agenten es nur versuchen."
 }

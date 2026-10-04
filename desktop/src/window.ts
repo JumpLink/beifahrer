@@ -1,6 +1,7 @@
 /**
- * The window: two pages under a view switcher. Status says what is running; Browser holds the pairing
- * token. A view only; there is no button here that touches the browser's policy (ADR 0005, ADR 0017).
+ * The window: three pages under a view switcher. Status says what is running; Browser holds the pairing
+ * token; Agent holds the snippet that connects a coding agent. A view only; there is no button here
+ * that touches the browser's policy (ADR 0005, ADR 0017).
  *
  * Plain Adw/Gtk widgets from the GNOME HIG: `Adw.ViewStack` with an `Adw.ViewSwitcher` in the header,
  * an `Adw.StatusPage` for the state, `Adw.PreferencesGroup`s of rows for the lists, and an
@@ -10,6 +11,7 @@
 import Adw from 'gi://Adw?version=1';
 import Gtk from 'gi://Gtk?version=4.0';
 
+import { createAgentsPage } from './agents-page.ts';
 import type { Translate } from './i18n.ts';
 import { createPairingPage } from './pairing-page.ts';
 import type { PairingView } from './pairing-model.ts';
@@ -79,13 +81,14 @@ function createStatusPage(t: Translate) {
 export function createWindow(app: Adw.Application, t: Translate): DesktopWindow {
   const overlay = new Adw.ToastOverlay();
   const statusPage = createStatusPage(t);
-  const pairingPage = createPairingPage(t, (title) =>
-    overlay.add_toast(new Adw.Toast({ title, timeout: 2 })),
-  );
+  const toast = (title: string) => overlay.add_toast(new Adw.Toast({ title, timeout: 2 }));
+  const pairingPage = createPairingPage(t, toast);
+  const agentsPage = createAgentsPage(t, toast);
 
   const stack = new Adw.ViewStack();
   stack.add_titled(statusPage.widget, 'status', t('page.status'));
   stack.add_titled(pairingPage.widget, 'browser', t('page.browser'));
+  stack.add_titled(agentsPage.widget, 'agent', t('page.agent'));
 
   const toolbar = new Adw.ToolbarView();
   toolbar.add_top_bar(
