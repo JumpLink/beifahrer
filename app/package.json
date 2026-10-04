@@ -54,7 +54,8 @@
       "vcsBrowserUrl": "https://github.com/JumpLink/beifahrer",
       "flatpak": {
         "finishArgs": [
-          "--share=network"
+          "--share=network",
+          "--filesystem=xdg-config/beifahrer:create"
         ]
       }
     },

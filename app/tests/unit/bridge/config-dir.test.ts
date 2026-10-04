@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@gjsify/unit';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
+import pkg from '../../../package.json' with { type: 'json' };
 import { configDir } from '../../../src/config-dir.ts';
 
 const HOME = '/home/person';
@@ -40,6 +41,18 @@ export default async () => {
       // `XDG_CONFIG_HOME=''` is what an unset variable serialises to in some environments; the old
       // `env.XDG_CONFIG_HOME || homedir()/.config` treated it as unset, and this must too.
       expect(configDir({ XDG_CONFIG_HOME: '' }, 'linux', HOME)).toBe(`${HOME}/.config/beifahrer`);
+    });
+
+    // Flatpak points XDG_CONFIG_HOME at the app's own ~/.var/app/<id>/config and binds the host
+    // directory named by `--filesystem=xdg-config/<dir>` INTO it, so the token path the app computes
+    // is the host's token only if that grant names exactly the directory configDir() picks. `:create`
+    // makes the grant bind the host directory even before it exists; without it a first run inside
+    // the sandbox writes a token the host's extension never sees.
+    await it('the flatpak grant binds the directory configDir() resolves to', async () => {
+      const grants: string[] = pkg.gjsify.ship.flatpak.finishArgs;
+      const sandbox = '/home/person/.var/app/eu.jumplink.beifahrer/config';
+      const dir = basename(configDir({ XDG_CONFIG_HOME: sandbox }, 'linux', HOME));
+      expect(grants).toContain(`--filesystem=xdg-config/${dir}:create`);
     });
   });
 };
