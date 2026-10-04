@@ -421,6 +421,11 @@ fill and click at all (the extension's per-site level and its confirmations stil
 }
 ```
 
+`beifahrer config <agent>` prints this snippet in the format of your agent (Claude Code, opencode,
+Codex CLI, Gemini CLI, Cursor, VS Code, Claude Desktop, Zed) and the file it goes in. It writes `beifahrer`
+as the command, which is the installed binary; from a checkout, put the `gjsify run …` form above in
+its place.
+
 Then open a site, click the Beifahrer toolbar button, and pick a level.
 
 Ten sessions at once is the default. For more, raise the range on both sides to the same number:
@@ -470,7 +475,8 @@ rules: [AGENTS.md](AGENTS.md).
 
 `beifahrer status` prints which agent sessions are running and which browsers hang on them; the
 native libadwaita window in [desktop/](desktop/) shows the same live ([ADR 0017](docs/adr/0017-native-desktop-app.md)).
-Its Browser page shows the pairing token to copy into each browser's extension (masked until you
+Its Agent page shows, per coding agent, the snippet that registers Beifahrer and the file it
+goes in (`beifahrer config <agent>` prints the same). Its Browser page shows the pairing token to copy into each browser's extension (masked until you
 reveal it), and warns when a second token file with a different token exists. Both it and the
 command also say when something listens on a port of the range that no running session announced
 (an older Beifahrer, a hung bridge, another program), by a plain TCP connect that sends nothing. It only looks: it cannot pause the agent or change what it may do, and it knows nothing of a pause

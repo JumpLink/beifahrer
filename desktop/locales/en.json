@@ -25,5 +25,21 @@
   "pairing.error": "The token could not be read: {reason}",
   "foreign.one": "Port {ports} is held by something that does not report",
   "foreign.many": "Ports {ports} are held by something that does not report",
-  "foreign.description": "No running agent session announced it. It may be an older Beifahrer, a bridge that no longer answers, or another program. A browser tries it like any other port. If it is a Beifahrer, restart the agent session that started it."
+  "foreign.description": "No running agent session announced it. It may be an older Beifahrer, a bridge that no longer answers, or another program. A browser tries it like any other port. If it is a Beifahrer, restart the agent session that started it.",
+  "page.agent": "Agent",
+  "agents.title": "Connect an agent",
+  "agents.description": "Pick the coding agent you use and paste the snippet into its MCP configuration.",
+  "agents.agent": "Agent",
+  "agents.write.title": "Allow filling and clicking",
+  "agents.write.subtitle": "Adds --allow-write, which gives the agent page_fill, page_click and tab_open.",
+  "agents.snippet": "Snippet",
+  "agents.copy": "Copy snippet",
+  "agents.copied": "Snippet copied",
+  "agents.userfile": "Add it to",
+  "agents.nofile": "No fixed file: see the agent's documentation",
+  "agents.projectfile": "Or, for one project",
+  "agents.command": "Or in one command",
+  "agents.docs": "Documentation",
+  "agents.checked": "Checked against the agent's documentation on {date}. If it no longer works, follow the link.",
+  "agents.note": "Which sites the agent may reach, and whether the browser asks before a change, you set in the extension. --allow-write only lets the agent try."
 }

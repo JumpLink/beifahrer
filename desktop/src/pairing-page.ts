@@ -5,10 +5,9 @@
  */
 
 import Adw from 'gi://Adw?version=1';
-import Gdk from 'gi://Gdk?version=4.0';
-import GLib from 'gi://GLib?version=2.0';
 import Gtk from 'gi://Gtk?version=4.0';
 
+import { copyText } from './clipboard.ts';
 import type { Translate } from './i18n.ts';
 import type { PairingView } from './pairing-model.ts';
 import { clamped } from './window.ts';
@@ -47,15 +46,7 @@ export function createPairingPage(t: Translate, toast: (title: string) => void):
   let token: string | null = null;
   /** Put the token on the clipboard as plain text. False when there is nothing to copy or no clipboard. */
   const copyToken = (): boolean => {
-    const clipboard = Gdk.Display.get_default()?.get_clipboard();
-    if (!clipboard || token === null) return false;
-    // Plain text, as bytes: `Gdk.Clipboard.set` takes a GValue, which GJS fills differently from node-gi.
-    clipboard.set_content(
-      Gdk.ContentProvider.new_for_bytes(
-        'text/plain;charset=utf-8',
-        new GLib.Bytes(new TextEncoder().encode(token)),
-      ),
-    );
+    if (token === null || !copyText(token)) return false;
     toast(t('pairing.copied'));
     return true;
   };
