@@ -44,3 +44,12 @@ one or both.
   few seconds and a reader treats a file older than three beats as dead. It needs no pid (a
   Flatpak app has another PID namespace) and no lock, and works on all three systems. The
   bridge deletes its file on a clean exit; the heartbeat covers a crash. To be written into ADR 0015.
+
+## S4: does the copy button reach the system clipboard?
+
+Measured 2026-10-04 on macOS arm64 ([copy.ts](../probes/adw-window/copy.ts)): the token page's
+`copyToken()` puts plain text on the clipboard on GJS and on node-gi, read back with `pbpaste` while
+the window was open. `Gdk.Clipboard.set` takes a GValue that the two fill differently, so the text
+goes in as a `Gdk.ContentProvider` over bytes. The content is gone once the process exits (the
+provider is lazy), which is how GTK clipboards behave and matters only to a test. Not measured:
+Windows, Linux (X11 and Wayland).

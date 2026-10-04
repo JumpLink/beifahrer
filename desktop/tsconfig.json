@@ -13,7 +13,8 @@
       "@girs/glib-2.0/ambient",
       "@girs/gio-2.0/ambient",
       "@girs/gtk-4.0/ambient",
-      "@girs/adw-1/ambient"
+      "@girs/adw-1/ambient",
+      "@girs/gdk-4.0/ambient"
     ]
   },
   "include": [

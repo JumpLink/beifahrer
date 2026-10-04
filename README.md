@@ -470,7 +470,8 @@ rules: [AGENTS.md](AGENTS.md).
 
 `beifahrer status` prints which agent sessions are running and which browsers hang on them; the
 native libadwaita window in [desktop/](desktop/) shows the same live ([ADR 0017](docs/adr/0017-native-desktop-app.md)).
-It only looks: it cannot pause the agent or change what it may do, and it knows nothing of a pause
+Its Browser page shows the pairing token to copy into each browser's extension (masked until you
+reveal it), and warns when a second token file with a different token exists. It only looks: it cannot pause the agent or change what it may do, and it knows nothing of a pause
 (that is the toolbar button's to show). Not packaged yet; from a checkout:
 `gjsify workspace beifahrer-desktop build && gjsify workspace beifahrer-desktop start`.
 Run so far on macOS arm64 only.

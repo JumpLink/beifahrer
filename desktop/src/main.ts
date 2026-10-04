@@ -1,12 +1,13 @@
 import GLib from 'gi://GLib?version=2.0';
 import { runAdwaitaApp } from '@gjsify/adwaita-app';
 import { statusOf } from '@beifahrer/core';
-import { readEntries, registryDir } from '@beifahrer/local';
+import { pairingInfo, readEntries, registryDir } from '@beifahrer/local';
 
 import { createTranslate, pickLocale } from './i18n.ts';
 import { viewOf } from './status-model.ts';
 import { watchRegistry } from './watch.ts';
-import { createStatusWindow } from './window.ts';
+import { pairingView } from './pairing-model.ts';
+import { createWindow } from './window.ts';
 
 const t = createTranslate(pickLocale([...GLib.get_language_names()]));
 const dir = registryDir();
@@ -14,10 +15,10 @@ const dir = registryDir();
 const code = await runAdwaitaApp({
   applicationId: 'eu.jumplink.beifahrer',
   createWindow: (app) => {
-    const ui = createStatusWindow(app, t);
+    const ui = createWindow(app, t);
     const refresh = () => {
       const { entries, skipped } = readEntries(dir);
-      ui.show(
+      ui.showStatus(
         viewOf(
           statusOf(
             entries.map((e) => e.entry),
@@ -27,6 +28,12 @@ const code = await runAdwaitaApp({
           t,
         ),
       );
+      // Every tick, because the token can be rotated or recreated from the CLI while the window is open.
+      try {
+        ui.showPairing(pairingView(pairingInfo(), t));
+      } catch (err) {
+        ui.showPairing(pairingView(err instanceof Error ? err : new Error(String(err)), t));
+      }
     };
     refresh();
     const stop = watchRegistry(dir, refresh);

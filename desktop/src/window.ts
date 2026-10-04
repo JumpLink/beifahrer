@@ -1,24 +1,43 @@
 /**
- * The status window: the registry's state in words, and the live sessions under it. A view only;
- * there is no button here that touches the browser's policy (ADR 0005, ADR 0017).
+ * The window: two pages under a view switcher. Status says what is running; Browser holds the pairing
+ * token. A view only; there is no button here that touches the browser's policy (ADR 0005, ADR 0017).
  *
- * Plain Adw/Gtk widgets from the GNOME HIG: a header bar, an `Adw.StatusPage` for the state and an
- * `Adw.PreferencesGroup` of `Adw.ActionRow`s for the sessions. The nav shell of `@gjsify/adwaita-app`
- * joins when a second page does.
+ * Plain Adw/Gtk widgets from the GNOME HIG: `Adw.ViewStack` with an `Adw.ViewSwitcher` in the header,
+ * an `Adw.StatusPage` for the state, `Adw.PreferencesGroup`s of rows for the lists, and an
+ * `Adw.ToastOverlay` for "copied".
  */
 
 import Adw from 'gi://Adw?version=1';
 import Gtk from 'gi://Gtk?version=4.0';
 
 import type { Translate } from './i18n.ts';
+import { createPairingPage } from './pairing-page.ts';
+import type { PairingView } from './pairing-model.ts';
 import type { StatusView } from './status-model.ts';
 
-export interface StatusWindow {
+export interface DesktopWindow {
   window: Adw.ApplicationWindow;
-  show(view: StatusView): void;
+  showStatus(view: StatusView): void;
+  showPairing(view: PairingView): void;
+  copyToken(): boolean;
 }
 
-export function createStatusWindow(app: Adw.Application, t: Translate): StatusWindow {
+/** A page's content: centred, at a readable width, scrolling when the window is short. */
+export function clamped(child: Gtk.Widget): Gtk.Widget {
+  const clamp = new Adw.Clamp({
+    maximumSize: 640,
+    marginTop: 12,
+    marginBottom: 24,
+    marginStart: 12,
+    marginEnd: 12,
+  });
+  clamp.set_child(child);
+  const scroller = new Gtk.ScrolledWindow({ hscrollbarPolicy: Gtk.PolicyType.NEVER, vexpand: true });
+  scroller.set_child(clamp);
+  return scroller;
+}
+
+function createStatusPage(t: Translate) {
   const status = new Adw.StatusPage({ vexpand: false });
   const group = new Adw.PreferencesGroup({ title: t('sessions.title') });
   const note = new Gtk.Label({ wrap: true, xalign: 0, visible: false });
@@ -29,37 +48,10 @@ export function createStatusWindow(app: Adw.Application, t: Translate): StatusWi
   column.append(group);
   column.append(note);
 
-  const clamp = new Adw.Clamp({
-    maximumSize: 640,
-    marginTop: 12,
-    marginBottom: 24,
-    marginStart: 12,
-    marginEnd: 12,
-  });
-  clamp.set_child(column);
-  const scroller = new Gtk.ScrolledWindow({ hscrollbarPolicy: Gtk.PolicyType.NEVER, vexpand: true });
-  scroller.set_child(clamp);
-
-  const toolbar = new Adw.ToolbarView();
-  toolbar.add_top_bar(
-    new Adw.HeaderBar({
-      titleWidget: new Adw.WindowTitle({ title: t('app.title'), subtitle: t('status.title') }),
-    }),
-  );
-  toolbar.set_content(scroller);
-
-  const window = new Adw.ApplicationWindow({
-    application: app,
-    title: t('app.title'),
-    defaultWidth: 520,
-    defaultHeight: 560,
-  });
-  window.set_content(toolbar);
-
   let rows: Adw.ActionRow[] = [];
   return {
-    window,
-    show(view) {
+    widget: clamped(column),
+    show(view: StatusView) {
       status.set_icon_name(view.icon);
       status.set_title(view.title);
       status.set_description(view.description);
@@ -70,5 +62,41 @@ export function createStatusWindow(app: Adw.Application, t: Translate): StatusWi
       note.set_label(view.note ?? '');
       note.set_visible(view.note !== null);
     },
+  };
+}
+
+export function createWindow(app: Adw.Application, t: Translate): DesktopWindow {
+  const overlay = new Adw.ToastOverlay();
+  const statusPage = createStatusPage(t);
+  const pairingPage = createPairingPage(t, (title) =>
+    overlay.add_toast(new Adw.Toast({ title, timeout: 2 })),
+  );
+
+  const stack = new Adw.ViewStack();
+  stack.add_titled(statusPage.widget, 'status', t('page.status'));
+  stack.add_titled(pairingPage.widget, 'browser', t('page.browser'));
+
+  const toolbar = new Adw.ToolbarView();
+  toolbar.add_top_bar(
+    new Adw.HeaderBar({
+      titleWidget: new Adw.ViewSwitcher({ stack, policy: Adw.ViewSwitcherPolicy.WIDE }),
+    }),
+  );
+  toolbar.set_content(stack);
+  overlay.set_child(toolbar);
+
+  const window = new Adw.ApplicationWindow({
+    application: app,
+    title: t('app.title'),
+    defaultWidth: 520,
+    defaultHeight: 560,
+  });
+  window.set_content(overlay);
+
+  return {
+    window,
+    showStatus: statusPage.show,
+    showPairing: pairingPage.show,
+    copyToken: pairingPage.copyToken,
   };
 }
