@@ -161,7 +161,7 @@ export default async () => {
       expect(decide(writeAll, 'page.fill', 'https://bank.example/', at()).allow).toBe(false);
       expect(accessFor(writeAll, 'https://bank.example/', at()).source).toBe('rule');
     });
-    await it('confirms every write under it, with no way to switch that off', async () => {
+    await it('confirms every write under it while the person left asking on', async () => {
       const writeAll = withGrants([{ scope: '*', level: 'write' }]);
       expect(decide(writeAll, 'page.fill', 'https://elsewhere.example/', at())).toStrictEqual({
         allow: true,
@@ -210,6 +210,104 @@ export default async () => {
     });
     await it('a read wildcard does not allow writes', async () => {
       expect(decide(wide, 'page.fill', 'https://elsewhere.example/', at()).allow).toBe(false);
+    });
+  });
+
+  // The one thing a grant may be quiet about, and only because the person said so in the popup.
+  await describe('grants: "all sites" without asking', async () => {
+    const quiet = withGrants([{ scope: '*', level: 'write', confirmWrites: false }]);
+    await it('does not ask before the writes it allows', async () => {
+      for (const method of ['page.fill', 'page.click', 'page.press', 'page.select', 'page.check'] as const) {
+        expect(decide(quiet, method, 'https://elsewhere.example/form', at())).toStrictEqual({
+          allow: true,
+          confirm: false,
+        });
+      }
+      expect(decide(quiet, 'page.read', 'https://elsewhere.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+    });
+    await it('still asks for a script — ALWAYS_CONFIRM outranks a grant too', async () => {
+      expect(decide(quiet, 'page.evaluate', 'https://elsewhere.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+    });
+    await it('ends with the grant it belongs to', async () => {
+      // No `until` on this one: it runs until the browser closes, so an hour later it is still quiet.
+      expect(decide(quiet, 'page.fill', 'https://elsewhere.example/', at(NOW + HOUR))).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+      const hour = withGrants([{ scope: '*', level: 'write', until: NOW + HOUR, confirmWrites: false }]);
+      expect(decide(hour, 'page.fill', 'https://elsewhere.example/', at(NOW + HOUR - 1))).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+      expect(decide(hour, 'page.fill', 'https://elsewhere.example/', at(NOW + HOUR)).allow).toBe(false);
+    });
+    await it('never quiets another session, and never a site with its own rule', async () => {
+      // A grant bound to conn-a is none of conn-b's business, so conn-b still asks.
+      const mine = withGrants([{ scope: '*', level: 'write', sessionId: 'conn-a', confirmWrites: false }]);
+      expect(decide(mine, 'page.fill', 'https://elsewhere.example/', at(NOW, 'conn-a'))).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+      expect(decide(mine, 'page.fill', 'https://elsewhere.example/', at(NOW, 'conn-b')).allow).toBe(false);
+      expect(decide(mine, 'page.fill', 'https://elsewhere.example/', at()).allow).toBe(false);
+      // The site's own rule is what decides a site that has one, quiet or not.
+      expect(decide(quiet, 'page.click', 'https://quiet.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+      expect(decide(quiet, 'page.click', 'https://tracker.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+      expect(decide(quiet, 'page.click', 'https://blocked.example/', at()).allow).toBe(false);
+    });
+    await it('asks when the stored value is not a plain false', async () => {
+      for (const stored of [0, 1, 'false', null, [], true, {}]) {
+        const grants = parseGrants([{ scope: '*', level: 'write', confirmWrites: stored }], NOW);
+        expect(grants[0]?.confirmWrites).toBeUndefined();
+        expect(decide(withGrants(grants), 'page.fill', 'https://elsewhere.example/', at())).toStrictEqual({
+          allow: true,
+          confirm: true,
+        });
+      }
+      const kept = parseGrants([{ scope: '*', level: 'write', confirmWrites: false }], NOW);
+      expect(kept[0]?.confirmWrites).toBe(false);
+    });
+    await it('is honoured for the wildcard alone, never for a grant of one origin', async () => {
+      // "For this session" on one site is the answer to a prompt, and a prompt is not a licence to
+      // write there silently — even if the field somehow arrives on such a grant.
+      const answered = withGrants([
+        { scope: 'https://elsewhere.example', level: 'write', confirmWrites: false },
+      ]);
+      expect(decide(answered, 'page.fill', 'https://elsewhere.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+      // A wildcard bound to another session must not speak for this one, even when it is the only
+      // grant here: without a live grant of its own there is no write at all, let alone a quiet one.
+      const theirs = withGrants([{ scope: '*', level: 'write', sessionId: 'conn-b', confirmWrites: false }]);
+      expect(decide(theirs, 'page.fill', 'https://elsewhere.example/', at(NOW, 'conn-a')).allow).toBe(false);
+      expect(decide(theirs, 'page.fill', 'https://elsewhere.example/', at(NOW, 'conn-b'))).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+    });
+    await it("wildcardGrant with a context counts only that session's grant", async () => {
+      const both = [
+        { scope: '*', level: 'read', until: NOW + HOUR, sessionId: 'conn-b', confirmWrites: false },
+        { scope: '*', level: 'write', sessionId: 'conn-a' },
+      ] as Grant[];
+      expect(wildcardGrant(both, NOW, at(NOW, 'conn-a'))?.sessionId).toBe('conn-a');
+      expect(wildcardGrant(both, NOW, at(NOW, 'conn-b'))?.sessionId).toBe('conn-b');
+      // Without a context the caller wants any live wildcard, and one without an end beats any:
+      // the pick is the same one the toolbar and the popup show.
+      expect(wildcardGrant(both, NOW)?.sessionId).toBe('conn-a');
     });
   });
 

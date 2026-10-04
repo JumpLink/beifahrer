@@ -39,6 +39,16 @@ export interface Grant {
   until?: number;
   /** Only this agent session (its connection id); the grant ends when that connection closes. */
   sessionId?: string;
+  /**
+   * Only meaningful for the `*` scope: when false, writes the grant allows skip the confirmation
+   * window, the way an explicit rule's `confirmWrites` does. Absent means true — asking is the
+   * default, not the opt-in — and it is read only from the grant that is LIVE for the session
+   * asking, so another session's quiet grant never quiets this one.
+   *
+   * Honoured for `*` alone: a grant of one origin is the answer to an on-demand prompt, and an
+   * answer to "may this agent write here" is not an answer to "may it write here silently".
+   */
+  confirmWrites?: boolean;
 }
 
 /** When and for whom a decision is made. Without it, temporary grants do not apply at all. */
@@ -240,9 +250,10 @@ export type Decision =
  * May `method` run against a page at `url`?
  *
  * `confirm` is true for every write unless the person switched confirmation off for that origin
- * in an explicit rule — and for the methods in `ALWAYS_CONFIRM`, whatever the rule says. A write
- * that only a temporary grant allows ALWAYS asks: "all sites" and "for this session" widen where
- * the agent may go, never how quietly it may change things there.
+ * in an explicit rule — or, for an "all sites" grant they switched off with `confirmWrites: false`,
+ * for the writes it allows. `page.evaluate` is in `ALWAYS_CONFIRM` and asks whatever the rule or
+ * the grant says. A write that only an on-demand prompt's answer allowed always asks: a prompt is
+ * one question about one site, never a standing permission.
  */
 export function decide(
   policy: Policy,
@@ -262,18 +273,36 @@ export function decide(
       askable: access.origin !== null && access.source !== 'blocked',
     };
   }
-  const quiet = access.source === 'rule' && policy.origins[access.origin!]?.confirmWrites === false;
+  const quiet = quietFor(access, policy, ctx);
   return { allow: true, confirm: (need === 'write' && !quiet) || ALWAYS_CONFIRM.has(method) };
 }
 
 /**
- * The live "all sites" grant, if any, for the toolbar and the popup. A session-bound one counts
- * too (it is live for SOME session); the latest end wins, and one with no end beats any.
+ * Whether the access the decision was made on says its writes need no asking.
+ *
+ * One source speaks at a time, and only the source that gave the level may quiet it: an explicit
+ * rule for the origin (the person's own setting for that site), or the live "all sites" grant
+ * behind a `wildcard` access. An origin a grant of that one origin raised is never quiet — that
+ * grant exists because a prompt was answered.
  */
-export function wildcardGrant(grants: readonly Grant[], now: number): Grant | null {
+function quietFor(access: Access, policy: Policy, ctx: AccessContext | undefined): boolean {
+  if (access.source === 'rule') return policy.origins[access.origin!]?.confirmWrites === false;
+  if (access.source !== 'wildcard' || !ctx) return false;
+  // The grant THIS session writes under, not the longest-running one anywhere: a wildcard bound
+  // to another session speaks for nobody else, not even to say "no asking".
+  return wildcardGrant(policy.grants ?? [], ctx.now, ctx)?.confirmWrites === false;
+}
+
+/**
+ * The live "all sites" grant, if any, for the toolbar and the popup. A session-bound one counts
+ * too (it is live for SOME session); the latest end wins, and one with no end beats any. With a
+ * `ctx`, only the grants live for THAT session count.
+ */
+export function wildcardGrant(grants: readonly Grant[], now: number, ctx?: AccessContext): Grant | null {
   let best: Grant | null = null;
   for (const g of grants) {
     if (g.scope !== '*' || (g.until !== undefined && !(now < g.until))) continue;
+    if (ctx && g.sessionId !== undefined && g.sessionId !== ctx.session) continue;
     if (!best || (best.until !== undefined && (g.until === undefined || g.until > best.until))) best = g;
   }
   return best;
@@ -332,6 +361,11 @@ export function parseGrants(raw: unknown, now: number): Grant[] {
       if (typeof g.sessionId !== 'string' || !g.sessionId) continue;
       grant.sessionId = g.sessionId;
     }
+    // `confirmWrites` is kept only when it is exactly `false`, and a value that is not is simply
+    // not carried over: the grant then asks, which is where every unknown value belongs. Dropping
+    // the whole grant instead would lock the person out of the sites they just allowed — the
+    // treatment `parsePolicy` gives the same field on a rule.
+    if (g.confirmWrites === false) grant.confirmWrites = false;
     out.push(grant);
   }
   return out;
