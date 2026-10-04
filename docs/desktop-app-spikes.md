@@ -62,3 +62,22 @@ Measured 2026-10-04 on macOS arm64 ([agents.ts](../probes/adw-window/agents.ts))
 (`get_first_child` / `get_next_sibling`), which is the same call on both runtimes. Not measured:
 Windows, Linux, the page on a real screen.
 
+## S6: which icon names does the window use that the theme does not have?
+
+Found 2026-10-04 on the person's Mac: the "Ready" state showed GTK's broken-image sheet, and so did
+every tab of the view switcher. Two causes, both ours:
+
+- `emblem-ok-symbolic` is not in Adwaita (the host theme and `@gjsify/adwaita-app`'s bundled subset
+  both lack it). The check mark is `object-select-symbolic`.
+- A page added to an `Adw.ViewStack` without an icon name is drawn with `image-missing` in an
+  `Adw.ViewSwitcher`. Each page now names one.
+
+[icons.ts](../probes/adw-window/icons.ts) asks the icon theme with `has_icon` for every name the window
+uses, on GJS and on node-gi (macOS arm64, Homebrew `adwaita-icon-theme`): all resolve but
+`emblem-ok-symbolic`. The status model's comment had said "bundled by `@gjsify/adwaita-app`", which I
+had not checked; the bundle is 41 glyphs and has none of `dialog-warning-symbolic`,
+`object-select-symbolic`, `web-browser-symbolic`, `utilities-terminal-symbolic` or
+`network-transmit-receive-symbolic`. So these draw only where the host has Adwaita. That is fine on
+this Mac and on GNOME, and it is the open question for packaging (W4): a bundle that must not depend
+on the host theme needs those glyphs from gjsify (see [gjsify-gaps.md](gjsify-gaps.md)).
+

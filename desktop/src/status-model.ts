@@ -23,7 +23,7 @@ export interface StatusView {
   /** The two states the person has to act on. `ready` is the quiet one. */
   alarm: boolean;
   presence: Presence;
-  /** An icon name that `@gjsify/adwaita-app` bundles. */
+  /** An icon name the Adwaita theme has (S6 in docs/desktop-app-spikes.md): `emblem-ok-symbolic` is NOT one. */
   icon: string;
   title: string;
   description: string;
@@ -37,7 +37,7 @@ export interface StatusView {
 const ICON: Record<Presence, string> = {
   'no-bridge': 'dialog-warning-symbolic',
   'no-browser': 'dialog-warning-symbolic',
-  ready: 'emblem-ok-symbolic',
+  ready: 'object-select-symbolic',
 };
 
 /** The catalog's name for each rung. */
