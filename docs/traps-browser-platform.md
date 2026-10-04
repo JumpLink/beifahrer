@@ -33,6 +33,20 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
   (`background.scripts`), where the same bundle connects at once. It needs no host permission
   for 127.0.0.1. Measured on Safari 27.0 / macOS 27, 2026-09-25, with beacons to a local HTTP
   server, because the console was dead: skipping only the constructor kept the worker alive.
+- **Safari never delivers `tabs.sendMessage` to a script that `scripting.executeScript` injected.**
+  The agent was in the tab (`globalThis` flag set, `browser` present), yet a throwaway listener saw
+  0 of 5 messages and every send came back `undefined`, with a frame address, without one, and
+  through `sendResponse` as well as a returned Promise. `executeScript` with a `func` DOES hand its
+  result back, promises included, so `inject.ts` asks the agent that way on Safari
+  (`__beifahrerAsk`, `askByScript`) and Firefox and Chromium keep `tabs.sendMessage`. The in-page
+  pill's hide-before-screenshot goes the same way (`tellPage`). Frames are not measured on Safari.
+  Measured on Safari 27.0.1, 2026-10-04. Without this every `page.*` call answered `not_found: the
+  page did not answer`, although policy and host grant were fine.
+- **Safari grants host access one site at a time, through its own prompt.** `permissions.request`
+  for one origin works once the person has allowed the site in Safari (toolbar badge, or Settings →
+  Websites); for the all-sites patterns it answers `false`. The popup therefore does not offer
+  "all sites" on Safari. Whether Safari answers the same when the extension is signed (this one
+  loads as a temporary extension, which Safari drops after 24 hours or on quit) is not measured.
 - **Safari has neither `tabGroups` nor `sessions`.** `capabilities()` leaves out the methods that
   need them (`NEEDS_API` in handlers.ts), so the agent never gets offered a tool the browser
   cannot serve.

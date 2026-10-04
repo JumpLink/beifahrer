@@ -6,6 +6,14 @@ repeated as one-line warnings there — this file holds the incident.
 Companion files: [traps-browser-platform.md](traps-browser-platform.md) ·
 [traps-extension-code.md](traps-extension-code.md) · [gjsify-gaps.md](gjsify-gaps.md).
 
+## A running bridge keeps the bundle it started from
+
+`gjsify workspace beifahrer-cli build` replaces `app/dist/beifahrer.gjs.mjs`, but a `beifahrer mcp`
+process the agent's client already started keeps running the OLD one. A Safari screenshot (a
+358 KB answer) timed out after 150 s against such a process and worked at once against a freshly
+started one, so it read like a Safari bug for hours. After a bridge rebuild, restart the MCP server
+before measuring anything that crosses the wire.
+
 ## Two runtimes, two bundles
 
 - **The bridge runs on GJS and on plain Node, and each needs its own bundle** (`build` →
