@@ -19,6 +19,7 @@ import {
   nextExpiry,
   parseGrants,
   pruneGrants,
+  withWildcardQuiet,
   type Grant,
   type HeldHosts,
 } from '@beifahrer/core';
@@ -127,10 +128,7 @@ export function endWildcard(): Promise<void> {
  */
 export function setWildcardQuiet(confirmWrites: boolean): Promise<void> {
   return serial(async () => {
-    const grants = (await loadGrants()).map((g) =>
-      g.scope === '*' ? { ...g, ...(confirmWrites ? {} : { confirmWrites: false }) } : g,
-    );
-    await storeGrants(grants);
+    await storeGrants(withWildcardQuiet(await loadGrants(), confirmWrites));
   });
 }
 

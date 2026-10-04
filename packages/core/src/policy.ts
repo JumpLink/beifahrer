@@ -339,6 +339,20 @@ export const ASK_TIMEOUT_MS = 120_000;
 export const MAX_GRANT_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * The person's one "Ask before changes" switch for "all sites", applied to every live wildcard
+ * grant: the popup has one row, so grants that disagree behind it would be a row that lies. Turning
+ * asking back ON removes a stored `false` rather than leaving it, because absent is what asking
+ * means and a switch that shows "ask" must not keep a grant quiet.
+ */
+export function withWildcardQuiet(grants: readonly Grant[], confirmWrites: boolean): Grant[] {
+  return grants.map((g) => {
+    if (g.scope !== '*') return g;
+    const { confirmWrites: _was, ...rest } = g;
+    return confirmWrites ? rest : { ...rest, confirmWrites: false };
+  });
+}
+
+/**
  * Parse grants read back from session storage. Each malformed or run-out grant is dropped on its
  * own; nothing here can widen access past what a well-formed grant says.
  */
