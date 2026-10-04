@@ -2,6 +2,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
 import { callCommand, mcpCommand, serveCommand, tokenCommand } from './frontends/cli/commands.ts';
+import { configCommand } from './frontends/cli/config.ts';
 import { statusCommand } from './frontends/cli/status.ts';
 import { toolCommand } from './frontends/cli/tool.ts';
 import { VERSION } from './version.ts';
@@ -16,6 +17,7 @@ const parseArgs = () =>
     .command(mcpCommand)
     .command(tokenCommand)
     .command(statusCommand)
+    .command(configCommand)
     .command(serveCommand)
     .command(callCommand)
     .command(toolCommand)

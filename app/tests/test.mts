@@ -24,6 +24,7 @@ import navigate from './unit/core/navigate.test.ts';
 import refs from './unit/core/refs.test.ts';
 import toolbar from './unit/core/toolbar.test.ts';
 import shortcut from './unit/core/shortcut.test.ts';
+import agents from './unit/core/agents.test.ts';
 import registry from './unit/core/registry.test.ts';
 import bridge from './unit/bridge/bridge.test.ts';
 import configDir from './unit/bridge/config-dir.test.ts';
@@ -41,6 +42,7 @@ import localPortProbe from './unit/local/port-probe.test.ts';
 import registryDir from './unit/registry/registry-dir.test.ts';
 import registryStore from './unit/registry/store.test.ts';
 import registryPublisher from './unit/registry/publisher.test.ts';
+import configCommand from './unit/registry/config.test.ts';
 import statusCommand from './unit/registry/status.test.ts';
 
 run({
@@ -65,6 +67,7 @@ run({
   refs,
   toolbar,
   shortcut,
+  agents,
   registry,
   bridge,
   bridgeDesktop,
@@ -83,4 +86,5 @@ run({
   registryStore,
   registryPublisher,
   statusCommand,
+  configCommand,
 });
