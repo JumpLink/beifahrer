@@ -196,11 +196,11 @@ export function preflight(gates: Gates, method: string): Preflight {
 /** The message the agent gets for a refused preflight: what happened and whom to ask. */
 export function preflightMessage(refusal: Exclude<Preflight, { allow: true }>, method: string): string {
   if (refusal.code === 'paused')
-    return 'the person paused beifahrer in the browser — ask them to resume. Nothing the agent asks is served while it is paused.';
-  if (refusal.feature === null) return `${method} belongs to no beifahrer feature, so it is refused`;
+    return 'the person paused Beifahrer in the browser — ask them to resume. Nothing the agent asks is served while it is paused.';
+  if (refusal.feature === null) return `${method} belongs to no Beifahrer feature, so it is refused`;
   return (
-    `${method} needs the feature "${FEATURE_INFO[refusal.feature].label}", which the person switched off in beifahrer. ` +
-    'Ask them to switch it on in the beifahrer toolbar popup or options — it is their decision.'
+    `${method} needs the feature "${FEATURE_INFO[refusal.feature].label}", which the person switched off in Beifahrer. ` +
+    'Ask them to switch it on in the Beifahrer toolbar popup or options — it is their decision.'
   );
 }
 

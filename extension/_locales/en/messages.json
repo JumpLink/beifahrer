@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "beifahrer",
+    "message": "Beifahrer",
     "description": "The extension name. A proper name: do not translate."
   },
   "extDescription": {
@@ -307,22 +307,22 @@
     "message": "The browser's permission for page requests was taken away"
   },
   "toolbar_paused": {
-    "message": "beifahrer is paused"
+    "message": "Beifahrer is paused"
   },
   "toolbar_active": {
-    "message": "beifahrer is working"
+    "message": "Beifahrer is working"
   },
   "toolbar_idle": {
-    "message": "beifahrer is ready"
+    "message": "Beifahrer is ready"
   },
   "toolbar_offline_unpaired": {
-    "message": "beifahrer is not paired"
+    "message": "Beifahrer is not paired"
   },
   "toolbar_offline_connecting": {
-    "message": "beifahrer is connecting"
+    "message": "Beifahrer is connecting"
   },
   "toolbar_offline_offline": {
-    "message": "beifahrer is not connected"
+    "message": "Beifahrer is not connected"
   },
   "toolbar_offline_unauthorized": {
     "message": "The agent refused the token"
@@ -331,7 +331,7 @@
     "message": "Extension and agent versions differ"
   },
   "options_title": {
-    "message": "beifahrer settings"
+    "message": "Beifahrer settings"
   },
   "pause_title": {
     "message": "Pause agent"
@@ -648,10 +648,10 @@
     "message": "End"
   },
   "toolbar_wide": {
-    "message": "beifahrer may use all sites for now"
+    "message": "Beifahrer may use all sites for now"
   },
   "toolbar_wide_active": {
-    "message": "beifahrer is working, all sites allowed"
+    "message": "Beifahrer is working, all sites allowed"
   },
   "site_level_block": {
     "message": "Blocked"

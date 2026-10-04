@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "beifahrer"
+    "message": "Beifahrer"
   },
   "extDescription": {
     "message": "Lass einen KI-Agenten diesen Browser nutzen. Du legst für jede Seite fest, was er lesen und ändern darf."
@@ -306,22 +306,22 @@
     "message": "Die Browser-Erlaubnis für Seitenanfragen wurde entzogen"
   },
   "toolbar_paused": {
-    "message": "beifahrer ist pausiert"
+    "message": "Beifahrer ist pausiert"
   },
   "toolbar_active": {
-    "message": "beifahrer arbeitet"
+    "message": "Beifahrer arbeitet"
   },
   "toolbar_idle": {
-    "message": "beifahrer ist bereit"
+    "message": "Beifahrer ist bereit"
   },
   "toolbar_offline_unpaired": {
-    "message": "beifahrer ist nicht gekoppelt"
+    "message": "Beifahrer ist nicht gekoppelt"
   },
   "toolbar_offline_connecting": {
-    "message": "beifahrer verbindet sich"
+    "message": "Beifahrer verbindet sich"
   },
   "toolbar_offline_offline": {
-    "message": "beifahrer ist nicht verbunden"
+    "message": "Beifahrer ist nicht verbunden"
   },
   "toolbar_offline_unauthorized": {
     "message": "Der Agent hat das Token abgelehnt"
@@ -330,7 +330,7 @@
     "message": "Erweiterung und Agent haben verschiedene Versionen"
   },
   "options_title": {
-    "message": "beifahrer-Einstellungen"
+    "message": "Beifahrer-Einstellungen"
   },
   "pause_title": {
     "message": "Agent pausieren"
@@ -647,10 +647,10 @@
     "message": "Beenden"
   },
   "toolbar_wide": {
-    "message": "beifahrer darf gerade alle Seiten nutzen"
+    "message": "Beifahrer darf gerade alle Seiten nutzen"
   },
   "toolbar_wide_active": {
-    "message": "beifahrer arbeitet, alle Seiten erlaubt"
+    "message": "Beifahrer arbeitet, alle Seiten erlaubt"
   },
   "site_level_block": {
     "message": "Gesperrt"

@@ -34,7 +34,7 @@ export default async () => {
     // Every target that gets built and, since `zip`, published as its own download. A target
     // missing here is one no store ever receives, which is why the list is asserted rather than
     // left to the build's own loop.
-    await it('carries every browser beifahrer publishes for', async () => {
+    await it('carries every browser Beifahrer publishes for', async () => {
       expect([...TARGETS].sort()).toEqualArray(['chrome-mv3', 'edge-mv3', 'firefox-mv2', 'safari-mv3']);
     });
   });

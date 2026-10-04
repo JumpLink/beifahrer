@@ -49,7 +49,7 @@ export default async () => {
           expect(look.icon).toBe('offline');
           expect(look.badge).toBe('!');
           // The colour never says it alone, so the tooltip has to name a reason too.
-          expect(look.title.length > 'beifahrer — '.length).toBe(true);
+          expect(look.title.length > 'Beifahrer — '.length).toBe(true);
         }
       }
     });

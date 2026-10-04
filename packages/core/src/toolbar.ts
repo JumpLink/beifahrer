@@ -88,13 +88,13 @@ export function toolbarLook(input: ToolbarInput): ToolbarLook {
     // The guard has already proven the connection is not 'connected', which is exactly the key
     // union OFFLINE has: the cast narrows the type, it does not decide anything.
     const reason = OFFLINE[input.connection as Exclude<Connection, 'connected'>];
-    return { icon: 'offline', badge: '!', title: `beifahrer — ${reason}` };
+    return { icon: 'offline', badge: '!', title: `Beifahrer — ${reason}` };
   }
   if (alarm === 'paused') {
     return {
       icon: 'paused',
       badge: 'II',
-      title: 'beifahrer is paused — the agent gets nothing from this browser. Click to resume.',
+      title: 'Beifahrer is paused — the agent gets nothing from this browser. Click to resume.',
     };
   }
   if (input.wide) {
@@ -103,25 +103,25 @@ export function toolbarLook(input: ToolbarInput): ToolbarLook {
       ? {
           icon: 'wide-active',
           badge: '*',
-          title: 'beifahrer — an agent is working, with access to all sites for now. Click to end it.',
+          title: 'Beifahrer — an agent is working, with access to all sites for now. Click to end it.',
         }
       : {
           icon: 'wide',
           badge: '*',
-          title: 'beifahrer — access to all sites is on for now. Click to end it.',
+          title: 'Beifahrer — access to all sites is on for now. Click to end it.',
         };
   }
   if (isActive(input)) {
     return {
       icon: 'active',
       badge: 'AI',
-      title: 'beifahrer — an agent is using this browser right now. Click to see what, or to stop it.',
+      title: 'Beifahrer — an agent is using this browser right now. Click to see what, or to stop it.',
     };
   }
   return {
     icon: 'idle',
     badge: '',
-    title: 'beifahrer — connected to an agent, idle. Click to see the activity or pause.',
+    title: 'Beifahrer — connected to an agent, idle. Click to see the activity or pause.',
   };
 }
 

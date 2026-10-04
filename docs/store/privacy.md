@@ -1,6 +1,6 @@
 # Privacy statement
 
-The text below is the statement beifahrer makes about itself. Every substantive claim carries a
+The text below is the statement Beifahrer makes about itself. Every substantive claim carries a
 `file:line` into the tree this was written against (`0.1.0`, branch off `b79a9bd`), so a reviewer can
 check it rather than take it on trust. Claims that cannot be checked in code are written as such
 rather than asserted.
@@ -12,9 +12,9 @@ that contradicts the extension's behaviour — is grounds for removal
 
 ---
 
-## 1. What beifahrer does
+## 1. What Beifahrer does
 
-beifahrer is a browser extension. It lets an AI agent work in **your own browser, in the profile and
+Beifahrer is a browser extension. It lets an AI agent work in **your own browser, in the profile and
 session you already have open** — your logged-in tabs, your extensions, your history. It does not
 start a second browser.
 
@@ -22,7 +22,7 @@ The agent talks to the browser over a small local program — the *bridge* — t
 own machine. The bridge is the process the agent talks to; it holds no data of its own and is not a
 service.
 
-For every action the agent wants to take, beifahrer checks a per-site policy **that you set**, and
+For every action the agent wants to take, Beifahrer checks a per-site policy **that you set**, and
 then asks you about the actions the policy does not already cover. The order is fixed and every
 method goes through it:
 
@@ -58,7 +58,7 @@ repository does not own is the one case where "it was tested here once" stops be
 
 **Not verifiable in code:** what the operator of the bridge does outside this repository. If you run
 a bridge someone else built, that code decides what the agent may ask for. The statement above is
-about beifahrer's own bridge, which is this repository.
+about Beifahrer's own bridge, which is this repository.
 
 ## 3. The bridge listens on your machine only, and only for this extension
 
@@ -111,7 +111,7 @@ the loopback socket, and the bridge it reaches is the one you started.
 
 ## 5. Where your data lives
 
-Everything beifahrer knows is in **your browser profile**, in the extension's own storage. Nothing
+Everything Beifahrer knows is in **your browser profile**, in the extension's own storage. Nothing
 is written to the bridge's storage, and nothing is sent to a server.
 
 | What | Where | Code |
@@ -139,7 +139,7 @@ preview of a fill. Never page text (`extension/src/activity.ts:5-6`).
 - **Changes are shown to you before they happen.** Filling a field, clicking, selecting, ticking a
   box, pressing a key and closing a tab each open a window naming the site and the element. You can
   answer it or let it time out, and a timeout is a refusal.
-- **Below the level you set, beifahrer may ask you on the spot.** If you raise a site's level in a
+- **Below the level you set, Beifahrer may ask you on the spot.** If you raise a site's level in a
   click, or an agent asks for something below it, a window names the origin and the level needed, and
   the answer can be once, for this session, always, or no. A site you blocked is never asked about,
   and there is no answer that is remembered for a site you blocked
@@ -166,7 +166,7 @@ A WebExtension host permission is a browser-level, all-or-nothing grant. Request
 front would be the one thing this project must never do: it would make the install prompt — the one
 moment a person can actually say no — a list of nothing.
 
-So beifahrer declares **no** host permissions in the install prompt at all. All three patterns are
+So Beifahrer declares **no** host permissions in the install prompt at all. All three patterns are
 optional (`extension/manifest.ts:26`, wired at `extension/manifest.ts:114` for Manifest V3 and
 `extension/manifest.ts:120` for Manifest V2):
 
@@ -224,7 +224,7 @@ The remaining declared permissions need no prompt and touch no site by themselve
 
 ## 10. Children and sensitive sites
 
-beifahrer is a developer tool. It is not directed at children, and no age gate is claimed.
+Beifahrer is a developer tool. It is not directed at children, and no age gate is claimed.
 
 You can block a site outright — a tab on it then shows its host only and nothing may be read or
 changed on it, and a block is not overridden by a temporary grant. Do that for a banking, health or
@@ -248,6 +248,6 @@ Contact: the support address in the store listing. *(A person must supply it —
    in the repository.
 2. **The support contact**, named at the end and required by AMO's form.
 3. **Whether to say anything about the bridge operator's side.** Section 2 marks what is not
-   verifiable in this repository. If beifahrer will be shipped with a bridge someone else built, that
+   verifiable in this repository. If Beifahrer will be shipped with a bridge someone else built, that
    paragraph needs to become a promise someone else keeps, and a person has to decide whether this
    project can make it.

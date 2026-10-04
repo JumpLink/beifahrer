@@ -453,7 +453,7 @@ export function resolveBrowser<C extends BrowserConnection>(
     throw new BridgeError({
       code: 'failed',
       message:
-        'no browser is connected to this beifahrer session. ' +
+        'no browser is connected to this Beifahrer session. ' +
         (gone ? goneSentence(gone) : '') +
         'The person needs the extension installed and ' +
         'paired (`beifahrer token`), the browser open, and this session not disconnected in the popup. ' +

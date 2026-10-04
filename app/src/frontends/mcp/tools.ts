@@ -56,9 +56,9 @@ export const browserParam = z
 const tabIdParam = z.number().int().describe('Tab id from tabs_list or tab_active');
 
 const POLICY_NOTE =
-  'The person sets, per site, what you may do: nothing, read, or read + edit — in the beifahrer toolbar popup of their browser. ' +
+  'The person sets, per site, what you may do: nothing, read, or read + edit — in the Beifahrer toolbar popup of their browser. ' +
   'A "forbidden" error is their decision, not a malfunction: tell them which site and which level it needs, and let them decide. ' +
-  'They can also switch single features off ("feature_disabled") or pause beifahrer altogether ("paused"): then ask them, and do not retry until they say so.';
+  'They can also switch single features off ("feature_disabled") or pause Beifahrer altogether ("paused"): then ask them, and do not retry until they say so.';
 
 export function text(value: unknown): CallToolResult {
   return {
@@ -222,8 +222,8 @@ export function registerTools(
     {
       title: 'Connected browsers',
       description:
-        "Which of the person's browsers are connected to beifahrer right now (Firefox, Chromium-based, …), with version, manifest version and what each can do. Empty means: the extension is not installed, not paired, or the browser is closed. " +
-        'Every agent session has its own direct connection: this lists the browsers connected to THIS session, its port and the label the person sees for it in the beifahrer popup. ' +
+        "Which of the person's browsers are connected to Beifahrer right now (Firefox, Chromium-based, …), with version, manifest version and what each can do. Empty means: the extension is not installed, not paired, or the browser is closed. " +
+        'Every agent session has its own direct connection: this lists the browsers connected to THIS session, its port and the label the person sees for it in the Beifahrer popup. ' +
         'Empty also when the person disconnected this session in the popup — then ask them; it stays disconnected until this session restarts. ' +
         'When the list is empty and a browser WAS connected, `disconnected.by` says why, and the two are not the same problem: ' +
         '"person" is their decision (do not retry, ask them), "lost" may be temporary (the browser closed or the socket dropped — look again). ' +
@@ -231,7 +231,7 @@ export function registerTools(
         'and `unsupported` is what it left out WITH THE REASON. Read the two apart — "cannot" means use another tool, ' +
         '"not allowed" (forbidden, feature_disabled) means a person has to decide, so ask them instead of retrying. ' +
         'Calling a method this browser does not have answers `unsupported` with the reason, without touching the page. ' +
-        'When more than one browser is connected, pass `browser` (a family, a name, or the `id` from here) — beifahrer never guesses which one you meant.',
+        'When more than one browser is connected, pass `browser` (a family, a name, or the `id` from here) — Beifahrer never guesses which one you meant.',
       inputSchema: {},
       outputSchema: browsersAnswer.schema,
       annotations: { readOnlyHint: true, openWorldHint: false },
@@ -394,7 +394,7 @@ export function registerTools(
     {
       title: 'Screenshot of the visible tab',
       description:
-        'A PNG of what the window shows. Only for a tab that is the active one in its window — beifahrer never switches the person\'s tab to take one. Needs level "read" (and, in Chromium, screenshots switched on in the extension options).',
+        'A PNG of what the window shows. Only for a tab that is the active one in its window — Beifahrer never switches the person\'s tab to take one. Needs level "read" (and, in Chromium, screenshots switched on in the extension options).',
       inputSchema: { tabId: tabIdParam, browser: browserParam },
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -576,7 +576,7 @@ export function registerTools(
         'text types a string one character at a time, for a page that reacts to every keystroke (a search field, a filter box, a code editor). ' +
         "With a ref the keys go to that element; without one they go wherever the page's focus already is, which is how you reach a widget that took focus itself. " +
         'It also does what the key would have done in a form — the character appears, Backspace deletes, Tab moves on, Enter submits the form, Space ticks a box — ' +
-        'because the events beifahrer sends are untrusted and a browser performs no default action for those. ' +
+        'because the events Beifahrer sends are untrusted and a browser performs no default action for those. ' +
         'A page that checks event.isTrusted sees false; that is the honest limit, and page_evaluate is the way around it on Firefox. ' +
         'Password fields are never typed into. ' +
         'Needs level "read + edit"; the person is asked to confirm unless they switched that off for the site. ' +
@@ -610,7 +610,7 @@ export function registerTools(
       description:
         'Select options in a <select> by value or by the text a person reads, and fire the change event a real choice fires. ' +
         'Several values set a multiple-select at once; add=true keeps the options already chosen. ' +
-        'A dropdown built from divs has no options to set — beifahrer says so and names the choices, then you page_click the one you want. ' +
+        'A dropdown built from divs has no options to set — Beifahrer says so and names the choices, then you page_click the one you want. ' +
         'Needs level "read + edit"; the person is asked to confirm unless they switched that off for the site. ' +
         POLICY_NOTE,
       inputSchema: {
@@ -665,7 +665,7 @@ export function registerTools(
       title: 'Run a script in the page (Firefox only)',
       description:
         'Run YOUR OWN JavaScript in a tab and get a JSON result back — the escape hatch when a page does something no named tool covers, ' +
-        'and the only way to act on state beifahrer does not model (a drag-and-drop, a canvas, a widget that only answers a key sequence). ' +
+        'and the only way to act on state Beifahrer does not model (a drag-and-drop, a canvas, a widget that only answers a key sequence). ' +
         'It removes the limits the other tools have, and that is exactly why it is guarded: the person switched "Run scripts" on in their browser, ' +
         'the site must be at level "read + edit", and EVERY run opens a window in which they see the whole script and answer Allow or Deny. ' +
         'There is no "always allow" for a script, and a denied run is not a phrasing problem — ask the person instead. ' +
@@ -675,14 +675,14 @@ export function registerTools(
         'find(query) → [{ref, description}], describe(ref), click(ref), fill(ref, text, as?, mode?), read(maxChars?), outline(maxItems?), meta(query), sleep(ms), plus url and title. ' +
         'So the usual script is `const b = beifahrer.find({role:"button", name:"Save"})[0]; beifahrer.click(b.ref); return beifahrer.read(2000);` — ' +
         'address widgets by role and name as always, rather than reaching into the DOM blind. ' +
-        "Runs in beifahrer's own isolated world: the DOM is there, and the extension's own APIs are NOT (chrome and browser are undefined inside a script — " +
+        "Runs in Beifahrer's own isolated world: the DOM is there, and the extension's own APIs are NOT (chrome and browser are undefined inside a script — " +
         'a script that could read storage could clear the pause and widen every level). ' +
         "The page's JavaScript objects are a per-engine thing: on Chromium a script cannot see window.appState at all, on Firefox it reaches it through " +
         'window.wrappedJSObject — so rely on neither. world:"main" is refused with "unsupported", because an installed extension has no API that runs its ' +
         "own code as a string inside a page's world. " +
         'The result is JSON-safe and bounded; `truncated: true` means you are seeing part of it — do not fill the gap by guessing. ' +
         "A script that never yields holds the tab's main thread and cannot be stopped from here: the person has to close or reload the tab. One that does await " +
-        'cannot: its `beifahrer.*` calls stop working once the call has ended or the person has paused beifahrer, and the in-page Stop button is re-asserted while it runs. ' +
+        'cannot: its `beifahrer.*` calls stop working once the call has ended or the person has paused Beifahrer, and the in-page Stop button is re-asserted while it runs. ' +
         'A script may do anything a "read + edit" grant allows on that site, reading a password field included — which is why it is off until a person switches it on. ' +
         POLICY_NOTE,
       // Strict, unlike the other tools' schemas, and that is the point: an unknown key here is an
@@ -740,7 +740,7 @@ export function registerTools(
     hostGranted: z
       .boolean()
       .nullable()
-      .describe('Whether the browser granted beifahrer that origin; null where no grant applies'),
+      .describe('Whether the browser granted Beifahrer that origin; null where no grant applies'),
     reason: z.string().describe('One sentence: what decides it, and whom to ask'),
   });
 

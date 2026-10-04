@@ -44,7 +44,7 @@ country dropdown, a terms checkbox
 shaped like a work-package tracker, with a description that is a button until you click it and a
 comment box that turns into an editor a moment later
 ([`tests/e2e/browsers.e2e.mjs:247`](../../tests/e2e/browsers.e2e.mjs)). Those are honest pictures of
-what beifahrer does, and they are pictures of nothing.
+what Beifahrer does, and they are pictures of nothing.
 
 ## Which shots a script can render today
 

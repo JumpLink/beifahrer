@@ -151,5 +151,5 @@ if (isMain) {
   )}\n`;
   const out = `${process.cwd()}/updates.json`;
   GLib.file_set_contents(out, json);
-  console.log(`wrote ${out}: beifahrer ${manifest.version} from ${tag}`);
+  console.log(`wrote ${out}: Beifahrer ${manifest.version} from ${tag}`);
 }

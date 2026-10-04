@@ -1,4 +1,4 @@
-# beifahrer
+# Beifahrer
 
 **Let an AI agent ride along in the browser you already use, with you in the driver's seat.**
 
@@ -7,7 +7,7 @@ you are looking at, to read a page you are logged into, or to rewrite a ticket d
 place while you watch. The usual tools start a *separate* browser with no sessions and no idea of
 what you see. The ones that attach to your own browser only work with Chromium.
 
-beifahrer is a WebExtension for **Firefox and Chromium-based browsers** plus a small local
+Beifahrer is a WebExtension for **Firefox and Chromium-based browsers** plus a small local
 **MCP server**. The agent gets a narrow set of tools: list tabs, read a page, outline its fields,
 find an element by name, wait for a page, take a screenshot, fill a field, click, open a URL, run
 a recipe, and, if you allow it, sort, pin, close, save and reopen your tabs. **You decide, site by site, what it may do.**
@@ -44,7 +44,7 @@ Firefox / Chromium
   | **Read** | read the text, get an outline of links, buttons and fields, take a screenshot (if screenshots are on) |
   | **Read + edit** | also fill fields and click. You confirm each change in a browser window unless you switch that off for the site. |
 
-  When you raise a site's level, the browser asks you to grant access to that site. beifahrer has
+  When you raise a site's level, the browser asks you to grant access to that site. Beifahrer has
   no host access until you do. Setting a site to *Nothing* blocks it: nothing below reaches it.
 - **All sites, for a while.** In the popup, *All sites* lets the agent read (or edit) every site
   you have no rule for, for one hour, until the browser closes, or for one agent session. It is
@@ -190,7 +190,7 @@ moment later, and only then can text go in. A **recipe** writes such a task down
 | `page_wait` | wait for a tab to finish loading, or for an element to appear (up to 30 s) |
 | `page_expect` | wait for a **condition** — the Save button *enabled*, the spinner *gone*, the field holding a value, the number of matches — and report what it saw when the condition does not hold |
 | `page_evaluate` | run your own script in the page, and get a JSON result back (off by default — see below) |
-| `recipes_list` | every recipe beifahrer knows, where it came from, and files it refused |
+| `recipes_list` | every recipe Beifahrer knows, where it came from, and files it refused |
 | `recipes_for_tab` | the recipes that fit a tab, by URL or by recognising the app on the page |
 | `recipe_run` | run one step by step; stops at the first failing step and names it |
 
@@ -210,7 +210,7 @@ is asked of the frames you allowed as well, the answer naming the frame that dec
 it will not do is assert nothing: with no state, value, text or count given it is refused rather than
 answered with a default `visible`, which would be a `pass` about a page nobody looked at.
 
-beifahrer ships `openproject/add-comment` and `openproject/edit-description`. They recognise
+Beifahrer ships `openproject/add-comment` and `openproject/edit-description`. They recognise
 OpenProject on any domain. Your own recipes go in `~/.config/beifahrer/recipes/` or in the
 directories listed in `$BEIFAHRER_RECIPES` (colon-separated). A later source replaces a recipe
 with the same id. **This repository is public:** recipes that name a company, a customer's domain
@@ -263,9 +263,9 @@ cover what a person does with a keyboard, and they all sit behind the *Fill in f
 | `page_select` | options in a `<select>`, by value or by the text you read, firing the change event a real choice fires |
 | `page_check` | a checkbox, a radio or a `role="checkbox"` widget, to checked or not, answering the state it ended in |
 
-**The honest limit.** The events beifahrer sends are *untrusted*, and a browser performs **no
+**The honest limit.** The events Beifahrer sends are *untrusted*, and a browser performs **no
 default action** for an untrusted key event — a real Enter submits the form, a dispatched one does
-not. So beifahrer produces those effects itself, per key, where the browser's behaviour is defined
+not. So Beifahrer produces those effects itself, per key, where the browser's behaviour is defined
 and reproducible: the character appears, **Backspace** deletes the selection, **Tab** moves the
 focus on, **Enter** submits the form the field is in (and types a newline in a text area), **Space**
 ticks a box. A page that *listens* for keys — a hotkey, a combobox, a code editor — needs nothing
@@ -280,7 +280,7 @@ Three things it will not do, on purpose:
   nothing is the one answer no agent can work around.
 - **A password field** is never typed into, exactly like `page_fill`.
 
-A widget built from divs instead of a `<select>` has no options to set. beifahrer says so, **names
+A widget built from divs instead of a `<select>` has no options to set. Beifahrer says so, **names
 the choices**, and points at `page_click` — setting `aria-checked` by hand would make a widget look
 ticked while the page's own state never heard of it, and that is the one thing a write must not do.
 
@@ -299,7 +299,7 @@ the way out, and it is guarded accordingly:
 | **Switch** | *Run scripts*, in your options page, **off by default** — beside Screenshots and the other far-reaching capabilities |
 | **Level** | the site must be at **Read + edit**. A site you left at Read refuses a script even with the switch on |
 | **Confirmation** | **every** run opens a window showing **the whole script**, with Allow and Deny. No "Always allow" — a site rule never becomes standing permission for code you have not seen |
-| **Reach** | beifahrer's own isolated world: the DOM is there, the extension's own APIs (`chrome`, `browser`) are `undefined` inside the script — a script that could read storage could clear the pause and widen every level |
+| **Reach** | Beifahrer's own isolated world: the DOM is there, the extension's own APIs (`chrome`, `browser`) are `undefined` inside the script — a script that could read storage could clear the pause and widen every level |
 
 The script is a function **body**, so `return` gives the result and `await` works. In scope is
 `beifahrer`, with the same verbs the named tools have — `find`, `describe`, `click`, `fill`,
@@ -331,7 +331,7 @@ password field included — which `page_fill` and `page_press` refuse. Why the c
 ## When a page did not do the thing
 
 **There is no console tool, and there will not be one.** A content script shares the page's DOM but
-not the page's JavaScript world: the page's `console.log` goes to the page's console, beifahrer's to
+not the page's JavaScript world: the page's `console.log` goes to the page's console, Beifahrer's to
 the extension's, and no browser API bridges the two. The only way in is defeating the page's own CSP
 with a `<script>` element, which is what [ADR 0012](docs/adr/0012-running-the-agents-own-script-in-the-page.md)
 refuses. A tool that answered "no entries" would be a lie, and a lie there is worse than a gap: an
@@ -421,7 +421,7 @@ fill and click at all (the browser still asks you):
 }
 ```
 
-Then open a site, click the beifahrer toolbar button, and pick a level.
+Then open a site, click the Beifahrer toolbar button, and pick a level.
 
 Ten sessions at once is the default. For more, raise the range on both sides to the same number:
 `BEIFAHRER_PORT_COUNT` (or `--port-count`) for the bridges, and **Ports** in the extension options.
@@ -438,7 +438,7 @@ Ten sessions at once is the default. For more, raise the range on both sides to 
 `beifahrer tool` runs any MCP tool from the command line, through the same server and the same
 gates. It listens on its own port of the range, like any agent session, and a call waits (up to
 `--wait`, 20 s) for the extension to find it. That helps in a session that started before
-beifahrer was registered, and it also works from scripts:
+Beifahrer was registered, and it also works from scripts:
 
 ```sh
 gjsify run app/dist/beifahrer.gjs.mjs tool --list

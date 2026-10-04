@@ -2,7 +2,7 @@
   "app.title": "Beifahrer",
   "status.title": "Status",
   "status.nobridge.title": "No agent session running",
-  "status.nobridge.description": "No agent can use a browser right now. Start an agent that has beifahrer set up.",
+  "status.nobridge.description": "No agent can use a browser right now. Start an agent that has Beifahrer set up.",
   "status.nobrowser.title": "No browser connected",
   "status.nobrowser.description": "An agent session is running, but no browser is connected to it. Open the browser with the extension and check the pairing token.",
   "status.ready.title": "Ready",

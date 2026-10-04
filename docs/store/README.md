@@ -1,6 +1,6 @@
 # Store submissions
 
-The material a person needs to put beifahrer into the browser extension stores, and what is still
+The material a person needs to put Beifahrer into the browser extension stores, and what is still
 undecided. Nothing here is a machine that submits anything: every store needs an account a person
 holds, and the release workflow deliberately has no store step
 ([`.github/workflows/release.yml:56-75`](../../.github/workflows/release.yml)). The zips hung on a

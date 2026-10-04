@@ -61,7 +61,7 @@ function refusedKey(key: string): string {
     return `"${key}": refs belong to one page load — address elements by role and name`;
   if (/selector|xpath|css|query/i.test(key))
     return `"${key}": no selectors — address elements by role and name`;
-  if (/script|code|eval|function|js/i.test(key)) return `"${key}": beifahrer runs no supplied code`;
+  if (/script|code|eval|function|js/i.test(key)) return `"${key}": Beifahrer runs no supplied code`;
   return `unknown key "${key}"`;
 }
 

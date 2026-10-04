@@ -20,7 +20,7 @@ Companion files: [traps-browser-platform.md](traps-browser-platform.md) ·
   calls a frame is an internal counter: measured, **Firefox numbers a frame `10737418241`** and
   Chromium's numbers are small only by accident, and both are reassigned on navigation. What the
   agent needs is a short, document-ordered, stable name — so `extension/src/frames.ts` assigns
-  beifahrer's own `index` (1, 2, 3 … in announcement order) and the ref says `b2e12` while the
+  Beifahrer's own `index` (1, 2, 3 … in announcement order) and the ref says `b2e12` while the
   browser's `10737418241` never leaves the extension. A ref built from the browser's id was measured
   failing outright: `page_click` refused its own outline's ref.
 - **A frame's URL cannot be cached, and a cached one is a gate that can be wrong.** A frame that is

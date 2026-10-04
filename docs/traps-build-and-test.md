@@ -31,7 +31,7 @@ before measuring anything that crosses the wire.
   cache is keyed on the entry files, not on what they import, so a change in `packages/core/src` is
   invisible to the tests until the bundle is thrown away: `rm -rf app/dist-test` before believing a
   green run (or a red one). Measured while adding the key table — a refusal message that had been
-  edited three lines away was still the old one in the report. Not a beifahrer bug and not worked
+  edited three lines away was still the old one in the report. Not a Beifahrer bug and not worked
   around in the code: it is in [gjsify-gaps.md](gjsify-gaps.md).
   **The test bundle has its own directory (`gjsify.test.outdir: "dist-test"`) for two incidents.**
   When it shared `app/dist`, this `rm` also deleted the bridge bundle the e2e spawns, and every
@@ -51,7 +51,7 @@ before measuring anything that crosses the wire.
 - **`web-ext lint` calls `update_url` an error, and for this project it is not one.** `manifest.ts`
   sets `browser_specific_settings.gecko.update_url`, without which an unlisted (self-distributed)
   add-on never updates itself — the AMO signing path in `sign.sh` is the only thing that makes a
-  person install beifahrer, and it makes them do it by hand forever without it. The lint rule
+  person install Beifahrer, and it makes them do it by hand forever without it. The lint rule
   (addons-linter.js:3559) forbids a **Mozilla-hosted** add-on from naming its own update source; an
   unlisted one is self-hosted by definition, `web-ext sign` never runs the linter at all
   (`util/manifest.js` checks only name, version and id), and `web-ext lint --self-hosted` reports 0

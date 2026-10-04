@@ -22,10 +22,10 @@ Chrome and Edge as it is.
 
 The two strings, verbatim:
 
-> **beifahrer**
+> **Beifahrer**
 > Let an AI agent use this browser. You choose, site by site, what it may read and change.
 
-> **beifahrer**
+> **Beifahrer**
 > Lass einen KI-Agenten diesen Browser nutzen. Du legst für jede Seite fest, was er lesen und ändern darf.
 
 The full descriptions below are **not** in `_locales`: nothing in the extension shows them, so there
@@ -42,25 +42,25 @@ The listing fields below are the ones that page names.
 
 | Field | Value | Source |
 |---|---|---|
-| Name | beifahrer | `_locales/*/messages.json` → `extName` |
+| Name | Beifahrer | `_locales/*/messages.json` → `extName` |
 | Summary (≤ 250 characters) | Let an AI agent ride along in the browser you already use. You decide, site by site, what it may do. | 100 characters. Written here; the 250 limit is stated by [create an appealing listing](https://extensionworkshop.com/documentation/publish/create-an-appealing-listing/), and no `_locales` key holds it |
 | Description | the full description below | here |
 | Category (up to 2) | *a person decides* — candidates: Productivity, Developer Tools | AMO allows two |
 | Support email | *a person's address* | — |
 | Support website | *a URL that must resolve* | — |
 | License | GNU Affero GPL v3.0 or later | `package.json` → `license` |
-| "This add-on has a privacy policy" | tick, and paste [privacy.md](privacy.md) into the field | beifahrer transmits nothing off the device, so the honest answer is the tick **and** the text — AMO asks for a policy whenever any data is transmitted, and a policy that says "nothing" is still the clearest answer to a reviewer |
+| "This add-on has a privacy policy" | tick, and paste [privacy.md](privacy.md) into the field | Beifahrer transmits nothing off the device, so the honest answer is the tick **and** the text — AMO asks for a policy whenever any data is transmitted, and a policy that says "nothing" is still the clearest answer to a reviewer |
 | Notes for Reviewers | see below | — |
-| Experimental flag | *a person decides* — the honest answer today is yes | beifahrer is `0.1.0`; the flag is AMO's own reduced-visibility marker |
+| Experimental flag | *a person decides* — the honest answer today is yes | Beifahrer is `0.1.0`; the flag is AMO's own reduced-visibility marker |
 | Add-on URL | assigned from the name; *a person may change it* | — |
 
 ### Full description (English)
 
-> beifahrer lets an AI agent work in the browser you already have open — your tabs, your sessions,
+> Beifahrer lets an AI agent work in the browser you already have open — your tabs, your sessions,
 > your logins — under a policy you set, site by site.
 >
 > Most tools that drive a browser start a second one: no logins, no history, no idea what you are
-> looking at. beifahrer uses yours. You see what it does, you can stop it, and you decide what it
+> looking at. Beifahrer uses yours. You see what it does, you can stop it, and you decide what it
 > may do on each site.
 >
 > **You choose, per site, what the agent may do.** Three levels, per origin:
@@ -82,7 +82,7 @@ The listing fields below are the ones that page names.
 > extension. What it stores — your policy, your switches, your saved sessions — stays in your
 > browser profile.
 >
-> beifahrer is an MCP client for your coding agent. It works with the agent you already use; it does
+> Beifahrer is an MCP client for your coding agent. It works with the agent you already use; it does
 > not bring one.
 
 ### Notes for Reviewers
@@ -90,7 +90,7 @@ The listing fields below are the ones that page names.
 AMO's form asks for what a reviewer needs, in plain text ([submitting an add-on](https://extensionworkshop.com/documentation/publish/submitting-an-add-on/)).
 A draft, for a person to check before pasting:
 
-> beifahrer is a WebExtension plus a separate local bridge program. The extension is the add-on;
+> Beifahrer is a WebExtension plus a separate local bridge program. The extension is the add-on;
 > the bridge is not part of it and is not required for the add-on to install.
 >
 > The extension has no network code except a WebSocket to `ws://127.0.0.1:<port>`, where `<port>` is
@@ -114,7 +114,7 @@ A draft, for a person to check before pasting:
 package for code that is transpiled or minified, with build instructions
 ([add-on policies §3](https://extensionworkshop.com/documentation/publish/add-on-policies/)). The
 `Reviewers may ask you to refactor parts of the code if it is not reviewable` sentence in that
-paragraph is not decorative. beifahrer's bundle is a real build; the answer is "yes, source in the
+paragraph is not decorative. Beifahrer's bundle is a real build; the answer is "yes, source in the
 repository, here is the build" *only if* the public repository is decided on — see
 [README.md](README.md). If it is not public, the add-on's AMO source submission needs a
 machine-readable bundle, and that is a piece of work nobody has scheduled.
@@ -139,7 +139,7 @@ Package: `beifahrer-0.1.0-chrome-mv3.zip` from the release.
 
 | Field | Value | Source |
 |---|---|---|
-| Name (≤ 45 characters) | beifahrer | `_locales/*/messages.json` → `extName`; the limit is enforced at `extension/scripts/locales.ts:31` |
+| Name (≤ 45 characters) | Beifahrer | `_locales/*/messages.json` → `extName`; the limit is enforced at `extension/scripts/locales.ts:31` |
 | Summary (≤ 132 characters) | Let an AI agent use this browser. You choose, site by site, what it may read and change. | `_locales/*/messages.json` → `extDescription`, 88 characters. Chrome states the 132 limit in [prepare your extension](https://developer.chrome.com/docs/webstore/prepare) |
 | Description | the full description below | here |
 | Category | *a person decides* — candidates: Productivity, Developer Tools, Workflow & Planning | — |
@@ -163,11 +163,11 @@ draft:
 
 ### Full description (English)
 
-> beifahrer lets an AI agent work in the browser you already have open — your tabs, your sessions,
+> Beifahrer lets an AI agent work in the browser you already have open — your tabs, your sessions,
 > your logins — under a policy you set, site by site.
 >
 > Most tools that drive a browser start a second one: no logins, no history, no idea what you are
-> looking at. beifahrer uses yours. You see what it does, you can stop it, and you decide what it
+> looking at. Beifahrer uses yours. You see what it does, you can stop it, and you decide what it
 > may do on each site.
 >
 > **You choose, per site, what the agent may do.** Three levels, per origin: **None** (only the host
@@ -219,7 +219,7 @@ the form:
   specifically, is `<verify>`: read
   [programme policies](https://developer.chrome.com/docs/webstore/program-policies/policies) and the
   Privacy tab in the dashboard.
-- **Data use certification.** The honest answer is that beifahrer collects no data and shares none —
+- **Data use certification.** The honest answer is that Beifahrer collects no data and shares none —
   see [privacy.md](privacy.md) §4 and §5. The certification asks for declarations per data type;
   whether the form can express "no data of any type" without a warning, is `<verify>`.
 
@@ -241,7 +241,7 @@ Primary Owner ([create a dev account](https://learn.microsoft.com/en-us/microsof
 
 | Field | Value | Source |
 |---|---|---|
-| Extension name | beifahrer | `_locales/*/messages.json` → `extName` |
+| Extension name | Beifahrer | `_locales/*/messages.json` → `extName` |
 | Short description | Let an AI agent use this browser. You choose, site by site, what it may read and change. | `_locales/*/messages.json` → `extDescription`. Edge reads this field from the manifest, so changing it means a new package |
 | Description (per language) | the full description below, in `en-US` and `de-DE` | here; the English is the Chrome text above, the German a translation a person must check |
 | Extension logo (per language) | 1:1, 300×300 recommended, 128×128 minimum | the store rule is on [publish an extension](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension); the source artwork is `extension/icons/sparkles.svg`, rendered by `extension/scripts/icons.ts` |

@@ -6,12 +6,12 @@
   agent session), [ADR 0005](0005-the-person-sees-and-stops-the-agent.md) (only the person pauses and
   resumes), [ADR 0014](0014-not-connected-speaks-first.md) (a missing connection is not quiet)
 - **Asked for by:** the person, 2026-10-04: a native desktop app and `beifahrer status` that say
-  whether beifahrer is running, which agent sessions exist and which browsers hang on them.
+  whether Beifahrer is running, which agent sessions exist and which browsers hang on them.
 
 ## Context
 
 There is no daemon (ADR 0007). Each agent session starts its own `beifahrer mcp`, on its own port,
-and it ends with the session. So "is beifahrer running?" has no single process to ask: it means
+and it ends with the session. So "is Beifahrer running?" has no single process to ask: it means
 "which bridges are alive, and which browsers are connected to each". Today only the browser knows
 (the extension's connection table) and the agent knows (`browsers_list`, one session at a time).
 A window, a tray icon or `beifahrer status` run by the person has nothing to read.

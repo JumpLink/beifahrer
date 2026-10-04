@@ -41,7 +41,7 @@ export function registerRecipeTools(server: McpServer, call: Call, opts: RecipeT
     {
       title: 'Recipes: ready-made steps for tasks on known web apps',
       description:
-        'Every recipe beifahrer knows — site-specific tasks like "add a comment to an OpenProject work package", written as data — with where each was loaded from, ' +
+        'Every recipe Beifahrer knows — site-specific tasks like "add a comment to an OpenProject work package", written as data — with where each was loaded from, ' +
         'and any recipe files that were refused and why. Use recipes_for_tab to see which fit a tab.',
       inputSchema: {},
       annotations: { readOnlyHint: true, openWorldHint: false },
@@ -77,7 +77,7 @@ export function registerRecipeTools(server: McpServer, call: Call, opts: RecipeT
           return text({
             tabId,
             recipes: [],
-            note: 'this tab is on a site below level "read" in beifahrer, so no recipe can look at it',
+            note: 'this tab is on a site below level "read" in Beifahrer, so no recipe can look at it',
           });
         const fits = [];
         for (const { recipe, source } of catalog().recipes.values()) {
