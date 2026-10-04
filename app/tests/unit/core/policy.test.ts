@@ -13,6 +13,7 @@ import {
   parsePolicy,
   pruneGrants,
   wildcardGrant,
+  withWildcardQuiet,
   withRule,
   withoutRule,
   type Grant,
@@ -308,6 +309,26 @@ export default async () => {
       // Without a context the caller wants any live wildcard, and one without an end beats any:
       // the pick is the same one the toolbar and the popup show.
       expect(wildcardGrant(both, NOW)?.sessionId).toBe('conn-a');
+    });
+    await it('withWildcardQuiet(true) removes a stored false, so switching asking back on asks', async () => {
+      const quiet = [{ scope: '*', level: 'write', confirmWrites: false }] as Grant[];
+      const back = withWildcardQuiet(quiet, true);
+      expect('confirmWrites' in back[0]!).toBe(false);
+      expect(decide(withGrants(back), 'page.fill', 'https://a.example/', at(NOW, 'conn-a'))).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+    });
+    await it('withWildcardQuiet(false) quiets every wildcard and touches no other scope', async () => {
+      const grants = [
+        { scope: '*', level: 'write', sessionId: 'conn-a' },
+        { scope: '*', level: 'write' },
+        { scope: 'https://a.example', level: 'write' },
+      ] as Grant[];
+      const out = withWildcardQuiet(grants, false);
+      expect(out[0]!.confirmWrites).toBe(false);
+      expect(out[1]!.confirmWrites).toBe(false);
+      expect('confirmWrites' in out[2]!).toBe(false);
     });
   });
 

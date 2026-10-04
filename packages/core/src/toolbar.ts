@@ -98,6 +98,7 @@ export function toolbarLook(input: ToolbarInput): ToolbarLook {
     };
   }
   if (input.wide) {
+    // No connection check here: `alarmOf` has already answered for every state but 'connected'.
     return isActive(input)
       ? {
           icon: 'wide-active',

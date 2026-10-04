@@ -25,6 +25,9 @@ writes that grant allows skip the confirmation window.
 - Only the `*` scope honours it, and only the grant live for the session asking. A grant of one
   origin is the answer to an on-demand prompt; an answer to "may this agent write here" is not an
   answer to "may it write here silently". Another session's quiet grant quiets nobody else.
+- The popup has one row, so the switch is written to every live "all sites" grant at once, whatever
+  session it is bound to; turning asking back on removes the stored `false` (`withWildcardQuiet`).
+  Reading stays per session, so a grant created later starts out asking.
 - The switch shows only while a write grant runs. Default is asking.
 - `page.evaluate` still always asks (`ALWAYS_CONFIRM`), and "confirm before closing tabs" is a
   separate setting this switch does not touch.
