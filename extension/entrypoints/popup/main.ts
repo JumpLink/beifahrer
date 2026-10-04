@@ -5,6 +5,7 @@ import type { Status } from '../../src/bridge-client.ts';
 import { GRANTS_MESSAGE, type WideDuration, type WideView } from '../../src/grants-messages.ts';
 import { t, type MessageKey } from '../../src/i18n.ts';
 import { WILDCARD_PATTERNS, loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
+import { renderBanner } from '../../src/ui/banner.ts';
 import {
   loadActivity,
   onToggle,
@@ -29,16 +30,6 @@ const LEVEL_TIPS: Record<Level, MessageKey> = {
   write: 'level_write_tip',
 };
 
-/**
- * The banner speaks only when something is not normal, with the one action that fixes it.
- * "No agent running" is not a problem: agents start and stop, so it stays the hero's quiet word.
- */
-const BANNERS: Partial<Record<UiState, { title: MessageKey; button: MessageKey }>> = {
-  paused: { title: 'state_paused', button: 'action_resume' },
-  unauthorized: { title: 'banner_unauthorized', button: 'action_pair' },
-  protocol: { title: 'banner_protocol', button: 'action_settings' },
-};
-
 let state: UiState = 'unpaired';
 
 function renderState(
@@ -47,7 +38,7 @@ function renderState(
   activity: ActivitySnapshot,
   wide: boolean,
 ): void {
-  state = stateOf(status, paused, activity);
+  state = stateOf(status?.state, paused, activity);
   $('state').textContent = t(STATE_WORDS[state]);
   const icon = $<HTMLImageElement>('hero-icon');
   const src = `/icons/${heroIcon(state, wide)}-48.png`;
@@ -58,13 +49,8 @@ function renderState(
   pause.setAttribute('icon-name', paused ? 'media-playback-start-symbolic' : 'media-playback-pause-symbolic');
   pause.setAttribute('tooltip-text', t(paused ? 'action_resume' : 'action_pause'));
 
-  const banner = $<Adw.Banner>('banner');
-  const spec = BANNERS[state];
-  if (spec) {
-    banner.setAttribute('title', t(spec.title));
-    banner.setAttribute('button-label', t(spec.button));
-  }
-  banner.toggleAttribute('revealed', spec !== undefined);
+  // The shared banner (src/ui/banner.ts): this page can act on every state it names.
+  renderBanner($<Adw.Banner>('banner'), state, () => true);
 
   // Not paired yet: nothing below can do anything, so the first run is one clear step.
   const unpaired = state === 'unpaired';

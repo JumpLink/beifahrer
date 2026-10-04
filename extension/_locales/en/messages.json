@@ -49,7 +49,7 @@
     "message": "Paused"
   },
   "state_offline": {
-    "message": "No agent"
+    "message": "Not connected"
   },
   "state_unpaired": {
     "message": "Not paired"
@@ -62,6 +62,9 @@
   },
   "banner_unauthorized": {
     "message": "The agent refused the token"
+  },
+  "banner_offline": {
+    "message": "Not connected. Start a bridge, or check the pairing token in the settings."
   },
   "banner_protocol": {
     "message": "Extension and agent versions differ"
@@ -319,7 +322,7 @@
     "message": "beifahrer is connecting"
   },
   "toolbar_offline_offline": {
-    "message": "beifahrer has no agent"
+    "message": "beifahrer is not connected"
   },
   "toolbar_offline_unauthorized": {
     "message": "The agent refused the token"

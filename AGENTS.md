@@ -65,7 +65,11 @@ are off by default. A NEW URL the agent supplies still needs `read`; closing ask
 live in the extension's storage, never on the bridge ([ADR 0004](docs/adr/0004-sessions-live-in-the-browser.md)).
 |**The person sees the agent.** Toolbar icon (`toolbarLook`, core), popup activity log (host only,
 never page text), and the in-page pill in a CLOSED shadow root outside `<body>`, hidden before
-every screenshot. Do not make any of them optional.
+every screenshot. Do not make any of them optional. One ladder, loudest first, in `alarmOf` (core):
+**not connected is red** and outranks the pause (yellow) and the live grant (blue), because without
+a bridge the extension does nothing ([ADR 0014](docs/adr/0014-not-connected-speaks-first.md)).
+Colour never says it alone: the state word, the tooltip and the one shared banner
+(`src/ui/banner.ts`) carry the same state beside it.
 |**A frame is gated on its OWN origin, never on the page's** (issue #32). The page agent is injected
 into every frame (`allFrames`, and only when a call asks — there is no `content_scripts` entry, so it
 costs nothing on a page nobody is reading), each frame is addressed on its own, and the policy is

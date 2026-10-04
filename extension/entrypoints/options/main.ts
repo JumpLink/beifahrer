@@ -27,6 +27,7 @@ import {
   updateSessions,
 } from '../../src/sessions-store.ts';
 import { loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
+import { renderBanner } from '../../src/ui/banner.ts';
 import {
   hoverText,
   loadActivity,
@@ -59,13 +60,6 @@ const status = async () => (await browser.runtime.sendMessage({ type: 'status' }
 
 let state: UiState = 'unpaired';
 
-/** The banner speaks only when something is not normal, with the one action that fixes it. */
-const BANNERS: Partial<Record<UiState, { title: MessageKey; button?: MessageKey }>> = {
-  paused: { title: 'state_paused', button: 'action_resume' },
-  unauthorized: { title: 'banner_unauthorized' },
-  protocol: { title: 'banner_protocol' },
-};
-
 async function renderState(): Promise<void> {
   const [current, activity, { paused }, wide] = await Promise.all([
     status(),
@@ -73,7 +67,7 @@ async function renderState(): Promise<void> {
     loadSettings(),
     browser.runtime.sendMessage({ type: GRANTS_MESSAGE, op: 'get' }) as Promise<WideView | null>,
   ]);
-  state = stateOf(current, paused, activity);
+  state = stateOf(current?.state, paused, activity);
   $('state').textContent = t(STATE_WORDS[state]);
   const icon = $<HTMLImageElement>('hero-icon');
   const src = `/icons/${heroIcon(state, wide !== null)}-48.png`;
@@ -81,14 +75,9 @@ async function renderState(): Promise<void> {
   icon.classList.toggle('working', state === 'working');
   setQuietly($<Adw.SwitchRow>('pause'), paused);
 
-  const banner = $<Adw.Banner>('banner');
-  const spec = BANNERS[state];
-  if (spec) {
-    banner.setAttribute('title', t(spec.title));
-    if (spec.button) banner.setAttribute('button-label', t(spec.button));
-    else banner.removeAttribute('button-label');
-  }
-  banner.toggleAttribute('revealed', spec !== undefined);
+  // The shared banner (src/ui/banner.ts). This page is where the token and the versions are, so the
+  // only fix it can offer here is the one the pause needs.
+  renderBanner($<Adw.Banner>('banner'), state, (fix) => fix === 'resume');
   renderActivity($<Adw.PreferencesGroup>('activity'), activity.log);
   markEmpty($<Adw.PreferencesGroup>('activity'), activity.log.length === 0 ? t('activity_empty') : null);
 }
@@ -418,7 +407,7 @@ async function connect(): Promise<void> {
   }
   await renderState();
   save.toggleAttribute('disabled', false);
-  const key = RESULT[stateOf(current, false)];
+  const key = RESULT[stateOf(current?.state, false)];
   if (key) toast(t(key));
 }
 

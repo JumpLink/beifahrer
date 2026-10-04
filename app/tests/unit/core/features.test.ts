@@ -176,11 +176,13 @@ export default async () => {
   });
 
   await describe('toolbarLook', async () => {
+    // The ladder itself is walked in core/toolbar.test.ts; these are the states the person meets.
     const base = { paused: false, inFlight: 0, lastActivityAt: 0, now: 100_000 };
-    await it('has an amber dot without a bridge or a pairing', async () => {
+    await it('has a red dot without a bridge connection or a pairing', async () => {
       for (const connection of ['unpaired', 'offline', 'connecting', 'unauthorized', 'protocol'] as const) {
         const look = toolbarLook({ ...base, connection, inFlight: 2 });
         expect(look.icon).toBe('offline');
+        expect(look.badge).toBe('!');
         expect(look.title).toMatch(/beifahrer — /);
       }
     });
@@ -197,12 +199,13 @@ export default async () => {
       expect(toolbarLook(recent).badge).toBe('AI');
       expect(toolbarLook({ ...recent, lastActivityAt: base.now - ACTIVE_MS }).icon).toBe('idle');
     });
-    await it('shows the red paused dot over every other state', async () => {
+    await it('shows the yellow paused dot while a bridge is connected', async () => {
       for (const connection of ['connected', 'offline', 'unpaired'] as const) {
         const look = toolbarLook({ ...base, connection, paused: true, inFlight: 3 });
-        expect(look.icon).toBe('paused');
-        expect(look.badge).toBe('II');
-        expect(look.title).toMatch(/paused/);
+        // A missing bridge is the loudest state there is (ADR 0014), so it keeps the button.
+        expect(look.icon).toBe(connection === 'connected' ? 'paused' : 'offline');
+        expect(look.badge).toBe(connection === 'connected' ? 'II' : '!');
+        expect(look.title).toMatch(connection === 'connected' ? /paused/ : /beifahrer — /);
       }
     });
   });

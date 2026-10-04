@@ -152,6 +152,19 @@ adw-action-row.warning gtk-image {
   color: var(--warning-color);
 }
 
+/* The one banner the pages share, in the colour of the state it speaks for: Adwaita's own error
+   for "no agent can reach this browser" and its own warning for the person's pause (ADR 0014).
+   Both are mixed into the surface the banner already had, so the text keeps its own colour and
+   the strip follows `prefers-color-scheme` with the rest of the page. `data-severity` is written
+   by src/ui/banner.ts; without it the strip stays the neutral surface it always was. */
+adw-banner[data-severity='error'] {
+  background-color: color-mix(in srgb, var(--error-color) 20%, var(--sidebar-bg-color));
+}
+
+adw-banner[data-severity='warning'] {
+  background-color: color-mix(in srgb, var(--warning-color) 20%, var(--sidebar-bg-color));
+}
+
 /* ---- popup ---------------------------------------------------------------------------- */
 
 body.popup {
