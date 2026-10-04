@@ -157,6 +157,21 @@ export function statusOf(entries: readonly RegistryEntry[], now: Date): Registry
   return { presence, sessions };
 }
 
+/**
+ * The ports of the range where something listens that no live session announced: an older Beifahrer
+ * that never wrote an entry, a bridge that hangs, or another program. The extension probes those
+ * ports like any other, so a listener that does not answer is exactly what keeps a browser red while
+ * the registry says "no agent" (a bridge from a build before the registry did this for hours).
+ * `listening` is what a TCP probe found; the registry cannot know it. Sorted, without duplicates.
+ */
+export function unregisteredPorts(
+  listening: readonly number[],
+  sessions: readonly RegistryEntry[],
+): number[] {
+  const announced = new Set(sessions.map((s) => s.port));
+  return [...new Set(listening)].filter((p) => !announced.has(p)).sort((a, b) => a - b);
+}
+
 /** Entries that have been dead for more than `graceMs`: what a starting bridge may sweep. */
 export function sweepable(entries: readonly RegistryEntry[], now: Date, graceMs = 60_000): RegistryEntry[] {
   return entries.filter((e) => now.getTime() - Date.parse(e.updatedAt) > STALE_MS + graceMs);

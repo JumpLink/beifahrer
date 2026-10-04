@@ -30,6 +30,8 @@ export interface StatusView {
   sessions: SessionRow[];
   /** A line about registry files that could not be read, or null. */
   note: string | null;
+  /** Zero or one: ports where something listens that no session announced. */
+  warnings: { title: string; description: string }[];
 }
 
 const ICON: Record<Presence, string> = {
@@ -41,7 +43,12 @@ const ICON: Record<Presence, string> = {
 /** The catalog's name for each rung. */
 const KEY = { 'no-bridge': 'nobridge', 'no-browser': 'nobrowser', ready: 'ready' } as const;
 
-export function viewOf(status: RegistryStatus, skipped: number, t: Translate): StatusView {
+export function viewOf(
+  status: RegistryStatus,
+  skipped: number,
+  t: Translate,
+  unregistered: readonly number[] = [],
+): StatusView {
   const { presence } = status;
   return {
     alarm: presence !== 'ready',
@@ -59,5 +66,16 @@ export function viewOf(status: RegistryStatus, skipped: number, t: Translate): S
       ].join(' · '),
     })),
     note: skipped > 0 ? t('unreadable', { count: skipped }) : null,
+    warnings:
+      unregistered.length > 0
+        ? [
+            {
+              title: t(unregistered.length === 1 ? 'foreign.one' : 'foreign.many', {
+                ports: unregistered.join(', '),
+              }),
+              description: t('foreign.description'),
+            },
+          ]
+        : [],
   };
 }

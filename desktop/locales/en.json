@@ -22,5 +22,8 @@
   "pairing.path": "Stored in",
   "pairing.other.title": "Another token file exists",
   "pairing.other.description": "{path} holds a different token. A browser paired with that one cannot connect: paste the token above instead. An older Beifahrer that is still running may use the other one until it is restarted.",
-  "pairing.error": "The token could not be read: {reason}"
+  "pairing.error": "The token could not be read: {reason}",
+  "foreign.one": "Port {ports} is held by something that does not report",
+  "foreign.many": "Ports {ports} are held by something that does not report",
+  "foreign.description": "No running agent session announced it. It may be an older Beifahrer, a bridge that no longer answers, or another program. A browser tries it like any other port. If it is a Beifahrer, restart the agent session that started it."
 }
