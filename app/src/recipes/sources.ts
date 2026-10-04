@@ -3,7 +3,8 @@
  *
  * Three sources, loaded in this order; a later one replaces an earlier one with the same id:
  *   1. built-in: `recipes/` of this repository, bundled into the app at build time (builtin.ts);
- *   2. `$XDG_CONFIG_HOME/beifahrer/recipes/` (default `~/.config/…`): the person's own;
+ *   2. `recipes/` in the config directory (`configDir()`: `$XDG_CONFIG_HOME/beifahrer`, else the
+ *      platform's own convention): the person's own;
  *   3. every directory in `$BEIFAHRER_RECIPES` (colon-separated, left to right): the most explicit,
  *      e.g. a team's shared checkout.
  *
@@ -16,10 +17,10 @@
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { MAX_RECIPE_BYTES, parseRecipe, type Recipe } from '@beifahrer/core';
 
+import { configDir } from '../config-dir.ts';
 import { BUILTIN } from './builtin.ts';
 
 export interface LoadedRecipe {
@@ -43,8 +44,7 @@ export interface RecipeFile {
 
 /** The recipe directories, in load order (later wins). */
 export function recipeDirs(env: NodeJS.ProcessEnv = process.env): { path: string; explicit: boolean }[] {
-  const config = env.XDG_CONFIG_HOME || join(homedir(), '.config');
-  const dirs = [{ path: join(config, 'beifahrer', 'recipes'), explicit: false }];
+  const dirs = [{ path: join(configDir(env), 'recipes'), explicit: false }];
   for (const dir of (env.BEIFAHRER_RECIPES ?? '').split(':')) {
     if (dir.trim()) dirs.push({ path: dir.trim(), explicit: true });
   }
