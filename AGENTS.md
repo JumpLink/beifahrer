@@ -192,6 +192,10 @@ repo does not own is the one case where "it was tested here once" stops being ev
 ## Conventions
 
 - Conventional commits (`feat(extension): …`, `fix(bridge): …`), imperative, subject ≤ 50 chars.
+- **One product version** for the extension, the CLI, core and the root. Bump with
+  `node tools/version.mjs set <x.y.z>` (never by hand: five files carry it), so the commit is
+  `chore: bump to <x.y.z>`, not `chore(extension): …`. `version:check` runs in CI and, against the
+  tag, first in the release.
 - This repo is a submodule of werkstatt: commit here first, then bump the pointer in the parent.
 - All `@gjsify/*` pins are the same exact version; `gjsify upgrade --check` is the gate (offline, 30
   deps) and `gjsify upgrade --align` the fix.

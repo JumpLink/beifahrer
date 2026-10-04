@@ -1,6 +1,6 @@
 {
   "name": "beifahrer",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "type": "module",
@@ -16,6 +16,8 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "docs:links": "node tools/check-doc-links.mjs",
+    "version:check": "node tools/version.mjs check",
+    "version:set": "node tools/version.mjs set",
     "build": "gjsify workspace beifahrer-cli build && gjsify workspace beifahrer-extension build",
     "start": "gjsify workspace beifahrer-cli start",
     "test": "gjsify workspace beifahrer-cli test"
