@@ -4,6 +4,7 @@
 import { run } from '@gjsify/unit';
 
 import i18n from './unit/i18n.test.ts';
+import pairingModel from './unit/pairing-model.test.ts';
 import statusModel from './unit/status-model.test.ts';
 
-run({ i18n, statusModel });
+run({ i18n, pairingModel, statusModel });

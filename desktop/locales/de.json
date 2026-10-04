@@ -11,5 +11,16 @@
   "session.port": "Port {port}",
   "session.nobrowser": "kein Browser",
   "session.browser": "{name} {version}",
-  "unreadable": "{count} Registry-Dateien konnten nicht gelesen werden."
+  "unreadable": "{count} Registry-Dateien konnten nicht gelesen werden.",
+  "page.status": "Status",
+  "page.browser": "Browser",
+  "pairing.title": "Kopplungs-Token",
+  "pairing.description": "Füge dieses Token einmal in die Einstellungen von Beifahrer in jedem Browser ein. Damit darf die Erweiterung mit den Agent-Sitzungen auf diesem Computer sprechen.",
+  "pairing.token": "Token",
+  "pairing.copy": "Token kopieren",
+  "pairing.copied": "Token kopiert",
+  "pairing.path": "Gespeichert in",
+  "pairing.other.title": "Es gibt eine weitere Token-Datei",
+  "pairing.other.description": "{path} enthält ein anderes Token. Ein Browser, der damit gekoppelt wurde, kann sich nicht verbinden: Füge stattdessen das Token oben ein. Ein älteres Beifahrer, das noch läuft, benutzt möglicherweise die andere Datei, bis es neu gestartet wird.",
+  "pairing.error": "Das Token konnte nicht gelesen werden: {reason}"
 }

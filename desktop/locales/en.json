@@ -11,5 +11,16 @@
   "session.port": "Port {port}",
   "session.nobrowser": "no browser",
   "session.browser": "{name} {version}",
-  "unreadable": "{count} registry files could not be read."
+  "unreadable": "{count} registry files could not be read.",
+  "page.status": "Status",
+  "page.browser": "Browser",
+  "pairing.title": "Pairing token",
+  "pairing.description": "Paste this token into Beifahrer's settings in each browser, once. It lets the extension talk to the agent sessions on this computer.",
+  "pairing.token": "Token",
+  "pairing.copy": "Copy token",
+  "pairing.copied": "Token copied",
+  "pairing.path": "Stored in",
+  "pairing.other.title": "Another token file exists",
+  "pairing.other.description": "{path} holds a different token. A browser paired with that one cannot connect: paste the token above instead. An older Beifahrer that is still running may use the other one until it is restarted.",
+  "pairing.error": "The token could not be read: {reason}"
 }
