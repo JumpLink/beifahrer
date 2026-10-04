@@ -217,7 +217,7 @@ function interruptibleSleep(ms: number, token: number): Promise<void> {
     const started = Date.now();
     const tick = (): void => {
       if (!scriptAlive(token)) {
-        reject(new Error('beifahrer was paused or the script was replaced — it stopped here'));
+        reject(new Error('Beifahrer was paused or the script was replaced — it stopped here'));
         return;
       }
       // The pill and its Stop button must survive a script that is running: it is the one control
@@ -958,7 +958,7 @@ function press(
     return {
       ok: false,
       code: 'invalid',
-      message: `${parsed.key} belongs to the browser, not to the page — beifahrer cannot press it`,
+      message: `${parsed.key} belongs to the browser, not to the page — Beifahrer cannot press it`,
     };
   }
   for (let i = 0; i < times; i++) sendKey(target, parsed);
@@ -1561,7 +1561,7 @@ function codeExecutionAllowed(): boolean {
 function noCodeHere(): string {
   const mv = browser.runtime.getManifest().manifest_version;
   return (
-    'beifahrer will not run a script in this page: in Manifest V3 a content script shares the ' +
+    'Beifahrer will not run a script in this page: in Manifest V3 a content script shares the ' +
     "extension's content security policy, and that policy cannot name 'unsafe-eval' — Chrome " +
     `refuses to install an extension that tries. This browser reports Manifest V${mv}, and the ` +
     'probe here failed where the script would have run. Firefox (Manifest V2) runs scripts.'
@@ -1606,7 +1606,7 @@ function guardApi(api: ScriptApi, token: number): ScriptApi {
   const check = (): void => {
     if (!scriptAlive(token))
       throw new Error(
-        'this script is no longer running — beifahrer was paused, or the call it belonged to has ended',
+        'this script is no longer running — Beifahrer was paused, or the call it belonged to has ended',
       );
   };
   return {

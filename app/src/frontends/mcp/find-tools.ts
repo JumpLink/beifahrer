@@ -148,7 +148,7 @@ export function registerFindTools(server: McpServer, call: Call): void {
     frame: z
       .number()
       .int()
-      .describe("Which document decided: 0 is the page, otherwise beifahrer's own frame index"),
+      .describe("Which document decided: 0 is the page, otherwise Beifahrer's own frame index"),
     waitedMs: z.number().int().describe('How long the assertion waited before it answered'),
   });
 
@@ -162,7 +162,7 @@ export function registerFindTools(server: McpServer, call: Call): void {
         'matches it), the field holding a value, the confirmation text on the screen, the number of matches. ' +
         'Give either a ref (one element, e.g. e12 — b2e12 if it is in a frame) or a query (every element of that kind, in the page and in ' +
         'any embedded page the person allowed). At least one of state / value / text / count is required — there is nothing to assert otherwise, ' +
-        'and beifahrer refuses rather than answer "pass" about an element nobody described. ' +
+        'and Beifahrer refuses rather than answer "pass" about an element nobody described. ' +
         'A QUERY is a claim about the page: "hidden" means NO match is visible (that is "the spinner is gone"), ' +
         'every other state means AT LEAST ONE match is in it. The query picks elements by role, accessible name and position; ' +
         '`count` is with a query only — a ref is one element by definition. value is compared exactly, text as a substring of the text the element HAS. ' +

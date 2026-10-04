@@ -183,7 +183,7 @@ export default async () => {
         const look = toolbarLook({ ...base, connection, inFlight: 2 });
         expect(look.icon).toBe('offline');
         expect(look.badge).toBe('!');
-        expect(look.title).toMatch(/beifahrer — /);
+        expect(look.title).toMatch(/Beifahrer — /);
       }
     });
     await it('is monochrome and quiet when connected and idle', async () => {
@@ -205,7 +205,7 @@ export default async () => {
         // A missing bridge is the loudest state there is (ADR 0014), so it keeps the button.
         expect(look.icon).toBe(connection === 'connected' ? 'paused' : 'offline');
         expect(look.badge).toBe(connection === 'connected' ? 'II' : '!');
-        expect(look.title).toMatch(connection === 'connected' ? /paused/ : /beifahrer — /);
+        expect(look.title).toMatch(connection === 'connected' ? /paused/ : /Beifahrer — /);
       }
     });
   });

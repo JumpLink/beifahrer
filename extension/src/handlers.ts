@@ -144,10 +144,10 @@ function refuse(
     !decision.origin
       ? `${method} is not possible on a non-web page (browser-internal, local file or extension page).`
       : decision.askable === false
-        ? `the person blocked ${where} in beifahrer (level "none"); ${method} needs "${decision.need}". ` +
+        ? `the person blocked ${where} in Beifahrer (level "none"); ${method} needs "${decision.need}". ` +
           'Do not ask for it again unless the person brings it up.'
-        : `${where} is at level "${decision.have}" in beifahrer; ${method} needs "${decision.need}". ` +
-          'Ask the person to raise it in the beifahrer toolbar popup on that tab.',
+        : `${where} is at level "${decision.have}" in Beifahrer; ${method} needs "${decision.need}". ` +
+          'Ask the person to raise it in the Beifahrer toolbar popup on that tab.',
     { origin: decision.origin, have: decision.have, need: decision.need },
   );
 }
@@ -190,7 +190,7 @@ async function gate(
   if (!decision.allow) return refuse(method, decision);
   return fail(
     'forbidden',
-    `the browser has not granted beifahrer access to ${origin} (the level is set, the browser permission is ` +
+    `the browser has not granted Beifahrer access to ${origin} (the level is set, the browser permission is ` +
       'missing — it was probably revoked in the browser settings). Ask the person to set the level again in the popup.',
     { origin },
   );
@@ -1041,7 +1041,7 @@ const handlers: { [M in Method]: Handler<M> } = {
         ? fail('unsupported', 'this browser cannot take screenshots')
         : fail(
             'forbidden',
-            'screenshots are switched off — the person can allow them in the beifahrer options',
+            'screenshots are switched off — the person can allow them in the Beifahrer options',
           );
     }
     // The API captures what the window shows, not a tab of our choosing — refusing is honest,
@@ -1061,7 +1061,7 @@ const handlers: { [M in Method]: Handler<M> } = {
       return fail(
         'forbidden',
         `the browser refused the screenshot (${(err as Error).message}). Screenshots need the extra "all sites" grant — ` +
-          'the person can switch them on in the beifahrer options.',
+          'the person can switch them on in the Beifahrer options.',
       );
     }
   },
@@ -1191,8 +1191,8 @@ const handlers: { [M in Method]: Handler<M> } = {
     if (!after.allow) {
       return fail(
         'forbidden',
-        `the tab is now on ${after.origin ?? 'another page'}, which is at level "${after.have}" in beifahrer. ` +
-          'The move already happened; nothing on that page may be read, and beifahrer will not name ' +
+        `the tab is now on ${after.origin ?? 'another page'}, which is at level "${after.have}" in Beifahrer. ` +
+          'The move already happened; nothing on that page may be read, and Beifahrer will not name ' +
           'its path for you.',
         { origin: after.origin, have: after.have, need: after.need },
       );
@@ -1226,7 +1226,7 @@ const handlers: { [M in Method]: Handler<M> } = {
     // apart, because only one of them is "the page really asked for nothing".
     const note = networkAvailable()
       ? undefined
-      : 'the browser has not granted beifahrer its webRequest permission, so it cannot see requests at all';
+      : 'the browser has not granted Beifahrer its webRequest permission, so it cannot see requests at all';
     return {
       requests: selectRows(rows, req),
       kept,
@@ -1363,7 +1363,7 @@ const handlers: { [M in Method]: Handler<M> } = {
     if (request.world !== 'isolated') {
       return fail(
         'unsupported',
-        "beifahrer will not run a script in the page's own JavaScript world: doing so means injecting a " +
+        "Beifahrer will not run a script in the page's own JavaScript world: doing so means injecting a " +
           '<script> element into the page, past its content security policy. Ask for what you need in the ' +
           "isolated world instead — the DOM is there, the page's JavaScript objects are not.",
       );

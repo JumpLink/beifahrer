@@ -94,7 +94,7 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
 - **A synthetic key event performs no browser default action.** An event created in a content
   script and dispatched on the page is untrusted, and a browser does nothing for it: a real Enter
   submits the form, a dispatched one does not, and `preventDefault()` on the keydown means "the page
-  handles this key", not "beifahrer must not". So `press` in page-agent.ts dispatches the three
+  handles this key", not "Beifahrer must not". So `press` in page-agent.ts dispatches the three
   events and then does the default action itself for the keys whose behaviour the platform fixes
   (the character appears, Backspace deletes, Tab moves the focus, Enter submits, Space ticks) —
   and only when the keydown was not cancelled, which is what the page claiming a key looks like.
@@ -116,5 +116,5 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
   ERR_FILE_NOT_FOUND, Firefox's BiDi with "not allowed in this context", and Firefox drops
   `--start-url moz-extension://…`. `tests/e2e/ui-pages.mjs` opens them from the extension's
   service worker (Chromium) and the browser window in BiDi's chrome scope (Firefox).
-- **Chromium has component extensions with a `background.js` worker too.** Pick beifahrer's by
+- **Chromium has component extensions with a `background.js` worker too.** Pick Beifahrer's by
   its manifest (`default_locale`), not by the worker's file name.

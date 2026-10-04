@@ -139,7 +139,7 @@ export default async () => {
         url: 'https://bank.example/',
       });
       expect(typeof answer).toBe('string');
-      expect(answer).toMatch(/is not a beifahrer method/);
+      expect(answer).toMatch(/is not a Beifahrer method/);
     });
 
     await it('reports the missing browser grant as its own step, asking nobody', async () => {

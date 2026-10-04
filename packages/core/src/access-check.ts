@@ -95,7 +95,7 @@ export function accessCheck(input: AccessCheckInput): AccessCheck | string {
   const { features, policy, ctx, unsupported } = input;
   if (!isMethod(input.method)) {
     return (
-      `"${input.method}" is not a beifahrer method. browsers_list names what this browser has; ` +
+      `"${input.method}" is not a Beifahrer method. browsers_list names what this browser has; ` +
       'ask about one of those.'
     );
   }
@@ -158,9 +158,9 @@ export function accessCheck(input: AccessCheckInput): AccessCheck | string {
       allowed: false,
       stage: 'level',
       reason: access.origin
-        ? `${access.origin} is at level "${have}" in beifahrer and ${method} needs "${need}". ` +
+        ? `${access.origin} is at level "${have}" in Beifahrer and ${method} needs "${need}". ` +
           (askable
-            ? 'Ask the person to raise it in the beifahrer toolbar popup on that tab.'
+            ? 'Ask the person to raise it in the Beifahrer toolbar popup on that tab.'
             : 'The person blocked this site, so do not ask for it again unless they bring it up.')
         : `${method} is not possible on a non-web page (a browser-internal page, a local file or ` +
           `another extension's page) and needs "${need}".`,
@@ -176,7 +176,7 @@ export function accessCheck(input: AccessCheckInput): AccessCheck | string {
       allowed: false,
       stage: 'grant',
       reason:
-        `the browser has not granted beifahrer access to ${access.origin}, so ${method} would ask the ` +
+        `the browser has not granted Beifahrer access to ${access.origin}, so ${method} would ask the ` +
         'person first. They can allow it in the browser, or set the level again in the popup.',
     };
   }

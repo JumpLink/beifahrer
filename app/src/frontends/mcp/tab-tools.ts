@@ -18,10 +18,10 @@ type Call = <M extends Method>(method: M, params: Params<M>, browser?: string) =
 const DECISION =
   'A "feature_disabled" or "forbidden" error is their decision, not a malfunction: tell them what you want to do and let them decide.';
 const MANAGE_NOTE =
-  'Needs the feature "Manage tabs and windows", which the person switches on in the beifahrer popup or options — off by default. ' +
+  'Needs the feature "Manage tabs and windows", which the person switches on in the Beifahrer popup or options — off by default. ' +
   DECISION;
 const SESSIONS_NOTE =
-  'Needs the feature "Saved sessions", which the person switches on in the beifahrer popup or options — off by default. ' +
+  'Needs the feature "Saved sessions", which the person switches on in the Beifahrer popup or options — off by default. ' +
   DECISION;
 
 const tabIds = z.array(z.number().int()).min(1).describe('Tab ids from tabs_list');

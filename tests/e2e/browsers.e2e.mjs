@@ -92,7 +92,7 @@ const BRIDGE_RUNTIME = (() => {
 })();
 const BRIDGE_BUNDLE = join(ROOT, `app/dist/beifahrer.${BRIDGE_RUNTIME}.mjs`);
 
-const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></head><body>
+const FIXTURE = `<!doctype html><html><head><title>Beifahrer fixture</title></head><body>
 <h1>Ticket 3279</h1>
 <p>Secret-ish body text for page_read.</p>
 <label for="plain">Plain comment</label><textarea id="plain"></textarea>
@@ -144,7 +144,7 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
   // Issue #4: a web-component-shaped page. The OPEN root is what the walk must enter — a labelled
   // button and a labelled field inside it, neither reachable from the light DOM, and a label whose
   // for= can only resolve inside the root. The CLOSED root is what it must not enter: the browser
-  // keeps that promise, and beifahrer has to keep it too.
+  // keeps that promise, and Beifahrer has to keep it too.
   // Every keydown, with the modifiers it carried, so a test can check that page_press reports the
   // key the caller NAMED rather than one the browser chose. Only keydown is recorded: keypress
   // carries the same key again, and a log that doubles every entry would make "one press" and
@@ -157,7 +157,7 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
     keys.push((mods ? mods + '+' : '') + e.key);
     document.getElementById('keys-log').value = keys.join(' ');
   }, true);
-  // The div-shaped checkbox: beifahrer has to CLICK it, because the page owns that state, and
+  // The div-shaped checkbox: Beifahrer has to CLICK it, because the page owns that state, and
   // setting aria-checked by hand would make it look ticked while this listener never ran.
   document.getElementById('aria-box').addEventListener('click', (e) => {
     const box = e.currentTarget;
@@ -173,7 +173,7 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
     e.preventDefault();
     document.getElementById('press-output').textContent = 'submitted:' + document.getElementById('keyform-note').value;
   });
-  // Issue #35: the page decides when the gate opens and when the spinner goes — beifahrer only
+  // Issue #35: the page decides when the gate opens and when the spinner goes — Beifahrer only
   // asserts. A script that flipped these itself would make every assertion pass while proving
   // nothing, so the transitions are the page's own listener and its own timer.
   document.getElementById('gate-note').addEventListener('input', (e) => {
@@ -251,7 +251,7 @@ const FIXTURE = `<!doctype html><html><head><title>beifahrer fixture</title></he
   document.getElementById('demo').addEventListener('click', () => {
     document.getElementById('demo-output').textContent = 'demo ran';
   });
-  // What the PAGE can see of beifahrer's in-page pill: a host element that comes and goes. "+closed"
+  // What the PAGE can see of Beifahrer's in-page pill: a host element that comes and goes. "+closed"
   // = it appeared and the page could not open its shadow root nor read any text; "-" = it left.
   new MutationObserver((records) => {
     const log = document.getElementById('ind');
@@ -2311,7 +2311,7 @@ async function scripts(browser, client, allowed, forbidden) {
   check(browser, 'a script the person allowed runs', ran && !ran.error, String(ran?.text).slice(0, 200));
   if (ran && !ran.error) {
     const out = JSON.parse(ran.text);
-    check(browser, 'the script read the page title', out.value?.title === 'beifahrer fixture', ran.text);
+    check(browser, 'the script read the page title', out.value?.title === 'Beifahrer fixture', ran.text);
     check(
       browser,
       "it clicked the page and the page's own listener ran",
@@ -2341,7 +2341,7 @@ async function scripts(browser, client, allowed, forbidden) {
   });
   check(
     browser,
-    'a script can use the beifahrer API',
+    'a script can use the Beifahrer API',
     !!viaApi && !viaApi.error,
     String(viaApi?.text).slice(0, 240),
   );
@@ -2901,7 +2901,7 @@ async function scenario(browser, gate) {
     check(
       browser,
       'tabs_list shows the allowed tab with url + title',
-      allowed?.title === 'beifahrer fixture',
+      allowed?.title === 'Beifahrer fixture',
       JSON.stringify(tabs),
     );
     check(
@@ -2933,7 +2933,7 @@ async function scenario(browser, gate) {
     check(
       browser,
       'the in-page pill appears during a read, closed to the page, and goes away after',
-      pill.startsWith('+closed -') && !pill.includes('OPEN') && !reread.text.includes('beifahrer is reading'),
+      pill.startsWith('+closed -') && !pill.includes('OPEN') && !reread.text.includes('Beifahrer is reading'),
       reread.text.slice(0, 400),
     );
 

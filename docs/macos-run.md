@@ -1,9 +1,9 @@
-# Running beifahrer on a MacBook (Apple silicon, macOS 27)
+# Running Beifahrer on a MacBook (Apple silicon, macOS 27)
 
 The handover for a person running this repository on their own MacBook. It exists because the
 prerequisites are **not** repository commands and are written down nowhere in this repo: a person
 who improvises them fails on a Homebrew package name, a Node major, or a Chromium binary that does
-not exist — and each of those failures looks like a beifahrer bug.
+not exist — and each of those failures looks like a Beifahrer bug.
 
 Work top to bottom. Every step carries the command that does it, or says why there is none. Where
 something is not settled, it is marked `<verify: …>` — check it, do not assume it.
@@ -56,7 +56,7 @@ comes from — not from CI:
 brew install gjs librsvg gobject-introspection
 ```
 
-| Package | Why beifahrer needs it |
+| Package | Why Beifahrer needs it |
 |---|---|
 | `gjs` | The app runs on GJS, and the extension is **bundled on GJS** too ([ADR 0002](adr/0002-build-on-gjs-not-wxt.md)). The e2e spawns `gjsify run app/dist/beifahrer.gjs.mjs`. |
 | `librsvg` | `extension/scripts/icons.ts` renders the sparkles icons from `icons/sparkles.svg` — same rasterizer `ship` uses. |

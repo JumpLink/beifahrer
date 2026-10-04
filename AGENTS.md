@@ -1,9 +1,9 @@
-# AGENTS.md — beifahrer
+# AGENTS.md — Beifahrer
 
-Operating guide for AI agents in the **beifahrer** repo, following the
+Operating guide for AI agents in the **Beifahrer** repo, following the
 [agents.md](https://agents.md/) convention; the human overview is in [README.md](README.md). A
 submodule of **werkstatt**, whose [AGENTS.md](../../AGENTS.md) holds the workspace rules — this file
-is the beifahrer layer and wins where the two differ. What is read once lives in
+is the Beifahrer layer and wins where the two differ. What is read once lives in
 [docs/](docs/README.md); every rule below links the file holding its detail.
 
 ## What this is
@@ -186,7 +186,7 @@ was the THIRD verbatim copy of postbote's read-only gate + stdio lifecycle; at 0
 signatures — so no client surface moved: `tools/list`, a read-only `tools/call`, the dropped-write
 call and the error path are byte-identical against the two bundles. **The result helpers are NOT
 part of that, and must not become part of it:** `text` / `failure` / `answer` (mcp/tools.ts) are
-beifahrer's, because a `forbidden` carries `[origin=… have=… need=…]` for the agent to relay and
+Beifahrer's, because a `forbidden` carries `[origin=… have=… need=…]` for the agent to relay and
 `mcpError`'s `{"error": …}` cannot hold it. **The tests did NOT move with the code:** `gate.test.ts`
 imports the gate from the package and keeps pinning the fail-closed direction, because a gate this
 repo does not own is the one case where "it was tested here once" stops being evidence.

@@ -162,7 +162,7 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
     return result(
       'failed',
       `${recipe.id} does not match tab ${tabId}` +
-        (probe.url ? '' : ' (its site is below level "read", so beifahrer cannot look at it)') +
+        (probe.url ? '' : ' (its site is below level "read", so Beifahrer cannot look at it)') +
         ' — recipes_for_tab lists the recipes that do',
     );
 

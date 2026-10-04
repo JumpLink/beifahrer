@@ -6,12 +6,12 @@
   [ADR 0005](0005-the-person-sees-and-stops-the-agent.md) (only the person pauses and resumes),
   [ADR 0014](0014-not-connected-speaks-first.md) (a missing connection is not quiet),
   [ADR 0008](0008-ui-on-adwaita-web.md) (the browser UI is Adwaita too)
-- **Asked for by:** the person, 2026-10-04: a native Adwaita app for beifahrer, not a web UI.
+- **Asked for by:** the person, 2026-10-04: a native Adwaita app for Beifahrer, not a web UI.
 
 ## Context
 
 The extension shows the person what the agent does, but only inside the browser. Nothing on the
-desktop says whether beifahrer is running, which agent sessions exist or whether a browser is
+desktop says whether Beifahrer is running, which agent sessions exist or whether a browser is
 connected. With ADR 0015 there is a contract to read. The question is what the window may do with it.
 
 ## Decision
@@ -49,7 +49,7 @@ be held once, which is why the two cannot share one. A person installs either or
 
 ## Consequences
 
-- The window shows what the BRIDGES know. Whether beifahrer is paused is visible in the browser's
+- The window shows what the BRIDGES know. Whether Beifahrer is paused is visible in the browser's
   toolbar button and nowhere else, and the window does not pretend otherwise.
 - Measured on macOS arm64 only (GJS and node-gi). Windows and Linux have not run it.
 - The application id is a public identity once published; changing it later means a new app.

@@ -22,7 +22,7 @@ export function reportOf(entries: readonly RegistryEntry[], skipped: number, now
 /** The headline per rung: the state, and for the two alarms the one next step (ADR 0014). */
 const HEADLINE: Record<Presence, (n: number) => string> = {
   'no-bridge': () =>
-    'No agent session is running, so no agent can use a browser. Start an agent that has beifahrer.',
+    'No agent session is running, so no agent can use a browser. Start an agent that has Beifahrer.',
   'no-browser': (n) =>
     `${n} agent session${n === 1 ? ' is' : 's are'} running, but no browser is connected to ${n === 1 ? 'it' : 'any'}. ` +
     'Open the browser with the extension, or check the pairing token (`beifahrer token`).',
