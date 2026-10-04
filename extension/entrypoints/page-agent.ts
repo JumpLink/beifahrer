@@ -1786,7 +1786,7 @@ if (!listening.__beifahrerListening) {
   // cannot say whether it is the one being asked must not answer: answering when it is not the
   // addressee is how a write lands in the wrong document.
   const myFrame = announceFrame();
-  browser.runtime.onMessage.addListener((message: unknown) => {
+  const onRequest = (message: unknown): PageResponse | Promise<PageResponse | undefined> | undefined => {
     const req = message as PageRequest | null;
     if (!req || typeof req !== 'object' || !('beifahrer' in req)) return undefined;
     if (req.frame !== undefined) {
@@ -1799,7 +1799,13 @@ if (!listening.__beifahrerListening) {
       });
     }
     return answer(req as PageRequest);
-  });
+  };
+  browser.runtime.onMessage.addListener(onRequest);
+  // Safari never delivers `tabs.sendMessage` to a script injected with `scripting.executeScript`
+  // (measured on Safari 27.0.1: a listener saw 0 of 5 messages), but `executeScript` with a `func`
+  // returns the result. inject.ts asks through this hook there. The isolated world keeps it out of
+  // the page's reach.
+  (globalThis as { __beifahrerAsk?: typeof onRequest }).__beifahrerAsk = onRequest;
 }
 
 /** The whole request handling, once the addressee question is settled. */
