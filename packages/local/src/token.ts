@@ -69,6 +69,19 @@ export interface PairingInfo {
   other: string | null;
 }
 
+/** The second token file, if it holds a token other than `token`. Never returns or logs a content. */
+function differingOther(otherPath: string | null, path: string, token: string): string | null {
+  try {
+    if (otherPath && otherPath !== path && existsSync(otherPath)) {
+      const theirs = readFileSync(otherPath, 'utf8').trim();
+      if (theirs && theirs !== token) return otherPath;
+    }
+  } catch {
+    // An unreadable second file is not the pairing's problem.
+  }
+  return null;
+}
+
 /** What a person needs to pair a browser. Creates the token on first use, like `beifahrer token`. */
 export function pairingInfo(
   env: Env = process.env,
@@ -77,15 +90,32 @@ export function pairingInfo(
 ): PairingInfo {
   const path = tokenPath(env, platform, home);
   const { token } = loadOrCreateToken(path);
-  const otherPath = otherTokenPath(env, platform, home);
-  let other: string | null = null;
+  return { token, path, other: differingOther(otherTokenPath(env, platform, home), path, token) };
+}
+
+export interface TokenState {
+  path: string;
+  /** A non-empty token is in the file. `doctor` looks and does not create one. */
+  exists: boolean;
+  other: string | null;
+}
+
+/** Like `pairingInfo`, but read-only: a diagnosis must not change what it diagnoses. */
+export function inspectToken(
+  env: Env = process.env,
+  platform: string = process.platform,
+  home: string = homedir(),
+): TokenState {
+  const path = tokenPath(env, platform, home);
+  let token = '';
   try {
-    if (otherPath && otherPath !== path && existsSync(otherPath)) {
-      const theirs = readFileSync(otherPath, 'utf8').trim();
-      if (theirs && theirs !== token) other = otherPath;
-    }
+    if (existsSync(path)) token = readFileSync(path, 'utf8').trim();
   } catch {
-    // An unreadable second file is not the pairing's problem.
+    // Unreadable counts as not there: a bridge could not use it either.
   }
-  return { token, path, other };
+  return {
+    path,
+    exists: token !== '',
+    other: token ? differingOther(otherTokenPath(env, platform, home), path, token) : null,
+  };
 }
