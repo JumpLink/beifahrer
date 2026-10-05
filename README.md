@@ -428,6 +428,11 @@ its place.
 
 Then open a site, click the Beifahrer toolbar button, and pick a level.
 
+If the browser says it is not connected, `beifahrer doctor` says why: no free port in the range, a
+listener on a port that no session announced, no token or two different ones, no agent session, no
+browser on it. Each finding comes with the one thing to do. It changes nothing (it does not even
+create the token) and exits 1 only when something is broken, not for a warning.
+
 Ten sessions at once is the default. For more, raise the range on both sides to the same number:
 `BEIFAHRER_PORT_COUNT` (or `--port-count`) for the bridges, and **Ports** in the extension options.
 

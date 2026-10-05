@@ -1,8 +1,8 @@
 import { describe, expect, it } from '@gjsify/unit';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { otherTokenPath, pairingInfo } from '@beifahrer/local';
+import { inspectToken, otherTokenPath, pairingInfo } from '@beifahrer/local';
 
 function withHome(run: (home: string) => void) {
   const home = mkdtempSync(join(tmpdir(), 'beifahrer-pairing-'));
@@ -64,6 +64,38 @@ export default async () => {
         expect(pairingInfo({}, 'darwin', home).other).toBe(null);
         put(join(home, '.config', 'beifahrer', 'token'), 'same-token-cccccccccccccc');
         expect(pairingInfo({}, 'darwin', home).other).toBe(null);
+      });
+    });
+  });
+
+  await describe('inspectToken', async () => {
+    await it('creates NOTHING: a diagnosis must not change what it diagnoses', async () => {
+      withHome((home) => {
+        const env = { BEIFAHRER_TOKEN_FILE: join(home, 'cfg', 'token') };
+        const state = inspectToken(env, 'linux', home);
+        expect(state.exists).toBe(false);
+        expect(state.path).toBe(env.BEIFAHRER_TOKEN_FILE);
+        expect(existsSync(join(home, 'cfg'))).toBe(false);
+      });
+    });
+
+    await it('sees a token, and an empty file is none', async () => {
+      withHome((home) => {
+        const path = join(home, 'cfg', 'token');
+        put(path, 'a-token-aaaaaaaaaaaaaaaa');
+        expect(inspectToken({ BEIFAHRER_TOKEN_FILE: path }, 'linux', home).exists).toBe(true);
+        put(path, '');
+        expect(inspectToken({ BEIFAHRER_TOKEN_FILE: path }, 'linux', home).exists).toBe(false);
+      });
+    });
+
+    await it('names a second token file with a different token, like pairingInfo, and not its content', async () => {
+      withHome((home) => {
+        put(join(home, 'Library', 'Application Support', 'beifahrer', 'token'), 'current-token-aaaaaaaaaaaa');
+        put(join(home, '.config', 'beifahrer', 'token'), 'older-token-bbbbbbbbbbbbbbbbb');
+        const state = inspectToken({}, 'darwin', home);
+        expect(state.other).toBe(join(home, '.config', 'beifahrer', 'token'));
+        expect(JSON.stringify(state)).not.toMatch(/older-token/);
       });
     });
   });

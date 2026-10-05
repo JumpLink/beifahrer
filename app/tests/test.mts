@@ -25,6 +25,7 @@ import refs from './unit/core/refs.test.ts';
 import toolbar from './unit/core/toolbar.test.ts';
 import shortcut from './unit/core/shortcut.test.ts';
 import agents from './unit/core/agents.test.ts';
+import doctor from './unit/core/doctor.test.ts';
 import registry from './unit/core/registry.test.ts';
 import bridge from './unit/bridge/bridge.test.ts';
 import configDir from './unit/bridge/config-dir.test.ts';
@@ -43,6 +44,7 @@ import registryDir from './unit/registry/registry-dir.test.ts';
 import registryStore from './unit/registry/store.test.ts';
 import registryPublisher from './unit/registry/publisher.test.ts';
 import configCommand from './unit/registry/config.test.ts';
+import doctorCommand from './unit/registry/doctor.test.ts';
 import statusCommand from './unit/registry/status.test.ts';
 
 run({
@@ -68,6 +70,7 @@ run({
   toolbar,
   shortcut,
   agents,
+  doctor,
   registry,
   bridge,
   bridgeDesktop,
@@ -87,4 +90,5 @@ run({
   registryPublisher,
   statusCommand,
   configCommand,
+  doctorCommand,
 });
