@@ -1,7 +1,7 @@
 {
   "name": "@beifahrer/local",
   "version": "0.1.4",
-  "license": "AGPL-3.0-or-later",
+  "license": "LGPL-3.0-or-later",
   "private": true,
   "type": "module",
   "description": "What beifahrer keeps on the person's own machine and every local process shares: the config directory, the pairing token and the session registry's files. Uses node:fs, node:os and node:path and nothing else, so the CLI and the desktop app read the same files the same way on GJS and on Node. No DOM, no gi://.",
