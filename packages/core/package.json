@@ -1,7 +1,7 @@
 {
   "name": "@beifahrer/core",
   "version": "0.1.4",
-  "license": "AGPL-3.0-or-later",
+  "license": "LGPL-3.0-or-later",
   "private": true,
   "type": "module",
   "description": "Pure kernel shared by the bridge and the extension: the wire protocol, the per-origin policy and the redaction of tabs the agent may not see. No dependencies, no gi://, no node:*, no browser globals — every security decision in this project is unit-testable on Node and GJS.",
