@@ -201,4 +201,7 @@ repo does not own is the one case where "it was tested here once" stops being ev
 - This repo is a submodule of werkstatt: commit here first, then bump the pointer in the parent.
 - All `@gjsify/*` pins are the same exact version; `gjsify upgrade --check` is the gate (offline, 30
   deps) and `gjsify upgrade --align` the fix.
+- Licences: apps (`app/`, `extension/`, `desktop/`) and the root are AGPL-3.0-or-later; every
+  package under `packages/` is LGPL-3.0-or-later (own `LICENSE` + `COPYING`). A package never
+  depends on an AGPL workspace. No SPDX headers in sources.
 - Docs in English. Comments explain *why*.

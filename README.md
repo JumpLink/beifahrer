@@ -512,4 +512,6 @@ person's AMO key) and any store submission — both documented in the same file.
 
 ## License
 
-[AGPL-3.0-or-later](LICENSE)
+The apps (`app/`, `extension/`, `desktop/`) and the repository root are
+[AGPL-3.0-or-later](LICENSE). The reusable packages under `packages/` are
+[LGPL-3.0-or-later](packages/core/LICENSE), each with its own `LICENSE` and `COPYING`.
