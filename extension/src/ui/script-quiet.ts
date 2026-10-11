@@ -61,13 +61,12 @@ export function scriptQuietControl(options: {
   cancel.setAttribute('label', t('action_cancel'));
   cancel.addEventListener('click', () => {
     warning.hidden = true;
-    render(row.active !== false);
+    render(false);
   });
   const allow = document.createElement('gtk-button');
   allow.setAttribute('label', t('action_allow_anyway'));
   allow.addEventListener('click', () => {
     warning.hidden = true;
-    setQuietly(row, false);
     render(true);
     void save(true);
   });
@@ -87,6 +86,7 @@ export function scriptQuietControl(options: {
   });
 
   function render(quiet: boolean): void {
+    setQuietly(row, !quiet);
     row.setAttribute('subtitle', quiet ? t(NOTE_KEY[scope]) : '');
     note.hidden = !quiet;
   }
