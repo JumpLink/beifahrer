@@ -54,6 +54,13 @@
           </adw-toggle-group>
           <adw-preferences-group id="confirm-group" hidden>
             <adw-switch-row id="confirm" data-i18n-title="confirm_writes"></adw-switch-row>
+            <adw-switch-row id="confirm-scripts" data-i18n-title="confirm_scripts" hidden></adw-switch-row>
+            <adw-action-row id="confirm-scripts-warning" class="warning" hidden>
+              <gtk-image slot="prefix" icon-name="dialog-warning-symbolic"></gtk-image>
+            </adw-action-row>
+            <adw-action-row id="confirm-scripts-note" class="warning" hidden>
+              <gtk-image slot="prefix" icon-name="dialog-warning-symbolic"></gtk-image>
+            </adw-action-row>
           </adw-preferences-group>
         </section>
 
@@ -73,6 +80,13 @@
             <gtk-button id="wide-end" slot="suffix" flat data-i18n-label="action_end"></gtk-button>
           </adw-action-row>
           <adw-switch-row id="wide-confirm" data-i18n-title="confirm_writes" hidden></adw-switch-row>
+          <adw-switch-row id="wide-scripts" data-i18n-title="confirm_scripts" hidden></adw-switch-row>
+          <adw-action-row id="wide-scripts-warning" class="warning" hidden>
+            <gtk-image slot="prefix" icon-name="dialog-warning-symbolic"></gtk-image>
+          </adw-action-row>
+          <adw-action-row id="wide-scripts-note" class="warning" hidden>
+            <gtk-image slot="prefix" icon-name="dialog-warning-symbolic"></gtk-image>
+          </adw-action-row>
         </adw-preferences-group>
 
         <adw-preferences-group id="agents" data-i18n-title="agents_title" hidden></adw-preferences-group>

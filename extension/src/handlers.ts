@@ -174,7 +174,9 @@ async function gate(
   // at another level would otherwise pass through unconfirmed.
   const always = ALWAYS_CONFIRM.has(method);
   const granted = await hasHostPermission(origin);
-  if (decision.allow && granted) return { origin, confirm: decision.confirm || always };
+  // `decide` has already applied the switch that silences THIS method (ADR 0016): a script reads
+  // `confirmScripts` there and a write `confirmWrites`, so nothing may be OR-ed onto it here.
+  if (decision.allow && granted) return { origin, confirm: decision.confirm };
   const need = decision.allow ? REQUIRED_LEVEL[method]! : decision.need;
   const onceLevel = ctx.once?.get(origin);
   const answer =
@@ -185,8 +187,14 @@ async function gate(
     ctx.settleAfter = true;
     (ctx.once ??= new Map()).set(origin, need);
   }
+  // An access only a prompt's answer opened is quiet for nothing: the answer was one question about
+  // one site, not the person's own switch. Where the level was already there and the prompt only
+  // brought the host permission, the person's own rule or grant still speaks.
   if (answer && (await hasHostPermission(origin)))
-    return { origin, confirm: always || (decision.allow ? decision.confirm : need === 'write') };
+    return {
+      origin,
+      confirm: decision.allow ? decision.confirm : always || need === 'write',
+    };
   if (!decision.allow) return refuse(method, decision);
   return fail(
     'forbidden',
@@ -570,7 +578,7 @@ async function confirmScript(ctx: CallContext, origin: string, script: string): 
 }
 
 /**
- * Re-check a tab's origin and the person's switches after a window the person had to answer.
+ * Re-check a tab's origin and the person's switches right before a script runs.
  *
  * A confirmation can sit open for two minutes. In that time the tab may navigate — the page can do
  * it itself, and so can the person — so the origin the person said yes to may no longer be the one
@@ -578,6 +586,10 @@ async function confirmScript(ctx: CallContext, origin: string, script: string): 
  * has no ref to go stale, so this is where the check belongs. The pause and the level are re-read
  * for the same reason: Stop pressed while the window was up must stop this call too, which is the
  * promise ADR 0005 makes.
+ *
+ * It runs whether or not a window was open (ADR 0016). Without one there is no two minutes of
+ * reading, but the origin the decision was made on still has to be the origin the script runs in —
+ * a decision about this page is not a decision about whatever the tab moves to next.
  */
 async function stillTheSameOrigin(tabId: number, origin: string, method: Method): Promise<void> {
   const where = (await getTab(tabId)).url;
@@ -1369,13 +1381,16 @@ const handlers: { [M in Method]: Handler<M> } = {
       );
     }
     const tab = await getTab(tabId);
-    // `confirm` is true here whatever the site's rule says: ALWAYS_CONFIRM (policy.ts) is what keeps
-    // `confirmWrites: false` from reaching a method the level table does not describe.
+    // `confirm` is what the person's own switch for SCRIPTS says (ADR 0016): `confirmWrites: false`
+    // cannot reach this method, and `confirmScripts: false` cannot reach an ordinary write. Asking
+    // is the default, so a site the person said nothing about still opens the window.
     const { origin, confirm } = await gate('page.evaluate', tab.url, policy, ctx);
     if (confirm) await confirmScript(ctx, origin, request.script);
-    // The window can sit there for two minutes, and in that time the tab can navigate and the
-    // person can act. The person answered for the origin the window named, so that origin must
-    // still be the one the script would run in — and the pause must not have been pressed.
+    // Re-read where the tab is and whether the person is still unpaused BEFORE the script runs, and
+    // whether or not a window was open. With the window the tab can navigate while they read the
+    // code, so the answer was about an origin the script would no longer run in; without it the
+    // person answered for THIS origin and the same check says the decision still belongs to the
+    // page the script is about to run in. Either way the check happens, not only after a window.
     await stillTheSameOrigin(tabId, origin, 'page.evaluate');
     return (await page(tabId, ctx, {
       beifahrer: 'evaluate',

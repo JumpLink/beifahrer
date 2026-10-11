@@ -36,11 +36,12 @@ agent-supplied JavaScript *by default*. Every capability is a named method in `R
 method means adding both there first. `page.evaluate` is the one exception and it is the load-bearing
 one ([ADR 0012](docs/adr/0012-running-the-agents-own-script-in-the-page.md)): own feature switch
 `script`, **off by default**; `write` level, never `read`; `ALWAYS_CONFIRM` (policy.ts), so no
-`confirmWrites: false` can silence it; the confirm window shows the whole script and offers no
-"Always allow"; the result is projected into bounded JSON with a `truncated` flag; the extension's
+`confirmWrites: false` can silence it — only its OWN switch `confirmScripts: false`, per rule or `*`
+grant, set by the person behind a warning ([ADR 0016](docs/adr/0016-scripts-without-asking.md));
+the confirm window shows the whole script and offers no "Always allow"; the result is projected into bounded JSON with a `truncated` flag; the extension's
 own `chrome`/`browser` globals are shadowed out of the script's scope, because a script that could
-read `storage` could clear the pause and widen every level; and the tab's origin is re-read after the
-window, since the person answered for a page and the page can move. It runs in the page agent's
+read `storage` could clear the pause and widen every level; and the tab's origin is re-read before every
+run, window or not, since the person answered for a page and the page can move. It runs in the page agent's
 isolated world, and `world: "main"` is refused with a reason — no extension API runs its own code as
 a string in a page's world. Removing any of those conditions removes the reason it may exist;
 changing them is an ADR, not a patch. One more condition is not ours: **a Manifest V3 content script
@@ -93,8 +94,8 @@ in the stored policy; `decide` checks their end at decision time, and `grants.ts
 access back when they end (`hostsToRelease`). An explicit rule beats the wildcard, an explicit
 `none` blocks every grant and every prompt, and a write only a grant allows asks unless the person
 switched asking off for that grant (`Grant.confirmWrites`, `*` only, read from the grant live for
-the session asking, [ADR 0013](docs/adr/0013-all-sites-without-asking.md)) — `page.evaluate` still
-always asks.
+the session asking, [ADR 0013](docs/adr/0013-all-sites-without-asking.md)) — `page.evaluate` answers only to
+`confirmScripts` ([ADR 0016](docs/adr/0016-scripts-without-asking.md)).
 Session-bound grants name the extension's own id for the connection, never the bridge's.
 |**Asking on demand fails closed.** Below the level, `gate` may open the confirm window
 (`access-prompt.ts`): not when paused, not for a switched-off feature (preflight refuses first),

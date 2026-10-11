@@ -118,17 +118,17 @@ export function endWildcard(): Promise<void> {
 }
 
 /**
- * The person's "Ask before changes" for the running "all sites" grant: from now on the writes it
- * allows are made without the window.
+ * The person's two switches on the running "all sites" grant: from now on the writes it allows are
+ * made without the window, and the scripts it allows run without one either (ADR 0016).
  *
  * Every live wildcard is set, not just the one the popup happened to show: the popup has one row
  * for "all sites", and two grants that disagree behind it would be a row that lies. `true` stores
  * nothing, because absent is what asking means. Ending the grant ends the setting with it: it
  * lives in `storage.session`, never in the stored policy.
  */
-export function setWildcardQuiet(confirmWrites: boolean): Promise<void> {
+export function setWildcardQuiet(confirmWrites: boolean, confirmScripts: boolean): Promise<void> {
   return serial(async () => {
-    await storeGrants(withWildcardQuiet(await loadGrants(), confirmWrites));
+    await storeGrants(withWildcardQuiet(await loadGrants(), { confirmWrites, confirmScripts }));
   });
 }
 
