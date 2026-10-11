@@ -24,6 +24,13 @@ export interface OriginRule {
    * Absent means true — asking is the default, not the opt-in.
    */
   confirmWrites?: boolean;
+  /**
+   * The same promise for `page.evaluate`, kept apart from `confirmWrites` on purpose (ADR 0016).
+   * A script can do what every write does and more, so "don't ask me before you change this form"
+   * must not cover code the person has never read — and the other way round: a person who works
+   * with an agent on one site does not want a window per script either. Absent means true.
+   */
+  confirmScripts?: boolean;
 }
 
 /**
@@ -49,6 +56,12 @@ export interface Grant {
    * answer to "may this agent write here" is not an answer to "may it write here silently".
    */
   confirmWrites?: boolean;
+  /**
+   * The "all sites" half of the person's own script switch (ADR 0016), read exactly like
+   * `confirmWrites` above: live for the session asking, honoured for `*` alone, absent means
+   * asking.
+   */
+  confirmScripts?: boolean;
 }
 
 /** When and for whom a decision is made. Without it, temporary grants do not apply at all. */
@@ -218,15 +231,25 @@ export const REQUIRED_LEVEL = {
 export type Method = keyof typeof REQUIRED_LEVEL;
 
 /**
- * Methods a site rule may not silence. `confirmWrites: false` says "this origin needs no
- * confirmation" — true for a form the person watches the agent fill in. It must not extend to a
- * method whose reach the level table does not describe, because the answer to "you may not ask me
- * again" would then cover code the person never saw.
+ * Methods that confirm under a switch of their OWN, which `confirmWrites` may not reach.
  *
- * A script keeps its own switch and its own confirmation forever: only the person turns the
- * capability on, and every single run is shown to them (ADR 0012).
+ * `confirmWrites: false` says "this origin needs no confirmation" — true for a form the person
+ * watches the agent fill in. It must not extend to a method whose reach the level table does not
+ * describe, because the answer to "you may not ask me again" would then cover code the person
+ * never saw (ADR 0012). So `page.evaluate` is answered by `confirmScripts`, a separate field on the
+ * same rule, set and unset only by the person: asking is still the default, and every condition
+ * ADR 0012 puts around the method is unchanged.
  */
 export const ALWAYS_CONFIRM: ReadonlySet<Method> = new Set<Method>(['page.evaluate']);
+
+/**
+ * Which field of a rule or a grant silences `method`. A method outside `ALWAYS_CONFIRM` answers to
+ * `confirmWrites`; one inside it to the field named here, which is what keeps the two switches from
+ * ever silencing each other.
+ */
+export function confirmFieldOf(method: Method): 'confirmWrites' | 'confirmScripts' {
+  return ALWAYS_CONFIRM.has(method) ? 'confirmScripts' : 'confirmWrites';
+}
 
 export function isMethod(value: unknown): value is Method {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(REQUIRED_LEVEL, value);
@@ -251,8 +274,9 @@ export type Decision =
  *
  * `confirm` is true for every write unless the person switched confirmation off for that origin
  * in an explicit rule — or, for an "all sites" grant they switched off with `confirmWrites: false`,
- * for the writes it allows. `page.evaluate` is in `ALWAYS_CONFIRM` and asks whatever the rule or
- * the grant says. A write that only an on-demand prompt's answer allowed always asks: a prompt is
+ * for the writes it allows. `page.evaluate` is in `ALWAYS_CONFIRM`, so it answers to
+ * `confirmScripts` on the same rule or grant instead: one switch never silences the other
+ * (ADR 0016). A write that only an on-demand prompt's answer allowed always asks: a prompt is
  * one question about one site, never a standing permission.
  */
 export function decide(
@@ -273,24 +297,32 @@ export function decide(
       askable: access.origin !== null && access.source !== 'blocked',
     };
   }
-  const quiet = quietFor(access, policy, ctx);
-  return { allow: true, confirm: (need === 'write' && !quiet) || ALWAYS_CONFIRM.has(method) };
+  // A method with a switch of its own confirms unless THAT switch is off, whatever level it needs;
+  // every other write confirms unless `confirmWrites` is off.
+  const own = ALWAYS_CONFIRM.has(method);
+  const quiet = quietFor(access, policy, ctx, confirmFieldOf(method));
+  return { allow: true, confirm: (need === 'write' || own) && !quiet };
 }
 
 /**
- * Whether the access the decision was made on says its writes need no asking.
+ * Whether the access the decision was made on says `field` needs no asking.
  *
  * One source speaks at a time, and only the source that gave the level may quiet it: an explicit
  * rule for the origin (the person's own setting for that site), or the live "all sites" grant
  * behind a `wildcard` access. An origin a grant of that one origin raised is never quiet — that
  * grant exists because a prompt was answered.
  */
-function quietFor(access: Access, policy: Policy, ctx: AccessContext | undefined): boolean {
-  if (access.source === 'rule') return policy.origins[access.origin!]?.confirmWrites === false;
+function quietFor(
+  access: Access,
+  policy: Policy,
+  ctx: AccessContext | undefined,
+  field: 'confirmWrites' | 'confirmScripts',
+): boolean {
+  if (access.source === 'rule') return policy.origins[access.origin!]?.[field] === false;
   if (access.source !== 'wildcard' || !ctx) return false;
   // The grant THIS session writes under, not the longest-running one anywhere: a wildcard bound
   // to another session speaks for nobody else, not even to say "no asking".
-  return wildcardGrant(policy.grants ?? [], ctx.now, ctx)?.confirmWrites === false;
+  return wildcardGrant(policy.grants ?? [], ctx.now, ctx)?.[field] === false;
 }
 
 /**
@@ -339,16 +371,23 @@ export const ASK_TIMEOUT_MS = 120_000;
 export const MAX_GRANT_MS = 24 * 60 * 60 * 1000;
 
 /**
- * The person's one "Ask before changes" switch for "all sites", applied to every live wildcard
- * grant: the popup has one row, so grants that disagree behind it would be a row that lies. Turning
- * asking back ON removes a stored `false` rather than leaving it, because absent is what asking
- * means and a switch that shows "ask" must not keep a grant quiet.
+ * The person's two "all sites" switches, applied to every live wildcard grant: the popup has one
+ * row each, so grants that disagree behind them would be a row that lies. Turning asking back ON
+ * removes a stored `false` rather than leaving it, because absent is what asking means and a switch
+ * that shows "ask" must not keep a grant quiet.
  */
-export function withWildcardQuiet(grants: readonly Grant[], confirmWrites: boolean): Grant[] {
+export function withWildcardQuiet(
+  grants: readonly Grant[],
+  ask: { confirmWrites: boolean; confirmScripts: boolean },
+): Grant[] {
   return grants.map((g) => {
     if (g.scope !== '*') return g;
-    const { confirmWrites: _was, ...rest } = g;
-    return confirmWrites ? rest : { ...rest, confirmWrites: false };
+    const { confirmWrites: _w, confirmScripts: _s, ...rest } = g;
+    return {
+      ...rest,
+      ...(ask.confirmWrites ? {} : { confirmWrites: false }),
+      ...(ask.confirmScripts ? {} : { confirmScripts: false }),
+    };
   });
 }
 
@@ -375,11 +414,12 @@ export function parseGrants(raw: unknown, now: number): Grant[] {
       if (typeof g.sessionId !== 'string' || !g.sessionId) continue;
       grant.sessionId = g.sessionId;
     }
-    // `confirmWrites` is kept only when it is exactly `false`, and a value that is not is simply
-    // not carried over: the grant then asks, which is where every unknown value belongs. Dropping
-    // the whole grant instead would lock the person out of the sites they just allowed — the
-    // treatment `parsePolicy` gives the same field on a rule.
+    // `confirmWrites` and `confirmScripts` are kept only when they are exactly `false`, and a value
+    // that is not is simply not carried over: the grant then asks, which is where every unknown
+    // value belongs. Dropping the whole grant instead would lock the person out of the sites they
+    // just allowed — the treatment `parsePolicy` gives the same fields on a rule.
     if (g.confirmWrites === false) grant.confirmWrites = false;
+    if (g.confirmScripts === false) grant.confirmScripts = false;
     out.push(grant);
   }
   return out;
@@ -391,6 +431,22 @@ export function parseGrants(raw: unknown, now: number): Grant[] {
  */
 export function withRule(policy: Policy, origin: string, rule: OriginRule): Policy {
   return { origins: { ...policy.origins, [origin]: rule } };
+}
+
+/**
+ * The per-site half of `withWildcardQuiet`: the person's own switch for one origin.
+ *
+ * Switching asking back ON removes the stored `false` rather than leaving it, and the OTHER switch
+ * is carried over untouched — the two never speak for each other (ADR 0016), so a page that writes
+ * one row cannot drop the other.
+ */
+export function withRuleQuiet(
+  rule: OriginRule,
+  field: 'confirmWrites' | 'confirmScripts',
+  ask: boolean,
+): OriginRule {
+  const { [field]: _was, ...rest } = rule;
+  return ask ? rest : { ...rest, [field]: false };
 }
 
 /** A new policy that has no rule for `origin`: back to the default (none, but not blocked). */
@@ -417,8 +473,17 @@ export function parsePolicy(raw: unknown): Policy {
       continue;
     }
     if (level !== 'read' && level !== 'write') continue;
-    const confirmWrites = (value as { confirmWrites?: unknown }).confirmWrites;
-    origins[key] = confirmWrites === false ? { level, confirmWrites: false } : { level };
+    // Absent is what asking means, so a stored `false` is carried over and anything else is not
+    // (ADR 0013 for `confirmWrites`, ADR 0016 for `confirmScripts`).
+    const rule = (value as { confirmWrites?: unknown; confirmScripts?: unknown }) ?? {};
+    origins[key] =
+      rule.confirmWrites === false || rule.confirmScripts === false
+        ? {
+            level,
+            ...(rule.confirmWrites === false ? { confirmWrites: false as const } : {}),
+            ...(rule.confirmScripts === false ? { confirmScripts: false as const } : {}),
+          }
+        : { level };
   }
   return { origins };
 }

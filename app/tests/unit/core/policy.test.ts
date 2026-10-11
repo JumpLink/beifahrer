@@ -15,6 +15,7 @@ import {
   wildcardGrant,
   withWildcardQuiet,
   withRule,
+  withRuleQuiet,
   withoutRule,
   type Grant,
   type Policy,
@@ -121,6 +122,20 @@ export default async () => {
       const next = withoutRule(policy, 'https://bank.example');
       expect(Object.keys(next.origins).includes('https://bank.example')).toBe(false);
       expect(Object.keys(policy.origins).includes('https://bank.example')).toBe(true);
+    });
+    await it('withRuleQuiet drops a stored false when asking goes back on, and keeps the other', async () => {
+      const rule = { level: 'write', confirmWrites: false, confirmScripts: false } as const;
+      const askScripts = withRuleQuiet(rule, 'confirmScripts', true);
+      expect('confirmScripts' in askScripts).toBe(false);
+      expect(askScripts.confirmWrites).toBe(false);
+      expect(askScripts.level).toBe('write');
+      const askWrites = withRuleQuiet(rule, 'confirmWrites', true);
+      expect('confirmWrites' in askWrites).toBe(false);
+      expect(askWrites.confirmScripts).toBe(false);
+      // Switching asking OFF stores exactly `false`, and touches no other field.
+      const quiet = withRuleQuiet({ level: 'write', confirmScripts: false }, 'confirmWrites', false);
+      expect(quiet).toStrictEqual({ level: 'write', confirmWrites: false, confirmScripts: false });
+      expect(rule).toStrictEqual({ level: 'write', confirmWrites: false, confirmScripts: false });
     });
   });
 
@@ -229,7 +244,7 @@ export default async () => {
         confirm: false,
       });
     });
-    await it('still asks for a script — ALWAYS_CONFIRM outranks a grant too', async () => {
+    await it('still asks for a script — confirmWrites outranks no script switch (ADR 0016)', async () => {
       expect(decide(quiet, 'page.evaluate', 'https://elsewhere.example/', at())).toStrictEqual({
         allow: true,
         confirm: true,
@@ -312,7 +327,7 @@ export default async () => {
     });
     await it('withWildcardQuiet(true) removes a stored false, so switching asking back on asks', async () => {
       const quiet = [{ scope: '*', level: 'write', confirmWrites: false }] as Grant[];
-      const back = withWildcardQuiet(quiet, true);
+      const back = withWildcardQuiet(quiet, { confirmWrites: true, confirmScripts: true });
       expect('confirmWrites' in back[0]!).toBe(false);
       expect(decide(withGrants(back), 'page.fill', 'https://a.example/', at(NOW, 'conn-a'))).toStrictEqual({
         allow: true,
@@ -325,10 +340,229 @@ export default async () => {
         { scope: '*', level: 'write' },
         { scope: 'https://a.example', level: 'write' },
       ] as Grant[];
-      const out = withWildcardQuiet(grants, false);
+      const out = withWildcardQuiet(grants, { confirmWrites: false, confirmScripts: false });
       expect(out[0]!.confirmWrites).toBe(false);
+      expect(out[0]!.confirmScripts).toBe(false);
       expect(out[1]!.confirmWrites).toBe(false);
+      expect(out[1]!.confirmScripts).toBe(false);
       expect('confirmWrites' in out[2]!).toBe(false);
+      expect('confirmScripts' in out[2]!).toBe(false);
+    });
+    await it('withWildcardQuiet moves each switch on its own, and removes the one turned back on', async () => {
+      const grants = [{ scope: '*', level: 'write', confirmWrites: false, confirmScripts: false }] as Grant[];
+      // Writes quiet, scripts asking again: the stored false for scripts is gone, writes stay off.
+      const onlyWrites = withWildcardQuiet(grants, { confirmWrites: false, confirmScripts: true });
+      expect(onlyWrites[0]!.confirmWrites).toBe(false);
+      expect('confirmScripts' in onlyWrites[0]!).toBe(false);
+      // The other way round, and the other field of the grant is never invented.
+      const onlyScripts = withWildcardQuiet(grants, { confirmWrites: true, confirmScripts: false });
+      expect('confirmWrites' in onlyScripts[0]!).toBe(false);
+      expect(onlyScripts[0]!.confirmScripts).toBe(false);
+      // Both asking again: nothing stored at all.
+      const asked = withWildcardQuiet(grants, { confirmWrites: true, confirmScripts: true });
+      expect('confirmWrites' in asked[0]!).toBe(false);
+      expect('confirmScripts' in asked[0]!).toBe(false);
+      expect(decide(withGrants(asked), 'page.evaluate', 'https://a.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+    });
+  });
+
+  // The person's own switch for scripts, kept apart from the one for writes (ADR 0016). Every case
+  // below is a way one of the two could silence the other, or a way asking could stop being the
+  // default.
+  await describe('scripts without asking', async () => {
+    const write = { origins: { 'https://shop.example': { level: 'write' as const } } };
+    await it('asks for a script on a site the person said nothing about', async () => {
+      expect(decide(write, 'page.evaluate', 'https://shop.example/x', at())).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+    });
+    await it('confirmScripts: false on the site stops the window for scripts alone', async () => {
+      const quiet: Policy = {
+        origins: { 'https://shop.example': { level: 'write', confirmScripts: false } },
+      };
+      expect(decide(quiet, 'page.evaluate', 'https://shop.example/x', at())).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+      // …and says nothing about the ordinary writes, which still go through confirmWrites.
+      expect(decide(quiet, 'page.click', 'https://shop.example/x', at())).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+    });
+    await it('confirmWrites: false stops the window for writes alone', async () => {
+      const quiet: Policy = {
+        origins: { 'https://shop.example': { level: 'write', confirmWrites: false } },
+      };
+      expect(decide(quiet, 'page.fill', 'https://shop.example/x', at())).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+      // A script is still shown in full: "don't ask me before you change this form" is not an
+      // answer about code the person has never read (ADR 0012).
+      expect(decide(quiet, 'page.evaluate', 'https://shop.example/x', at())).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+    });
+    await it('the two switches are independent in every combination', async () => {
+      const cases: [boolean | undefined, boolean | undefined, boolean][] = [
+        // [confirmWrites, confirmScripts, does the script ask]
+        [undefined, undefined, true],
+        [false, undefined, true],
+        [undefined, false, false],
+        [false, false, false],
+        [true, false, false],
+        [false, true, true],
+        [true, true, true],
+      ];
+      for (const [writes, scripts, asks] of cases) {
+        const p: Policy = {
+          origins: {
+            'https://shop.example': {
+              level: 'write',
+              ...(writes === undefined ? {} : { confirmWrites: writes }),
+              ...(scripts === undefined ? {} : { confirmScripts: scripts }),
+            },
+          },
+        };
+        expect(decide(p, 'page.evaluate', 'https://shop.example/x', at())).toStrictEqual({
+          allow: true,
+          confirm: asks,
+        });
+        // The ordinary write follows confirmWrites alone, whatever the script switch says.
+        expect(decide(p, 'page.click', 'https://shop.example/x', at())).toStrictEqual({
+          allow: true,
+          confirm: writes !== false,
+        });
+      }
+    });
+    await it('still refuses a script below write, quiet switch or not', async () => {
+      const quiet: Policy = {
+        origins: { 'https://bank.example': { level: 'read', confirmScripts: false } },
+      };
+      expect(decide(quiet, 'page.evaluate', 'https://bank.example/inbox', at())).toStrictEqual({
+        allow: false,
+        origin: 'https://bank.example',
+        have: 'read',
+        need: 'write',
+        askable: true,
+      });
+    });
+    await it('still refuses a script on a blocked site, quiet switch or not', async () => {
+      const blocked: Policy = {
+        origins: { 'https://blocked.example': { level: 'none', confirmScripts: false } },
+      };
+      const d = decide(blocked, 'page.evaluate', 'https://blocked.example/', at());
+      expect(d.allow).toBe(false);
+      expect(d.allow === false && d.askable).toBe(false);
+    });
+    await it('the wildcard grant is the "all sites" half of the same switch', async () => {
+      const quiet = withGrants([{ scope: '*', level: 'write', confirmScripts: false }]);
+      expect(decide(quiet, 'page.evaluate', 'https://elsewhere.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+      // Writes are untouched by the script switch, both directions.
+      expect(decide(quiet, 'page.click', 'https://elsewhere.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+      const writesQuiet = withGrants([{ scope: '*', level: 'write', confirmWrites: false }]);
+      expect(decide(writesQuiet, 'page.evaluate', 'https://elsewhere.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+    });
+    await it('ends with the grant it belongs to', async () => {
+      const hour = withGrants([{ scope: '*', level: 'write', until: NOW + HOUR, confirmScripts: false }]);
+      expect(decide(hour, 'page.evaluate', 'https://elsewhere.example/', at(NOW + HOUR - 1))).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+      expect(decide(hour, 'page.evaluate', 'https://elsewhere.example/', at(NOW + HOUR)).allow).toBe(false);
+    });
+    await it('is read per session, so another session quiet grant silences nobody', async () => {
+      const theirs = withGrants([{ scope: '*', level: 'write', sessionId: 'conn-b', confirmScripts: false }]);
+      expect(decide(theirs, 'page.evaluate', 'https://elsewhere.example/', at(NOW, 'conn-b'))).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+      // conn-a has no grant of its own here, so it has no access at all, quiet or not.
+      expect(decide(theirs, 'page.evaluate', 'https://elsewhere.example/', at(NOW, 'conn-a')).allow).toBe(
+        false,
+      );
+      // And without a session there is no grant either.
+      expect(decide(theirs, 'page.evaluate', 'https://elsewhere.example/', at()).allow).toBe(false);
+    });
+    await it('is honoured for the wildcard alone, never for a grant of one origin', async () => {
+      // "For this session" on one site answers a prompt, and a prompt is never a licence to run
+      // code there silently — even if the field somehow arrives on such a grant.
+      const answered = withGrants([
+        { scope: 'https://elsewhere.example', level: 'write', confirmScripts: false },
+      ]);
+      expect(decide(answered, 'page.evaluate', 'https://elsewhere.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+    });
+    await it('an explicit site rule beats the wildcard, quiet in either direction', async () => {
+      const both = withGrants([{ scope: '*', level: 'write', confirmScripts: false }]);
+      // A site with its own rule that asks wins over a quiet wildcard.
+      expect(decide(both, 'page.evaluate', 'https://tracker.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: true,
+      });
+      // …and a site whose own rule says quiet is quiet even where the wildcard asks.
+      const askAll = withGrants([{ scope: '*', level: 'write' }]);
+      const quietSite: Policy = {
+        origins: { 'https://tracker.example': { level: 'write', confirmScripts: false } },
+        grants: askAll.grants,
+      };
+      expect(decide(quietSite, 'page.evaluate', 'https://tracker.example/', at())).toStrictEqual({
+        allow: true,
+        confirm: false,
+      });
+    });
+    await it('asks when the stored value is not a plain false', async () => {
+      for (const stored of [0, 1, 'false', null, [], true, {}]) {
+        const rule = parsePolicy({
+          origins: { 'https://shop.example': { level: 'write', confirmScripts: stored } },
+        });
+        expect(rule.origins['https://shop.example']?.confirmScripts).toBeUndefined();
+        expect(decide(rule, 'page.evaluate', 'https://shop.example/x', at())).toStrictEqual({
+          allow: true,
+          confirm: true,
+        });
+        const grants = parseGrants([{ scope: '*', level: 'write', confirmScripts: stored }], NOW);
+        expect(grants[0]?.confirmScripts).toBeUndefined();
+        expect(decide(withGrants(grants), 'page.evaluate', 'https://elsewhere.example/', at())).toStrictEqual(
+          {
+            allow: true,
+            confirm: true,
+          },
+        );
+      }
+      const kept = parseGrants([{ scope: '*', level: 'write', confirmScripts: false }], NOW);
+      expect(kept[0]?.confirmScripts).toBe(false);
+      const keptRule = parsePolicy({
+        origins: { 'https://shop.example': { level: 'write', confirmScripts: false } },
+      });
+      expect(keptRule.origins['https://shop.example']?.confirmScripts).toBe(false);
+    });
+    await it('a site grant answering a prompt never carries the switch into a rule', async () => {
+      // Same shape as the popup writing a rule: the field arrives only from the person's own row.
+      const next = withRuleQuiet({ level: 'write' }, 'confirmScripts', false);
+      expect(next).toStrictEqual({ level: 'write', confirmScripts: false });
+      // And a stored rule that carries both survives a write of one of them.
+      expect(withRuleQuiet(next, 'confirmWrites', true)).toStrictEqual({
+        level: 'write',
+        confirmScripts: false,
+      });
     });
   });
 
@@ -475,18 +709,35 @@ export default async () => {
           'https://quiet.example': { level: 'write', confirmWrites: false },
           'https://truthy.example': { level: 'write', confirmWrites: 0 },
           'https://blocked.example': { level: 'none', confirmWrites: false },
+          'https://scripts.example': { level: 'write', confirmScripts: false },
+          'https://bothtrue.example': { level: 'write', confirmWrites: false, confirmScripts: false },
+          'https://scriptsy.example': { level: 'write', confirmScripts: 'no' },
         },
       });
       expect(Object.keys(parsed.origins).sort()).toEqualArray([
         'https://blocked.example',
+        'https://bothtrue.example',
         'https://ok.example',
         'https://quiet.example',
+        'https://scripts.example',
+        'https://scriptsy.example',
         'https://truthy.example',
       ]);
       expect(parsed.origins['https://quiet.example']?.confirmWrites).toBe(false);
       // Only a literal false switches asking off — anything else keeps it on.
       expect(parsed.origins['https://truthy.example']?.confirmWrites).toBeUndefined();
       expect(parsed.origins['https://blocked.example']).toStrictEqual({ level: 'none' });
+      // The same for the script switch, and the two fields survive a parse independently.
+      expect(parsed.origins['https://scripts.example']?.confirmScripts).toBe(false);
+      expect(parsed.origins['https://scripts.example']?.confirmWrites).toBeUndefined();
+      expect(parsed.origins['https://bothtrue.example']).toStrictEqual({
+        level: 'write',
+        confirmWrites: false,
+        confirmScripts: false,
+      });
+      expect(parsed.origins['https://scriptsy.example']?.confirmScripts).toBeUndefined();
+      // A `none` rule keeps neither: it is a block, and nothing runs there to ask about.
+      expect(parsed.origins['https://blocked.example']?.confirmWrites).toBeUndefined();
     });
     await it('yields an empty policy for garbage', async () => {
       for (const raw of [null, 42, 'x', { origins: 'x' }, {}])

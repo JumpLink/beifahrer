@@ -107,7 +107,8 @@ export function accessCheck(input: AccessCheckInput): AccessCheck | string {
   // `atLeast(undefined, 'read')` is false, which once dropped every allowed frame.
   const have = access.level;
   // Read from `decide`, not recomputed: `confirm` is answered in both branches, and recomputing it
-  // is exactly where an ALWAYS_CONFIRM method would lose the rule that outranks a site rule.
+  // is exactly where a method with a switch of its own (ADR 0016) would lose the rule that picks
+  // `confirmScripts` over `confirmWrites`.
   const decision = decide(policy, method, input.url ?? null, ctx);
   const confirm = decision.allow && decision.confirm;
   // Askable for the same reason `decide` asks it: an origin the person blocked, or none at all, is
