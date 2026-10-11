@@ -117,7 +117,7 @@ export default async () => {
       expect(quiet.confirm).toBe(false);
     });
 
-    await it('keeps ALWAYS_CONFIRM on a script whatever the site rule says', async () => {
+    await it('keeps the script switch of its own on a script, whatever the site rule says about writes', async () => {
       const script = check({
         features: on({ script: true }),
         policy,
@@ -129,6 +129,47 @@ export default async () => {
       expect(script.need).toBe('write');
       expect(script.confirm).toBe(true);
       expect(script.reason).toMatch(/confirm it first/);
+    });
+
+    await it('reports a site that switched script asking off as running without one', async () => {
+      const scripts: Policy = {
+        origins: { 'https://quiet.example': { level: 'write', confirmScripts: false } },
+      };
+      const script = check({
+        features: on({ script: true }),
+        policy: scripts,
+        method: 'page.evaluate',
+        url: 'https://quiet.example/',
+        hostGranted: true,
+      });
+      expect(script.allowed).toBe(true);
+      expect(script.confirm).toBe(false);
+      expect(script.reason).toMatch(/without asking/);
+      // The ordinary write on the same site still goes through its own switch, which asks.
+      const write = check({
+        features: on(),
+        policy: scripts,
+        method: 'page.click',
+        url: 'https://quiet.example/',
+        hostGranted: true,
+      });
+      expect(write.confirm).toBe(true);
+    });
+
+    await it('refuses a script below write even where the site switched asking off', async () => {
+      const readOnly: Policy = {
+        origins: { 'https://bank.example': { level: 'read', confirmScripts: false } },
+      };
+      const script = check({
+        features: on({ script: true }),
+        policy: readOnly,
+        method: 'page.evaluate',
+        url: 'https://bank.example/inbox',
+        hostGranted: true,
+      });
+      expect(script.allowed).toBe(false);
+      expect(script.stage).toBe('level');
+      expect(script.confirm).toBe(false);
     });
 
     await it('refuses a method name the policy table does not know', async () => {
