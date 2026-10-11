@@ -1,7 +1,8 @@
 /**
  * The pages' side of the temporary grants (ADR 0010): the popup reads the live "all sites"
  * grant, starts one after the browser granted the host access in the click, sets whether its
- * writes ask, and ends it. Only extension pages reach this (background.ts checks the sender).
+ * writes and its scripts ask, and ends it. Only extension pages reach this (background.ts checks
+ * the sender).
  */
 
 import { browser } from '@wxt-dev/browser';
@@ -26,7 +27,12 @@ export type GrantsRequest =
       port?: number;
     }
   | { type: typeof GRANTS_MESSAGE; op: 'end' }
-  | { type: typeof GRANTS_MESSAGE; op: 'quiet'; confirmWrites: boolean };
+  | {
+      type: typeof GRANTS_MESSAGE;
+      op: 'quiet';
+      confirmWrites: boolean;
+      confirmScripts: boolean;
+    };
 
 export interface WideView {
   level: 'read' | 'write';
@@ -36,6 +42,8 @@ export interface WideView {
   session: boolean;
   /** Absent means the person did not switch asking off, so every write opens the window. */
   confirmWrites?: boolean;
+  /** The same for `page.evaluate` (ADR 0016). Absent means the window opens for it too. */
+  confirmScripts?: boolean;
 }
 
 export async function handleGrantsMessage(
@@ -48,6 +56,7 @@ export async function handleGrantsMessage(
     duration: unknown;
     port: unknown;
     confirmWrites: unknown;
+    confirmScripts: unknown;
   }>;
   if (m.op === 'get') {
     const g = wildcardGrant(await loadGrants(), Date.now());
@@ -57,6 +66,7 @@ export async function handleGrantsMessage(
           ...(g.until ? { until: g.until } : {}),
           session: g.sessionId !== undefined,
           ...(g.confirmWrites !== undefined ? { confirmWrites: g.confirmWrites } : {}),
+          ...(g.confirmScripts !== undefined ? { confirmScripts: g.confirmScripts } : {}),
         }
       : null;
   }
@@ -64,11 +74,13 @@ export async function handleGrantsMessage(
     await endWildcard();
     return true;
   }
-  // Fail-closed like every other value read from a page: only `true` and `false` are answers,
-  // and anything else leaves the stored grants exactly as they were.
+  // Fail-closed like every other value read from a page: only `true` and `false` are answers, and
+  // anything else leaves the stored grants exactly as they were. Both switches arrive together,
+  // because the popup has one row for each and writing one while the other is malformed would leave
+  // the two disagreeing behind one row.
   if (m.op === 'quiet') {
-    if (typeof m.confirmWrites !== 'boolean') return false;
-    await setWildcardQuiet(m.confirmWrites);
+    if (typeof m.confirmWrites !== 'boolean' || typeof m.confirmScripts !== 'boolean') return false;
+    await setWildcardQuiet(m.confirmWrites, m.confirmScripts);
     return true;
   }
   if (m.op !== 'start') return false;

@@ -108,6 +108,27 @@
   "confirm_writes": {
     "message": "Ask before changes"
   },
+  "confirm_scripts": {
+    "message": "Run scripts without asking"
+  },
+  "scripts_note_site": {
+    "message": "The agent runs scripts on this site without asking first"
+  },
+  "scripts_note_wide": {
+    "message": "The agent runs scripts on every site it opens without asking first"
+  },
+  "scripts_warning_site": {
+    "message": "The agent can run any code on this site, read everything and act in your name, and you will not see it happen"
+  },
+  "scripts_warning_wide": {
+    "message": "The agent can run any code on every site it opens, read everything and act in your name, and you will not see it happen"
+  },
+  "action_cancel": {
+    "message": "Cancel"
+  },
+  "action_allow_anyway": {
+    "message": "Allow anyway"
+  },
   "agents_title": {
     "message": "Agents"
   },

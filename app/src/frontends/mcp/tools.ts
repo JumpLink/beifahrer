@@ -667,8 +667,9 @@ export function registerTools(
         'Run YOUR OWN JavaScript in a tab and get a JSON result back — the escape hatch when a page does something no named tool covers, ' +
         'and the only way to act on state Beifahrer does not model (a drag-and-drop, a canvas, a widget that only answers a key sequence). ' +
         'It removes the limits the other tools have, and that is exactly why it is guarded: the person switched "Run scripts" on in their browser, ' +
-        'the site must be at level "read + edit", and EVERY run opens a window in which they see the whole script and answer Allow or Deny. ' +
-        'There is no "always allow" for a script, and a denied run is not a phrasing problem — ask the person instead. ' +
+        'the site must be at level "read + edit", and by default EVERY run opens a window in which they see the whole script and answer Allow or Deny. ' +
+        'It asks the person unless they switched asking off for scripts on that site, or under "All sites". ' +
+        'So a window can be the answer to your call, and a denied run is not a phrasing problem — ask the person instead. ' +
         "FIREFOX ONLY: a Manifest V3 content script shares the extension's content security policy and that policy cannot name " +
         "'unsafe-eval', so Chromium and Safari answer `unsupported` with that reason. Do not retry it there; the named tools are the way. " +
         'The script is a function BODY: `return` gives the result, `await` works. In scope is `beifahrer` with the same verbs the named tools have: ' +

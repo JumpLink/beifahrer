@@ -107,6 +107,27 @@
   "confirm_writes": {
     "message": "Vor Änderungen fragen"
   },
+  "confirm_scripts": {
+    "message": "Skripte ohne Nachfrage ausführen"
+  },
+  "scripts_note_site": {
+    "message": "Der Agent führt auf dieser Seite Skripte ohne Nachfrage aus"
+  },
+  "scripts_note_wide": {
+    "message": "Der Agent führt auf jeder Seite, die er öffnet, Skripte ohne Nachfrage aus"
+  },
+  "scripts_warning_site": {
+    "message": "Der Agent kann auf dieser Seite beliebigen Code ausführen, alles lesen und in deinem Namen handeln, ohne dass du es siehst"
+  },
+  "scripts_warning_wide": {
+    "message": "Der Agent kann auf jeder Seite, die er öffnet, beliebigen Code ausführen, alles lesen und in deinem Namen handeln, ohne dass du es siehst"
+  },
+  "action_cancel": {
+    "message": "Abbrechen"
+  },
+  "action_allow_anyway": {
+    "message": "Trotzdem erlauben"
+  },
   "agents_title": {
     "message": "Agenten"
   },

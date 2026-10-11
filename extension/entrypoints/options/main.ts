@@ -8,6 +8,7 @@ import {
   sessionNameIssue,
   upsertSession,
   withRule,
+  withRuleQuiet,
   withoutRule,
   type Level,
   type Method,
@@ -33,12 +34,14 @@ import {
   loadActivity,
   markEmpty,
   onToggle,
+  prefixIcon,
   renderActivity,
   renderFeatures,
   setFeature,
   setQuietly,
   switchRowIcon,
 } from '../../src/ui/features.ts';
+import { scriptQuietControl } from '../../src/ui/script-quiet.ts';
 import { infoButton } from '../../src/ui/info.ts';
 import { heroIcon, stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
 
@@ -111,9 +114,9 @@ const SITE_CHOICES: [value: string, label: MessageKey][] = [
 ];
 
 async function renderSites(): Promise<void> {
-  const { policy } = await loadSettings();
+  const { policy, features } = await loadSettings();
   const group = $<Adw.PreferencesGroup>('sites');
-  for (const old of group.querySelectorAll('adw-combo-row')) old.remove();
+  for (const old of group.querySelectorAll('adw-combo-row, [data-script-quiet]')) old.remove();
   const entries = Object.entries(policy.origins).sort(([a], [b]) => a.localeCompare(b));
   markEmpty(group, entries.length === 0 ? t('sites_empty') : null);
   for (const [origin, rule] of entries) {
@@ -134,15 +137,62 @@ async function renderSites(): Promise<void> {
         return renderSites();
       }
       const level: Level = v === 'write-silent' ? 'write' : (v as Level);
+      // The script switch is carried over: this row is about the level and about writes, and
+      // writing it must not answer a question nobody asked.
       await saveSettings({
         policy: withRule(
           current.policy,
           origin,
-          level === 'write' ? { level, confirmWrites: v !== 'write-silent' } : { level },
+          level === 'write'
+            ? withRuleQuiet(
+                {
+                  level,
+                  ...(current.policy.origins[origin]?.confirmScripts === false
+                    ? { confirmScripts: false as const }
+                    : {}),
+                },
+                'confirmWrites',
+                v !== 'write-silent',
+              )
+            : { level },
         ),
       });
       await renderSites();
     });
+    // The same switch and the same warning the popup has (ADR 0016): a site rule is editable in
+    // both places, and a warning that only exists in one of them is a warning that can be avoided.
+    const scripts = document.createElement('adw-switch-row') as Adw.SwitchRow;
+    const warning = document.createElement('adw-action-row') as Adw.ActionRow;
+    const note = document.createElement('adw-action-row') as Adw.ActionRow;
+    for (const el of [scripts, warning, note]) {
+      el.setAttribute('data-script-quiet', origin);
+      group.addRow(el);
+    }
+    note.append(prefixIcon('dialog-warning-symbolic'));
+    const control = scriptQuietControl({
+      row: scripts,
+      note,
+      warning,
+      scope: 'site',
+      save: async (quiet) => {
+        const current = await loadSettings();
+        await saveSettings({
+          policy: withRule(
+            current.policy,
+            origin,
+            withRuleQuiet(
+              { ...(current.policy.origins[origin] ?? { level: 'write' }), level: 'write' },
+              'confirmScripts',
+              !quiet,
+            ),
+          ),
+        });
+        await renderSites();
+      },
+    });
+    scripts.setAttribute('subtitle', origin);
+    control.setVisible(rule.level === 'write' && features.script === true);
+    control.render(rule.confirmScripts === false);
   }
 }
 
