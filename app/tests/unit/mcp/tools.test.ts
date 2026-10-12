@@ -26,6 +26,7 @@ const READ = [
 const WRITE = [
   'page_navigate',
   'page_fill',
+  'page_enter_code',
   'page_click',
   'page_capture',
   'page_press',
@@ -74,6 +75,7 @@ export default async () => {
         'page_outline',
         'page_navigate',
         'page_fill',
+        'page_enter_code',
         'page_click',
         'page_press',
         'page_select',

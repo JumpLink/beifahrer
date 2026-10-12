@@ -11,6 +11,7 @@ export const FEATURE_ICON: Record<Feature, string> = {
   captureSaves: 'document-save-as-symbolic',
   network: 'network-transmit-receive-symbolic',
   fill: 'insert-text-symbolic',
+  oneTimeCodes: 'dialog-password-symbolic',
   click: 'input-mouse-symbolic',
   script: 'utilities-terminal-symbolic',
   open: 'tab-new-symbolic',

@@ -88,6 +88,24 @@ export default async () => {
     });
   });
 
+  await describe('one-time codes', async () => {
+    await it('are typed only with their own switch, which is off by default (ADR 0020)', async () => {
+      expect(featureOf('page.enterCode')).toBe('oneTimeCodes');
+      expect(REQUIRED_LEVEL['page.enterCode']).toBe('write');
+      expect(DEFAULT_FEATURES.oneTimeCodes).toBe(false);
+      expect(preflight({ paused: false, features: DEFAULT_FEATURES }, 'page.enterCode')).toStrictEqual({
+        allow: false,
+        code: 'feature_disabled',
+        feature: 'oneTimeCodes',
+      });
+      expect(preflight({ paused: false, features: allOn }, 'page.enterCode').allow).toBe(true);
+      expect(preflight({ paused: true, features: allOn }, 'page.enterCode')).toStrictEqual({
+        allow: false,
+        code: 'paused',
+      });
+    });
+  });
+
   await describe('a capture clicks and downloads', async () => {
     await it('needs both switches, and names the one that is off', async () => {
       const gates = (patch: Partial<Features>) => ({ paused: false, features: { ...allOn, ...patch } });
@@ -121,6 +139,8 @@ export default async () => {
         // is this browser's browsing with timestamps, and `webRequest` cannot be narrowed to a site.
         network: false,
         fill: true,
+        // The second factor is the person's own act; relaying a code is switched on deliberately.
+        oneTimeCodes: false,
         click: true,
         // With the other far-reaching capabilities: a script is off until the person says so.
         script: false,

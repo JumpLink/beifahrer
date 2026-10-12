@@ -195,6 +195,9 @@ export const REQUIRED_LEVEL = {
   'page.rows': 'read',
   'page.capture': 'write',
   'page.fill': 'write',
+  // Types a code the person relayed into a field the page marks as a one-time code (ADR 0020). A write
+  // like any other: it confirms under `confirmWrites`, and its own feature switch is off by default.
+  'page.enterCode': 'write',
   'page.click': 'write',
   // All three change the page, so all three are writes: a key can submit a form, an option can
   // change what a form asks for, a checkbox can agree to a term. None of them reads anything the

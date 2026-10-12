@@ -21,6 +21,8 @@ import {
   metaMatches,
   normalizeText,
   parseElementQuery,
+  parseOneTimeCode,
+  refuseCodeField,
   parseKeySpec,
   parseMetaQuery,
   projectValue,
@@ -848,6 +850,33 @@ function fill(ref: string, text: string, as: 'text' | 'html', mode: 'replace' | 
     code: 'invalid',
     message: `${ref} is not a text field (${kind?.role ?? el.tagName.toLowerCase()})`,
   };
+}
+
+/**
+ * Type a one-time code the person relayed (ADR 0020), into a field the page marks as one.
+ *
+ * The guard's rules live in core (`refuseCodeField`); this only reads the facts off the element.
+ * Nothing it returns or throws holds the code: the answer is the field's ref and the length.
+ */
+function enterCode(ref: string, raw: string): PageResponse {
+  const el = byRef(ref);
+  if (!el) return notFound(ref);
+  const parsed = parseOneTimeCode(raw);
+  if ('error' in parsed) return { ok: false, code: 'invalid', message: parsed.error };
+  const refusal = refuseCodeField({
+    tag: el.tagName.toLowerCase(),
+    type: el instanceof HTMLInputElement ? el.type.toLowerCase() : '',
+    autocomplete: el.getAttribute('autocomplete') ?? '',
+    inputmode: el.getAttribute('inputmode') ?? '',
+    words: [el.getAttribute('name'), el.id, el.getAttribute('placeholder'), labelFor(el)]
+      .filter(Boolean)
+      .join(' '),
+  });
+  if (refusal) return { ok: false, code: 'invalid', message: refusal };
+  if (!(el instanceof HTMLInputElement)) return notFound(ref);
+  el.focus();
+  setNativeValue(el, parsed.code);
+  return { ok: true, data: { ref, length: parsed.code.length } };
 }
 
 function click(ref: string): PageResponse {
@@ -1876,6 +1905,8 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
     }
     case 'fill':
       return fill(req.ref, req.text, req.as, req.mode);
+    case 'enterCode':
+      return enterCode(req.ref, req.code);
     case 'where':
       // Read fresh, every time. This is the only answer the policy is decided on, so it must not
       // come from a value remembered at injection time — a frame that navigated since then would be

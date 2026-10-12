@@ -27,6 +27,7 @@ export const FEATURES = [
   'captureSaves',
   'network',
   'fill',
+  'oneTimeCodes',
   'click',
   'script',
   'open',
@@ -73,6 +74,12 @@ export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = 
       'page_fill, page_press, page_select, page_check — text into a field, keys into a form, a ' +
       'dropdown option, a checkbox. Still needs Read + edit on the site, and a key can submit a form',
   },
+  oneTimeCodes: {
+    label: 'Enter one-time codes you send',
+    detail:
+      'page_enter_code — types the code YOU sent through the messenger into the one-time-code field of a ' +
+      'login page. Never a password or PIN field; the code stays out of every log (ADR 0020)',
+  },
   click: { label: 'Click', detail: 'page_click — still needs Read + edit on the site' },
   script: {
     label: 'Run scripts',
@@ -115,6 +122,9 @@ export const DEFAULT_FEATURES: Features = {
   // feature off with it.
   network: false,
   fill: true,
+  // Off: the second factor is the person's act, and typing a code the person relayed is a decision they
+  // make once, per browser, behind a warning (ADR 0020).
+  oneTimeCodes: false,
   click: true,
   // Off, with screenshots, downloads, tab management and sessions: every capability that reaches
   // past "act on the one page in front of the person" — and this one more than any of them. Running
@@ -154,6 +164,7 @@ export const FEATURE_OF = {
   'page.capture': 'download',
   'page.network': 'network',
   'page.fill': 'fill',
+  'page.enterCode': 'oneTimeCodes',
   // press, select and check ride on `fill`, not on switches of their own. They are the same act —
   // putting a value into a form control — and a page agent needs all four to get through one form.
   // The reason is consent, not tidiness: a person who switches OFF "Fill fields" means "do not type

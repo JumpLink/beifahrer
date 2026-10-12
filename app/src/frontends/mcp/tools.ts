@@ -529,6 +529,34 @@ export function registerTools(
   );
 
   server.registerTool(
+    'page_enter_code',
+    {
+      title: 'Type a one-time code the person gave you',
+      description:
+        'Type a one-time code (TAN, SMS or authenticator code) that the PERSON relayed to you into the field marked as one, by ref from page_outline or page_find. ' +
+        'Only for a code the person gave you in this conversation; never guess or invent one. ' +
+        'The field must be marked as a one-time code (autocomplete="one-time-code", numeric inputmode, or a code/TAN/OTP label); a PIN or password field is always refused and the person types those. ' +
+        'The value must be 4 to 10 letters or digits. The code is never echoed back or logged: the answer holds the field and the length only. ' +
+        'Needs the switch "Type one-time codes you relay" (off by default), level "read + edit", and the person confirms every time in a browser window, so this may take up to two minutes. ' +
+        POLICY_NOTE,
+      inputSchema: {
+        tabId: tabIdParam,
+        ref: z.string().describe('Element ref of the code field, e.g. e12'),
+        code: z.string().describe('The code the person gave you, 4 to 10 letters or digits'),
+        browser: browserParam,
+      },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ tabId, ref, code, browser }) => {
+      try {
+        return text(await call('page.enterCode', { tabId, ref, code }, browser));
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  server.registerTool(
     'page_click',
     {
       title: 'Click an element',
