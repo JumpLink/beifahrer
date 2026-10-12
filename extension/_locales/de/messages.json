@@ -108,7 +108,7 @@
     "message": "Vor Änderungen fragen"
   },
   "confirm_scripts": {
-    "message": "Skripte ohne Nachfrage ausführen"
+    "message": "Vor Skripten fragen"
   },
   "scripts_note_site": {
     "message": "Der Agent führt auf dieser Seite Skripte ohne Nachfrage aus"

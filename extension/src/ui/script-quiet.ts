@@ -1,5 +1,5 @@
 /**
- * "Run scripts without asking", and the warning that stands in front of switching it off
+ * "Ask before running scripts", and the warning that stands in front of switching it off
  * (ADR 0016).
  *
  * The switch itself is one `adw-switch-row` like every other switch, and the promise it makes is
@@ -87,7 +87,6 @@ export function scriptQuietControl(options: {
 
   function render(quiet: boolean): void {
     setQuietly(row, !quiet);
-    row.setAttribute('subtitle', quiet ? t(NOTE_KEY[scope]) : '');
     note.hidden = !quiet;
   }
 
