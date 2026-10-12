@@ -137,6 +137,10 @@ export const FEATURE_OF = {
   'page.expect': 'outline',
   'page.screenshot': 'screenshot',
   'page.download': 'download',
+  'page.rows': 'outline',
+  // A capture is a click AND a download, so it answers to both switches (handlers.ts checks the
+  // second); the one named here is the one a refusal names.
+  'page.capture': 'download',
   'page.network': 'network',
   'page.fill': 'fill',
   // press, select and check ride on `fill`, not on switches of their own. They are the same act —
@@ -169,6 +173,15 @@ export const FEATURE_OF = {
   'sessions.restoreClosed': 'sessions',
 } as const satisfies Record<Method, Feature>;
 
+/**
+ * A method that does two things answers to a second switch as well. A capture clicks AND downloads:
+ * with "Click" off the person said "do not press buttons on my pages", and a capture is a button
+ * press whatever it fetches afterwards.
+ */
+export const ALSO_NEEDS: Partial<Record<Method, Feature>> = {
+  'page.capture': 'click',
+};
+
 export function featureOf(method: string): Feature | null {
   if (!Object.prototype.hasOwnProperty.call(FEATURE_OF, method)) return null;
   return FEATURE_OF[method as Method];
@@ -190,6 +203,8 @@ export function preflight(gates: Gates, method: string): Preflight {
   const feature = featureOf(method);
   if (feature === null) return { allow: false, code: 'feature_disabled', feature: null };
   if (gates.features[feature] !== true) return { allow: false, code: 'feature_disabled', feature };
+  const also = ALSO_NEEDS[method as Method];
+  if (also && gates.features[also] !== true) return { allow: false, code: 'feature_disabled', feature: also };
   return { allow: true, feature };
 }
 

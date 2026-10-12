@@ -238,6 +238,29 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
         case 'outline':
           entry.result = (await call('page.outline', { tabId, maxItems: step.maxItems }, browser)).outline;
           break;
+        case 'rows': {
+          const r = await call('page.rows', { tabId, maxRows: step.maxRows }, browser);
+          entry.detail = `${r.count} rows${r.truncated ? ' (cut)' : ''}`;
+          entry.result = r.rows;
+          break;
+        }
+        case 'click-row': {
+          // A row has no role to ask `page.find` for, so it is looked up by the text the person
+          // reads on it. The click is an ordinary `page.click` on the ref that comes back.
+          const match = params[step.param];
+          if (!match) throw new StepFailed(`param "${step.param}" is empty — a row is named by its text`);
+          const rows = await call('page.rows', { tabId, match }, browser);
+          if (!rows.ref) throw new StepFailed(`no row containing "${match}" on the page`);
+          await call('page.click', { tabId, ref: rows.ref }, browser);
+          break;
+        }
+        case 'capture': {
+          const ref = await resolve(step.target);
+          const doc = await call('page.capture', { tabId, ref, maxBytes: step.maxBytes }, browser);
+          entry.detail = `${doc.filename} (${doc.mime}, ${doc.size} bytes, via ${doc.via})`;
+          entry.result = doc;
+          break;
+        }
       }
     } catch (err) {
       const why = err instanceof StepFailed ? err.message : describeError(err);

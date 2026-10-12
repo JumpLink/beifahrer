@@ -204,6 +204,12 @@
   "method_page_download": {
     "message": "Downloaded a document"
   },
+  "method_page_rows": {
+    "message": "Listed the rows of a page"
+  },
+  "method_page_capture": {
+    "message": "Downloaded a document by clicking"
+  },
   "method_page_outline": {
     "message": "Outlined a page"
   },

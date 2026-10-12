@@ -71,6 +71,9 @@ export type Step =
   | (StepBase & { action: 'wait'; for: 'load' | ElementQuery; timeoutMs?: number })
   | (StepBase & { action: 'read'; maxChars?: number })
   | (StepBase & { action: 'outline'; maxItems?: number })
+  | (StepBase & { action: 'rows'; maxRows?: number })
+  | (StepBase & { action: 'click-row'; param: string })
+  | (StepBase & { action: 'capture'; target: ElementQuery; maxBytes?: number })
   | (StepBase & { action: 'checkpoint'; message: string });
 
 export type StepAction = Step['action'];
@@ -83,11 +86,20 @@ export const STEP_ACTIONS: readonly StepAction[] = [
   'wait',
   'read',
   'outline',
+  'rows',
+  'click-row',
+  'capture',
   'checkpoint',
 ];
 
 /** Steps that change the page, and so go through the write gate + confirmation. */
-export const WRITE_ACTIONS: ReadonlySet<StepAction> = new Set(['click', 'submit', 'fill']);
+export const WRITE_ACTIONS: ReadonlySet<StepAction> = new Set([
+  'click',
+  'submit',
+  'fill',
+  'click-row',
+  'capture',
+]);
 
 export interface Recipe {
   id: string;
@@ -113,6 +125,9 @@ const STEP_KEYS: Record<StepAction, string[]> = {
   wait: ['for', 'timeoutMs'],
   read: ['maxChars'],
   outline: ['maxItems'],
+  rows: ['maxRows'],
+  'click-row': ['param'],
+  capture: ['target', 'maxBytes'],
   checkpoint: ['message'],
 };
 const COMMON_STEP_KEYS = ['id', 'action', 'note', 'requiresExplicitRequest'];
@@ -328,6 +343,22 @@ function step(value: unknown, where: string, params: Set<string>): Step {
     case 'outline': {
       const out: Step = { ...base, action: 'outline' };
       if (src.maxItems !== undefined) out.maxItems = int(src.maxItems, `${where}.maxItems`, 10, 2_000);
+      return out;
+    }
+    case 'rows': {
+      const out: Step = { ...base, action: 'rows' };
+      if (src.maxRows !== undefined) out.maxRows = int(src.maxRows, `${where}.maxRows`, 1, 1_000);
+      return out;
+    }
+    case 'click-row': {
+      const name = str(src.param, `${where}.param`, 40);
+      if (!params.has(name)) fail(`${where}.param`, `"${name}" is not a declared param`);
+      return { ...base, action: 'click-row', param: name };
+    }
+    case 'capture': {
+      const out: Step = { ...base, action: 'capture', target: query(src.target, `${where}.target`) };
+      if (src.maxBytes !== undefined)
+        out.maxBytes = int(src.maxBytes, `${where}.maxBytes`, 1_000, 25_000_000);
       return out;
     }
     case 'checkpoint':

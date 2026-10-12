@@ -364,6 +364,32 @@ export function registerTools(
   );
 
   server.registerTool(
+    'page_rows',
+    {
+      title: 'Rows of a list on the page',
+      description:
+        'The rows of a list or table (table rows, list items, row components) with their text, scrolling through a ' +
+        'virtual-scroll list to collect the ones not rendered yet. Give match to stop at the first row whose text ' +
+        'contains it and get its ref for page_click. Needs level "read". ' +
+        POLICY_NOTE,
+      inputSchema: {
+        tabId: tabIdParam,
+        match: z.string().optional().describe('Text of the row to find (case-insensitive substring)'),
+        maxRows: z.number().int().optional().describe('Stop after this many rows (default 200)'),
+        browser: browserParam,
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ tabId, match, maxRows, browser }) => {
+      try {
+        return text(await call('page.rows', { tabId, match, maxRows }, browser));
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  server.registerTool(
     'page_outline',
     {
       title: 'Outline of a page with element refs',
@@ -519,6 +545,37 @@ export function registerTools(
     async ({ tabId, ref, browser }) => {
       try {
         return text(await call('page.click', { tabId, ref }, browser));
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    'page_capture',
+    {
+      title: 'Click a button that hands over a document',
+      description:
+        'For a portal button that has no link behind it (a "Download" button, an attachment that opens in a viewer tab): ' +
+        'clicks it, lets the PAGE fetch the document with its own session, and returns the file as base64. The page ' +
+        'does the fetching; no token or header ever reaches you. What it may produce is bounded: a link or blob of the ' +
+        "tab's own origin, or a page on a sister origin of the same site (app-api.<site> for a <site> tab), which needs " +
+        'level "read" on its own. A viewer tab the click opened is closed again. It marks the document as read on ' +
+        'portals that do that on download. Needs level "read + edit", the Click and Download switches, and, unless ' +
+        "switched off, the person's confirmation. " +
+        POLICY_NOTE,
+      inputSchema: {
+        tabId: tabIdParam,
+        ref: z.string().describe('Button or link ref from page_outline, e.g. e12'),
+        maxBytes: z.number().int().optional().describe('Refuse anything larger (default 10000000)'),
+        timeoutMs: z.number().int().optional().describe('How long to wait for the document (default 15000)'),
+        browser: browserParam,
+      },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ tabId, ref, maxBytes, timeoutMs, browser }) => {
+      try {
+        return text(await call('page.capture', { tabId, ref, maxBytes, timeoutMs }, browser));
       } catch (err) {
         return failure(err);
       }

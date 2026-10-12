@@ -1,0 +1,11 @@
+{
+  "id": "atruvia/list-postbox",
+  "title": "List the documents in a bank portal postbox",
+  "description": "On the electronic postbox of an Atruvia / VR banking portal: lists every row of the open folder, scrolling through the virtual-scroll list. Run it once per folder tab (Posteingang, Archiv, ...). Matched on any bank's domain by the portal's page metadata and the postbox path. Reads only.",
+  "version": "1.0.0",
+  "match": {
+    "urls": ["https://*/services_cloud/portal/webcomp/epostfach/*"],
+    "fingerprint": [{ "meta": { "name": "portal_features" } }, { "meta": { "name": "portal_settings" } }]
+  },
+  "steps": [{ "id": "rows", "action": "rows", "maxRows": 500 }]
+}

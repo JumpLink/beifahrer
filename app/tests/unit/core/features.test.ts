@@ -86,6 +86,24 @@ export default async () => {
     });
   });
 
+  await describe('a capture clicks and downloads', async () => {
+    await it('needs both switches, and names the one that is off', async () => {
+      const gates = (patch: Partial<Features>) => ({ paused: false, features: { ...allOn, ...patch } });
+      expect(preflight(gates({}), 'page.capture')).toStrictEqual({ allow: true, feature: 'download' });
+      expect(preflight(gates({ download: false }), 'page.capture')).toStrictEqual({
+        allow: false,
+        code: 'feature_disabled',
+        feature: 'download',
+      });
+      // With "Click" off the person said no to button presses, and a capture is one.
+      expect(preflight(gates({ click: false }), 'page.capture')).toStrictEqual({
+        allow: false,
+        code: 'feature_disabled',
+        feature: 'click',
+      });
+    });
+  });
+
   await describe('defaults', async () => {
     await it('reading, outlining, opening and page writes on; the far-reaching ones off', async () => {
       expect(DEFAULT_FEATURES).toStrictEqual({
