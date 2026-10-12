@@ -2838,6 +2838,8 @@ async function pausedChecks(browser, client) {
     ['page_network', { tabId: 1 }],
     ['page_evaluate', { tabId: 1, script: 'return 1' }],
     ['page_download', { tabId: 1, url }],
+    ['page_rows', { tabId: 1 }],
+    ['page_capture', { tabId: 1, ref: 'e1' }],
     ['recipes_for_tab', { tabId: 1 }],
     ['recipe_run', { tabId: 1, id: 'openproject/add-comment', params: { text: 'x' } }],
     ['tab_open', { url }],
