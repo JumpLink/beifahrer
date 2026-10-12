@@ -223,7 +223,17 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
         }
         case 'click':
         case 'submit': {
-          const ref = await resolve(narrow(step.target, step.nameParam));
+          const target = narrow(step.target, step.nameParam);
+          if (step.action === 'click' && step.optional) {
+            // Absent is fine, e.g. a redirect button that only one of two entry pages shows.
+            const found = await call('page.find', { tabId, ...target, nth: target.nth ?? 0 }, browser);
+            if (!found.matches[0]) {
+              entry.status = 'skipped';
+              entry.detail = `no ${describeQuery(target)} on the page (optional)`;
+              break;
+            }
+          }
+          const ref = await resolve(target);
           await call('page.click', { tabId, ref }, browser);
           break;
         }
@@ -241,7 +251,14 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
         }
         case 'wait': {
           const wanted = step.for === 'load' ? step.for : narrow(step.for, step.nameParam);
-          const r = await call('page.wait', { tabId, for: wanted, timeoutMs: step.timeoutMs }, browser);
+          const r = await call('page.wait', { tabId, for: wanted, timeoutMs: step.timeoutMs }, browser).catch(
+            (err: unknown) => {
+              // Only the timeout is the recipe's to explain; a forbidden or paused stays the extension's word.
+              if (step.failMessage && err instanceof BridgeError && err.wire.code === 'timeout')
+                throw new StepFailed(step.failMessage);
+              throw err;
+            },
+          );
           entry.detail = `after ${r.waitedMs} ms${r.match ? `: ${r.match.description}` : ''}`;
           break;
         }

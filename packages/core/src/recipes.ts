@@ -59,7 +59,7 @@ interface StepBase {
 
 export type Step =
   | (StepBase & { action: 'find'; target: ElementQuery; nameParam?: string })
-  | (StepBase & { action: 'click'; target: ElementQuery; nameParam?: string })
+  | (StepBase & { action: 'click'; target: ElementQuery; nameParam?: string; optional?: boolean })
   | (StepBase & { action: 'submit'; target: ElementQuery; requiresExplicitRequest: true; nameParam?: string })
   | (StepBase & {
       action: 'fill';
@@ -68,7 +68,13 @@ export type Step =
       as?: 'text' | 'html';
       mode?: 'replace' | 'append';
     })
-  | (StepBase & { action: 'wait'; for: 'load' | ElementQuery; timeoutMs?: number; nameParam?: string })
+  | (StepBase & {
+      action: 'wait';
+      for: 'load' | ElementQuery;
+      timeoutMs?: number;
+      nameParam?: string;
+      failMessage?: string;
+    })
   | (StepBase & { action: 'read'; maxChars?: number })
   | (StepBase & { action: 'outline'; maxItems?: number })
   | (StepBase & { action: 'rows'; maxRows?: number; param?: string })
@@ -119,10 +125,10 @@ const VERSION = /^\d{1,4}\.\d{1,4}\.\d{1,4}$/;
 const TOP_KEYS = new Set(['$schema', 'id', 'title', 'description', 'version', 'match', 'params', 'steps']);
 const STEP_KEYS: Record<StepAction, string[]> = {
   find: ['target', 'nameParam'],
-  click: ['target', 'nameParam'],
+  click: ['target', 'nameParam', 'optional'],
   submit: ['target', 'nameParam'],
   fill: ['target', 'param', 'as', 'mode'],
-  wait: ['for', 'timeoutMs', 'nameParam'],
+  wait: ['for', 'timeoutMs', 'nameParam', 'failMessage'],
   read: ['maxChars'],
   outline: ['maxItems'],
   rows: ['maxRows', 'param'],
@@ -306,13 +312,25 @@ function step(value: unknown, where: string, params: Set<string>): Step {
   }
   switch (a) {
     case 'find':
-    case 'click':
       return {
         ...base,
         action: a,
         target: query(src.target, `${where}.target`),
         ...nameParam(src, where, params),
       };
+    case 'click': {
+      const out: Step = {
+        ...base,
+        action: 'click',
+        target: query(src.target, `${where}.target`),
+        ...nameParam(src, where, params),
+      };
+      if (src.optional !== undefined) {
+        if (typeof src.optional !== 'boolean') fail(`${where}.optional`, 'must be a boolean');
+        if (src.optional) out.optional = true;
+      }
+      return out;
+    }
     case 'submit':
       // A submit publishes something (a comment, a saved description). Running it must be the
       // person's explicit wish, and the recipe has to say so — not rely on the runner guessing.
@@ -352,6 +370,7 @@ function step(value: unknown, where: string, params: Set<string>): Step {
         fail(`${where}.nameParam`, 'needs an element to wait for, not "load"');
       if (src.timeoutMs !== undefined)
         out.timeoutMs = int(src.timeoutMs, `${where}.timeoutMs`, 100, MAX_WAIT_MS);
+      if (src.failMessage !== undefined) out.failMessage = str(src.failMessage, `${where}.failMessage`, 500);
       return out;
     }
     case 'read': {

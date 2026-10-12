@@ -398,6 +398,130 @@ export default async () => {
       expect(x.calls.some(([m]) => m === 'page.capture')).toBe(false);
     });
 
+    await describe('atruvia/login', async () => {
+      const login = () =>
+        parseRecipe(BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/login')!.data) as Recipe;
+
+      /** A portal page: the elements it shows, and whether the click on Anmelden gets past it. */
+      const portal = (
+        url: string,
+        shown: Array<[FindRole, string]>,
+        afterLogin: Array<[FindRole, string]>,
+      ) => {
+        let n = 1;
+        let elements = shown.map(([role, name]) => ({ ref: `e${n++}`, role, name }));
+        const calls: Array<[string, Record<string, unknown>]> = [];
+        const call = (async (m: string, p: Record<string, unknown>) => {
+          calls.push([m, p]);
+          if (m === 'tabs.list')
+            return {
+              tabs: [
+                {
+                  tabId: 7,
+                  windowId: 1,
+                  active: true,
+                  focusedWindow: true,
+                  host: 'bank.example',
+                  level: 'write',
+                  url,
+                },
+              ],
+            };
+          if (m === 'page.find') {
+            const { tabId: _t, ...q } = p;
+            const found = elements
+              .filter((e) => queryMatches(q as ElementQuery, { role: e.role, name: e.name, text: '' }))
+              .map((e) => ({ ref: e.ref, description: e.name }));
+            return { url, matches: found, count: found.length, truncated: false };
+          }
+          if (m === 'page.click') {
+            const el = elements.find((e) => e.ref === p.ref)!;
+            if (el.name === 'Weiterleitung zur Anmeldeseite')
+              elements = [
+                ['heading', 'Anmelden'],
+                ['button', 'Anmelden'],
+              ].map(([role, name]) => ({ ref: `e${n++}`, role: role as FindRole, name: name! }));
+            if (el.role === 'button' && el.name === 'Anmelden')
+              elements = afterLogin.map(([role, name]) => ({ ref: `e${n++}`, role, name }));
+            return { ref: p.ref };
+          }
+          if (m === 'page.wait') {
+            const { tabId: _t, for: want } = p;
+            const first = elements.filter((e) =>
+              queryMatches(want as ElementQuery, { role: e.role, name: e.name, text: '' }),
+            )[0];
+            if (!first) throw new BridgeError({ code: 'timeout', message: 'nothing matched' });
+            return { waitedMs: 1, match: { ref: first.ref, description: first.name } };
+          }
+          throw new Error(`unexpected ${m}`);
+        }) as unknown as Call;
+        return { call, calls };
+      };
+      const START: Array<[FindRole, string]> = [['button', 'Postfach: 2 ungelesen']];
+
+      await it('from the logged-out page: redirect, wait for the form, log in, reach the start page', async () => {
+        const x = portal(
+          'https://bank.example/services_cloud/portal/logout',
+          [
+            ['heading', 'Sie wurden erfolgreich abgemeldet'],
+            ['button', 'Weiterleitung zur Anmeldeseite'],
+          ],
+          START,
+        );
+        const run = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(run.status).toBe('done');
+        expect(run.log.map((l) => l.status).join(',')).toBe('ok,ok,ok,ok');
+        expect(x.calls.filter(([m]) => m === 'page.click').length).toBe(2);
+        expect(x.calls.some(([m]) => m === 'page.fill')).toBe(false);
+      });
+
+      await it('on the login page the redirect step is skipped', async () => {
+        const x = portal(
+          'https://bank.example/services_auth/auth-frontend/?x=1',
+          [
+            ['heading', 'Anmelden'],
+            ['textbox', 'VR-NetKey oder Alias'],
+            ['button', 'Anmelden'],
+          ],
+          START,
+        );
+        const run = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(run.status).toBe('done');
+        expect(run.log[0]!.status).toBe('skipped');
+        expect(x.calls.filter(([m]) => m === 'page.click').length).toBe(1);
+      });
+
+      await it('a second factor or an unfilled PIN fails with the ask-the-person message', async () => {
+        const x = portal(
+          'https://bank.example/services_auth/auth-frontend/?x=1',
+          [
+            ['heading', 'Anmelden'],
+            ['button', 'Anmelden'],
+          ],
+          [
+            ['heading', 'TAN eingeben'],
+            ['textbox', 'TAN'],
+          ],
+        );
+        const run = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(run.status).toBe('failed');
+        expect(run.next).toBe('wait-start');
+        expect(run.message).toMatch(/Ask the person to log in themselves/);
+        expect(x.calls.some(([m]) => m === 'page.fill' || m === 'page.type')).toBe(false);
+      });
+
+      await it('does not match the postbox or any other page of the bank', async () => {
+        const x = portal(
+          'https://bank.example/services_cloud/portal/webcomp/epostfach/inbox',
+          [['button', 'Anmelden']],
+          START,
+        );
+        const run = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(run.status).toBe('failed');
+        expect(run.message).toMatch(/does not match tab 7/);
+      });
+    });
+
     await it('refuses a click-row naming a param the recipe does not declare', async () => {
       const r = parseRecipe({
         ...BASE,
