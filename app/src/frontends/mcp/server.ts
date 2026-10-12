@@ -8,7 +8,7 @@
  *   first one on in its own config; it can never switch the second.
  *
  * The gate and the stdio lifecycle are `@gjsify/mcp`'s since 0.54.0 — this file was the third
- * verbatim copy of postbote's, and two references of one safety gate are two places to fail open.
+ * verbatim copy of curlew's, and two references of one safety gate are two places to fail open.
  * What stays here is beifahrer's own: which tools the server registers, and what each answers
  * with. The result helpers (`text`, `failure`, `answer` in tools.ts) are NOT the package's, and
  * must not become them: a `forbidden` answers `forbidden: … [origin=… have=… need=…]`, which

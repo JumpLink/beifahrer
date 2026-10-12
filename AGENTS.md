@@ -9,7 +9,7 @@ is the Beifahrer layer and wins where the two differ. What is read once lives in
 ## What this is
 
 A WebExtension (Firefox MV2, Chromium MV3, bundled by gjsify on GJS) plus a loopback bridge exposed
-as an MCP server. The bridge is a TypeScript app that **runs on GJS via gjsify**, like postbote and
+as an MCP server. The bridge is a TypeScript app that **runs on GJS via gjsify**, like curlew and
 troedler. Together they let an agent use the person's *own* browser under a per-site policy the
 person sets in that browser. Why, and what else was considered:
 [ADR 0001](docs/adr/0001-a-browser-extension-not-a-driven-browser.md).
@@ -182,7 +182,7 @@ sha and consumer-side state: [docs/gjsify-gaps.md](docs/gjsify-gaps.md). A `@gjs
 that table is re-read: a shim whose sha is in no tag is not deletable yet, however old it looks.
 
 **The MCP runtime is upstream and the last copy of it is gone.** `app/src/frontends/mcp/runtime.ts`
-was the THIRD verbatim copy of postbote's read-only gate + stdio lifecycle; at 0.54.0 that IS
+was the THIRD verbatim copy of curlew's read-only gate + stdio lifecycle; at 0.54.0 that IS
 `@gjsify/mcp`, and the file is deleted. Nothing was re-implemented on the way in — same bodies, same
 signatures — so no client surface moved: `tools/list`, a read-only `tools/call`, the dropped-write
 call and the error path are byte-identical against the two bundles. **The result helpers are NOT
