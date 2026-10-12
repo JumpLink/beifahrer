@@ -180,6 +180,20 @@ export function judgeCapture(captured: string, tabUrl: string): CapturedTarget {
 }
 
 /**
+ * Whether a download the BROWSER reports may be taken as the capture's document (ADR 0019).
+ *
+ * Narrower than `judgeCapture` on purpose: only a blob the armed tab's own origin made. The browser's
+ * download event carries no tab id, so the blob's origin is the only thing tying a save to the page
+ * that is being captured; a link to a sister origin or a plain address stays the browser's own
+ * download, however well it would pass `judgeCapture`.
+ */
+export function judgeSave(downloadUrl: string, tabUrl: string): CapturedTarget {
+  const verdict = judgeCapture(downloadUrl, tabUrl);
+  if (!verdict.ok || verdict.kind === 'blob') return verdict;
+  return { ok: false, reason: 'other-site', message: 'only a blob the page made is taken from a save' };
+}
+
+/**
  * What `page.capture` tells the agent when the click opened a page it may not follow.
  *
  * A `file:` address is a different story from a stranger's website: it means the browser SAVED the
@@ -201,7 +215,8 @@ export function refusedOpenMessage(opened: string, reason: string, tabId: number
     return (
       'the browser saved the document into its own downloads folder and opened that copy from disk ' +
       `(tab ${tabId}, a file: address). Capture only takes what the page hands to a link it can see; ` +
-      'a download the page starts out of sight is saved by the browser itself, and a local file is ' +
+      'a download the page starts out of sight is saved by the browser itself unless the person ' +
+      'switched on "Take hidden downloads", and a local file is ' +
       "outside every site's origin, so it was not read. The click already ran: do not repeat it " +
       'expecting a different result. The tab was left open.'
     );

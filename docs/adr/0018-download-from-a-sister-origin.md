@@ -42,6 +42,7 @@ A new method, `page.capture`: click a button, let **the page** produce the docum
 ## Consequences
 
 - No new browser permission: the extension already holds `tabs` and the optional host permissions.
+  (Superseded on this point for hidden saves by [0019](0019-capture-a-download-the-page-starts-out-of-sight.md): the optional `downloads` permission.)
   A sister origin the person has not allowed is refused by the same level check as any other call.
 - The person must raise the level for the sister origin once (`read` is enough) before a capture
   that ends there works.

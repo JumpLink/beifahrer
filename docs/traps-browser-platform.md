@@ -118,3 +118,15 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
   service worker (Chromium) and the browser window in BiDi's chrome scope (Firefox).
 - **Chromium has component extensions with a `background.js` worker too.** Pick Beifahrer's by
   its manifest (`default_locale`), not by the worker's file name.
+## Downloads a page starts out of sight (ADR 0019)
+
+- **`downloads.onCreated` sees the blob, but not in time to cancel it.** Measured with
+  `probes/downloads/run.mjs`: both browsers deliver the `blob:` URL, also for a blob revoked on the
+  next line, yet a cancel on a small blob loses the race (Firefox: "already complete"; Chromium
+  completes about as often as it cancels). Take the bytes first, then `cancel`, wait until the state
+  is not `in_progress`, `removeFile` (Chromium rejects it unless complete) and `erase`.
+- **A revoked blob is unreadable.** `fetch(blob:)` fails once the page revoked it, in both browsers.
+  Leave the browser's copy and say so.
+- **`DownloadItem` has no tab id**, so a capture cannot tell which tab started the save.
+- **A permission in both `permissions` and `optional_permissions` loads fine** (the e2e build does
+  exactly that for `downloads` and `webRequest`).

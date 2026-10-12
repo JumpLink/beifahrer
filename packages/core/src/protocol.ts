@@ -246,8 +246,11 @@ export interface MethodMap {
       mime: string;
       size: number;
       base64: string;
-      /** How the page handed it over: an anchor click, or a tab it opened. */
-      via: 'link' | 'tab';
+      /**
+       * How the page handed it over: an anchor click, a tab it opened, or a file it saved out of
+       * sight (the optional "save" switch, ADR 0019).
+       */
+      via: 'link' | 'tab' | 'save';
     };
   };
   'page.fill': {

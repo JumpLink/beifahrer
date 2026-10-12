@@ -197,6 +197,7 @@ on, and the switch stays off if you say no.
 | `webRequest` | **See page requests** — a log of what a page requested, with timings. Off by default. | `extension/entrypoints/options/main.ts:203` | a request log of everything your browser does is a browsing history with timestamps, and unlike a host permission it **cannot** be narrowed to one site — there is no per-origin form of it (`extension/manifest.ts:29-38`, `packages/core/src/features.ts:101-105`) |
 | `<all_urls>` | **Screenshots** — the browser's `captureVisibleTab` accepts nothing narrower, and Firefox does not even define it without the grant. Off by default. | `extension/entrypoints/options/main.ts:172` | the browser's own API has no narrower form (`extension/manifest.ts:21-23`, checked per call at `extension/src/handlers.ts:1039`) |
 | `http://*/*` + `https://*/*` | **Saved sessions and tab management** — saving, restoring, sorting, pinning, closing, grouping windows and tabs. Off by default. | `extension/entrypoints/popup/main.ts:202` | a session is a list of your tabs, so this is your browsing history; it belongs behind a switch you set, not in the install prompt |
+| `downloads` | **Take hidden downloads** — see a download the page starts out of sight and remove the browser's copy once the agent has the bytes. Off by default; the permission is asked for in the same click and only listened to while a capture runs. | `extension/src/saves.ts`; `extension/entrypoints/options/main.ts` | the permission can list and erase downloads, so it is optional, its own switch, and never used outside a capture ([ADR 0019](../adr/0019-capture-a-download-the-page-starts-out-of-sight.md)) |
 | `webRequest` + `script` feature | **Running the agent's own script in a page** — off by default, needs the `write` level, and **always** asks, showing you the whole script | `extension/entrypoints/confirm/main.ts:134`; `packages/core/src/policy.ts:219` | a script is code you have not read running in a page you are logged into; it gets its own switch, and no setting can silence it ([ADR 0012](../adr/0012-running-the-agents-own-script-in-the-page.md)) |
 
 The remaining declared permissions need no prompt and touch no site by themselves: `tabs`, `storage`,
@@ -206,7 +207,7 @@ The remaining declared permissions need no prompt and touch no site by themselve
 
 ## 9. What the extension does not do
 
-- It does not read your bookmarks, history, downloads, cookies or saved passwords.
+- It does not read your bookmarks, history, your download list, cookies or saved passwords.
 - It does not read the clipboard.
 - It does not modify pages you are not working on, and it does not install anything into them.
 - It does not switch the tab you are looking at. A screenshot refuses a tab that is not the visible

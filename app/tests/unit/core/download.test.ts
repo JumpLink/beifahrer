@@ -3,6 +3,7 @@ import { describe, expect, it } from '@gjsify/unit';
 import {
   downloadFilename,
   judgeCapture,
+  judgeSave,
   refusedOpenMessage,
   registrableDomain,
   resolveDownloadTarget,
@@ -135,6 +136,30 @@ export default async () => {
     await it('refuses everything when the tab is not a web page or has two hosts of one IP', async () => {
       expect(judgeCapture('https://a.example/x', 'about:blank').ok).toBe(false);
       expect(judgeCapture('https://10.0.0.5/x', 'https://10.0.0.6/').ok).toBe(false);
+    });
+  });
+
+  // ADR 0019. A save the browser reports carries no tab id, so the blob's origin is the only tie to
+  // the page being captured: narrower than judgeCapture, never wider.
+  await describe('judgeSave', async () => {
+    const tab = 'https://meine.portal.example/client/postbox/inbox';
+
+    await it("takes the armed tab's own blob", async () => {
+      const r = judgeSave('blob:https://meine.portal.example/9c1e', tab);
+      expect(r.ok && r.kind).toBe('blob');
+    });
+    await it("leaves another origin's blob, and every address judgeCapture would accept, alone", async () => {
+      expect(judgeSave('blob:https://evil.example/1', tab).ok).toBe(false);
+      expect(judgeSave('blob:https://other-tab.portal.example/1', tab).ok).toBe(false);
+      // A plain link or a sister's file is an ordinary download of the person, not a hidden save.
+      expect(judgeCapture('https://meine.portal.example/doc/1', tab).ok).toBe(true);
+      expect(judgeSave('https://meine.portal.example/doc/1', tab).ok).toBe(false);
+      expect(judgeSave('https://app-api.meine.portal.example/cx/1', tab).ok).toBe(false);
+    });
+    await it('refuses data:, file: and a tab that is not a web page', async () => {
+      expect(judgeSave('data:application/pdf;base64,AAAA', tab).ok).toBe(false);
+      expect(judgeSave('file:///home/p/Downloads/x.pdf', tab).ok).toBe(false);
+      expect(judgeSave('blob:https://meine.portal.example/1', 'about:blank').ok).toBe(false);
     });
   });
 

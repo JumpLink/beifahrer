@@ -24,6 +24,7 @@ export const FEATURES = [
   'outline',
   'screenshot',
   'download',
+  'captureSaves',
   'network',
   'fill',
   'click',
@@ -49,6 +50,13 @@ export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = 
     detail: 'page_outline, page_find, page_wait, page_expect — links, buttons, fields',
   },
   download: { label: 'Download documents', detail: 'page_download — a file the page links to' },
+  captureSaves: {
+    label: 'Take hidden downloads',
+    detail:
+      'page_capture — when the click makes the page save a file itself, the agent takes it and the ' +
+      "browser's own copy is removed. The browser grants this separately; it covers every download, " +
+      'though only one made while a capture is running on the site is touched (ADR 0019)',
+  },
   network: {
     label: 'See what a page requests',
     detail:
@@ -98,6 +106,9 @@ export const DEFAULT_FEATURES: Features = {
   outline: true,
   screenshot: false,
   download: false,
+  // Off: it cancels and deletes a file the browser was about to hand to the person, and the `downloads`
+  // permission it needs is asked for in the same click as the switch (ADR 0019).
+  captureSaves: false,
   // Off by default, and the one switch whose DEFAULT is the honest answer: a request log is a
   // browsing history with timestamps, and `webRequest` cannot be narrowed to one site. The person
   // grants it in the same click that switches it on, and taking it away in the browser switches the
