@@ -22,5 +22,68 @@
     "build": "gjsify workspace beifahrer-cli build && gjsify workspace beifahrer-extension build",
     "start": "gjsify workspace beifahrer-cli start",
     "test": "gjsify workspace beifahrer-cli test"
+  },
+  "gjsify": {
+    "site": {
+      "metainfo": "data/eu.jumplink.beifahrer.metainfo.xml",
+      "base": "/beifahrer/",
+      "url": "https://jumplink.eu/beifahrer/",
+      "languages": [
+        "en",
+        "de"
+      ],
+      "defaultLanguage": "en",
+      "repository": "JumpLink/beifahrer",
+      "icon": "extension/icons/sparkles.svg",
+      "releaseAssets": false,
+      "downloads": [
+        {
+          "platform": "firefox",
+          "format": "store",
+          "available": false
+        },
+        {
+          "platform": "chromium",
+          "format": "store",
+          "available": false
+        },
+        {
+          "platform": "firefox",
+          "format": "source",
+          "url": "https://github.com/JumpLink/beifahrer#install-from-source-for-now"
+        },
+        {
+          "platform": "chromium",
+          "format": "source",
+          "url": "https://github.com/JumpLink/beifahrer#install-from-source-for-now"
+        }
+      ],
+      "screenshots": {
+        "source": "merge",
+        "items": [
+          {
+            "from": 0,
+            "variants": {
+              "desktop-light": "docs/images/popup-light.png",
+              "desktop-dark": "docs/images/popup-dark.png"
+            }
+          },
+          {
+            "from": 1,
+            "variants": {
+              "desktop-light": "docs/images/options-light.png",
+              "desktop-dark": "docs/images/options-dark.png"
+            }
+          },
+          {
+            "from": 2,
+            "variants": {
+              "desktop-light": "docs/images/confirm-light.png",
+              "desktop-dark": "docs/images/confirm-dark.png"
+            }
+          }
+        ]
+      }
+    }
   }
 }
