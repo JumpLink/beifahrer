@@ -1,0 +1,41 @@
+{
+  "id": "atruvia/login",
+  "title": "Log back in to a bank portal that the browser already knows",
+  "description": "On the logged-out page or the login page of an Atruvia / VR banking portal: leaves the logged-out page for the login page, then presses Anmelden and waits for the start page with its Postfach button. It never types, reads or fills anything: the browser's own password manager has to have filled the VR-NetKey and the PIN. If the portal asks for a second factor (TAN, SecureGo, a new device) or the PIN was not filled, the run FAILS: ask the person to log in themselves, then continue with atruvia/list-postbox. Matched on any bank's domain by the portal's paths.",
+  "version": "1.0.0",
+  "match": {
+    "urls": [
+      "https://*/services_cloud/portal/logout*",
+      "https://*/services_auth/auth-frontend/*"
+    ]
+  },
+  "steps": [
+    {
+      "id": "redirect",
+      "action": "click",
+      "target": { "role": "button", "name": ["Weiterleitung zur Anmeldeseite"] },
+      "optional": true,
+      "note": "Only the logged-out page has this button; on the login page the step is skipped."
+    },
+    {
+      "id": "wait-login",
+      "action": "wait",
+      "for": { "role": "heading", "name": ["Anmelden"] },
+      "timeoutMs": 15000,
+      "failMessage": "The login page did not appear. Ask the person to open the bank portal and log in themselves."
+    },
+    {
+      "id": "login",
+      "action": "click",
+      "target": { "role": "button", "name": ["Anmelden"] },
+      "note": "Presses the button only. The browser's password manager must already have filled the fields."
+    },
+    {
+      "id": "wait-start",
+      "action": "wait",
+      "for": { "role": "button", "name": ["Postfach"] },
+      "timeoutMs": 25000,
+      "failMessage": "Not logged in: the portal stayed on the login page (no saved PIN) or asks for a second factor (TAN, SecureGo, new device). Beifahrer never fills a password or a TAN. Ask the person to log in themselves, then continue."
+    }
+  ]
+}

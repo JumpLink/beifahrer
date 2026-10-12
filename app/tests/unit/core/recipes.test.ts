@@ -73,9 +73,10 @@ export default async () => {
         const r = parseRecipe(file.data);
         if (typeof r === 'string') throw new Error(`${file.source}: ${r}`);
         // A recipe that publishes ends on a step the person must have asked for; one that only reads
-        // or downloads a document (ADR 0018) changes nothing anyone else sees.
+        // or downloads a document (ADR 0018) changes nothing anyone else sees. A login ends on a wait for
+        // the start page: it signs the person in to their own account and publishes nothing.
         const last = r.steps.at(-1)!;
-        if (!['rows', 'capture', 'read', 'outline'].includes(last.action))
+        if (!['rows', 'capture', 'read', 'outline', 'wait'].includes(last.action))
           expect(last.requiresExplicitRequest).toBe(true);
       }
     });
@@ -106,6 +107,34 @@ export default async () => {
       );
       refused(withStep({ id: 'x', action: 'rows', param: 'nope' }), /not a declared param/);
       refused(withStep({ id: 'x', action: 'wait', for: 'load', nameParam: 'text' }), /not "load"/);
+    });
+
+    await it('optional and failMessage are accepted only in their own shape', async () => {
+      const ok = parseRecipe(
+        withStep({ id: 'x', action: 'click', target: { role: 'button' }, optional: true }),
+      ) as Recipe;
+      expect((ok.steps[5] as { optional?: boolean }).optional).toBe(true);
+      refused(
+        withStep({ id: 'x', action: 'click', target: { role: 'button' }, optional: 'yes' }),
+        /optional: must be a boolean/,
+      );
+      refused(
+        withStep({ id: 'x', action: 'find', target: { role: 'button' }, optional: true }),
+        /unknown key "optional"/,
+      );
+      refused(
+        withStep({ id: 'x', action: 'wait', for: 'load', failMessage: '' }),
+        /failMessage: must be a non-empty string/,
+      );
+      refused(withStep({ id: 'x', action: 'read', failMessage: 'no' }), /unknown key "failMessage"/);
+    });
+
+    await it('the built-in atruvia login only clicks and waits: no fill, no param', async () => {
+      const file = BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/login')!;
+      const r = parseRecipe(file.data) as Recipe;
+      expect(r.steps.map((s) => s.action).join(',')).toBe('click,wait,click,wait');
+      expect(r.params.length).toBe(0);
+      expect(r.match.every((m) => m.urls !== undefined)).toBe(true);
     });
 
     await it('the built-in atruvia download names the row on both the wait and the capture', async () => {
