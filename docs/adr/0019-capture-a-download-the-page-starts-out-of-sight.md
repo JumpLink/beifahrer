@@ -1,6 +1,6 @@
 # 0019: Capture a download the page starts out of sight
 
-- **Status:** proposed
+- **Status:** accepted (decided by the person on 2026-10-12, after the probe below)
 - **Date:** 2026-10-12
 - **Refines:** [0018](0018-download-from-a-sister-origin.md) (`page.capture`)
 - **Asked for by:** a live test of `atruvia/download-document` on a bank postbox, 2026-10-12.
@@ -49,25 +49,41 @@ changes with this record.
 5. **Read the `file:` copy.** A local path is outside every origin and outside every per-site level.
    Refused.
 
-## Decision (proposed)
+## Probe result
 
-Option 2, behind its own feature switch, and only after a probe measures on Firefox and Chromium
-that `downloads.onCreated` delivers the blob URL while the blob is still readable. The probe uses a
-synthetic page (an off-DOM anchor with `download` and a blob) and no real portal.
+`probes/downloads/run.mjs` (throw-away extension, synthetic page, Chromium and Firefox, 2026-10-12):
 
-It is **proposed, not accepted**, because it adds an API permission and cancels a save the browser
-was about to make for the person. ADR 0018 states "No new browser permission", and the person, not
-the agent, decides to widen that. It does not touch the hard rules: no main-world script (0012), no
-token (0018), the gate stays in the extension and runs before the click, and nothing leaves the
-device.
+- `downloads.onCreated` delivers the `blob:` URL in both browsers, also when the page revokes the
+  blob on the next line or in a timeout of 0.
+- The page-side fetch reads a blob the page keeps (4015 bytes, both). A revoked blob is unreadable in
+  both ("Failed to fetch" / "NetworkError"): `onCreated` is early enough to SEE the save, not to
+  read a blob the page already revoked.
+- Cancelling is mostly too late for a small blob: Firefox answers "already complete", Chromium
+  completes about as often as it cancels. `removeFile` + `erase` leave no file in the download
+  folder in every case.
+- `DownloadItem` carries no tab id.
 
-## Consequences if accepted
+## Decision
 
-- A feature `captureSaves` (off by default), the optional `downloads` permission requested in the
-  options click, `method_` words and locale keys in every `_locales/*`.
-- A capture that sees the browser's save cancels it only when `judgeCapture` allows its address;
-  any other download is left alone.
-- An e2e on the synthetic off-DOM anchor, both browsers.
+Option 2, behind its own feature switch, as probed. Two changes from the proposal, forced by the
+probe: the bytes are read FIRST, and only a successful read removes the browser's copy (cancel,
+wait until the download settles, `removeFile`, `erase`); a revoked blob leaves the browser's copy
+alone and the agent gets `failed`. Only a `blob:` of the tab's own origin is taken (`judgeSave`);
+every other download stays the browser's own. The listener exists only while a capture is armed.
+
+It adds an API permission, so the person decided it: ADR 0018's "No new browser permission" is
+superseded on this point. It does not touch the hard rules: no main-world script (0012), no token
+(0018), the gate stays in the extension and runs before the click, and nothing leaves the device.
+
+## Consequences
+
+- A feature `captureSaves` ("Take hidden downloads", off by default), the optional `downloads`
+  permission requested in the options click and taken back when it is switched off, locale keys in
+  every `_locales/*`. It has no method of its own: it widens `page.capture`.
+- `page.capture` answers `via: "save"` for such a file.
+- While a capture is armed, a blob download of the same origin from another tab could be taken
+  (no tab id to correlate); the window is the capture's own timeout.
+- An e2e on the synthetic off-DOM anchor, both browsers, with the revoke case.
 
 ## Not decided here
 
