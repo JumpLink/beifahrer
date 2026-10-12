@@ -152,6 +152,26 @@ adw-action-row.warning gtk-image {
   color: var(--warning-color);
 }
 
+/* A warning is a sentence, not a label: it wraps, and where its buttons leave it too little room
+   (the popup) they move below it. Fixed upstream in gjsify: rows wrap their title by default
+   (`title-lines=0`) after 0.54.0; drop the white-space rule with the next @gjsify bump. */
+adw-action-row.warning {
+  flex-wrap: wrap;
+}
+
+adw-action-row.warning .adw-action-row-text {
+  flex: 1 1 14em;
+}
+
+adw-action-row.warning .adw-row-title {
+  white-space: normal;
+}
+
+adw-action-row.warning .adw-action-row-suffix {
+  flex-grow: 1;
+  justify-content: flex-end;
+}
+
 /* The one banner the pages share, in the colour of the state it speaks for: Adwaita's own error
    for "no agent can reach this browser" and its own warning for the person's pause (ADR 0014).
    Both are mixed into the surface the banner already had, so the text keeps its own colour and

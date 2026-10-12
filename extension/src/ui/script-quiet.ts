@@ -70,6 +70,7 @@ export function scriptQuietControl(options: {
     render(true);
     void save(true);
   });
+  for (const button of [cancel, allow]) button.setAttribute('slot', 'suffix');
   warning.append(cancel, allow);
 
   // OFF is the direction that needs the warning, so the click itself writes nothing: the switch
