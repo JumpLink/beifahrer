@@ -133,7 +133,7 @@ all (options page):
 | Read page text | `page_read` | on |
 | Outline pages | `page_outline` | on |
 | List rows | `page_rows` — the rows of a list or table, scrolling a virtual-scroll list | on |
-| Download by click | `page_capture` — clicks a download button, the page fetches the file with its own session, from the tab's origin or a sister origin of the same site (needs *Read* there too); no token reaches the agent ([ADR 0018](docs/adr/0018-download-from-a-sister-origin.md)) | on, with *Click* and *Download documents* |
+| Download by click | `page_capture` — clicks a download button, the page fetches the file with its own session, from the tab's origin or a sister origin of the same site (needs *Read* there too); no token reaches the agent ([ADR 0018](docs/adr/0018-download-from-a-sister-origin.md)); a save the page starts out of sight is not seen, and the error says so ([ADR 0019](docs/adr/0019-capture-a-download-the-page-starts-out-of-sight.md), proposed) | on, with *Click* and *Download documents* |
 | Screenshots | `page_screenshot` (turning it on asks the browser for access to all sites) | **off** |
 | See page requests | `page_network` — what the tab asked for and what came back, never with query strings. Switching it on asks the browser for its `webRequest` permission, which is a request log of this whole browser | **off** |
 | Fill in forms | `page_fill`, `page_press`, `page_select`, `page_check` — text into a field, keys into a form, a dropdown option, a checkbox. Still only at *Read + edit*, and you confirm | on |

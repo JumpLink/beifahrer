@@ -1,6 +1,12 @@
 import { describe, expect, it } from '@gjsify/unit';
 
-import { downloadFilename, judgeCapture, registrableDomain, resolveDownloadTarget } from '@beifahrer/core';
+import {
+  downloadFilename,
+  judgeCapture,
+  refusedOpenMessage,
+  registrableDomain,
+  resolveDownloadTarget,
+} from '@beifahrer/core';
 
 // A download turns a string into an authenticated request, and a second string into a file name.
 // Both strings come from somewhere untrusted — the agent, or the site — so the tests below aim at
@@ -129,6 +135,28 @@ export default async () => {
     await it('refuses everything when the tab is not a web page or has two hosts of one IP', async () => {
       expect(judgeCapture('https://a.example/x', 'about:blank').ok).toBe(false);
       expect(judgeCapture('https://10.0.0.5/x', 'https://10.0.0.6/').ok).toBe(false);
+    });
+  });
+
+  await describe('refusedOpenMessage', async () => {
+    await it('says the browser saved the file itself when the tab is a file: address', async () => {
+      const m = refusedOpenMessage('file:///home/p/Downloads/statement.pdf', 'file: is not a web address', 5);
+      expect(m).toMatch(/browser saved the document/);
+      expect(m).toMatch(/already ran/);
+      expect(m).not.toMatch(/not a web address/);
+      // The path of a local file is the person's, and goes nowhere.
+      expect(m).not.toMatch(/Downloads|statement/);
+    });
+
+    await it('names only the origin of a web address, never the ticket in its path', async () => {
+      const m = refusedOpenMessage('https://evil.example/dl?ticket=SECRET', 'not a sister', 9);
+      expect(m).toMatch(/https:\/\/evil\.example,/);
+      expect(m).not.toMatch(/SECRET/);
+      expect(m).toMatch(/tab 9 was left open/);
+    });
+
+    await it('falls back to a plain wording for an address that cannot be parsed', async () => {
+      expect(refusedOpenMessage('::', 'not a web address', 2)).toMatch(/address that is not on the web/);
     });
   });
 

@@ -27,6 +27,7 @@ import {
   expectationOf,
   isMethod,
   judgeCapture,
+  refusedOpenMessage,
   levelFor,
   parseNetwork,
   parseElementQuery,
@@ -897,14 +898,7 @@ const handlers: { [M in Method]: Handler<M> } = {
         const hit = opened.take();
         if (!hit) continue;
         const verdict = judgeCapture(hit.url, tab.url);
-        if (!verdict.ok) {
-          // The origin only: the rest of the URL may carry a one-time ticket.
-          return fail(
-            'invalid',
-            `the click opened a page on ${originOf(hit.url) ?? 'an address that is not on the web'}, which a ` +
-              `download may not follow (${verdict.message}). The tab ${hit.tabId} was left open.`,
-          );
-        }
+        if (!verdict.ok) return fail('invalid', refusedOpenMessage(hit.url, verdict.message, hit.tabId));
         let doc: Record<string, unknown>;
         if (verdict.kind === 'blob') {
           doc = await page(tabId, ctx, { beifahrer: 'download', url: hit.url, maxBytes });
@@ -920,7 +914,8 @@ const handlers: { [M in Method]: Handler<M> } = {
       return fail(
         'failed',
         `nothing was handed over within ${timeoutMs} ms: the click produced no download link and opened no tab. ` +
-          'Is the page logged in, and is this the button that downloads?',
+          'Is the page logged in, and is this the button that downloads? If the browser saved a file ' +
+          'on its own, the page started that download out of sight and capture cannot see it (ADR 0019).',
       );
     } finally {
       opened.stop();
