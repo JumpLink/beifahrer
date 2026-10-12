@@ -1,14 +1,23 @@
 {
   "id": "atruvia/login",
   "title": "Log back in to a bank portal that the browser already knows",
-  "description": "On the logged-out page or the login page of an Atruvia / VR banking portal: leaves the logged-out page for the login page, then presses Anmelden and waits for the start page with its Postfach button. It never types, reads or fills anything: the browser's own password manager has to have filled the VR-NetKey and the PIN. If the portal asks for a second factor (TAN, SecureGo, a new device) or the PIN was not filled, the run FAILS: ask the person to log in themselves, then continue with atruvia/list-postbox. Matched on any bank's domain by the portal's paths.",
-  "version": "1.0.0",
+  "description": "On the logged-out page or the login page of an Atruvia / VR banking portal: leaves the logged-out page for the login page, then presses Anmelden and waits for the start page with its Postfach button. It never types a PIN or password: the browser's own password manager has to have filled the VR-NetKey and the PIN. If the portal asks for a second factor, the run ends with needs_person: a TAN field (kind code, pass the relayed TAN as param code and resume at the step in next), or an approval on the person's own device such as SecureGo or a new-device check (kind device). If the login page stays (no saved PIN), it ends with needs_person kind login. Matched on any bank's domain by the portal's paths.",
+  "version": "1.1.0",
   "match": {
     "urls": [
       "https://*/services_cloud/portal/logout*",
       "https://*/services_auth/auth-frontend/*"
     ]
   },
+  "params": [
+    {
+      "name": "code",
+      "type": "string",
+      "description": "The one-time code (TAN) the person relayed after a needs_person of kind code. Never invent one.",
+      "required": false,
+      "secret": true
+    }
+  ],
   "steps": [
     {
       "id": "redirect",
@@ -31,11 +40,57 @@
       "note": "Presses the button only. The browser's password manager must already have filled the fields."
     },
     {
+      "id": "settle",
+      "action": "wait",
+      "for": "load",
+      "note": "Lets the page after the button settle before the second-factor checks look at it."
+    },
+    {
+      "id": "device",
+      "action": "person",
+      "kind": "device",
+      "whenAny": [
+        { "role": "heading", "name": ["SecureGo"] },
+        { "role": "heading", "name": ["Browsererkennung"] },
+        { "role": "heading", "name": ["neues Gerät", "neuem Gerät", "neuen Gerät"] }
+      ],
+      "prompt": "Approve the login on your own device (SecureGo or a new-device check), then tell me."
+    },
+    {
+      "id": "tan",
+      "action": "person",
+      "kind": "code",
+      "when": { "role": "textbox", "name": ["TAN"] },
+      "prompt": "The bank asks for a TAN. Please give me the current code.",
+      "codeParam": "code"
+    },
+    {
+      "id": "enter-tan",
+      "action": "enter-code",
+      "target": { "role": "textbox", "name": ["TAN"] },
+      "param": "code",
+      "note": "Skipped unless the run resumed with a code."
+    },
+    {
+      "id": "confirm-tan",
+      "action": "click",
+      "target": { "role": "button", "name": ["Bestätigen", "Weiter"] },
+      "optional": true,
+      "note": "Only after a code was typed; the button names are not verified against a live page."
+    },
+    {
+      "id": "no-pin",
+      "action": "person",
+      "kind": "login",
+      "when": { "role": "heading", "name": ["Anmelden"] },
+      "prompt": "The login page is still open: no PIN was saved. Please log in yourself, then tell me."
+    },
+    {
       "id": "wait-start",
       "action": "wait",
       "for": { "role": "button", "name": ["Postfach"] },
       "timeoutMs": 25000,
-      "failMessage": "Not logged in: the portal stayed on the login page (no saved PIN) or asks for a second factor (TAN, SecureGo, new device). Beifahrer never fills a password or a TAN. Ask the person to log in themselves, then continue."
+      "failMessage": "Not logged in: the start page did not appear. Beifahrer never fills a PIN or a password. Ask the person to log in themselves, then continue."
     }
   ]
 }

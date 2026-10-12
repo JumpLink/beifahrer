@@ -6,6 +6,7 @@ import {
   parseRecipe,
   urlPatternMatches,
   urlsMatch,
+  WRITE_ACTIONS,
   type Recipe,
 } from '@beifahrer/core';
 
@@ -132,8 +133,11 @@ export default async () => {
     await it('the built-in atruvia login only clicks and waits: no fill, no param', async () => {
       const file = BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/login')!;
       const r = parseRecipe(file.data) as Recipe;
-      expect(r.steps.map((s) => s.action).join(',')).toBe('click,wait,click,wait');
-      expect(r.params.length).toBe(0);
+      expect(r.steps.map((s) => s.action).join(',')).toBe(
+        'click,wait,click,wait,person,person,enter-code,click,person,wait',
+      );
+      expect(r.params.map((p) => `${p.name}:${p.secret}`).join(',')).toBe('code:true');
+      expect(r.steps.some((s) => s.action === 'fill')).toBe(false);
       expect(r.match.every((m) => m.urls !== undefined)).toBe(true);
     });
 
@@ -143,6 +147,83 @@ export default async () => {
       const named = r.steps.filter((s) => 'nameParam' in s && s.nameParam === 'title').map((s) => s.action);
       expect(named.join(',')).toBe('wait,capture');
       expect(r.steps.some((s) => s.action === 'click-row')).toBe(false);
+    });
+  });
+
+  await describe('person and enter-code steps', async () => {
+    const withCode = (...steps: Record<string, unknown>[]) => {
+      const r = valid();
+      (r.params as unknown[]).push({ name: 'code', type: 'string', description: 'c', required: false });
+      (r.steps as unknown[]).push(...steps);
+      return r;
+    };
+    const when = { role: 'textbox', name: 'TAN' };
+    await it('parses a person step and marks its code param secret on its own', async () => {
+      const r = parseRecipe(
+        withCode({
+          id: 'tan',
+          action: 'person',
+          kind: 'code',
+          when,
+          prompt: 'Give me the code.',
+          codeParam: 'code',
+        }),
+      ) as Recipe;
+      expect(typeof r).toBe('object');
+      expect(r.params.find((p) => p.name === 'code')?.secret).toBe(true);
+      expect(r.params.find((p) => p.name === 'text')?.secret).toBe(undefined);
+    });
+    await it('parses whenAny and enter-code; enter-code is a write', async () => {
+      const r = parseRecipe(
+        withCode(
+          {
+            id: 'dev',
+            action: 'person',
+            kind: 'device',
+            whenAny: [
+              { role: 'heading', name: 'A' },
+              { role: 'heading', name: 'B' },
+            ],
+            prompt: 'Approve it.',
+          },
+          { id: 'type', action: 'enter-code', target: when, param: 'code' },
+        ),
+      ) as Recipe;
+      expect(typeof r).toBe('object');
+      expect(WRITE_ACTIONS.has('enter-code')).toBe(true);
+      expect(WRITE_ACTIONS.has('person')).toBe(false);
+    });
+    await it('refuses a malformed person step', async () => {
+      refused(
+        withCode({ id: 'p', action: 'person', kind: 'login', prompt: 'x' }),
+        /exactly one of when, whenAny/,
+      );
+      refused(
+        withCode({ id: 'p', action: 'person', kind: 'login', prompt: 'x', when, whenAny: [when] }),
+        /exactly one of when, whenAny/,
+      );
+      refused(
+        withCode({ id: 'p', action: 'person', kind: 'password', prompt: 'x', when }),
+        /kind: must be one of/,
+      );
+      refused(withCode({ id: 'p', action: 'person', kind: 'code', prompt: '', when }), /prompt/);
+      refused(
+        withCode({ id: 'p', action: 'person', kind: 'code', prompt: 'x', when, codeParam: 'nope' }),
+        /not a declared param/,
+      );
+      refused(
+        withCode({ id: 'p', action: 'enter-code', target: when, param: 'nope' }),
+        /not a declared param/,
+      );
+      refused(
+        withCode({ id: 'p', action: 'enter-code', target: when, param: 'code', value: '123456' }),
+        /unknown key|carries no code/,
+      );
+    });
+    await it('refuses a non-boolean secret', async () => {
+      const r = valid();
+      (r.params as Record<string, unknown>[])[0]!.secret = 'yes';
+      refused(r, /secret: must be true or false/);
     });
   });
 

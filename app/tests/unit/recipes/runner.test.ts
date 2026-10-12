@@ -402,11 +402,14 @@ export default async () => {
       const login = () =>
         parseRecipe(BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/login')!.data) as Recipe;
 
+      const START: Array<[FindRole, string]> = [['button', 'Postfach: 2 ungelesen']];
+
       /** A portal page: the elements it shows, and whether the click on Anmelden gets past it. */
       const portal = (
         url: string,
         shown: Array<[FindRole, string]>,
         afterLogin: Array<[FindRole, string]>,
+        opts: { enterFails?: string } = {},
       ) => {
         let n = 1;
         let elements = shown.map(([role, name]) => ({ ref: `e${n++}`, role, name }));
@@ -441,12 +444,19 @@ export default async () => {
                 ['heading', 'Anmelden'],
                 ['button', 'Anmelden'],
               ].map(([role, name]) => ({ ref: `e${n++}`, role: role as FindRole, name: name! }));
+            if (el.name === 'Bestätigen')
+              elements = START.map(([role, name]) => ({ ref: `e${n++}`, role, name }));
             if (el.role === 'button' && el.name === 'Anmelden')
               elements = afterLogin.map(([role, name]) => ({ ref: `e${n++}`, role, name }));
             return { ref: p.ref };
           }
+          if (m === 'page.enterCode') {
+            if (opts.enterFails) throw new BridgeError({ code: 'invalid', message: opts.enterFails });
+            return { ref: p.ref, length: (p.code as string).length };
+          }
           if (m === 'page.wait') {
             const { tabId: _t, for: want } = p;
+            if (want === 'load') return { waitedMs: 1 };
             const first = elements.filter((e) =>
               queryMatches(want as ElementQuery, { role: e.role, name: e.name, text: '' }),
             )[0];
@@ -457,7 +467,6 @@ export default async () => {
         }) as unknown as Call;
         return { call, calls };
       };
-      const START: Array<[FindRole, string]> = [['button', 'Postfach: 2 ungelesen']];
 
       await it('from the logged-out page: redirect, wait for the form, log in, reach the start page', async () => {
         const x = portal(
@@ -470,7 +479,9 @@ export default async () => {
         );
         const run = await runRecipe(x.call, login(), { tabId: 7 });
         expect(run.status).toBe('done');
-        expect(run.log.map((l) => l.status).join(',')).toBe('ok,ok,ok,ok');
+        expect(run.log.map((l) => l.status).join(',')).toBe(
+          'ok,ok,ok,ok,skipped,skipped,skipped,skipped,skipped,ok',
+        );
         expect(x.calls.filter(([m]) => m === 'page.click').length).toBe(2);
         expect(x.calls.some(([m]) => m === 'page.fill')).toBe(false);
       });
@@ -491,23 +502,74 @@ export default async () => {
         expect(x.calls.filter(([m]) => m === 'page.click').length).toBe(1);
       });
 
-      await it('a second factor or an unfilled PIN fails with the ask-the-person message', async () => {
-        const x = portal(
-          'https://bank.example/services_auth/auth-frontend/?x=1',
-          [
-            ['heading', 'Anmelden'],
-            ['button', 'Anmelden'],
-          ],
-          [
-            ['heading', 'TAN eingeben'],
-            ['textbox', 'TAN'],
-          ],
-        );
+      const LOGIN_PAGE: Array<[FindRole, string]> = [
+        ['heading', 'Anmelden'],
+        ['button', 'Anmelden'],
+      ];
+      const AUTH = 'https://bank.example/services_auth/auth-frontend/?x=1';
+
+      await it('a TAN field ends the run with needs_person (code), and the resume types the relayed code', async () => {
+        const x = portal(AUTH, LOGIN_PAGE, [
+          ['heading', 'TAN eingeben'],
+          ['textbox', 'TAN'],
+          ['button', 'Bestätigen'],
+        ]);
+        const first = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(first.status).toBe('needs_person');
+        expect(first.next).toBe('enter-tan');
+        expect(first.person).toStrictEqual({
+          kind: 'code',
+          origin: 'https://bank.example',
+          prompt: 'The bank asks for a TAN. Please give me the current code.',
+          acceptsCode: true,
+          codeParam: 'code',
+        });
+        expect(x.calls.some(([m]) => m === 'page.enterCode')).toBe(false);
+
+        const second = await runRecipe(x.call, login(), {
+          tabId: 7,
+          params: { code: '123456' },
+          from: 'enter-tan',
+        });
+        expect(second.status).toBe('done');
+        const typed = x.calls.filter(([m]) => m === 'page.enterCode');
+        expect(typed.length).toBe(1);
+        expect(typed[0]![1].code).toBe('123456');
+        expect(JSON.stringify(second)).not.toMatch(/123456/);
+        expect(x.calls.some(([m]) => m === 'page.fill')).toBe(false);
+      });
+
+      await it('a device approval page ends the run with needs_person (device), without a code', async () => {
+        for (const heading of ['SecureGo plus freigeben', 'Browsererkennung', 'Anmeldung mit neuem Gerät']) {
+          const x = portal(AUTH, LOGIN_PAGE, [['heading', heading]]);
+          const run = await runRecipe(x.call, login(), { tabId: 7 });
+          expect(run.status).toBe('needs_person');
+          expect(run.person?.kind).toBe('device');
+          expect(run.person?.acceptsCode).toBe(false);
+          expect(run.person?.codeParam).toBe(undefined);
+        }
+      });
+
+      await it('the login page staying open (no saved PIN) ends the run with needs_person (login)', async () => {
+        const x = portal(AUTH, LOGIN_PAGE, LOGIN_PAGE);
         const run = await runRecipe(x.call, login(), { tabId: 7 });
-        expect(run.status).toBe('failed');
+        expect(run.status).toBe('needs_person');
+        expect(run.person?.kind).toBe('login');
+        expect(run.person?.acceptsCode).toBe(false);
         expect(run.next).toBe('wait-start');
-        expect(run.message).toMatch(/Ask the person to log in themselves/);
-        expect(x.calls.some(([m]) => m === 'page.fill' || m === 'page.type')).toBe(false);
+        expect(x.calls.some(([m]) => m === 'page.fill' || m === 'page.enterCode')).toBe(false);
+      });
+
+      await it('a code never appears in a result, even inside an error the extension sent', async () => {
+        const x = portal(AUTH, [['textbox', 'TAN']], START, { enterFails: 'field refused 987654' });
+        const run = await runRecipe(x.call, login(), {
+          tabId: 7,
+          params: { code: '987654' },
+          from: 'enter-tan',
+        });
+        expect(run.status).toBe('failed');
+        expect(JSON.stringify(run)).not.toMatch(/987654/);
+        expect(run.message).toMatch(/••••/);
       });
 
       await it('does not match the postbox or any other page of the bank', async () => {
