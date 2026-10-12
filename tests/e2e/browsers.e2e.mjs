@@ -131,6 +131,8 @@ const FIXTURE = `<!doctype html><html><head><title>Beifahrer fixture</title></he
 <p id="spin-state"></p>
 <p id="gate-done"></p>
 <a href="/sample" id="sample-link">sample link</a>
+<!-- A link by role only: no href, so the outline once failed on the whole page ("e is undefined"). -->
+<span role="link" tabindex="0" id="role-link">pseudo link</span>
 <p>clicks: <span id="clicks">0</span> · pastes: <span id="pastes">0</span> <span id="pasteinfo"></span></p>
 <p>indicator:<span id="ind"></span>.</p>
 <beifahrer-open-card>slotted text</beifahrer-open-card>
@@ -1048,6 +1050,12 @@ async function confirmScenario(browser) {
       check(name, 'page_outline gives refs for the gate field and button', false, outline.text.slice(0, 400));
       return;
     }
+    check(
+      name,
+      'the outline names a role="link" element that has no href',
+      /\[e\d+\] link "pseudo link"(?! →)/.test(outline.text),
+      outline.text.slice(0, 400),
+    );
     // What gates the writes below, asked before any of them: this build does not silence the
     // person, so a write here is served WITH a window. Getting `confirm` wrong in either direction
     // would misreport the site to every agent that asks (the `on` build checks the other half).
