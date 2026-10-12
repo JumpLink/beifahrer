@@ -52,7 +52,7 @@ thing only, how long to wait for an answer (`app/src/bridge/bridge.ts:126`).
 The bridge's own MCP layer refuses to expose a tool that a client marked read-only without
 `readOnlyHint: true`, and fails closed by dropping it (`applyReadOnlyGate`, called in
 `app/src/frontends/mcp/server.ts`). The gate itself is `@gjsify/mcp`'s since 0.54.0 — it was this
-repository's own `runtime.ts`, the third verbatim copy of postbote's, until then — and
+repository's own `runtime.ts`, the third verbatim copy of curlew's, until then — and
 `app/tests/unit/mcp/gate.test.ts` pins the direction it compares in, because a gate this
 repository does not own is the one case where "it was tested here once" stops being evidence.
 

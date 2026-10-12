@@ -9,7 +9,7 @@ on:
   # to be kept in step with this one. Nothing here needs a secret, so a caller forwards none.
   workflow_call:
 
-# The gjsify toolchain, as in postbote/troedler: `gjsify install --immutable`, the bundled
+# The gjsify toolchain, as in curlew/troedler: `gjsify install --immutable`, the bundled
 # `gjsify tsc` type-check, `gjsify build` for the app, and the unit tests under BOTH gjs and node.
 # The extension is bundled by gjsify on GJS too (extension/scripts/build.ts) — Node is here only to
 # bootstrap the gjsify CLI.
