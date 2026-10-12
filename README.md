@@ -139,6 +139,7 @@ all (options page):
 | See page requests | `page_network` — what the tab asked for and what came back, never with query strings. Switching it on asks the browser for its `webRequest` permission, which is a request log of this whole browser | **off** |
 | Fill in forms | `page_fill`, `page_press`, `page_select`, `page_check` — text into a field, keys into a form, a dropdown option, a checkbox. Still only at *Read + edit*, and you confirm | on |
 | Click | `page_click`, still only at *Read + edit*, and you confirm | on |
+| Type one-time codes you relay | `page_enter_code` — types a TAN or SMS code you gave the agent into a field the page marks as a one-time code. Never a password or PIN field, 4 to 10 letters or digits, the code is masked in every log and window, you confirm every time ([ADR 0020](docs/adr/0020-one-time-codes-the-person-relays.md)) | **off** |
 | Run scripts | `page_evaluate` — the agent runs its own code in the page (Firefox only; Chromium's content-script policy forbids it), still only at *Read + edit*, and you see every script before it runs | **off** |
 | Point the browser at a URL | `tab_open`, `page_navigate` — only sites at *Read* or higher | on |
 | Manage tabs and windows | `tabs_move`, `tabs_pin`, `tabs_close`, `tabs_group`, `tabs_ungroup`, `window_create` | **off** |
@@ -282,6 +283,7 @@ Three things it will not do, on purpose:
 - **A modifier on its own** is refused: it presses nothing, and answering "done" for a call that did
   nothing is the one answer no agent can work around.
 - **A password field** is never typed into, exactly like `page_fill`.
+- **A one-time code** the person relayed goes in only through `page_enter_code` (below).
 
 A widget built from divs instead of a `<select>` has no options to set. Beifahrer says so, **names
 the choices**, and points at `page_click` — setting `aria-checked` by hand would make a widget look
@@ -359,7 +361,7 @@ It is the furthest-reaching switch in the list, and the only one whose permissio
 
 - **Run arbitrary JavaScript unless you switched it on.** `page_evaluate` is off by default, needs
   Read + edit on the site, and asks every single time. With the switch off, every action is one of
-  the tools above, so the levels mean what they say.- **Fill a password field.** You type those yourself.
+  the tools above, so the levels mean what they say.- **Fill a password field.** You type those yourself. The only exception is a one-time code you gave the agent, with *Type one-time codes you relay* switched on.
 - **Hold your credentials.** It uses the session you are already logged into.
 - **Send anything off your computer.** The only channel is the loopback socket to the bridge you
   run yourself.
