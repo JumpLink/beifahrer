@@ -34,6 +34,12 @@ export interface ElementQuery {
    * them, which is how one recipe covers several UI languages.
    */
   name?: string | string[];
+  /**
+   * A second substring the name must ALSO contain (AND, where `name` is OR). It is how a recipe says
+   * "the Download button of THIS row": the button's name carries the row's title, and the title is
+   * a run parameter, not something the recipe can spell out.
+   */
+  nameAlso?: string;
   /** Substring of the element's visible text, same normalisation. */
   text?: string;
   /** Which match, from 0 in document order. Absent: all (`page.find`) or the first (recipes). */
@@ -53,7 +59,7 @@ export interface MetaQuery {
 
 export const QUERY_LIMITS = { chars: 200, names: 10, maxNth: 99 } as const;
 
-const QUERY_KEYS = new Set(['role', 'name', 'text', 'nth']);
+const QUERY_KEYS = new Set(['role', 'name', 'nameAlso', 'text', 'nth']);
 
 /** Keys an agent or a recipe might reach for, and why each is refused. */
 function refusedKey(key: string): string {
@@ -92,6 +98,11 @@ export function parseElementQuery(raw: unknown): ElementQuery | string {
       return `name must be non-empty strings of at most ${QUERY_LIMITS.chars} characters`;
     query.name = Array.isArray(src.name) ? (names as string[]) : (src.name as string);
   }
+  if (src.nameAlso !== undefined) {
+    if (!isString(src.nameAlso, QUERY_LIMITS.chars))
+      return `nameAlso must be a non-empty string of at most ${QUERY_LIMITS.chars} characters`;
+    query.nameAlso = src.nameAlso;
+  }
   if (src.text !== undefined) {
     if (!isString(src.text, QUERY_LIMITS.chars))
       return `text must be a non-empty string of at most ${QUERY_LIMITS.chars} characters`;
@@ -108,7 +119,8 @@ export function parseElementQuery(raw: unknown): ElementQuery | string {
     query.nth = src.nth;
   }
   // A query naming nothing matches every element on the page — for a click, that is a guess.
-  if (!query.role && !query.name && !query.text) return 'a query needs at least one of role, name, text';
+  if (!query.role && !query.name && !query.nameAlso && !query.text)
+    return 'a query needs at least one of role, name, text';
   return query;
 }
 
@@ -143,6 +155,8 @@ export function queryMatches(query: ElementQuery, el: ElementFacts): boolean {
     const wanted = Array.isArray(query.name) ? query.name : [query.name];
     if (!wanted.some((n) => name.includes(normalizeText(n)))) return false;
   }
+  if (query.nameAlso !== undefined && !normalizeText(el.name).includes(normalizeText(query.nameAlso)))
+    return false;
   if (query.text !== undefined && !normalizeText(el.text).includes(normalizeText(query.text))) return false;
   return true;
 }
@@ -158,7 +172,24 @@ export function describeQuery(query: ElementQuery): string {
   const parts: string[] = [query.role ?? 'element'];
   if (query.name !== undefined)
     parts.push(Array.isArray(query.name) ? query.name.map((n) => `"${n}"`).join(' | ') : `"${query.name}"`);
+  if (query.nameAlso !== undefined) parts.push(`and "${query.nameAlso}"`);
   if (query.text !== undefined) parts.push(`with text "${query.text}"`);
   if (query.nth !== undefined) parts.push(`#${query.nth}`);
   return parts.join(' ');
+}
+
+/**
+ * Whitespace collapsed and cut to `max` characters. Total on purpose: the outline reads whatever a
+ * page offers, and `role="link"` on a `<span>` has no `href` at all — a `.replace` on that
+ * `undefined` once made `page.outline` fail on a whole page for one element.
+ */
+export function clipText(value: unknown, max: number): string {
+  const t = (typeof value === 'string' ? value : '').replace(/\s+/g, ' ').trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+}
+
+/** The outline line of a link. Without a usable `href` (`role="link"` on a span) it shows the name only. */
+export function linkLine(name: string, href: unknown): string {
+  const target = clipText(href, 120);
+  return target ? `link "${name}" → ${target}` : `link "${name}"`;
 }

@@ -81,6 +81,42 @@ export default async () => {
     });
   });
 
+  await describe('nameParam and rows param', async () => {
+    await it('accepts nameParam on find, click, wait and capture, and param on rows', async () => {
+      const r = valid();
+      r.params = [{ name: 'title', type: 'string', description: 'The row', required: true }];
+      r.steps = [
+        { id: 'reveal', action: 'rows', param: 'title' },
+        { id: 'wait', action: 'wait', for: { role: 'button' }, nameParam: 'title' },
+        { id: 'look', action: 'find', target: { role: 'button' }, nameParam: 'title' },
+        { id: 'press', action: 'click', target: { role: 'button' }, nameParam: 'title' },
+        { id: 'get', action: 'capture', target: { role: 'button' }, nameParam: 'title' },
+      ];
+      const parsed = parseRecipe(r);
+      expect(typeof parsed).toBe('object');
+      expect((parsed as Recipe).steps.every((s) => ('nameParam' in s ? s.nameParam === 'title' : true))).toBe(
+        true,
+      );
+    });
+
+    await it('refuses a param the recipe does not declare, and nameParam on wait for load', async () => {
+      refused(
+        withStep({ id: 'x', action: 'capture', target: { role: 'button' }, nameParam: 'nope' }),
+        /not a declared param/,
+      );
+      refused(withStep({ id: 'x', action: 'rows', param: 'nope' }), /not a declared param/);
+      refused(withStep({ id: 'x', action: 'wait', for: 'load', nameParam: 'text' }), /not "load"/);
+    });
+
+    await it('the built-in atruvia download names the row on both the wait and the capture', async () => {
+      const file = BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/download-document')!;
+      const r = parseRecipe(file.data) as Recipe;
+      const named = r.steps.filter((s) => 'nameParam' in s && s.nameParam === 'title').map((s) => s.action);
+      expect(named.join(',')).toBe('wait,capture');
+      expect(r.steps.some((s) => s.action === 'click-row')).toBe(false);
+    });
+  });
+
   await describe('parseRecipe: refuses (fail closed)', async () => {
     await it('unknown step types — there is no evaluate', async () => {
       refused(withStep({ id: 'x', action: 'evaluate', code: '1' }), /steps\[5\]\.action: must be one of/);

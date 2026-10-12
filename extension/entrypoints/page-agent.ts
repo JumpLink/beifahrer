@@ -13,9 +13,11 @@
 
 import { browser } from '@wxt-dev/browser';
 import {
+  clipText,
   downloadFilename,
   EXPECT_STATES,
   expectationOf,
+  linkLine,
   metaMatches,
   normalizeText,
   parseElementQuery,
@@ -62,10 +64,7 @@ const TEXT_INPUTS = new Set([
   '',
 ]);
 
-function clip(s: string, n: number): string {
-  const t = s.replace(/\s+/g, ' ').trim();
-  return t.length > n ? `${t.slice(0, n - 1)}…` : t;
-}
+const clip = clipText;
 
 function visible(el: Element): boolean {
   if (el.closest('[aria-hidden="true"], [hidden]')) return false;
@@ -255,8 +254,7 @@ function describe(el: Element, kind: Kind): string {
     case 'heading':
       return `h${kind.level} "${name}"`;
     case 'link': {
-      const href = (el as HTMLAnchorElement).href;
-      return `link "${name}" → ${clip(href, 120)}`;
+      return linkLine(name, (el as HTMLAnchorElement).href);
     }
     case 'textbox': {
       const input = el as HTMLInputElement;

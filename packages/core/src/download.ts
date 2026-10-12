@@ -178,3 +178,37 @@ export function judgeCapture(captured: string, tabUrl: string): CapturedTarget {
     return { ok: false, reason: 'insecure', message: 'a sister origin must be https on its default port' };
   return { ok: true, kind: 'sister', url: url.href, origin: url.origin };
 }
+
+/**
+ * What `page.capture` tells the agent when the click opened a page it may not follow.
+ *
+ * A `file:` address is a different story from a stranger's website: it means the browser SAVED the
+ * document itself (a script-made anchor with `download` or a blob save is not something capture
+ * sees, ADR 0019) and then opened the copy from disk. Calling that "not a web address" sent the
+ * person looking for a bug in the policy. The file is NOT read — a local path is outside every
+ * origin — and the message says that the click already happened, because on a portal that marks a
+ * document as read it cannot be taken back. Only the origin of a web address is named: the rest
+ * may hold a one-time ticket.
+ */
+export function refusedOpenMessage(opened: string, reason: string, tabId: number): string {
+  let url: URL | undefined;
+  try {
+    url = new URL(opened);
+  } catch {
+    // An unparseable address falls through to the generic wording.
+  }
+  if (url?.protocol === 'file:') {
+    return (
+      'the browser saved the document into its own downloads folder and opened that copy from disk ' +
+      `(tab ${tabId}, a file: address). Capture only takes what the page hands to a link it can see; ` +
+      'a download the page starts out of sight is saved by the browser itself, and a local file is ' +
+      "outside every site's origin, so it was not read. The click already ran: do not repeat it " +
+      'expecting a different result. The tab was left open.'
+    );
+  }
+  const where = url && (url.protocol === 'http:' || url.protocol === 'https:') ? url.origin : undefined;
+  return (
+    `the click opened a page on ${where ?? 'an address that is not on the web'}, which a download ` +
+    `may not follow (${reason}). The tab ${tabId} was left open.`
+  );
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from '@gjsify/unit';
 import { parseRecipe, queryMatches, type ElementQuery, type FindRole, type Recipe } from '@beifahrer/core';
 
 import { BridgeError } from '../../../src/bridge/bridge.ts';
+import { BUILTIN } from '../../../src/recipes/builtin.ts';
 import { runRecipe, TabProbe, type Call } from '../../../src/recipes/runner.ts';
 
 /**
@@ -331,6 +332,70 @@ export default async () => {
       expect(run.status).toBe('done');
       expect(x.calls.some(([m]) => m === 'page.capture')).toBe(true);
       expect(run.log[0]!.detail).toMatch(/a\.pdf \(application\/pdf, 3 bytes, via tab\)/);
+    });
+
+    await it('capture presses the Download button of the named row, not the first one', async () => {
+      const buttons = [
+        { ref: 'e1', name: 'Kontoauszug 08 , 12345 , , Dokument herunterladen' },
+        { ref: 'e2', name: 'Kontoauszug 09 , 12345 , , Dokument herunterladen' },
+        { ref: 'e3', name: 'Depotauszug 09 , 12345 , , Dokument herunterladen' },
+      ];
+      const captured: unknown[] = [];
+      const calls: [string, Record<string, unknown>][] = [];
+      const call = (async (m: string, p: Record<string, unknown>) => {
+        calls.push([m, p]);
+        const url = 'https://bank.example/services_cloud/portal/webcomp/epostfach/postfach';
+        if (m === 'tabs.list')
+          return {
+            tabs: [
+              {
+                tabId: 7,
+                windowId: 1,
+                active: true,
+                focusedWindow: true,
+                host: 'bank.example',
+                level: 'write',
+                url,
+              },
+            ],
+          };
+        if (m === 'page.find') {
+          if (p.meta) return { url, matches: [], count: 1, truncated: false };
+          const { tabId: _t, ...q } = p;
+          const hit = buttons
+            .filter((b) => queryMatches(q as ElementQuery, { role: 'button', name: b.name, text: '' }))
+            .map((b) => ({ ref: b.ref, description: b.name }));
+          return { url, matches: hit, count: hit.length, truncated: false };
+        }
+        if (m === 'page.rows') return { rows: [], count: 3, truncated: false, ref: 'e9' };
+        if (m === 'page.wait') return { waitedMs: 1, match: { ref: 'e2', description: 'x' } };
+        if (m === 'page.capture') {
+          captured.push(p.ref);
+          return { url, filename: 'a.pdf', mime: 'application/pdf', size: 3, base64: 'AAAA', via: 'link' };
+        }
+        throw new Error(`unexpected ${m}`);
+      }) as unknown as Call;
+      const r = parseRecipe(
+        BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/download-document')!.data,
+      ) as Recipe;
+      const run = await runRecipe(call, r, { tabId: 7, params: { title: 'Kontoauszug 09' } });
+      expect(run.status).toBe('done');
+      expect(captured.join(',')).toBe('e2');
+      const wait = calls.find(([m]) => m === 'page.wait')![1].for as ElementQuery;
+      expect(wait.nameAlso).toBe('Kontoauszug 09');
+      expect(calls.some(([m]) => m === 'page.click')).toBe(false);
+    });
+
+    await it('a nameParam whose value is empty fails the step instead of taking the first match', async () => {
+      const x = withRows();
+      const run = await runRecipe(
+        x.call,
+        list([{ id: 'd', action: 'capture', target: { role: 'button' }, nameParam: 'title' }]),
+        { tabId: 7, params: { title: '   ' } },
+      );
+      expect(run.status).toBe('failed');
+      expect(run.message).toMatch(/param "title" is empty/);
+      expect(x.calls.some(([m]) => m === 'page.capture')).toBe(false);
     });
 
     await it('refuses a click-row naming a param the recipe does not declare', async () => {

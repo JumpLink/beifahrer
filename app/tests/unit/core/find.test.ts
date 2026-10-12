@@ -1,7 +1,9 @@
 import { describe, expect, it } from '@gjsify/unit';
 
 import {
+  clipText,
   describeQuery,
+  linkLine,
   metaMatches,
   normalizeText,
   parseElementQuery,
@@ -53,6 +55,59 @@ export default async () => {
       expect(typeof parseElementQuery(null)).toBe('string');
       expect(typeof parseElementQuery('button')).toBe('string');
       expect(typeof parseElementQuery([{ role: 'button' }])).toBe('string');
+    });
+  });
+
+  await describe('nameAlso (the name must ALSO contain this)', async () => {
+    const row = (title: string) => ({
+      role: 'button' as const,
+      name: `${title} , 12345 , , Dokument herunterladen`,
+      text: '',
+    });
+    const query = {
+      role: 'button' as const,
+      name: ['Herunterladen', 'Download'],
+      nameAlso: 'Kontoauszug 09',
+    };
+
+    await it('parses, and is not enough alone to be refused as empty', async () => {
+      expect(JSON.stringify(parseElementQuery(query))).toBe(JSON.stringify(query));
+      expect(typeof parseElementQuery({ nameAlso: 'x' })).toBe('object');
+      expect(typeof parseElementQuery({ role: 'button', nameAlso: '  ' })).toBe('string');
+      expect(typeof parseElementQuery({ role: 'button', nameAlso: 'x'.repeat(201) })).toBe('string');
+      expect(typeof parseElementQuery({ role: 'button', nameAlso: ['a'] })).toBe('string');
+    });
+
+    await it('picks the button of the named row, not the first one with the right label', async () => {
+      expect(queryMatches(query, row('Kontoauszug 09/2026'))).toBe(true);
+      expect(queryMatches(query, row('Kontoauszug 08/2026'))).toBe(false);
+      expect(queryMatches(query, row('Kontoauszug  09'))).toBe(true);
+    });
+
+    await it('still needs the name list: the row title alone is not a download button', async () => {
+      expect(queryMatches(query, { role: 'button', name: 'Kontoauszug 09 , öffnen', text: '' })).toBe(false);
+    });
+
+    await it('shows up in the description', async () => {
+      expect(describeQuery(query)).toBe('button "Herunterladen" | "Download" and "Kontoauszug 09"');
+    });
+  });
+
+  await describe('clipText and linkLine (page.outline must not fail on one odd element)', async () => {
+    await it('clips and collapses whitespace', async () => {
+      expect(clipText('  a \n b  ', 10)).toBe('a b');
+      expect(clipText('abcdefgh', 5)).toBe('abcd…');
+    });
+
+    await it('is total: a missing or non-string value is empty, never a throw', async () => {
+      for (const odd of [undefined, null, 12, {}, { baseVal: 'x' }]) expect(clipText(odd, 10)).toBe('');
+    });
+
+    await it('a role="link" element without href shows its name only', async () => {
+      expect(linkLine('pseudo link', undefined)).toBe('link "pseudo link"');
+      expect(linkLine('pseudo link', '')).toBe('link "pseudo link"');
+      expect(linkLine('pseudo link', { baseVal: '/x' })).toBe('link "pseudo link"');
+      expect(linkLine('home', 'https://a.example/')).toBe('link "home" → https://a.example/');
     });
   });
 
