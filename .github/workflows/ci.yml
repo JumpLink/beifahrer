@@ -196,6 +196,10 @@ jobs:
         with:
           name: extension-zips
           path: extension/.output/*.zip
+          # `.output` is a dot-directory, which upload-artifact@v4 skips by default — the zips were
+          # silently left out and release.yml then failed to download them.
+          include-hidden-files: true
+          if-no-files-found: error
 
       # Both formats in ONE upload under one name: `release.yml` downloads artifacts by name, and two
       # uploads of the same artifact name is an error, not a merge.
