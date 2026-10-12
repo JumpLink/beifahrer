@@ -78,8 +78,8 @@ before measuring anything that crosses the wire.
 
 ## What the e2e can and cannot do headless
 
-- **The person's switches cannot be flipped headless.** The e2e builds the extension five
-  times: default features (the `feature_disabled` refusals — tab management, sessions, screenshots,
+- **The person's switches cannot be flipped headless.** The e2e builds the extension six
+  times (the sixth, `saves`, is ADR 0019's; run it alone with `BEIFAHRER_E2E_ONLY=saves`): default features (the `feature_disabled` refusals — tab management, sessions, screenshots,
   page requests and, since ADR 0012, scripts), PR #8's legacy `grants.manageTabs` plus screenshots,
   the `script` switch and `webRequest` (the migration, the full tab-management run, the script run and
   the request log), `paused`, `access`
@@ -89,7 +89,7 @@ before measuring anything that crosses the wire.
   `/__beifahrer_e2e/confirm?answer=allow|deny`). The first three switch asking on demand off,
   because their refusal checks expect `forbidden` at once, not a prompt nobody answers. A build
   grants what the person would have to grant in the UI — a headless test cannot press Allow on the
-  browser's own bubble: `webRequest` via `e2eApiPermissions`, and the screenshot's `<all_urls>`
+  browser's own bubble: `webRequest` and `downloads` via `e2eApiPermissions`, and the screenshot's `<all_urls>`
   via `e2eAllUrls` (both read only by an E2E build, in `scripts/build.ts`). That grant is the
   reason the screenshot's REFUSAL lives in the `confirm` build: the switch on, the grant off, the
   only combination in which the missing-grant refusal is reachable.

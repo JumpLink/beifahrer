@@ -34,8 +34,13 @@ const HOSTS = ['http://*/*', 'https://*/*', '<all_urls>'];
  * for in the same click as the feature switch (options page, first await after the click for
  * Firefox's user gesture), and `page.network` is refused by the feature switch before the browser
  * is ever asked.
+ *
+ * `downloads` is optional for the same reason and asked for the same way (switch "Take saves a page
+ * starts out of sight", ADR 0019). It cannot be narrowed to a site either: it lets the extension see
+ * and cancel every download the browser makes, which is why the code touches only a blob of the tab
+ * being captured, and only while a capture is running.
  */
-const API = ['webRequest'];
+const API = ['webRequest', 'downloads'];
 
 /**
  * Where Firefox looks for a newer signed build (issue #3).
@@ -102,8 +107,8 @@ export interface ManifestInput {
   /** E2E builds only: host patterns granted up front, because a test cannot click a prompt. */
   e2eHosts?: string[];
   /**
-   * E2E builds only: API permissions granted up front, for the same reason. `webRequest` is the one
-   * that needs it — a request log cannot be tested through a prompt nobody can answer, and the test
+   * E2E builds only: API permissions granted up front, for the same reason. `webRequest` and `downloads` are the ones
+   * that need it — a request log cannot be tested through a prompt nobody can answer, and the test
    * for the refusal is the build that does NOT have it.
    */
   e2eApiPermissions?: string[];

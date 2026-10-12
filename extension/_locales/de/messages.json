@@ -293,6 +293,9 @@
   "feature_download_label": {
     "message": "Dokumente laden"
   },
+  "feature_captureSaves_label": {
+    "message": "Versteckte Downloads übernehmen"
+  },
   "feature_network_label": {
     "message": "Anfragen der Seite sehen"
   },
@@ -331,6 +334,12 @@
   },
   "network_missing": {
     "message": "Die Browser-Erlaubnis für Seitenanfragen wurde entzogen"
+  },
+  "saves_denied": {
+    "message": "Versteckte Downloads zu übernehmen braucht die Erlaubnis des Browsers. Das entscheiden Sie."
+  },
+  "saves_missing": {
+    "message": "Die Browser-Erlaubnis für Downloads wurde entzogen"
   },
   "toolbar_paused": {
     "message": "Beifahrer ist pausiert"

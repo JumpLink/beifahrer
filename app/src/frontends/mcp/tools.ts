@@ -560,7 +560,9 @@ export function registerTools(
         'clicks it, lets the PAGE fetch the document with its own session, and returns the file as base64. The page ' +
         'does the fetching; no token or header ever reaches you. What it may produce is bounded: a link or blob of the ' +
         "tab's own origin, or a page on a sister origin of the same site (app-api.<site> for a <site> tab), which needs " +
-        'level "read" on its own. A viewer tab the click opened is closed again. It marks the document as read on ' +
+        'level "read" on its own. With the "Take hidden downloads" switch on (and the browser\'s downloads permission ' +
+        'granted), a blob the page saves out of sight is taken too (via: "save") and the browser\'s own copy is removed. ' +
+        'A viewer tab the click opened is closed again. It marks the document as read on ' +
         'portals that do that on download. Needs level "read + edit", the Click and Download switches, and, unless ' +
         "switched off, the person's confirmation. " +
         POLICY_NOTE,

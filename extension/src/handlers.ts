@@ -63,6 +63,7 @@ import { hideIndicator } from './indicator.ts';
 import { correctFrame, frameByIndex, framesOf, isWebUrl, type FrameRow } from './frames.ts';
 import { loadGrants, settle } from './grants.ts';
 import { networkAvailable, rowsOf } from './network.ts';
+import { savesAvailable, watchSaves, type Save } from './saves.ts';
 import { askPage, inject } from './inject.ts';
 import { loadSettings, originPattern, saveSettings } from './settings.ts';
 import type { PageRequest } from './page-messages.ts';
@@ -754,6 +755,36 @@ async function committedUrl(opened: { id?: number; url?: string }, asked: string
 
 type Handler<M extends Method> = (params: Params<M>, policy: Policy, ctx: CallContext) => Promise<Result<M>>;
 
+/**
+ * Read the file a page saved out of sight, then take the browser's own copy away (ADR 0019).
+ *
+ * The order is the point: when the blob cannot be read (a page that revokes it right after the
+ * click, or a file over the bound) the browser's copy is the only one there is, so it stays and the
+ * agent is told, instead of the person losing the file and the agent getting nothing.
+ */
+async function takeSave(
+  tabId: number,
+  ctx: CallContext,
+  save: Save,
+  saves: { discard(save: Save): Promise<void> },
+  maxBytes: number,
+): Promise<Result<'page.capture'>> {
+  let doc: Record<string, unknown>;
+  try {
+    doc = await page(tabId, ctx, { beifahrer: 'download', url: save.url, maxBytes });
+  } catch (err) {
+    const why = (err as { message?: string }).message ?? String(err);
+    return fail(
+      'failed',
+      `the page saved a file out of sight, but capture could not read it (${why}). The browser's own ` +
+        'copy was left in its downloads folder. A page that revokes the blob right after the click ' +
+        'cannot be captured this way. The click already ran: do not repeat it.',
+    );
+  }
+  await saves.discard(save);
+  return { ...doc, via: 'save' } as unknown as Result<'page.capture'>;
+}
+
 const handlers: { [M in Method]: Handler<M> } = {
   async 'tabs.list'(_params, policy, ctx) {
     const [tabs, focused] = await Promise.all([browser.tabs.query({}), focusedWindowId()]);
@@ -886,6 +917,9 @@ const handlers: { [M in Method]: Handler<M> } = {
     if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'click', route.ref, undefined);
 
     const opened = watchOpenedTabs(tabId);
+    // Only with the person's switch, and armed BEFORE the click: the save is announced while the
+    // click is still being handled (ADR 0019).
+    const saves = (await loadSettings()).features.captureSaves ? watchSaves(tab.url) : undefined;
     try {
       await page(tabId, ctx, { beifahrer: 'capture', ref: route.ref });
       const deadline = Date.now() + timeoutMs;
@@ -895,6 +929,8 @@ const handlers: { [M in Method]: Handler<M> } = {
           const doc = await page(tabId, ctx, { beifahrer: 'download', url: caught.href, maxBytes });
           return { ...doc, via: 'link' } as unknown as Result<'page.capture'>;
         }
+        const save = saves?.take();
+        if (save) return await takeSave(tabId, ctx, save, saves!, maxBytes);
         const hit = opened.take();
         if (!hit) continue;
         const verdict = judgeCapture(hit.url, tab.url);
@@ -915,10 +951,16 @@ const handlers: { [M in Method]: Handler<M> } = {
         'failed',
         `nothing was handed over within ${timeoutMs} ms: the click produced no download link and opened no tab. ` +
           'Is the page logged in, and is this the button that downloads? If the browser saved a file ' +
-          'on its own, the page started that download out of sight and capture cannot see it (ADR 0019).',
+          'on its own, the page started that download out of sight (ADR 0019): ' +
+          (saves
+            ? savesAvailable()
+              ? 'it was not a blob of this page, so it was left alone.'
+              : 'the person switched capturing saves on, but the browser has not granted Beifahrer its downloads permission.'
+            : 'the person can switch on "Take hidden downloads" to let capture take it.'),
       );
     } finally {
       opened.stop();
+      saves?.stop();
       await page(tabId, ctx, { beifahrer: 'captured', waitMs: 0, disarm: true }).catch(() => undefined);
     }
   },

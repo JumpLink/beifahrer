@@ -54,6 +54,8 @@ const ALL = { origins: ['<all_urls>'] };
  * reminding us that the name has to be one the manifest really declares.
  */
 const NETWORK = { permissions: ['webRequest'] as ['webRequest'] };
+/** The same kind of grant as `NETWORK`: every download of the browser, not one site's (ADR 0019). */
+const DOWNLOADS = { permissions: ['downloads'] as ['downloads'] };
 const toast = (text: string, options: { buttonLabel?: string; onAction?: () => void } = {}) =>
   $<Adw.ToastOverlay>('toasts').addToast(text, { timeout: 4, ...options });
 
@@ -259,11 +261,40 @@ async function renderNetWarning(): Promise<void> {
   $('net-warning').hidden = !features.network || granted;
 }
 
+/**
+ * Taking a save the page starts out of sight is ONE decision, like requests: the switch and the
+ * browser's `downloads` grant, asked in the same click and kept off when the browser says no.
+ */
+async function setCaptureSaves(row: Adw.SwitchRow, on: boolean): Promise<void> {
+  // permissions.request must be the FIRST await after the click (Firefox's user gesture).
+  if (on) {
+    const granted = await browser.permissions.request(DOWNLOADS);
+    if (!granted) {
+      setQuietly(row, false);
+      toast(t('saves_denied'));
+      return;
+    }
+  } else {
+    await browser.permissions.remove(DOWNLOADS).catch(() => false);
+  }
+  await setFeature('captureSaves', on);
+  await renderSavesWarning();
+}
+
+/** Shown only when the switch is on and the browser's grant is gone. */
+async function renderSavesWarning(): Promise<void> {
+  const { features } = await loadSettings();
+  const granted = await browser.permissions.contains(DOWNLOADS);
+  $('saves-warning').hidden = !features.captureSaves || granted;
+}
+
 function renderMethods(): void {
   // Developer detail: which protocol methods each switch covers. Method names are not translated.
   const expander = $<Adw.ExpanderRow>('methods');
   for (const feature of FEATURES) {
     const methods = (Object.keys(FEATURE_OF) as Method[]).filter((m) => FEATURE_OF[m] === feature);
+    // A switch no method is behind (captureSaves) has nothing to list.
+    if (!methods.length) continue;
     const row = document.createElement('adw-action-row');
     row.className = 'monospace-subtitle';
     row.setAttribute('title', featureLabel(feature));
@@ -491,12 +522,17 @@ async function main(): Promise<void> {
     if (await browser.permissions.request(NETWORK)) await renderNetWarning();
     else toast(t('network_denied'));
   });
+  $('saves-grant').addEventListener('click', async () => {
+    if (await browser.permissions.request(DOWNLOADS)) await renderSavesWarning();
+    else toast(t('saves_denied'));
+  });
   renderMethods();
 
   const features = $('features');
   const onChange = {
     screenshot: (row: Adw.SwitchRow, on: boolean) => void setScreenshots(row, on),
     network: (row: Adw.SwitchRow, on: boolean) => void setNetwork(row, on),
+    captureSaves: (row: Adw.SwitchRow, on: boolean) => void setCaptureSaves(row, on),
   };
   await Promise.all([
     setupPause(),
@@ -506,6 +542,7 @@ async function main(): Promise<void> {
     renderFeatures(features, onChange),
     renderShotsWarning(),
     renderNetWarning(),
+    renderSavesWarning(),
   ]);
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
@@ -514,6 +551,7 @@ async function main(): Promise<void> {
       void renderFeatures(features, onChange);
       void renderShotsWarning();
       void renderNetWarning();
+      void renderSavesWarning();
     }
   });
   setInterval(() => void renderState(), 2000);

@@ -294,6 +294,9 @@
   "feature_download_label": {
     "message": "Download documents"
   },
+  "feature_captureSaves_label": {
+    "message": "Take hidden downloads"
+  },
   "feature_network_label": {
     "message": "See page requests"
   },
@@ -332,6 +335,12 @@
   },
   "network_missing": {
     "message": "The browser's permission for page requests was taken away"
+  },
+  "saves_denied": {
+    "message": "Taking hidden downloads needs the browser's permission, which is your decision"
+  },
+  "saves_missing": {
+    "message": "The browser's permission for downloads was taken away"
   },
   "toolbar_paused": {
     "message": "Beifahrer is paused"
