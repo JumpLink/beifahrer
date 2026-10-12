@@ -30,6 +30,8 @@ export const METHOD_WORDS: Record<Method, string> = {
   'page.network': 'looked at what the page requested',
   'page.screenshot': 'took a screenshot',
   'page.download': 'downloaded a document',
+  'page.rows': 'listed the rows of a page',
+  'page.capture': 'downloaded a document by clicking',
   'page.fill': 'filled a field',
   'page.click': 'clicked',
   'page.press': 'pressed a key',

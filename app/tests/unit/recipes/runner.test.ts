@@ -263,6 +263,86 @@ export default async () => {
     });
   });
 
+  await describe('rows, click-row and capture', async () => {
+    const list = (
+      steps: unknown[],
+      params: unknown[] = [{ name: 'title', type: 'string', description: 'x', required: true }],
+    ) => recipe({ steps, params });
+    const withRows = () => {
+      const ext = fakeExtension();
+      const inner = ext.call as unknown as (m: string, p: Record<string, unknown>) => Promise<unknown>;
+      const calls: [string, Record<string, unknown>][] = [];
+      const call = (async (m: string, p: Record<string, unknown>) => {
+        calls.push([m, p]);
+        if (m === 'page.rows')
+          return p.match === 'Zwei'
+            ? { rows: [], count: 2, truncated: false, ref: 'e9' }
+            : p.match
+              ? { rows: [], count: 3, truncated: false }
+              : { rows: [{ index: 0, text: 'Eins' }], count: 1, truncated: false };
+        if (m === 'page.click') return { ref: p.ref };
+        if (m === 'page.capture')
+          return {
+            url: 'https://api.example/x',
+            filename: 'a.pdf',
+            mime: 'application/pdf',
+            size: 3,
+            base64: 'AAAA',
+            via: 'tab',
+          };
+        return inner(m, p);
+      }) as unknown as Call;
+      return { call, calls };
+    };
+
+    await it('rows returns the list; click-row clicks the ref of the matching row', async () => {
+      const x = withRows();
+      const run = await runRecipe(
+        x.call,
+        list([
+          { id: 'l', action: 'rows' },
+          { id: 'o', action: 'click-row', param: 'title' },
+        ]),
+        { tabId: 7, params: { title: 'Zwei' } },
+      );
+      expect(run.status).toBe('done');
+      expect(x.calls.some(([m, p]) => m === 'page.click' && p.ref === 'e9')).toBe(true);
+    });
+
+    await it('click-row fails, naming the text, when no row has it', async () => {
+      const x = withRows();
+      const run = await runRecipe(x.call, list([{ id: 'o', action: 'click-row', param: 'title' }]), {
+        tabId: 7,
+        params: { title: 'Drei' },
+      });
+      expect(run.status).toBe('failed');
+      expect(run.message).toMatch(/no row containing "Drei"/);
+      expect(x.calls.some(([m]) => m === 'page.click')).toBe(false);
+    });
+
+    await it('capture goes through page.capture and logs the file, not its bytes', async () => {
+      const x = withRows();
+      x.calls.length = 0;
+      const run = await runRecipe(
+        x.call,
+        list([{ id: 'd', action: 'capture', target: { role: 'button', name: 'Einen Kommentar' } }], []),
+        { tabId: 7 },
+      );
+      expect(run.status).toBe('done');
+      expect(x.calls.some(([m]) => m === 'page.capture')).toBe(true);
+      expect(run.log[0]!.detail).toMatch(/a\.pdf \(application\/pdf, 3 bytes, via tab\)/);
+    });
+
+    await it('refuses a click-row naming a param the recipe does not declare', async () => {
+      const r = parseRecipe({
+        ...BASE,
+        params: [],
+        steps: [{ id: 'o', action: 'click-row', param: 'title' }],
+      });
+      expect(typeof r).toBe('string');
+    });
+  });
+
   await describe('TabProbe', async () => {
     await it('asks each fingerprint check once per tab', async () => {
       const ext = fakeExtension();

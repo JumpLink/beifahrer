@@ -77,6 +77,9 @@ keys by name, and any other key it does not know.
 | `fill` | puts a param's value into a field or editor | `target`, `param`, `as` (`text`/`html`), `mode` (`replace`/`append`) |
 | `wait` | waits for the page to load or an element to appear | `for` (`"load"` or a query), `timeoutMs` (≤ 30000) |
 | `read`, `outline` | returns the page text / outline in the run log | `maxChars` / `maxItems` |
+| `rows` | returns the rows of the list on the page (scrolls a virtual-scroll list) | `maxRows` |
+| `click-row` | clicks the row whose text contains a param's value | `param` |
+| `capture` | clicks a button that hands over a document and returns the file; may end on a sister origin of the site, which needs its own level (ADR 0018) | `target`, `maxBytes` |
 | `checkpoint` | stops the run with a message, so the agent looks before it goes on | `message` |
 | `submit` | a click that publishes (posts, saves, sends) | `target`; must have `"requiresExplicitRequest": true` |
 

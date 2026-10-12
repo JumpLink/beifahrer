@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@gjsify/unit';
 
-import { downloadFilename, resolveDownloadTarget } from '@beifahrer/core';
+import { downloadFilename, judgeCapture, registrableDomain, resolveDownloadTarget } from '@beifahrer/core';
 
 // A download turns a string into an authenticated request, and a second string into a file name.
 // Both strings come from somewhere untrusted — the agent, or the site — so the tests below aim at
@@ -55,6 +55,80 @@ export default async () => {
         expect(r.ok).toBe(false);
         expect(!r.ok && r.reason).toBe('no-target');
       }
+    });
+  });
+
+  await describe('resolveDownloadTarget and blobs', async () => {
+    const page = 'https://portal.example/client/postbox';
+
+    await it('accepts a blob the tab itself made', async () => {
+      const r = resolveDownloadTarget('blob:https://portal.example/3f2c-aa', page);
+      expect(r.ok).toBe(true);
+    });
+    await it("refuses another origin's blob and a blob with no origin", async () => {
+      expect(resolveDownloadTarget('blob:https://evil.example/3f2c', page).ok).toBe(false);
+      expect(resolveDownloadTarget('blob:null/3f2c', page).ok).toBe(false);
+    });
+    await it('still refuses data: and file:', async () => {
+      expect(resolveDownloadTarget('data:text/plain;base64,AAAA', page).ok).toBe(false);
+      expect(resolveDownloadTarget('file:///etc/passwd', page).ok).toBe(false);
+    });
+  });
+
+  await describe('registrableDomain', async () => {
+    await it('takes the last two labels, three under a known two-label suffix', async () => {
+      expect(registrableDomain('app-api.meine.portal.example')).toBe('portal.example');
+      expect(registrableDomain('www.shop.co.uk')).toBe('shop.co.uk');
+    });
+    await it('has none for an IP, a bare name or a public suffix', async () => {
+      expect(registrableDomain('192.168.0.10')).toBeNull();
+      expect(registrableDomain('localhost')).toBeNull();
+      expect(registrableDomain('co.uk')).toBeNull();
+      expect(registrableDomain('[::1]')).toBeNull();
+    });
+  });
+
+  // ADR 0018. What the page opened by itself after a click may be fetched when it is the tab's own
+  // blob, the tab's own origin, or a sister origin of the same site — and nowhere else.
+  await describe('judgeCapture', async () => {
+    const tab = 'https://meine.portal.example/client/postbox/inbox';
+
+    await it("takes the tab's own blob and own origin", async () => {
+      const blob = judgeCapture('blob:https://meine.portal.example/9c1e', tab);
+      expect(blob.ok && blob.kind).toBe('blob');
+      const same = judgeCapture('https://meine.portal.example/doc/1', tab);
+      expect(same.ok && same.kind).toBe('same-origin');
+    });
+    await it('takes a sister origin of the same registrable domain', async () => {
+      const r = judgeCapture('https://app-api.meine.portal.example/cx/attachments/1', tab);
+      expect(r.ok && r.kind).toBe('sister');
+      expect(r.ok && r.origin).toBe('https://app-api.meine.portal.example');
+    });
+    await it('refuses another site, even one that merely looks alike', async () => {
+      for (const url of [
+        'https://evil.example/x',
+        'https://portal.example.evil.example/x',
+        'https://meine-portal.example/x',
+        'https://notportal.example/x',
+      ]) {
+        const r = judgeCapture(url, tab);
+        expect(r.ok).toBe(false);
+      }
+    });
+    await it('refuses a sister over http, on another port, or a bare IP', async () => {
+      expect(judgeCapture('http://app-api.meine.portal.example/x', tab).ok).toBe(false);
+      expect(judgeCapture('https://app-api.meine.portal.example:8443/x', tab).ok).toBe(false);
+      expect(judgeCapture('https://10.0.0.5/x', tab).ok).toBe(false);
+    });
+    await it("refuses another origin's blob, data:, javascript: and file:", async () => {
+      expect(judgeCapture('blob:https://evil.example/1', tab).ok).toBe(false);
+      expect(judgeCapture('data:application/pdf;base64,AAAA', tab).ok).toBe(false);
+      expect(judgeCapture('javascript:alert(1)', tab).ok).toBe(false);
+      expect(judgeCapture('file:///etc/passwd', tab).ok).toBe(false);
+    });
+    await it('refuses everything when the tab is not a web page or has two hosts of one IP', async () => {
+      expect(judgeCapture('https://a.example/x', 'about:blank').ok).toBe(false);
+      expect(judgeCapture('https://10.0.0.5/x', 'https://10.0.0.6/').ok).toBe(false);
     });
   });
 

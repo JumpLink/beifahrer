@@ -72,7 +72,11 @@ export default async () => {
       for (const file of BUILTIN) {
         const r = parseRecipe(file.data);
         if (typeof r === 'string') throw new Error(`${file.source}: ${r}`);
-        expect(r.steps.at(-1)?.requiresExplicitRequest).toBe(true);
+        // A recipe that publishes ends on a step the person must have asked for; one that only reads
+        // or downloads a document (ADR 0018) changes nothing anyone else sees.
+        const last = r.steps.at(-1)!;
+        if (!['rows', 'capture', 'read', 'outline'].includes(last.action))
+          expect(last.requiresExplicitRequest).toBe(true);
       }
     });
   });

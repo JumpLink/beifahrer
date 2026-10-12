@@ -203,6 +203,12 @@
   "method_page_download": {
     "message": "Ein Dokument geladen"
   },
+  "method_page_rows": {
+    "message": "Zeilen einer Liste gelesen"
+  },
+  "method_page_capture": {
+    "message": "Ein Dokument per Klick geladen"
+  },
   "method_page_outline": {
     "message": "Seite gegliedert"
   },
