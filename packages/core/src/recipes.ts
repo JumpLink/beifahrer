@@ -29,7 +29,12 @@ export interface RecipeParam {
   type: 'string';
   description: string;
   required: boolean;
+  /** A one-time code or the like: redacted in every log, message and result of a run (ADR 0020). */
+  secret?: boolean;
 }
+
+export const PERSON_KINDS = ['login', 'code', 'approval', 'device'] as const;
+export type PersonKind = (typeof PERSON_KINDS)[number];
 
 /** One fingerprint check: an element must exist, or a `<meta>` must. */
 export type FingerprintCheck = { find: ElementQuery } | { meta: MetaQuery };
@@ -80,7 +85,21 @@ export type Step =
   | (StepBase & { action: 'rows'; maxRows?: number; param?: string })
   | (StepBase & { action: 'click-row'; param: string })
   | (StepBase & { action: 'capture'; target: ElementQuery; maxBytes?: number; nameParam?: string })
-  | (StepBase & { action: 'checkpoint'; message: string });
+  | (StepBase & { action: 'checkpoint'; message: string })
+  /**
+   * Ends the run with `needs_person` when the page shows what `when` / `whenAny` describes, and is
+   * skipped otherwise. Data only: it names what the person has to do, never how to do it for them.
+   */
+  | (StepBase & {
+      action: 'person';
+      kind: PersonKind;
+      when?: ElementQuery;
+      whenAny?: ElementQuery[];
+      prompt: string;
+      codeParam?: string;
+    })
+  /** Types the one-time code the person relayed (`page.enterCode`, ADR 0020). */
+  | (StepBase & { action: 'enter-code'; target: ElementQuery; param: string });
 
 export type StepAction = Step['action'];
 
@@ -96,6 +115,8 @@ export const STEP_ACTIONS: readonly StepAction[] = [
   'click-row',
   'capture',
   'checkpoint',
+  'person',
+  'enter-code',
 ];
 
 /** Steps that change the page, and so go through the write gate + confirmation. */
@@ -105,6 +126,7 @@ export const WRITE_ACTIONS: ReadonlySet<StepAction> = new Set([
   'fill',
   'click-row',
   'capture',
+  'enter-code',
 ]);
 
 export interface Recipe {
@@ -135,6 +157,8 @@ const STEP_KEYS: Record<StepAction, string[]> = {
   'click-row': ['param'],
   capture: ['target', 'maxBytes', 'nameParam'],
   checkpoint: ['message'],
+  person: ['kind', 'when', 'whenAny', 'prompt', 'codeParam'],
+  'enter-code': ['target', 'param'],
 };
 const COMMON_STEP_KEYS = ['id', 'action', 'note', 'requiresExplicitRequest'];
 
@@ -270,17 +294,22 @@ function matcher(value: unknown, where: string): Matcher {
 
 function param(value: unknown, where: string): RecipeParam {
   const src = obj(value, where);
-  onlyKeys(src, ['name', 'type', 'description', 'required'], where);
+  onlyKeys(src, ['name', 'type', 'description', 'required', 'secret'], where);
   const name = str(src.name, `${where}.name`, 40);
   if (!PARAM_NAME.test(name)) fail(`${where}.name`, 'must look like "text" or "commentText"');
   if (src.type !== 'string') fail(`${where}.type`, 'must be "string" (the only type there is)');
   if (typeof src.required !== 'boolean') fail(`${where}.required`, 'must be true or false');
-  return {
+  const out: RecipeParam = {
     name,
     type: 'string',
     description: str(src.description, `${where}.description`, 500),
     required: src.required,
   };
+  if (src.secret !== undefined) {
+    if (typeof src.secret !== 'boolean') fail(`${where}.secret`, 'must be true or false');
+    if (src.secret) out.secret = true;
+  }
+  return out;
 }
 
 /**
@@ -411,6 +440,34 @@ function step(value: unknown, where: string, params: Set<string>): Step {
     }
     case 'checkpoint':
       return { ...base, action: 'checkpoint', message: str(src.message, `${where}.message`, 500) };
+    case 'person': {
+      if (!(PERSON_KINDS as readonly string[]).includes(src.kind as string))
+        fail(`${where}.kind`, `must be one of ${PERSON_KINDS.join(', ')}`);
+      if ((src.when === undefined) === (src.whenAny === undefined))
+        fail(where, 'needs exactly one of when, whenAny');
+      const out: Step = {
+        ...base,
+        action: 'person',
+        kind: src.kind as PersonKind,
+        prompt: str(src.prompt, `${where}.prompt`, 200),
+      };
+      if (src.when !== undefined) out.when = query(src.when, `${where}.when`);
+      if (src.whenAny !== undefined)
+        out.whenAny = arr(src.whenAny, `${where}.whenAny`, 1, 10).map((q, i) =>
+          query(q, `${where}.whenAny[${i}]`),
+        );
+      if (src.codeParam !== undefined) {
+        const name = str(src.codeParam, `${where}.codeParam`, 40);
+        if (!params.has(name)) fail(`${where}.codeParam`, `"${name}" is not a declared param`);
+        out.codeParam = name;
+      }
+      return out;
+    }
+    case 'enter-code': {
+      const name = str(src.param, `${where}.param`, 40);
+      if (!params.has(name)) fail(`${where}.param`, `"${name}" is not a declared param`);
+      return { ...base, action: 'enter-code', target: query(src.target, `${where}.target`), param: name };
+    }
   }
 }
 
@@ -444,6 +501,13 @@ export function parseRecipe(raw: unknown): Recipe | string {
       names.add(p.name);
     }
     const steps = arr(src.steps, 'steps', 1, MAX_STEPS).map((s, i) => step(s, `steps[${i}]`, names));
+    // The code param of a person / enter-code step is a secret whether or not the file says so.
+    const secrets = new Set(
+      steps.flatMap((s) =>
+        s.action === 'enter-code' ? [s.param] : s.action === 'person' && s.codeParam ? [s.codeParam] : [],
+      ),
+    );
+    for (const p of params) if (secrets.has(p.name)) p.secret = true;
     const ids = new Set<string>();
     for (const s of steps) {
       if (ids.has(s.id)) fail('steps', `step id "${s.id}" is used twice`);

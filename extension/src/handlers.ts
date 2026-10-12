@@ -35,6 +35,8 @@ import {
   parseKeySpec,
   parseKeyTimes,
   parseNavigate,
+  parseOneTimeCode,
+  REDACTED_CODE,
   parseMetaQuery,
   parseRef,
   namespaceRefs,
@@ -521,7 +523,7 @@ async function askWhere(tabId: number, frame: number): Promise<string | null> {
  * one who has to recognise that from the window. So the keys, the values or the state go into the
  * window, not just the field's name — the same reason a script's whole text is shown (ADR 0012).
  */
-type WriteAction = 'fill' | 'click' | 'press' | 'select' | 'check';
+type WriteAction = 'fill' | 'enterCode' | 'click' | 'press' | 'select' | 'check';
 
 /**
  * One document's answer to a `page.expect` query, with the beifahrer frame number it came from.
@@ -1249,6 +1251,24 @@ const handlers: { [M in Method]: Handler<M> } = {
       route.frame,
       route.index,
     )) as unknown as Result<'page.fill'>;
+  },
+
+  async 'page.enterCode'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const ref = refOf(params);
+    // Checked here as well as in the page: a malformed value should never reach the confirm window.
+    const parsed = parseOneTimeCode(params.code);
+    if ('error' in parsed) return fail('invalid', parsed.error);
+    const route = await routeFor('page.enterCode', tabId, ref, policy, ctx);
+    // The window shows the mask, never the code: it is a chat-relayed secret.
+    if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'enterCode', route.ref, REDACTED_CODE);
+    return (await page(
+      tabId,
+      ctx,
+      { beifahrer: 'enterCode', ref: route.ref, code: parsed.code },
+      route.frame,
+      route.index,
+    )) as unknown as Result<'page.enterCode'>;
   },
 
   async 'page.click'(params, policy, ctx) {

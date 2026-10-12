@@ -104,7 +104,10 @@ site and session; timeout, close or Deny is `forbidden`. The host permission is 
 answer's own click.
 |**Redact below `read`.** A tab on a `none` origin shows its host only: never title, path or query.
 |**Never fill a password field; never switch the person's tab** (screenshots refuse a tab that is not
-the active one).
+the active one). The one thing typed for the person is a one-time code they relayed, only via
+`page.enterCode` into a field marked as one, behind the off-by-default switch `oneTimeCodes`, redacted
+everywhere ([ADR 0020](docs/adr/0020-one-time-codes-the-person-relays.md)). Never read or replay
+credentials, tokens or cookies.
 |**Nothing leaves the device.** No telemetry, no remote endpoint. The Firefox manifest declares
 `data_collection_permissions: none`, and that must stay true.
 |**One connection per agent session** ([ADR 0007](docs/adr/0007-one-connection-per-agent-session.md)).

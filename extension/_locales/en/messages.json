@@ -231,6 +231,9 @@
   "method_page_fill": {
     "message": "Filled in a field"
   },
+  "method_page_enterCode": {
+    "message": "Typed a one-time code"
+  },
   "method_page_click": {
     "message": "Clicked"
   },
@@ -308,6 +311,9 @@
   },
   "feature_fill_label": {
     "message": "Fill in fields"
+  },
+  "feature_oneTimeCodes_label": {
+    "message": "Type one-time codes you relay"
   },
   "feature_click_label": {
     "message": "Click"
@@ -561,6 +567,14 @@
   },
   "confirm_fill": {
     "message": "Type into $TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirm_enterCode": {
+    "message": "Type the one-time code you gave into $TARGET$",
     "placeholders": {
       "target": {
         "content": "$1"

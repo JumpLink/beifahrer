@@ -10,6 +10,7 @@ export * from './sessions.ts';
 export * from './toolbar.ts';
 export * from './find.ts';
 export * from './recipes.ts';
+export * from './one-time-code.ts';
 export * from './ports.ts';
 export * from './connections.ts';
 export * from './desktop.ts';

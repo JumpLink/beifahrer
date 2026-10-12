@@ -21,7 +21,10 @@
 import {
   checkRunParams,
   describeQuery,
+  originOf,
   QUERY_LIMITS,
+  scrubSecrets,
+  type PersonKind,
   urlsMatch,
   type ElementQuery,
   type FingerprintCheck,
@@ -47,11 +50,22 @@ export interface StepLog {
 
 export interface RunResult {
   recipe: string;
-  status: 'done' | 'stopped' | 'failed';
+  status: 'done' | 'stopped' | 'failed' | 'needs_person';
   message: string;
   /** The step to pass as `from` to continue. */
   next?: string;
+  /** `needs_person`: what only the person can do, and whether they can relay a code for it. */
+  person?: PersonNeed;
   log: StepLog[];
+}
+
+export interface PersonNeed {
+  kind: PersonKind;
+  origin: string;
+  prompt: string;
+  acceptsCode: boolean;
+  /** The param to pass the relayed code in, on the resume. */
+  codeParam?: string;
 }
 
 export interface RunOptions {
@@ -135,16 +149,25 @@ export class TabProbe {
 
 export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): Promise<RunResult> {
   const log: StepLog[] = [];
-  const result = (status: RunResult['status'], message: string, next?: string): RunResult => ({
-    recipe: recipe.id,
-    status,
-    message,
-    ...(next ? { next } : {}),
-    log,
-  });
+  // Params marked secret (a relayed one-time code) never appear in a log, a message or a result.
+  const secrets: string[] = [];
+  const result = (
+    status: RunResult['status'],
+    message: string,
+    next?: string,
+    person?: PersonNeed,
+  ): RunResult =>
+    scrubSecrets(
+      { recipe: recipe.id, status, message, ...(next ? { next } : {}), ...(person ? { person } : {}), log },
+      secrets,
+    );
 
   const params = checkRunParams(recipe, opts.params);
   if (typeof params === 'string') return result('failed', `${recipe.id}: ${params}`);
+  for (const p of recipe.params) {
+    const value = params[p.name];
+    if (p.secret && value) secrets.push(value);
+  }
 
   const ids = recipe.steps.map((s) => s.id);
   for (const [name, id] of [
@@ -211,6 +234,52 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
 
     try {
       switch (step.action) {
+        case 'person': {
+          const probes = step.when ? [step.when] : (step.whenAny ?? []);
+          let present = false;
+          for (const q of probes) {
+            const found = await call('page.find', { tabId, ...q, maxResults: 1 }, browser);
+            if (found.count > 0) {
+              present = true;
+              break;
+            }
+          }
+          if (!present) {
+            entry.status = 'skipped';
+            entry.detail = 'not on the page';
+            break;
+          }
+          const origin = originOf(await tabUrl(call, tabId, browser)) ?? '';
+          const next = recipe.steps[i + 1]?.id ?? step.id;
+          log.push({ ...entry, status: 'stopped', detail: step.prompt });
+          return result(
+            'needs_person',
+            `step "${step.id}": ${step.prompt} Ask the person, then continue with from: "${next}"` +
+              (step.codeParam ? ` and the code in param "${step.codeParam}".` : '.'),
+            next,
+            {
+              kind: step.kind,
+              origin,
+              prompt: step.prompt,
+              acceptsCode: step.codeParam !== undefined,
+              ...(step.codeParam ? { codeParam: step.codeParam } : {}),
+            },
+          );
+        }
+        case 'enter-code': {
+          const code = params[step.param];
+          if (code === undefined) {
+            entry.status = 'skipped';
+            entry.detail = `param "${step.param}" not given`;
+            break;
+          }
+          if (!secrets.includes(code)) secrets.push(code);
+          const ref = await resolve(step.target);
+          const r = await call('page.enterCode', { tabId, ref, code }, browser);
+          entry.detail = `${r.length} characters`;
+          entry.result = { length: r.length };
+          break;
+        }
         case 'checkpoint':
           entry.detail = 'resumed here';
           break;

@@ -257,6 +257,14 @@ export interface MethodMap {
     params: { tabId: number; ref: string; text: string; as?: 'text' | 'html'; mode?: 'replace' | 'append' };
     result: { ref: string; value: string };
   };
+  /**
+   * Type a one-time code the person sent into a one-time-code field (ADR 0020). The result carries
+   * the LENGTH, never the code: nothing the agent receives or any log holds it.
+   */
+  'page.enterCode': {
+    params: { tabId: number; ref: string; code: string };
+    result: { ref: string; length: number };
+  };
   'page.click': { params: { tabId: number; ref: string }; result: { ref: string } };
   /**
    * A key, or text typed one character at a time.

@@ -212,6 +212,9 @@ The remaining declared permissions need no prompt and touch no site by themselve
 - It does not modify pages you are not working on, and it does not install anything into them.
 - It does not switch the tab you are looking at. A screenshot refuses a tab that is not the visible
   one (`extension/src/handlers.ts:1049-1054`).
+- It types a one-time code only when you relayed it, switched on *Type one-time codes you relay* and
+  confirmed it, and only into a field the page marks as a code. The code is masked in every log
+  (ADR 0020).
 - It does not fill a password field: the page agent refuses the call by name
   (`extension/entrypoints/page-agent.ts:830-836` for a fill, `extension/entrypoints/page-agent.ts:943-949`
   for a typed key press).

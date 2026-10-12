@@ -230,6 +230,9 @@
   "method_page_fill": {
     "message": "Feld ausgefüllt"
   },
+  "method_page_enterCode": {
+    "message": "Einmalcode eingegeben"
+  },
   "method_page_click": {
     "message": "Geklickt"
   },
@@ -307,6 +310,9 @@
   },
   "feature_fill_label": {
     "message": "Felder ausfüllen"
+  },
+  "feature_oneTimeCodes_label": {
+    "message": "Einmalcodes eintippen, die du weitergibst"
   },
   "feature_click_label": {
     "message": "Klicken"
@@ -560,6 +566,14 @@
   },
   "confirm_fill": {
     "message": "In $TARGET$ schreiben",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirm_enterCode": {
+    "message": "Den Einmalcode, den du genannt hast, in $TARGET$ eintippen",
     "placeholders": {
       "target": {
         "content": "$1"

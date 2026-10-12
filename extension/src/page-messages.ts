@@ -18,6 +18,8 @@ export type PageRequest = PageTarget &
     | { beifahrer: 'describe'; ref: string }
     | { beifahrer: 'fill'; ref: string; text: string; as: 'text' | 'html'; mode: 'replace' | 'append' }
     | { beifahrer: 'click'; ref: string }
+    /** A one-time code the person relayed (ADR 0020). Only ever into a field marked as one. */
+    | { beifahrer: 'enterCode'; ref: string; code: string }
     /**
      * A key, on an element or wherever the focus is. `text` types characters one after another,
      * which is a different thing from pressing one key: a page that listens for `input` per

@@ -33,6 +33,7 @@ export const METHOD_WORDS: Record<Method, string> = {
   'page.rows': 'listed the rows of a page',
   'page.capture': 'downloaded a document by clicking',
   'page.fill': 'filled a field',
+  'page.enterCode': 'entered a one-time code',
   'page.click': 'clicked',
   'page.press': 'pressed a key',
   'page.select': 'chose an option',

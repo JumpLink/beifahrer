@@ -115,7 +115,7 @@ export interface BridgeOptions {
 export const WRITE_TIMEOUT_MS = ASK_TIMEOUT_MS + 15_000;
 export const DEFAULT_TIMEOUT_MS = 30_000;
 export const BROWSER_WAIT_MS = 7_000;
-const WRITES: ReadonlySet<Method> = new Set(['page.fill', 'page.click', 'tabs.close']);
+const WRITES: ReadonlySet<Method> = new Set(['page.fill', 'page.enterCode', 'page.click', 'tabs.close']);
 
 /** `page.wait` waits up to MAX_WAIT_MS in the browser; the call must outlive that. */
 export const WAIT_TIMEOUT_MS = MAX_WAIT_MS + 15_000;
