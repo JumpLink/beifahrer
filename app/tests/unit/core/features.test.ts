@@ -34,8 +34,10 @@ export default async () => {
       for (const m of methods) expect(FEATURES.includes(featureOf(m)!)).toBe(true);
     });
     await it('uses every feature and describes each one', async () => {
-      const used = new Set(Object.values(FEATURE_OF));
-      for (const f of FEATURES) {
+      const used = new Set<string>(Object.values(FEATURE_OF));
+      // `captureSaves` is a switch on something the browser does while `page.capture` waits (ADR
+      // 0019), not a method of its own: nothing is called through it.
+      for (const f of FEATURES.filter((f) => f !== 'captureSaves')) {
         expect(used.has(f)).toBe(true);
         expect(FEATURE_INFO[f].label.length > 0).toBe(true);
       }
@@ -86,6 +88,24 @@ export default async () => {
     });
   });
 
+  await describe('a capture clicks and downloads', async () => {
+    await it('needs both switches, and names the one that is off', async () => {
+      const gates = (patch: Partial<Features>) => ({ paused: false, features: { ...allOn, ...patch } });
+      expect(preflight(gates({}), 'page.capture')).toStrictEqual({ allow: true, feature: 'download' });
+      expect(preflight(gates({ download: false }), 'page.capture')).toStrictEqual({
+        allow: false,
+        code: 'feature_disabled',
+        feature: 'download',
+      });
+      // With "Click" off the person said no to button presses, and a capture is one.
+      expect(preflight(gates({ click: false }), 'page.capture')).toStrictEqual({
+        allow: false,
+        code: 'feature_disabled',
+        feature: 'click',
+      });
+    });
+  });
+
   await describe('defaults', async () => {
     await it('reading, outlining, opening and page writes on; the far-reaching ones off', async () => {
       expect(DEFAULT_FEATURES).toStrictEqual({
@@ -94,6 +114,9 @@ export default async () => {
         outline: true,
         screenshot: false,
         download: false,
+        // It deletes a file the browser was about to give the person, behind a permission that sees
+        // every download.
+        captureSaves: false,
         // With the other far-reaching ones, and for a stronger reason than any of them: a request log
         // is this browser's browsing with timestamps, and `webRequest` cannot be narrowed to a site.
         network: false,

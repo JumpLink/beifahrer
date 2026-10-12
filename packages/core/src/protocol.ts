@@ -124,6 +124,12 @@ export interface FoundElement {
   description: string;
 }
 
+/** One row of a list, as the page shows it. The text is the row's own, clipped. */
+export interface PageRow {
+  index: number;
+  text: string;
+}
+
 /** Tabs to act on: explicit ids, or every tab of one window. */
 export interface TabSelection {
   tabIds?: number[];
@@ -214,6 +220,38 @@ export interface MethodMap {
   'page.download': {
     params: { tabId: number; ref?: string; url?: string; maxBytes?: number };
     result: { url: string; filename: string; mime: string; size: number; base64: string };
+  };
+  /**
+   * The rows of a list the page shows (ADR 0018): table rows, list items, and the row components a
+   * framework wraps them in. A virtual-scroll list only renders what is on screen, so the page is
+   * scrolled through to collect the rest; `match` stops at the first row whose text contains it and
+   * returns that row's ref (the only row whose ref is worth having, since the rest are recycled).
+   */
+  'page.rows': {
+    params: { tabId: number; match?: string; maxRows?: number };
+    result: { rows: PageRow[]; count: number; truncated: boolean; ref?: string };
+  };
+  /**
+   * Click something that hands over a document, and get the document (ADR 0018). The page does the
+   * fetching with its own session; the agent never sees a token or a header. What the click may
+   * produce is bounded by `judgeCapture` (core/download.ts): a blob or a link of the tab's own
+   * origin, or a page on a sister origin of the same site — and the per-site level is checked for
+   * THAT origin too. Needs `write` on the tab (it is a click) and the Download switch.
+   */
+  'page.capture': {
+    params: { tabId: number; ref: string; maxBytes?: number; timeoutMs?: number };
+    result: {
+      url: string;
+      filename: string;
+      mime: string;
+      size: number;
+      base64: string;
+      /**
+       * How the page handed it over: an anchor click, a tab it opened, or a file it saved out of
+       * sight (the optional "save" switch, ADR 0019).
+       */
+      via: 'link' | 'tab' | 'save';
+    };
   };
   'page.fill': {
     params: { tabId: number; ref: string; text: string; as?: 'text' | 'html'; mode?: 'replace' | 'append' };

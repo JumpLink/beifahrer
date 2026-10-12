@@ -72,8 +72,77 @@ export default async () => {
       for (const file of BUILTIN) {
         const r = parseRecipe(file.data);
         if (typeof r === 'string') throw new Error(`${file.source}: ${r}`);
-        expect(r.steps.at(-1)?.requiresExplicitRequest).toBe(true);
+        // A recipe that publishes ends on a step the person must have asked for; one that only reads
+        // or downloads a document (ADR 0018) changes nothing anyone else sees. A login ends on a wait for
+        // the start page: it signs the person in to their own account and publishes nothing.
+        const last = r.steps.at(-1)!;
+        if (!['rows', 'capture', 'read', 'outline', 'wait'].includes(last.action))
+          expect(last.requiresExplicitRequest).toBe(true);
       }
+    });
+  });
+
+  await describe('nameParam and rows param', async () => {
+    await it('accepts nameParam on find, click, wait and capture, and param on rows', async () => {
+      const r = valid();
+      r.params = [{ name: 'title', type: 'string', description: 'The row', required: true }];
+      r.steps = [
+        { id: 'reveal', action: 'rows', param: 'title' },
+        { id: 'wait', action: 'wait', for: { role: 'button' }, nameParam: 'title' },
+        { id: 'look', action: 'find', target: { role: 'button' }, nameParam: 'title' },
+        { id: 'press', action: 'click', target: { role: 'button' }, nameParam: 'title' },
+        { id: 'get', action: 'capture', target: { role: 'button' }, nameParam: 'title' },
+      ];
+      const parsed = parseRecipe(r);
+      expect(typeof parsed).toBe('object');
+      expect((parsed as Recipe).steps.every((s) => ('nameParam' in s ? s.nameParam === 'title' : true))).toBe(
+        true,
+      );
+    });
+
+    await it('refuses a param the recipe does not declare, and nameParam on wait for load', async () => {
+      refused(
+        withStep({ id: 'x', action: 'capture', target: { role: 'button' }, nameParam: 'nope' }),
+        /not a declared param/,
+      );
+      refused(withStep({ id: 'x', action: 'rows', param: 'nope' }), /not a declared param/);
+      refused(withStep({ id: 'x', action: 'wait', for: 'load', nameParam: 'text' }), /not "load"/);
+    });
+
+    await it('optional and failMessage are accepted only in their own shape', async () => {
+      const ok = parseRecipe(
+        withStep({ id: 'x', action: 'click', target: { role: 'button' }, optional: true }),
+      ) as Recipe;
+      expect((ok.steps[5] as { optional?: boolean }).optional).toBe(true);
+      refused(
+        withStep({ id: 'x', action: 'click', target: { role: 'button' }, optional: 'yes' }),
+        /optional: must be a boolean/,
+      );
+      refused(
+        withStep({ id: 'x', action: 'find', target: { role: 'button' }, optional: true }),
+        /unknown key "optional"/,
+      );
+      refused(
+        withStep({ id: 'x', action: 'wait', for: 'load', failMessage: '' }),
+        /failMessage: must be a non-empty string/,
+      );
+      refused(withStep({ id: 'x', action: 'read', failMessage: 'no' }), /unknown key "failMessage"/);
+    });
+
+    await it('the built-in atruvia login only clicks and waits: no fill, no param', async () => {
+      const file = BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/login')!;
+      const r = parseRecipe(file.data) as Recipe;
+      expect(r.steps.map((s) => s.action).join(',')).toBe('click,wait,click,wait');
+      expect(r.params.length).toBe(0);
+      expect(r.match.every((m) => m.urls !== undefined)).toBe(true);
+    });
+
+    await it('the built-in atruvia download names the row on both the wait and the capture', async () => {
+      const file = BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/download-document')!;
+      const r = parseRecipe(file.data) as Recipe;
+      const named = r.steps.filter((s) => 'nameParam' in s && s.nameParam === 'title').map((s) => s.action);
+      expect(named.join(',')).toBe('wait,capture');
+      expect(r.steps.some((s) => s.action === 'click-row')).toBe(false);
     });
   });
 

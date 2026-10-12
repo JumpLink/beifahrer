@@ -33,7 +33,15 @@
  */
 
 import { spawn, execFileSync } from 'node:child_process';
-import { createWriteStream, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:http';
 import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -131,6 +139,8 @@ const FIXTURE = `<!doctype html><html><head><title>Beifahrer fixture</title></he
 <p id="spin-state"></p>
 <p id="gate-done"></p>
 <a href="/sample" id="sample-link">sample link</a>
+<!-- A link by role only: no href, so the outline once failed on the whole page ("e is undefined"). -->
+<span role="link" tabindex="0" id="role-link">pseudo link</span>
 <p>clicks: <span id="clicks">0</span> · pastes: <span id="pastes">0</span> <span id="pasteinfo"></span></p>
 <p>indicator:<span id="ind"></span>.</p>
 <beifahrer-open-card>slotted text</beifahrer-open-card>
@@ -1048,6 +1058,12 @@ async function confirmScenario(browser) {
       check(name, 'page_outline gives refs for the gate field and button', false, outline.text.slice(0, 400));
       return;
     }
+    check(
+      name,
+      'the outline names a role="link" element that has no href',
+      /\[e\d+\] link "pseudo link"(?! →)/.test(outline.text),
+      outline.text.slice(0, 400),
+    );
     // What gates the writes below, asked before any of them: this build does not silence the
     // person, so a write here is served WITH a window. Getting `confirm` wrong in either direction
     // would misreport the site to every agent that asks (the `on` build checks the other half).
@@ -1113,6 +1129,94 @@ async function confirmScenario(browser) {
       !!allowed && !allowed.error && afterSaved.text.includes('saved:open'),
       `${String(allowed?.text).slice(0, 200)} | ${afterSaved.text.slice(-400)}`,
     );
+  } finally {
+    await a.client.close().catch(() => undefined);
+    await stopBrowser(proc, browser === 'firefox');
+    rmSync(profile, { recursive: true, force: true });
+  }
+}
+/**
+ * ADR 0019: a page saves a blob out of sight (an `<a download>` that never enters the DOM). The
+ * switch and the browser's `downloads` permission are on in this build. Two pages: one keeps its
+ * blob (the file must come back as `via: "save"` and the browser's own copy must be gone), one
+ * revokes it on the next line (unreadable, so the agent gets `failed` and the copy stays).
+ */
+async function savesScenario(browser) {
+  const name = `${browser} saves`;
+  const profile = mkdtempSync(join(tmpdir(), `beifahrer-e2e-saves-${browser}-`));
+  const saved = join(profile, 'saved');
+  mkdirSync(saved, { recursive: true });
+  // Where the browser puts a download, so "no file is left" is a look at a folder.
+  if (browser === 'chromium') {
+    mkdirSync(join(profile, 'Default'), { recursive: true });
+    writeFileSync(
+      join(profile, 'Default/Preferences'),
+      JSON.stringify({
+        download: { default_directory: saved, prompt_for_download: false },
+        savefile: { default_directory: saved },
+        profile: { default_content_setting_values: { automatic_downloads: 1 } },
+      }),
+    );
+  } else {
+    writeFileSync(
+      join(profile, 'user.js'),
+      [
+        'user_pref("browser.download.folderList", 2);',
+        `user_pref("browser.download.dir", ${JSON.stringify(saved)});`,
+        'user_pref("browser.download.useDownloadDir", true);',
+        'user_pref("browser.download.always_ask_before_handling_new_types", false);',
+        'user_pref("browser.download.open_pdf_attachments_inline", false);',
+        'user_pref("pdfjs.disabled", true);',
+      ].join('\n'),
+    );
+  }
+  const tokenFile = join(profile, 'token');
+  writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
+  const a = await startMcp(tokenFile, `${browser}-saves-a.log`);
+  const proc = await launch(browser, profile);
+  const files = () => (existsSync(saved) ? readdirSync(saved).filter((f) => !f.endsWith('.part')) : []);
+  const capture = async (variant) => {
+    const opened = await tool(a.client, 'tab_open', { url: `${ALLOWED}/saves?v=${variant}` });
+    const tabId = opened.error ? null : JSON.parse(opened.text).tab?.tabId;
+    if (tabId == null) return { error: true, text: opened.text };
+    await tool(a.client, 'page_wait', { tabId, for: 'load' });
+    const outline = await tool(a.client, 'page_outline', { tabId });
+    const ref = /\[(e\d+)\] button "Save report/.exec(outline.text)?.[1];
+    if (!ref) return { error: true, text: `no button in: ${outline.text.slice(0, 300)}` };
+    return tool(a.client, 'page_capture', { tabId, ref, timeoutMs: 10_000 });
+  };
+  try {
+    await until(a.client, (s) => s.browsers?.length === 1, 60);
+
+    const kept = await capture('keep');
+    const doc = kept.error ? null : JSON.parse(kept.text);
+    check(
+      name,
+      'a blob saved out of sight comes back as via: "save"',
+      doc?.via === 'save',
+      kept.text.slice(0, 300),
+    );
+    check(
+      name,
+      'with the bytes the page produced',
+      !!doc &&
+        Buffer.from(doc.base64 ?? doc.data ?? '', 'base64')
+          .toString()
+          .startsWith('%PDF-1.4 e2e'),
+      kept.text.slice(0, 300),
+    );
+    await sleep(1_500);
+    check(name, "and the browser's own copy is gone", files().length === 0, files().join(', '));
+
+    const revoked = await capture('revoke');
+    check(
+      name,
+      'a blob revoked right after the click answers failed',
+      revoked.error && /failed/.test(revoked.text) && /out of sight/.test(revoked.text),
+      revoked.text.slice(0, 300),
+    );
+    await sleep(1_500);
+    check(name, "and the browser's own copy stays", files().length === 1, files().join(', '));
   } finally {
     await a.client.close().catch(() => undefined);
     await stopBrowser(proc, browser === 'firefox');
@@ -2734,6 +2838,8 @@ async function pausedChecks(browser, client) {
     ['page_network', { tabId: 1 }],
     ['page_evaluate', { tabId: 1, script: 'return 1' }],
     ['page_download', { tabId: 1, url }],
+    ['page_rows', { tabId: 1 }],
+    ['page_capture', { tabId: 1, ref: 'e1' }],
     ['recipes_for_tab', { tabId: 1 }],
     ['recipe_run', { tabId: 1, id: 'openproject/add-comment', params: { text: 'x' } }],
     ['tab_open', { url }],
@@ -3178,7 +3284,7 @@ async function reconnectScenario(browser) {
 
 const which = process.argv[2] ?? 'all';
 const browsers = which === 'all' ? ['chromium', 'firefox'] : [which];
-/** BEIFAHRER_E2E_ONLY=reconnect runs just that scenario (one build, no fixture scenarios). */
+/** BEIFAHRER_E2E_ONLY=reconnect or =saves runs just that scenario (one build, no fixture scenarios). */
 const ONLY = process.env.BEIFAHRER_E2E_ONLY;
 
 const FRAME_FIXTURE = `<!doctype html><html><head><title>Frame document</title></head><body>
@@ -3211,16 +3317,31 @@ const ELSEWHERE_FIXTURE = `<!doctype html><html><head><title>Elsewhere</title></
 <p>Text that only this page has.</p>
 <a href="/fixture" id="back-home">back to the fixture</a>
 </body></html>`;
+const SAVES_FIXTURE = (variant) => `<!doctype html><html><head><title>Saves</title></head><body>
+<button id="save">Save report</button>
+<script>
+  document.getElementById('save').addEventListener('click', () => {
+    const blob = new Blob(['%PDF-1.4 e2e ' + 'x'.repeat(2000)], { type: 'application/pdf' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'report-${variant}.pdf';
+    a.click();
+    if ('${variant}' === 'revoke') URL.revokeObjectURL(a.href);
+  });
+</script>
+</body></html>`;
 const page = (req) =>
-  req.url?.startsWith('/elsewhere')
-    ? ELSEWHERE_FIXTURE
-    : req.url?.startsWith('/openproject')
-      ? OP_FIXTURE
-      : req.url?.startsWith('/frame-foreign')
-        ? FOREIGN_FRAME_FIXTURE
-        : req.url?.startsWith('/frame')
-          ? FRAME_FIXTURE
-          : FIXTURE;
+  req.url?.startsWith('/saves')
+    ? SAVES_FIXTURE(req.url.includes('v=revoke') ? 'revoke' : 'keep')
+    : req.url?.startsWith('/elsewhere')
+      ? ELSEWHERE_FIXTURE
+      : req.url?.startsWith('/openproject')
+        ? OP_FIXTURE
+        : req.url?.startsWith('/frame-foreign')
+          ? FOREIGN_FRAME_FIXTURE
+          : req.url?.startsWith('/frame')
+            ? FRAME_FIXTURE
+            : FIXTURE;
 const fixture = createServer((req, res) => {
   // Issue #35: the two API paths, before anything is HTML. `/api/submit` answers 500 on purpose —
   // a failing POST with a status is the row an agent is looking for, and a page that answered 200
@@ -3256,7 +3377,7 @@ const seed = {
   askOnDemand: false,
 };
 
-// Five builds: the person's switches can only be flipped in the browser's UI, which a headless
+// Six builds: the person's switches can only be flipped in the browser's UI, which a headless
 // test cannot click. `off` has the default features (tab management, sessions, screenshots off);
 // `on` carries PR #8's stored `grants.manageTabs` (which must still switch tab management AND
 // sessions on) plus screenshots; `paused` is stopped; `confirm` does not silence the person.
@@ -3300,15 +3421,25 @@ const BUILDS = {
     policy: { origins: { [ALLOWED]: { level: 'write' } } },
     features: { screenshot: true },
   },
+  // ADR 0019: capture takes a blob the page saves out of sight. The switch on, and the browser's
+  // `downloads` grant in the manifest because a test cannot click the options page's prompt.
+  saves: {
+    ...seed,
+    features: { download: true, captureSaves: true },
+    e2eApiPermissions: ['downloads'],
+  },
 };
 for (const [gate, build] of Object.entries(BUILDS)) {
-  if (ONLY && gate !== 'off') continue;
+  if (ONLY && gate !== (ONLY === 'saves' ? 'saves' : 'off')) continue;
   buildExtension(build);
   for (const b of browsers) {
-    if (gate === 'access' || gate === 'confirm') {
-      console.log(`\n${b} (${gate === 'access' ? 'temporary access' : 'confirmation'})`);
+    if (gate === 'access' || gate === 'confirm' || gate === 'saves') {
+      console.log(
+        `\n${b} (${{ access: 'temporary access', confirm: 'confirmation', saves: 'hidden downloads' }[gate]})`,
+      );
       try {
         if (gate === 'access') await accessScenario(b);
+        else if (gate === 'saves') await savesScenario(b);
         else await confirmScenario(b);
       } catch (err) {
         check(b, `${gate} scenario ran`, false, err.stack ?? String(err));

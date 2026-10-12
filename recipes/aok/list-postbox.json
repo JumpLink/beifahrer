@@ -1,0 +1,8 @@
+{
+  "id": "aok/list-postbox",
+  "title": "List the messages in the Meine AOK postbox",
+  "description": "On a folder of the Meine AOK postbox (Posteingang, Gesendete, Archiviert): lists the rows of the open page. Run it per folder tab and per result page. Reads only.",
+  "version": "1.0.0",
+  "match": { "urls": ["https://meine.aok.de/client/postbox/*"] },
+  "steps": [{ "id": "rows", "action": "rows", "maxRows": 200 }]
+}

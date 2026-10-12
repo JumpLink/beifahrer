@@ -21,6 +21,7 @@
 import {
   checkRunParams,
   describeQuery,
+  QUERY_LIMITS,
   urlsMatch,
   type ElementQuery,
   type FingerprintCheck,
@@ -166,6 +167,16 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
         ' — recipes_for_tab lists the recipes that do',
     );
 
+  // A step's `nameParam` narrows its target to the element whose name also carries the param's value.
+  // A missing value is a failed step: running on with the plain target would pick the first match,
+  // which is the wrong row's button.
+  const narrow = (target: ElementQuery, nameParam: string | undefined): ElementQuery => {
+    if (nameParam === undefined) return target;
+    const value = params[nameParam]?.trim();
+    if (!value) throw new StepFailed(`param "${nameParam}" is empty — the target is named by it`);
+    return { ...target, nameAlso: value.slice(0, QUERY_LIMITS.chars) };
+  };
+
   const resolve = async (target: ElementQuery): Promise<string> => {
     const found = await call('page.find', { tabId, ...target, nth: target.nth ?? 0 }, browser);
     const ref = found.matches[0]?.ref;
@@ -204,14 +215,25 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
           entry.detail = 'resumed here';
           break;
         case 'find': {
-          const r = await call('page.find', { tabId, ...step.target }, browser);
-          if (r.count === 0) throw new StepFailed(`no ${describeQuery(step.target)} on the page`);
+          const target = narrow(step.target, step.nameParam);
+          const r = await call('page.find', { tabId, ...target }, browser);
+          if (r.count === 0) throw new StepFailed(`no ${describeQuery(target)} on the page`);
           entry.result = r.matches.map((m) => m.description);
           break;
         }
         case 'click':
         case 'submit': {
-          const ref = await resolve(step.target);
+          const target = narrow(step.target, step.nameParam);
+          if (step.action === 'click' && step.optional) {
+            // Absent is fine, e.g. a redirect button that only one of two entry pages shows.
+            const found = await call('page.find', { tabId, ...target, nth: target.nth ?? 0 }, browser);
+            if (!found.matches[0]) {
+              entry.status = 'skipped';
+              entry.detail = `no ${describeQuery(target)} on the page (optional)`;
+              break;
+            }
+          }
+          const ref = await resolve(target);
           await call('page.click', { tabId, ref }, browser);
           break;
         }
@@ -228,7 +250,15 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
           break;
         }
         case 'wait': {
-          const r = await call('page.wait', { tabId, for: step.for, timeoutMs: step.timeoutMs }, browser);
+          const wanted = step.for === 'load' ? step.for : narrow(step.for, step.nameParam);
+          const r = await call('page.wait', { tabId, for: wanted, timeoutMs: step.timeoutMs }, browser).catch(
+            (err: unknown) => {
+              // Only the timeout is the recipe's to explain; a forbidden or paused stays the extension's word.
+              if (step.failMessage && err instanceof BridgeError && err.wire.code === 'timeout')
+                throw new StepFailed(step.failMessage);
+              throw err;
+            },
+          );
           entry.detail = `after ${r.waitedMs} ms${r.match ? `: ${r.match.description}` : ''}`;
           break;
         }
@@ -238,6 +268,35 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
         case 'outline':
           entry.result = (await call('page.outline', { tabId, maxItems: step.maxItems }, browser)).outline;
           break;
+        case 'rows': {
+          // With a param, the list is scrolled to that row and left there (a virtual list only has
+          // the rows near the viewport); nothing is clicked.
+          const match = step.param === undefined ? undefined : params[step.param];
+          if (step.param !== undefined && !match)
+            throw new StepFailed(`param "${step.param}" is empty — a row is named by its text`);
+          const r = await call('page.rows', { tabId, maxRows: step.maxRows, match }, browser);
+          if (match && !r.ref) throw new StepFailed(`no row containing "${match}" on the page`);
+          entry.detail = `${r.count} rows${r.truncated ? ' (cut)' : ''}`;
+          entry.result = r.rows;
+          break;
+        }
+        case 'click-row': {
+          // A row has no role to ask `page.find` for, so it is looked up by the text the person
+          // reads on it. The click is an ordinary `page.click` on the ref that comes back.
+          const match = params[step.param];
+          if (!match) throw new StepFailed(`param "${step.param}" is empty — a row is named by its text`);
+          const rows = await call('page.rows', { tabId, match }, browser);
+          if (!rows.ref) throw new StepFailed(`no row containing "${match}" on the page`);
+          await call('page.click', { tabId, ref: rows.ref }, browser);
+          break;
+        }
+        case 'capture': {
+          const ref = await resolve(narrow(step.target, step.nameParam));
+          const doc = await call('page.capture', { tabId, ref, maxBytes: step.maxBytes }, browser);
+          entry.detail = `${doc.filename} (${doc.mime}, ${doc.size} bytes, via ${doc.via})`;
+          entry.result = doc;
+          break;
+        }
       }
     } catch (err) {
       const why = err instanceof StepFailed ? err.message : describeError(err);

@@ -35,6 +35,15 @@ export type PageRequest = PageTarget &
     | { beifahrer: 'evaluate'; script: string; maxChars: number }
     /** A document the page links to: by ref (a link) or by URL on the tab's own origin. */
     | { beifahrer: 'download'; ref?: string; url?: string; maxBytes: number }
+    /** The rows of a list (ADR 0018); `match` stops at the first row whose text contains it. */
+    | { beifahrer: 'rows'; match?: string; maxRows: number }
+    /**
+     * Click a button and watch for the link the PAGE clicks in answer (ADR 0018): the first half of
+     * `page.capture`. Answers at once; `captured` is the question that follows.
+     */
+    | { beifahrer: 'capture'; ref: string }
+    /** Has the armed capture seen the page click a link? Waits up to `waitMs`; `disarm` ends it. */
+    | { beifahrer: 'captured'; waitMs: number; disarm?: boolean }
     /** Hide the in-page pill now, e.g. before a screenshot. Answers once the page has repainted. */
     /**
      * "Where are you?" — the frame's own `location.href` and nothing else (issue #32).

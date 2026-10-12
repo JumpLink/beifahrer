@@ -73,10 +73,13 @@ keys by name, and any other key it does not know.
 | `action` | Does | Extra fields |
 |---|---|---|
 | `find` | fails unless the element is there | `target` |
-| `click` | clicks it | `target` |
+| `click` | clicks it | `target`, `optional` (skipped when the element is not there) |
 | `fill` | puts a param's value into a field or editor | `target`, `param`, `as` (`text`/`html`), `mode` (`replace`/`append`) |
-| `wait` | waits for the page to load or an element to appear | `for` (`"load"` or a query), `timeoutMs` (≤ 30000) |
+| `wait` | waits for the page to load or an element to appear | `for` (`"load"` or a query), `timeoutMs` (≤ 30000), `failMessage` (what the failure says when the wait times out) |
 | `read`, `outline` | returns the page text / outline in the run log | `maxChars` / `maxItems` |
+| `rows` | returns the rows of the list on the page (scrolls a virtual-scroll list) | `maxRows` |
+| `click-row` | clicks the row whose text contains a param's value | `param` |
+| `capture` | clicks a button that hands over a document and returns the file; may end on a sister origin of the site, which needs its own level (ADR 0018) | `target`, `maxBytes` |
 | `checkpoint` | stops the run with a message, so the agent looks before it goes on | `message` |
 | `submit` | a click that publishes (posts, saves, sends) | `target`; must have `"requiresExplicitRequest": true` |
 
@@ -101,3 +104,11 @@ It stops at the first failing step and names it.
 |---|---|---|
 | `openproject/add-comment` | OpenProject (metas `app_base_path` + `app_title`), any domain | de: measured; en: OpenProject's `label_type_to_comment`, `label_submit_comment` |
 | `openproject/edit-description` | same | de: measured + `js-de.yml` `placeholders.description`, `inplace.button_save`; en: `js-en.yml` |
+| `atruvia/login` | the logged-out page and the login page of an Atruvia / VR banking portal, any bank's domain (by path) | de: measured on the portal |
+
+`atruvia/login` gets an agent back into a postbox after the short bank session ended. It only
+**clicks**: the browser's own password manager fills the VR-NetKey and the PIN, and Beifahrer never
+reads, types or fills either (a password field is out of reach for every method). When the PIN is
+not filled, or the portal asks for a second factor (TAN, SecureGo, a new device), the last `wait`
+times out and the run fails with a message telling the agent to ask the person to log in. Then
+run `atruvia/list-postbox` or `atruvia/download-document` on the start page's postbox.

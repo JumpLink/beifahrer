@@ -58,9 +58,9 @@ interface StepBase {
 }
 
 export type Step =
-  | (StepBase & { action: 'find'; target: ElementQuery })
-  | (StepBase & { action: 'click'; target: ElementQuery })
-  | (StepBase & { action: 'submit'; target: ElementQuery; requiresExplicitRequest: true })
+  | (StepBase & { action: 'find'; target: ElementQuery; nameParam?: string })
+  | (StepBase & { action: 'click'; target: ElementQuery; nameParam?: string; optional?: boolean })
+  | (StepBase & { action: 'submit'; target: ElementQuery; requiresExplicitRequest: true; nameParam?: string })
   | (StepBase & {
       action: 'fill';
       target: ElementQuery;
@@ -68,9 +68,18 @@ export type Step =
       as?: 'text' | 'html';
       mode?: 'replace' | 'append';
     })
-  | (StepBase & { action: 'wait'; for: 'load' | ElementQuery; timeoutMs?: number })
+  | (StepBase & {
+      action: 'wait';
+      for: 'load' | ElementQuery;
+      timeoutMs?: number;
+      nameParam?: string;
+      failMessage?: string;
+    })
   | (StepBase & { action: 'read'; maxChars?: number })
   | (StepBase & { action: 'outline'; maxItems?: number })
+  | (StepBase & { action: 'rows'; maxRows?: number; param?: string })
+  | (StepBase & { action: 'click-row'; param: string })
+  | (StepBase & { action: 'capture'; target: ElementQuery; maxBytes?: number; nameParam?: string })
   | (StepBase & { action: 'checkpoint'; message: string });
 
 export type StepAction = Step['action'];
@@ -83,11 +92,20 @@ export const STEP_ACTIONS: readonly StepAction[] = [
   'wait',
   'read',
   'outline',
+  'rows',
+  'click-row',
+  'capture',
   'checkpoint',
 ];
 
 /** Steps that change the page, and so go through the write gate + confirmation. */
-export const WRITE_ACTIONS: ReadonlySet<StepAction> = new Set(['click', 'submit', 'fill']);
+export const WRITE_ACTIONS: ReadonlySet<StepAction> = new Set([
+  'click',
+  'submit',
+  'fill',
+  'click-row',
+  'capture',
+]);
 
 export interface Recipe {
   id: string;
@@ -106,13 +124,16 @@ const VERSION = /^\d{1,4}\.\d{1,4}\.\d{1,4}$/;
 
 const TOP_KEYS = new Set(['$schema', 'id', 'title', 'description', 'version', 'match', 'params', 'steps']);
 const STEP_KEYS: Record<StepAction, string[]> = {
-  find: ['target'],
-  click: ['target'],
-  submit: ['target'],
+  find: ['target', 'nameParam'],
+  click: ['target', 'nameParam', 'optional'],
+  submit: ['target', 'nameParam'],
   fill: ['target', 'param', 'as', 'mode'],
-  wait: ['for', 'timeoutMs'],
+  wait: ['for', 'timeoutMs', 'nameParam', 'failMessage'],
   read: ['maxChars'],
   outline: ['maxItems'],
+  rows: ['maxRows', 'param'],
+  'click-row': ['param'],
+  capture: ['target', 'maxBytes', 'nameParam'],
   checkpoint: ['message'],
 };
 const COMMON_STEP_KEYS = ['id', 'action', 'note', 'requiresExplicitRequest'];
@@ -262,6 +283,17 @@ function param(value: unknown, where: string): RecipeParam {
   };
 }
 
+/**
+ * `nameParam`: the element's name must ALSO contain this param's value (`ElementQuery.nameAlso`).
+ * Data, like the rest of the step: it names a declared param, it holds no code and no selector.
+ */
+function nameParam(src: Record<string, unknown>, where: string, params: Set<string>): { nameParam?: string } {
+  if (src.nameParam === undefined) return {};
+  const name = str(src.nameParam, `${where}.nameParam`, 40);
+  if (!params.has(name)) fail(`${where}.nameParam`, `"${name}" is not a declared param`);
+  return { nameParam: name };
+}
+
 function step(value: unknown, where: string, params: Set<string>): Step {
   const src = obj(value, where);
   const action = src.action;
@@ -280,8 +312,25 @@ function step(value: unknown, where: string, params: Set<string>): Step {
   }
   switch (a) {
     case 'find':
-    case 'click':
-      return { ...base, action: a, target: query(src.target, `${where}.target`) };
+      return {
+        ...base,
+        action: a,
+        target: query(src.target, `${where}.target`),
+        ...nameParam(src, where, params),
+      };
+    case 'click': {
+      const out: Step = {
+        ...base,
+        action: 'click',
+        target: query(src.target, `${where}.target`),
+        ...nameParam(src, where, params),
+      };
+      if (src.optional !== undefined) {
+        if (typeof src.optional !== 'boolean') fail(`${where}.optional`, 'must be a boolean');
+        if (src.optional) out.optional = true;
+      }
+      return out;
+    }
     case 'submit':
       // A submit publishes something (a comment, a saved description). Running it must be the
       // person's explicit wish, and the recipe has to say so — not rely on the runner guessing.
@@ -292,6 +341,7 @@ function step(value: unknown, where: string, params: Set<string>): Step {
         requiresExplicitRequest: true,
         action: 'submit',
         target: query(src.target, `${where}.target`),
+        ...nameParam(src, where, params),
       };
     case 'fill': {
       const name = str(src.param, `${where}.param`, 40);
@@ -315,9 +365,12 @@ function step(value: unknown, where: string, params: Set<string>): Step {
     }
     case 'wait': {
       const target = src.for === 'load' ? 'load' : query(src.for, `${where}.for`);
-      const out: Step = { ...base, action: 'wait', for: target };
+      const out: Step = { ...base, action: 'wait', for: target, ...nameParam(src, where, params) };
+      if (target === 'load' && src.nameParam !== undefined)
+        fail(`${where}.nameParam`, 'needs an element to wait for, not "load"');
       if (src.timeoutMs !== undefined)
         out.timeoutMs = int(src.timeoutMs, `${where}.timeoutMs`, 100, MAX_WAIT_MS);
+      if (src.failMessage !== undefined) out.failMessage = str(src.failMessage, `${where}.failMessage`, 500);
       return out;
     }
     case 'read': {
@@ -328,6 +381,32 @@ function step(value: unknown, where: string, params: Set<string>): Step {
     case 'outline': {
       const out: Step = { ...base, action: 'outline' };
       if (src.maxItems !== undefined) out.maxItems = int(src.maxItems, `${where}.maxItems`, 10, 2_000);
+      return out;
+    }
+    case 'rows': {
+      const out: Step = { ...base, action: 'rows' };
+      if (src.param !== undefined) {
+        const name = str(src.param, `${where}.param`, 40);
+        if (!params.has(name)) fail(`${where}.param`, `"${name}" is not a declared param`);
+        out.param = name;
+      }
+      if (src.maxRows !== undefined) out.maxRows = int(src.maxRows, `${where}.maxRows`, 1, 1_000);
+      return out;
+    }
+    case 'click-row': {
+      const name = str(src.param, `${where}.param`, 40);
+      if (!params.has(name)) fail(`${where}.param`, `"${name}" is not a declared param`);
+      return { ...base, action: 'click-row', param: name };
+    }
+    case 'capture': {
+      const out: Step = {
+        ...base,
+        action: 'capture',
+        target: query(src.target, `${where}.target`),
+        ...nameParam(src, where, params),
+      };
+      if (src.maxBytes !== undefined)
+        out.maxBytes = int(src.maxBytes, `${where}.maxBytes`, 1_000, 25_000_000);
       return out;
     }
     case 'checkpoint':

@@ -2,6 +2,7 @@ import { describe, expect, it } from '@gjsify/unit';
 import { parseRecipe, queryMatches, type ElementQuery, type FindRole, type Recipe } from '@beifahrer/core';
 
 import { BridgeError } from '../../../src/bridge/bridge.ts';
+import { BUILTIN } from '../../../src/recipes/builtin.ts';
 import { runRecipe, TabProbe, type Call } from '../../../src/recipes/runner.ts';
 
 /**
@@ -260,6 +261,274 @@ export default async () => {
       const run = await runRecipe(fakeExtension().call, r, { tabId: 7 });
       expect(run.status).toBe('done');
       expect(run.log[2]!.status).toBe('skipped');
+    });
+  });
+
+  await describe('rows, click-row and capture', async () => {
+    const list = (
+      steps: unknown[],
+      params: unknown[] = [{ name: 'title', type: 'string', description: 'x', required: true }],
+    ) => recipe({ steps, params });
+    const withRows = () => {
+      const ext = fakeExtension();
+      const inner = ext.call as unknown as (m: string, p: Record<string, unknown>) => Promise<unknown>;
+      const calls: [string, Record<string, unknown>][] = [];
+      const call = (async (m: string, p: Record<string, unknown>) => {
+        calls.push([m, p]);
+        if (m === 'page.rows')
+          return p.match === 'Zwei'
+            ? { rows: [], count: 2, truncated: false, ref: 'e9' }
+            : p.match
+              ? { rows: [], count: 3, truncated: false }
+              : { rows: [{ index: 0, text: 'Eins' }], count: 1, truncated: false };
+        if (m === 'page.click') return { ref: p.ref };
+        if (m === 'page.capture')
+          return {
+            url: 'https://api.example/x',
+            filename: 'a.pdf',
+            mime: 'application/pdf',
+            size: 3,
+            base64: 'AAAA',
+            via: 'tab',
+          };
+        return inner(m, p);
+      }) as unknown as Call;
+      return { call, calls };
+    };
+
+    await it('rows returns the list; click-row clicks the ref of the matching row', async () => {
+      const x = withRows();
+      const run = await runRecipe(
+        x.call,
+        list([
+          { id: 'l', action: 'rows' },
+          { id: 'o', action: 'click-row', param: 'title' },
+        ]),
+        { tabId: 7, params: { title: 'Zwei' } },
+      );
+      expect(run.status).toBe('done');
+      expect(x.calls.some(([m, p]) => m === 'page.click' && p.ref === 'e9')).toBe(true);
+    });
+
+    await it('click-row fails, naming the text, when no row has it', async () => {
+      const x = withRows();
+      const run = await runRecipe(x.call, list([{ id: 'o', action: 'click-row', param: 'title' }]), {
+        tabId: 7,
+        params: { title: 'Drei' },
+      });
+      expect(run.status).toBe('failed');
+      expect(run.message).toMatch(/no row containing "Drei"/);
+      expect(x.calls.some(([m]) => m === 'page.click')).toBe(false);
+    });
+
+    await it('capture goes through page.capture and logs the file, not its bytes', async () => {
+      const x = withRows();
+      x.calls.length = 0;
+      const run = await runRecipe(
+        x.call,
+        list([{ id: 'd', action: 'capture', target: { role: 'button', name: 'Einen Kommentar' } }], []),
+        { tabId: 7 },
+      );
+      expect(run.status).toBe('done');
+      expect(x.calls.some(([m]) => m === 'page.capture')).toBe(true);
+      expect(run.log[0]!.detail).toMatch(/a\.pdf \(application\/pdf, 3 bytes, via tab\)/);
+    });
+
+    await it('capture presses the Download button of the named row, not the first one', async () => {
+      const buttons = [
+        { ref: 'e1', name: 'Kontoauszug 08 , 12345 , , Dokument herunterladen' },
+        { ref: 'e2', name: 'Kontoauszug 09 , 12345 , , Dokument herunterladen' },
+        { ref: 'e3', name: 'Depotauszug 09 , 12345 , , Dokument herunterladen' },
+      ];
+      const captured: unknown[] = [];
+      const calls: [string, Record<string, unknown>][] = [];
+      const call = (async (m: string, p: Record<string, unknown>) => {
+        calls.push([m, p]);
+        const url = 'https://bank.example/services_cloud/portal/webcomp/epostfach/postfach';
+        if (m === 'tabs.list')
+          return {
+            tabs: [
+              {
+                tabId: 7,
+                windowId: 1,
+                active: true,
+                focusedWindow: true,
+                host: 'bank.example',
+                level: 'write',
+                url,
+              },
+            ],
+          };
+        if (m === 'page.find') {
+          if (p.meta) return { url, matches: [], count: 1, truncated: false };
+          const { tabId: _t, ...q } = p;
+          const hit = buttons
+            .filter((b) => queryMatches(q as ElementQuery, { role: 'button', name: b.name, text: '' }))
+            .map((b) => ({ ref: b.ref, description: b.name }));
+          return { url, matches: hit, count: hit.length, truncated: false };
+        }
+        if (m === 'page.rows') return { rows: [], count: 3, truncated: false, ref: 'e9' };
+        if (m === 'page.wait') return { waitedMs: 1, match: { ref: 'e2', description: 'x' } };
+        if (m === 'page.capture') {
+          captured.push(p.ref);
+          return { url, filename: 'a.pdf', mime: 'application/pdf', size: 3, base64: 'AAAA', via: 'link' };
+        }
+        throw new Error(`unexpected ${m}`);
+      }) as unknown as Call;
+      const r = parseRecipe(
+        BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/download-document')!.data,
+      ) as Recipe;
+      const run = await runRecipe(call, r, { tabId: 7, params: { title: 'Kontoauszug 09' } });
+      expect(run.status).toBe('done');
+      expect(captured.join(',')).toBe('e2');
+      const wait = calls.find(([m]) => m === 'page.wait')![1].for as ElementQuery;
+      expect(wait.nameAlso).toBe('Kontoauszug 09');
+      expect(calls.some(([m]) => m === 'page.click')).toBe(false);
+    });
+
+    await it('a nameParam whose value is empty fails the step instead of taking the first match', async () => {
+      const x = withRows();
+      const run = await runRecipe(
+        x.call,
+        list([{ id: 'd', action: 'capture', target: { role: 'button' }, nameParam: 'title' }]),
+        { tabId: 7, params: { title: '   ' } },
+      );
+      expect(run.status).toBe('failed');
+      expect(run.message).toMatch(/param "title" is empty/);
+      expect(x.calls.some(([m]) => m === 'page.capture')).toBe(false);
+    });
+
+    await describe('atruvia/login', async () => {
+      const login = () =>
+        parseRecipe(BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/login')!.data) as Recipe;
+
+      /** A portal page: the elements it shows, and whether the click on Anmelden gets past it. */
+      const portal = (
+        url: string,
+        shown: Array<[FindRole, string]>,
+        afterLogin: Array<[FindRole, string]>,
+      ) => {
+        let n = 1;
+        let elements = shown.map(([role, name]) => ({ ref: `e${n++}`, role, name }));
+        const calls: Array<[string, Record<string, unknown>]> = [];
+        const call = (async (m: string, p: Record<string, unknown>) => {
+          calls.push([m, p]);
+          if (m === 'tabs.list')
+            return {
+              tabs: [
+                {
+                  tabId: 7,
+                  windowId: 1,
+                  active: true,
+                  focusedWindow: true,
+                  host: 'bank.example',
+                  level: 'write',
+                  url,
+                },
+              ],
+            };
+          if (m === 'page.find') {
+            const { tabId: _t, ...q } = p;
+            const found = elements
+              .filter((e) => queryMatches(q as ElementQuery, { role: e.role, name: e.name, text: '' }))
+              .map((e) => ({ ref: e.ref, description: e.name }));
+            return { url, matches: found, count: found.length, truncated: false };
+          }
+          if (m === 'page.click') {
+            const el = elements.find((e) => e.ref === p.ref)!;
+            if (el.name === 'Weiterleitung zur Anmeldeseite')
+              elements = [
+                ['heading', 'Anmelden'],
+                ['button', 'Anmelden'],
+              ].map(([role, name]) => ({ ref: `e${n++}`, role: role as FindRole, name: name! }));
+            if (el.role === 'button' && el.name === 'Anmelden')
+              elements = afterLogin.map(([role, name]) => ({ ref: `e${n++}`, role, name }));
+            return { ref: p.ref };
+          }
+          if (m === 'page.wait') {
+            const { tabId: _t, for: want } = p;
+            const first = elements.filter((e) =>
+              queryMatches(want as ElementQuery, { role: e.role, name: e.name, text: '' }),
+            )[0];
+            if (!first) throw new BridgeError({ code: 'timeout', message: 'nothing matched' });
+            return { waitedMs: 1, match: { ref: first.ref, description: first.name } };
+          }
+          throw new Error(`unexpected ${m}`);
+        }) as unknown as Call;
+        return { call, calls };
+      };
+      const START: Array<[FindRole, string]> = [['button', 'Postfach: 2 ungelesen']];
+
+      await it('from the logged-out page: redirect, wait for the form, log in, reach the start page', async () => {
+        const x = portal(
+          'https://bank.example/services_cloud/portal/logout',
+          [
+            ['heading', 'Sie wurden erfolgreich abgemeldet'],
+            ['button', 'Weiterleitung zur Anmeldeseite'],
+          ],
+          START,
+        );
+        const run = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(run.status).toBe('done');
+        expect(run.log.map((l) => l.status).join(',')).toBe('ok,ok,ok,ok');
+        expect(x.calls.filter(([m]) => m === 'page.click').length).toBe(2);
+        expect(x.calls.some(([m]) => m === 'page.fill')).toBe(false);
+      });
+
+      await it('on the login page the redirect step is skipped', async () => {
+        const x = portal(
+          'https://bank.example/services_auth/auth-frontend/?x=1',
+          [
+            ['heading', 'Anmelden'],
+            ['textbox', 'VR-NetKey oder Alias'],
+            ['button', 'Anmelden'],
+          ],
+          START,
+        );
+        const run = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(run.status).toBe('done');
+        expect(run.log[0]!.status).toBe('skipped');
+        expect(x.calls.filter(([m]) => m === 'page.click').length).toBe(1);
+      });
+
+      await it('a second factor or an unfilled PIN fails with the ask-the-person message', async () => {
+        const x = portal(
+          'https://bank.example/services_auth/auth-frontend/?x=1',
+          [
+            ['heading', 'Anmelden'],
+            ['button', 'Anmelden'],
+          ],
+          [
+            ['heading', 'TAN eingeben'],
+            ['textbox', 'TAN'],
+          ],
+        );
+        const run = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(run.status).toBe('failed');
+        expect(run.next).toBe('wait-start');
+        expect(run.message).toMatch(/Ask the person to log in themselves/);
+        expect(x.calls.some(([m]) => m === 'page.fill' || m === 'page.type')).toBe(false);
+      });
+
+      await it('does not match the postbox or any other page of the bank', async () => {
+        const x = portal(
+          'https://bank.example/services_cloud/portal/webcomp/epostfach/inbox',
+          [['button', 'Anmelden']],
+          START,
+        );
+        const run = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(run.status).toBe('failed');
+        expect(run.message).toMatch(/does not match tab 7/);
+      });
+    });
+
+    await it('refuses a click-row naming a param the recipe does not declare', async () => {
+      const r = parseRecipe({
+        ...BASE,
+        params: [],
+        steps: [{ id: 'o', action: 'click-row', param: 'title' }],
+      });
+      expect(typeof r).toBe('string');
     });
   });
 

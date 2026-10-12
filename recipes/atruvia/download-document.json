@@ -1,0 +1,64 @@
+{
+  "id": "atruvia/download-document",
+  "title": "Download one document from a bank portal postbox",
+  "description": "Scrolls the postbox to the row whose text contains the given title, then presses THAT row's Download button and returns the file. The portal marks a document as read when it is downloaded. Matched on any bank's domain by the portal's page metadata and the postbox path.",
+  "version": "1.1.0",
+  "match": {
+    "urls": [
+      "https://*/services_cloud/portal/webcomp/epostfach/*"
+    ],
+    "fingerprint": [
+      {
+        "meta": {
+          "name": "portal_features"
+        }
+      },
+      {
+        "meta": {
+          "name": "portal_settings"
+        }
+      }
+    ]
+  },
+  "params": [
+    {
+      "name": "title",
+      "type": "string",
+      "description": "Text of the row, as atruvia/list-postbox lists it (a substring is enough).",
+      "required": true
+    }
+  ],
+  "steps": [
+    {
+      "id": "find-row",
+      "action": "rows",
+      "param": "title",
+      "note": "Scrolls the list to the row and clicks nothing: every row has its own Download button."
+    },
+    {
+      "id": "wait-download",
+      "action": "wait",
+      "for": {
+        "role": "button",
+        "name": [
+          "Herunterladen",
+          "Download"
+        ]
+      },
+      "nameParam": "title",
+      "timeoutMs": 10000
+    },
+    {
+      "id": "download",
+      "action": "capture",
+      "target": {
+        "role": "button",
+        "name": [
+          "Herunterladen",
+          "Download"
+        ]
+      },
+      "nameParam": "title"
+    }
+  ]
+}

@@ -26,6 +26,8 @@ import {
   evaluateRequestOf,
   expectationOf,
   isMethod,
+  judgeCapture,
+  refusedOpenMessage,
   levelFor,
   parseNetwork,
   parseElementQuery,
@@ -61,6 +63,7 @@ import { hideIndicator } from './indicator.ts';
 import { correctFrame, frameByIndex, framesOf, isWebUrl, type FrameRow } from './frames.ts';
 import { loadGrants, settle } from './grants.ts';
 import { networkAvailable, rowsOf } from './network.ts';
+import { savesAvailable, watchSaves, type Save } from './saves.ts';
 import { askPage, inject } from './inject.ts';
 import { loadSettings, originPattern, saveSettings } from './settings.ts';
 import type { PageRequest } from './page-messages.ts';
@@ -102,6 +105,44 @@ async function focusedWindowId(): Promise<number | null> {
     // background still alive) rejects instead of answering null. "No window" is a real answer here.
     return null;
   }
+}
+
+/**
+ * The tabs the page opens from `openerId` from now on, each as soon as it has an address.
+ *
+ * A new tab starts as `about:blank` and gets its URL a moment later, so the address is taken from the
+ * update, not from the creation. `take` hands over the first one that has a real address, once. When
+ * the browser does not say who opened a tab, any new tab is a candidate: `judgeCapture` still decides
+ * whether it may be read, and a stranger's tab fails that.
+ */
+function watchOpenedTabs(openerId: number): {
+  take(): { tabId: number; url: string } | undefined;
+  stop(): void;
+} {
+  const candidates = new Set<number>();
+  const ready: { tabId: number; url: string }[] = [];
+  const real = (url: string | undefined): url is string =>
+    !!url && url !== 'about:blank' && url !== 'about:newtab';
+  const onCreated = (tab: { id?: number; openerTabId?: number; url?: string }): void => {
+    if (tab.id === undefined || (tab.openerTabId !== undefined && tab.openerTabId !== openerId)) return;
+    candidates.add(tab.id);
+    if (real(tab.url)) ready.push({ tabId: tab.id, url: tab.url });
+  };
+  const onUpdated = (id: number, change: { url?: string }): void => {
+    if (candidates.has(id) && real(change.url)) {
+      candidates.delete(id);
+      ready.push({ tabId: id, url: change.url });
+    }
+  };
+  browser.tabs.onCreated.addListener(onCreated);
+  browser.tabs.onUpdated.addListener(onUpdated);
+  return {
+    take: () => ready.shift(),
+    stop: () => {
+      browser.tabs.onCreated.removeListener(onCreated);
+      browser.tabs.onUpdated.removeListener(onUpdated);
+    },
+  };
 }
 
 async function getTab(tabId: number) {
@@ -714,6 +755,36 @@ async function committedUrl(opened: { id?: number; url?: string }, asked: string
 
 type Handler<M extends Method> = (params: Params<M>, policy: Policy, ctx: CallContext) => Promise<Result<M>>;
 
+/**
+ * Read the file a page saved out of sight, then take the browser's own copy away (ADR 0019).
+ *
+ * The order is the point: when the blob cannot be read (a page that revokes it right after the
+ * click, or a file over the bound) the browser's copy is the only one there is, so it stays and the
+ * agent is told, instead of the person losing the file and the agent getting nothing.
+ */
+async function takeSave(
+  tabId: number,
+  ctx: CallContext,
+  save: Save,
+  saves: { discard(save: Save): Promise<void> },
+  maxBytes: number,
+): Promise<Result<'page.capture'>> {
+  let doc: Record<string, unknown>;
+  try {
+    doc = await page(tabId, ctx, { beifahrer: 'download', url: save.url, maxBytes });
+  } catch (err) {
+    const why = (err as { message?: string }).message ?? String(err);
+    return fail(
+      'failed',
+      `the page saved a file out of sight, but capture could not read it (${why}). The browser's own ` +
+        'copy was left in its downloads folder. A page that revokes the blob right after the click ' +
+        'cannot be captured this way. The click already ran: do not repeat it.',
+    );
+  }
+  await saves.discard(save);
+  return { ...doc, via: 'save' } as unknown as Result<'page.capture'>;
+}
+
 const handlers: { [M in Method]: Handler<M> } = {
   async 'tabs.list'(_params, policy, ctx) {
     const [tabs, focused] = await Promise.all([browser.tabs.query({}), focusedWindowId()]);
@@ -810,6 +881,88 @@ const handlers: { [M in Method]: Handler<M> } = {
       route.frame,
       route.index,
     )) as unknown as Result<'page.download'>;
+  },
+
+  async 'page.rows'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const tab = await getTab(tabId);
+    await gate('page.rows', tab.url, policy, ctx);
+    const raw = params as unknown as Record<string, unknown>;
+    const match = typeof raw.match === 'string' && raw.match.trim() ? raw.match.slice(0, 200) : undefined;
+    const maxRows = Math.min(Math.max(Number(raw.maxRows) || 200, 1), 1_000);
+    return (await page(tabId, ctx, { beifahrer: 'rows', match, maxRows })) as unknown as Result<'page.rows'>;
+  },
+
+  /**
+   * Click a button that hands over a document, and fetch what it handed over (ADR 0018).
+   *
+   * The click is an ordinary write (route, level, confirmation). What comes out of it is judged by
+   * `judgeCapture` — the tab's own blob or origin, or a sister origin of the same site, and for the
+   * sister the per-site level is checked on ITS origin before anything is read from it. The bytes
+   * are fetched by a page in the browser's own session; no token, cookie or header is ever seen
+   * here. A tab the click opened is closed again once its document is taken, and left alone when
+   * it was refused.
+   */
+  async 'page.capture'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const raw = params as unknown as Record<string, unknown>;
+    const ref = refOf(params);
+    const tab = await getTab(tabId);
+    const maxBytes = Math.min(Math.max(Number(raw.maxBytes) || 10_000_000, 1_000), 25_000_000);
+    const timeoutMs = Math.min(Math.max(Number(raw.timeoutMs) || 15_000, 1_000), 60_000);
+    const route = await routeFor('page.capture', tabId, ref, policy, ctx);
+    if (route.frame !== 0)
+      return fail('invalid', "a capture works on the tab's own document, not on a frame");
+    if (!tab.url) return fail('not_found', 'the tab has no address');
+    if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'click', route.ref, undefined);
+
+    const opened = watchOpenedTabs(tabId);
+    // Only with the person's switch, and armed BEFORE the click: the save is announced while the
+    // click is still being handled (ADR 0019).
+    const saves = (await loadSettings()).features.captureSaves ? watchSaves(tab.url) : undefined;
+    try {
+      await page(tabId, ctx, { beifahrer: 'capture', ref: route.ref });
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        const caught = await page(tabId, ctx, { beifahrer: 'captured', waitMs: 400 });
+        if (typeof caught.href === 'string') {
+          const doc = await page(tabId, ctx, { beifahrer: 'download', url: caught.href, maxBytes });
+          return { ...doc, via: 'link' } as unknown as Result<'page.capture'>;
+        }
+        const save = saves?.take();
+        if (save) return await takeSave(tabId, ctx, save, saves!, maxBytes);
+        const hit = opened.take();
+        if (!hit) continue;
+        const verdict = judgeCapture(hit.url, tab.url);
+        if (!verdict.ok) return fail('invalid', refusedOpenMessage(hit.url, verdict.message, hit.tabId));
+        let doc: Record<string, unknown>;
+        if (verdict.kind === 'blob') {
+          doc = await page(tabId, ctx, { beifahrer: 'download', url: hit.url, maxBytes });
+        } else {
+          // The same level a call on that origin would need, asked of THAT origin: reaching the
+          // sister is not covered by the permission for the tab it was reached from.
+          await gate('page.download', hit.url, policy, ctx);
+          doc = await page(hit.tabId, ctx, { beifahrer: 'download', url: hit.url, maxBytes });
+        }
+        await browser.tabs.remove(hit.tabId).catch(() => undefined);
+        return { ...doc, via: 'tab' } as unknown as Result<'page.capture'>;
+      }
+      return fail(
+        'failed',
+        `nothing was handed over within ${timeoutMs} ms: the click produced no download link and opened no tab. ` +
+          'Is the page logged in, and is this the button that downloads? If the browser saved a file ' +
+          'on its own, the page started that download out of sight (ADR 0019): ' +
+          (saves
+            ? savesAvailable()
+              ? 'it was not a blob of this page, so it was left alone.'
+              : 'the person switched capturing saves on, but the browser has not granted Beifahrer its downloads permission.'
+            : 'the person can switch on "Take hidden downloads" to let capture take it.'),
+      );
+    } finally {
+      opened.stop();
+      saves?.stop();
+      await page(tabId, ctx, { beifahrer: 'captured', waitMs: 0, disarm: true }).catch(() => undefined);
+    }
   },
 
   async 'page.outline'(params, policy, ctx) {

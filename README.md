@@ -132,6 +132,9 @@ all (options page):
 | Ask before spending a call | `access_check` — what **would** happen if the agent called a method on a tab or a URL, answered without doing it: which switch is off, what the site is at, what the method needs, whether the browser has granted access, whether **you** would confirm | on |
 | Read page text | `page_read` | on |
 | Outline pages | `page_outline` | on |
+| List rows | `page_rows` — the rows of a list or table, scrolling a virtual-scroll list | on |
+| Download by click | `page_capture` — clicks a download button, the page fetches the file with its own session, from the tab's origin or a sister origin of the same site (needs *Read* there too); no token reaches the agent ([ADR 0018](docs/adr/0018-download-from-a-sister-origin.md)); a blob the page saves out of sight is taken only with *Take hidden downloads* (below) ([ADR 0019](docs/adr/0019-capture-a-download-the-page-starts-out-of-sight.md)) | on, with *Click* and *Download documents* |
+| Take hidden downloads | `page_capture` also takes a blob the page saves out of sight and removes the browser's own copy. Switching it on asks the browser for its `downloads` permission | **off** |
 | Screenshots | `page_screenshot` (turning it on asks the browser for access to all sites) | **off** |
 | See page requests | `page_network` — what the tab asked for and what came back, never with query strings. Switching it on asks the browser for its `webRequest` permission, which is a request log of this whole browser | **off** |
 | Fill in forms | `page_fill`, `page_press`, `page_select`, `page_check` — text into a field, keys into a form, a dropdown option, a checkbox. Still only at *Read + edit*, and you confirm | on |
@@ -298,7 +301,7 @@ the way out, and it is guarded accordingly:
 | **Where** | **Firefox only.** In Manifest V3 a content script shares the extension's content security policy, and that policy cannot name `unsafe-eval` — Chrome refuses to install an extension that tries. So Chromium answers `unsupported` with that reason instead of pretending |
 | **Switch** | *Run scripts*, in your options page, **off by default** — beside Screenshots and the other far-reaching capabilities |
 | **Level** | the site must be at **Read + edit**. A site you left at Read refuses a script even with the switch on |
-| **Confirmation** | by default **every** run opens a window showing **the whole script**, with Allow and Deny. No "Always allow" in that window, and *Ask before changes* never covers a script. Only the separate switch *Run scripts without asking*, per site or for "All sites" and behind a warning, skips the window ([ADR 0016](docs/adr/0016-scripts-without-asking.md)) |
+| **Confirmation** | by default **every** run opens a window showing **the whole script**, with Allow and Deny. No "Always allow" in that window, and *Ask before changes* never covers a script. Only switching off the separate *Ask before running scripts*, per site or for "All sites" and behind a warning, skips the window ([ADR 0016](docs/adr/0016-scripts-without-asking.md)) |
 | **Reach** | Beifahrer's own isolated world: the DOM is there, the extension's own APIs (`chrome`, `browser`) are `undefined` inside the script — a script that could read storage could clear the pause and widen every level |
 
 The script is a function **body**, so `return` gives the result and `await` works. In scope is
@@ -346,7 +349,7 @@ It is the furthest-reaching switch in the list, and the only one whose permissio
 
 | | |
 |---|---|
-| **What you decide** | two things in one click — the switch, and the browser's `webRequest` grant, which the options page asks for in the same click and takes back when you switch it off |
+| **What you decide** | two things in one click — the switch, and the browser's `webRequest` (page requests) or `downloads` (hidden downloads) grant, which the options page asks for in the same click and takes back when you switch it off |
 | **Why it is off by default** | the permission is a request log of everything this browser does. There is no per-site form of it, so a release build keeps it *optional* and out of the install prompt |
 | **What is never in it** | the query and the fragment. `?token=`, `?access_token=`, `?SAMLRequest=` are ordinary, and no argument turns that back on: a session token in an agent's hands is not the agent's decision to make |
 | **What it can see** | the page's own requests and the third-party ones it makes, at Read on the tab's own site. A frame from a site you never allowed is not asked, exactly as for a read |

@@ -190,6 +190,10 @@ export const REQUIRED_LEVEL = {
   // ever reads, and demanding `write` would push a bank or insurer origin up a level for the one
   // thing that has to stay harmless there.
   'page.download': 'read',
+  // The rows of a list read what the outline reads, so `read`. A capture CLICKS, so it is a write;
+  // the sister origin it may end up on is checked at `read` as well (ADR 0018).
+  'page.rows': 'read',
+  'page.capture': 'write',
   'page.fill': 'write',
   'page.click': 'write',
   // All three change the page, so all three are writes: a key can submit a form, an option can

@@ -13,9 +13,11 @@
 
 import { browser } from '@wxt-dev/browser';
 import {
+  clipText,
   downloadFilename,
   EXPECT_STATES,
   expectationOf,
+  linkLine,
   metaMatches,
   normalizeText,
   parseElementQuery,
@@ -62,10 +64,7 @@ const TEXT_INPUTS = new Set([
   '',
 ]);
 
-function clip(s: string, n: number): string {
-  const t = s.replace(/\s+/g, ' ').trim();
-  return t.length > n ? `${t.slice(0, n - 1)}…` : t;
-}
+const clip = clipText;
 
 function visible(el: Element): boolean {
   if (el.closest('[aria-hidden="true"], [hidden]')) return false;
@@ -255,8 +254,7 @@ function describe(el: Element, kind: Kind): string {
     case 'heading':
       return `h${kind.level} "${name}"`;
     case 'link': {
-      const href = (el as HTMLAnchorElement).href;
-      return `link "${name}" → ${clip(href, 120)}`;
+      return linkLine(name, (el as HTMLAnchorElement).href);
     }
     case 'textbox': {
       const input = el as HTMLInputElement;
@@ -1381,6 +1379,156 @@ async function download(
   };
 }
 
+/**
+ * Is this element a row of a list? A table row with data cells, a list item, an ARIA row or
+ * list item, or a framework's row component (`app-document-list-item`, `x-row`): a custom element
+ * whose name ends in `-item` or `-row`. A role-less row has no entry in the outline, which is why
+ * lists get a method of their own (ADR 0018).
+ */
+function isRowElement(el: Element): boolean {
+  const tag = el.tagName;
+  const role = el.getAttribute('role');
+  if (el.closest('nav, [role="navigation"], [role="menu"], [role="menubar"], [role="tablist"]')) return false;
+  if (tag === 'TR') return el.querySelector('td, [role="cell"], [role="gridcell"]') !== null;
+  if (role === 'row') return el.querySelector('td, [role="cell"], [role="gridcell"]') !== null;
+  if (tag === 'LI' || role === 'listitem' || role === 'option') return true;
+  const name = tag.toLowerCase();
+  return name.includes('-') && /-(item|row)$/.test(name);
+}
+
+/** The outermost visible rows of the document, in order, through open shadow roots. */
+function collectRows(): Element[] {
+  const out: Element[] = [];
+  const walk = (parent: ParentNode, depth: number): void => {
+    for (const child of Array.from(parent.children)) {
+      if (SKIP.has(child.tagName)) continue;
+      if (isRowElement(child) && visible(child)) {
+        out.push(child);
+        continue;
+      }
+      if (depth < MAX_SHADOW_DEPTH && child.shadowRoot) walk(child.shadowRoot, depth + 1);
+      walk(child, depth);
+    }
+  };
+  for (const { doc } of documents()) walk(doc.body ?? doc.documentElement, 0);
+  return out;
+}
+
+function scrollerOf(el: Element | undefined): HTMLElement {
+  for (let p = el?.parentElement ?? null; p; p = p.parentElement) {
+    const overflow = getComputedStyle(p).overflowY;
+    if ((overflow === 'auto' || overflow === 'scroll') && p.scrollHeight > p.clientHeight + 4) return p;
+  }
+  return (document.scrollingElement ?? document.documentElement) as HTMLElement;
+}
+
+const ROWS_BUDGET_MS = 20_000;
+
+/**
+ * The rows of the list in front of the person, scrolled through from the top.
+ *
+ * A virtual-scroll list renders only what is on screen and recycles the elements, so the text of
+ * every row is gathered as it passes and only the row that was asked for (`match`) comes back with a
+ * ref — the others are gone from the DOM by the time the scroll ends. Without `match` the scroll
+ * position is put back where it was. Rows with the same text count once.
+ */
+async function rows(match: string | undefined, maxRows: number): Promise<PageResponse> {
+  const wanted = match ? normalizeText(match) : '';
+  const seen = new Set<string>();
+  const list: { index: number; text: string }[] = [];
+  let hit: Element | undefined;
+  let truncated = false;
+
+  const take = (): boolean => {
+    for (const el of collectRows()) {
+      const text = clip(textOf(el), 200);
+      if (!text || seen.has(text)) continue;
+      seen.add(text);
+      list.push({ index: list.length, text });
+      if (wanted && normalizeText(text).includes(wanted)) {
+        hit = el;
+        return true;
+      }
+      if (list.length >= maxRows) {
+        truncated = true;
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const first = collectRows()[0];
+  const scroller = scrollerOf(first);
+  const origin = scroller.scrollTop;
+  const started = Date.now();
+  scroller.scrollTop = 0;
+  await new Promise((r) => setTimeout(r, 60));
+  for (let step = 0; step < 400 && Date.now() - started < ROWS_BUDGET_MS; step++) {
+    if (take()) break;
+    const before = scroller.scrollTop;
+    scroller.scrollTop = before + Math.max(scroller.clientHeight * 0.8, 100);
+    await new Promise((r) => setTimeout(r, 120));
+    if (scroller.scrollTop === before) {
+      take();
+      break;
+    }
+  }
+  if (!hit) scroller.scrollTop = origin;
+  return {
+    ok: true,
+    data: { rows: list, count: list.length, truncated, ...(hit ? { ref: refOf(hit) } : {}) },
+  };
+}
+
+/** The armed capture: the first link the page clicked by itself that a download may follow. */
+let armed: { stop: () => void; href?: string } | undefined;
+
+/**
+ * Click something that hands over a document, and note the link the page clicks in answer.
+ *
+ * A portal's "Download" button usually has no href: it asks its API for a ticket and then clicks an
+ * anchor it made. A DOM click event is visible here whoever dispatched it, so the anchor is seen,
+ * and its default action is cancelled — the browser must not fetch a one-time ticket the agent is
+ * about to fetch (ADR 0018). Only a link that `resolveDownloadTarget` allows is touched, and only
+ * one the page clicked after our click or one marked `download`/`blob:`; a link the person's click
+ * would follow anyway is left alone.
+ */
+function armCapture(ref: string): PageResponse {
+  const el = byRef(ref);
+  if (!el) return notFound(ref);
+  armed?.stop();
+  const state: { stop: () => void; href?: string } = { stop: () => {} };
+  const onClick = (ev: Event): void => {
+    const a = (ev.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+    if (!a || state.href) return;
+    const own = a === el || a.contains(el) || el.contains(a);
+    const download = a.hasAttribute('download') || a.href.startsWith('blob:');
+    if (own && !download) return;
+    const target = resolveDownloadTarget(a.href, location.href);
+    if (!target.ok) return;
+    state.href = target.url;
+    ev.preventDefault();
+  };
+  document.addEventListener('click', onClick, true);
+  state.stop = () => document.removeEventListener('click', onClick, true);
+  armed = state;
+  (el as HTMLElement).scrollIntoView({ block: 'center', inline: 'center' });
+  (el as HTMLElement).focus?.();
+  (el as HTMLElement).click();
+  return { ok: true, data: { ref } };
+}
+
+async function captured(waitMs: number, disarm: boolean): Promise<PageResponse> {
+  const until = Date.now() + waitMs;
+  while (armed && !armed.href && !disarm && Date.now() < until) await new Promise((r) => setTimeout(r, 50));
+  const href = armed?.href;
+  if (href || disarm) {
+    armed?.stop();
+    armed = undefined;
+  }
+  return { ok: true, data: { href: href ?? null } };
+}
+
 /** `String.fromCharCode(...bytes)` blows the stack on a real document, so it goes in chunks. */
 function toBase64(bytes: Uint8Array): string {
   let binary = '';
@@ -1665,6 +1813,9 @@ const VERB: Partial<Record<PageRequest['beifahrer'], 'reading' | 'editing'>> = {
   // must be able to tell "the agent is looking" from "the agent is not".
   expect: 'reading',
   download: 'reading',
+  rows: 'reading',
+  capture: 'editing',
+  captured: 'reading',
   describe: 'editing',
   fill: 'editing',
   click: 'editing',
@@ -1708,6 +1859,12 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
       return outline(req.maxItems);
     case 'download':
       return download(req.ref, req.url, req.maxBytes);
+    case 'rows':
+      return rows(req.match, req.maxRows);
+    case 'capture':
+      return armCapture(req.ref);
+    case 'captured':
+      return captured(req.waitMs, req.disarm === true);
     case 'describe': {
       const el = byRef(req.ref);
       if (!el) return notFound(req.ref);
