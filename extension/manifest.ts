@@ -74,6 +74,7 @@ export const UPDATE_URL = 'https://github.com/JumpLink/beifahrer/releases/latest
  */
 export const GECKO_ID = 'beifahrer@jumplink.eu';
 export const GECKO_STRICT_MIN_VERSION = '140.0';
+export const GECKO_ANDROID_STRICT_MIN_VERSION = '142.0';
 
 /**
  * The manifest's suggested binding for `toggle-pause`. The person can rebind it in the browser
@@ -189,6 +190,9 @@ export function manifestFor(
               data_collection_permissions: { required: ['none'] },
               update_url: UPDATE_URL,
             },
+            // Firefox for Android reads `data_collection_permissions` only from 142 on, so an older
+            // one would install the add-on without its declaration. AMO's linter warns otherwise.
+            gecko_android: { strict_min_version: GECKO_ANDROID_STRICT_MIN_VERSION },
           },
         }
       : {}),

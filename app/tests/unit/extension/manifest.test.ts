@@ -74,6 +74,8 @@ export default async () => {
           // updates-json.test.ts says why the form is the only one that can keep it.
           update_url: UPDATE_URL,
         },
+        // Android reads data_collection_permissions only from 142; below it AMO's linter warns.
+        gecko_android: { strict_min_version: '142.0' },
       });
 
       // Safari alone: MV3 but a background PAGE.
