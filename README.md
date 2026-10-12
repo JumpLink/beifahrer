@@ -301,7 +301,7 @@ the way out, and it is guarded accordingly:
 | **Where** | **Firefox only.** In Manifest V3 a content script shares the extension's content security policy, and that policy cannot name `unsafe-eval` — Chrome refuses to install an extension that tries. So Chromium answers `unsupported` with that reason instead of pretending |
 | **Switch** | *Run scripts*, in your options page, **off by default** — beside Screenshots and the other far-reaching capabilities |
 | **Level** | the site must be at **Read + edit**. A site you left at Read refuses a script even with the switch on |
-| **Confirmation** | by default **every** run opens a window showing **the whole script**, with Allow and Deny. No "Always allow" in that window, and *Ask before changes* never covers a script. Only the separate switch *Run scripts without asking*, per site or for "All sites" and behind a warning, skips the window ([ADR 0016](docs/adr/0016-scripts-without-asking.md)) |
+| **Confirmation** | by default **every** run opens a window showing **the whole script**, with Allow and Deny. No "Always allow" in that window, and *Ask before changes* never covers a script. Only switching off the separate *Ask before running scripts*, per site or for "All sites" and behind a warning, skips the window ([ADR 0016](docs/adr/0016-scripts-without-asking.md)) |
 | **Reach** | Beifahrer's own isolated world: the DOM is there, the extension's own APIs (`chrome`, `browser`) are `undefined` inside the script — a script that could read storage could clear the pause and widen every level |
 
 The script is a function **body**, so `return` gives the result and `await` works. In scope is

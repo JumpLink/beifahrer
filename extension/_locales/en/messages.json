@@ -109,7 +109,7 @@
     "message": "Ask before changes"
   },
   "confirm_scripts": {
-    "message": "Run scripts without asking"
+    "message": "Ask before running scripts"
   },
   "scripts_note_site": {
     "message": "The agent runs scripts on this site without asking first"
