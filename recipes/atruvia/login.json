@@ -2,7 +2,7 @@
   "id": "atruvia/login",
   "title": "Log back in to a bank portal that the browser already knows",
   "description": "On the logged-out page or the login page of an Atruvia / VR banking portal: leaves the logged-out page for the login page, then presses Anmelden and waits for the start page with its Postfach button. It never types a PIN or password: the browser's own password manager has to have filled the VR-NetKey and the PIN. If the portal asks for a second factor, the run ends with needs_person: a TAN field (kind code, pass the relayed TAN as param code and resume at the step in next), or an approval on the person's own device such as SecureGo or a new-device check (kind device). If the login page stays (no saved PIN), it ends with needs_person kind login. Matched on any bank's domain by the portal's paths.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "match": {
     "urls": [
       "https://*/services_cloud/portal/logout*",
@@ -46,12 +46,17 @@
       "note": "Lets the page after the button settle before the second-factor checks look at it."
     },
     {
+      "id": "already-in",
+      "action": "finish",
+      "when": { "role": "button", "name": ["Postfach"] },
+      "note": "Success is checked first: a page with the Postfach button is logged in, whatever promo headings it carries (the portal advertises \"Browsererkennung\" on its own pages)."
+    },
+    {
       "id": "device",
       "action": "person",
       "kind": "device",
       "whenAny": [
         { "role": "heading", "name": ["SecureGo"] },
-        { "role": "heading", "name": ["Browsererkennung"] },
         { "role": "heading", "name": ["neues Gerät", "neuem Gerät", "neuen Gerät"] }
       ],
       "prompt": "Approve the login on your own device (SecureGo or a new-device check), then tell me."
