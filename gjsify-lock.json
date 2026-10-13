@@ -16,6 +16,7 @@
     "@gjsify/runtime@0.54.0",
     "@gjsify/unit@0.54.0",
     "@types/node@^26.6.2",
+    "qrcode-generator@2.0.4",
     "@types/ws@^8.18.1",
     "@types/yargs@^17.0.35",
     "oxfmt@^0.70.0",
@@ -32,6 +33,7 @@
     "@gjsify/adwaita-icons@0.54.0",
     "@gjsify/adwaita-web@0.54.0",
     "@wxt-dev/browser@^0.3.0",
+    "jsqr@1.4.0",
     "@girs/gdkpixbuf-2.0@5.4.0",
     "fflate@^0.8.3",
     "web-ext@^10.7.0"
@@ -73,12 +75,12 @@
       "resolved": "https://registry.npmjs.org/@codemirror/language/-/language-6.12.4.tgz",
       "integrity": "sha512-1q4PaT+o6PbgpkJt4Q8Fv5XJxTy4FUZ4MWETtyiDw3J0Pyr9E2vqcKL+k9wcvjNTIsauxvE7OfmWj3FRPHQ76A==",
       "dependencies": {
-        "@codemirror/state": "^6.0.0",
-        "@codemirror/view": "^6.23.0",
-        "@lezer/common": "^1.5.0",
-        "@lezer/highlight": "^1.0.0",
         "@lezer/lr": "^1.0.0",
-        "style-mod": "^4.0.0"
+        "style-mod": "^4.0.0",
+        "@lezer/common": "^1.5.0",
+        "@codemirror/view": "^6.23.0",
+        "@lezer/highlight": "^1.0.0",
+        "@codemirror/state": "^6.0.0"
       }
     },
     "node_modules/@codemirror/state": {
@@ -4944,10 +4946,10 @@
       "resolved": "https://registry.npmjs.org/fx-runner/-/fx-runner-1.6.0.tgz",
       "integrity": "sha512-PEEUfnQJw0/io6SspBbR4EIeXFL/qe/sugesCyfr9M3llgyxNaOH8stvO6KJOKRjeUAvEB6oSZKS3lgjSEOsXg==",
       "dependencies": {
-        "commander": "^12.1.0",
-        "shell-quote": "1.10.0",
         "which": "^4.0.0",
-        "winreg": "0.0.12"
+        "winreg": "0.0.12",
+        "commander": "^12.1.0",
+        "shell-quote": "1.10.0"
       },
       "bin": {
         "fx-runner": "bin/fx-runner"
@@ -5388,6 +5390,11 @@
         "lodash.isinteger": "^4.0.4",
         "lodash.isplainobject": "^4.0.6"
       }
+    },
+    "node_modules/jsqr": {
+      "version": "1.4.0",
+      "resolved": "https://registry.npmjs.org/jsqr/-/jsqr-1.4.0.tgz",
+      "integrity": "sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A=="
     },
     "node_modules/jszip": {
       "version": "3.10.2",
@@ -6216,6 +6223,11 @@
       "dependencies": {
         "escape-goat": "^4.0.0"
       }
+    },
+    "node_modules/qrcode-generator": {
+      "version": "2.0.4",
+      "resolved": "https://registry.npmjs.org/qrcode-generator/-/qrcode-generator-2.0.4.tgz",
+      "integrity": "sha512-mZSiP6RnbHl4xL2Ap5HfkjLnmxfKcPWpWe/c+5XxCuetEenqmNFf1FH/ftXPCtFG5/TDobjsjz6sSNL0Sr8Z9g=="
     },
     "node_modules/qs": {
       "version": "6.16.0",

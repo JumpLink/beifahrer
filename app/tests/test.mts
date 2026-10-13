@@ -33,12 +33,14 @@ import bridge from './unit/bridge/bridge.test.ts';
 import configDir from './unit/bridge/config-dir.test.ts';
 import bridgeDesktop from './unit/bridge/desktop.test.ts';
 import extensionManifest from './unit/extension/manifest.test.ts';
+import extensionQr from './unit/extension/qr.test.ts';
 import extensionStatus from './unit/extension/status.test.ts';
 import updatesJson from './unit/extension/updates-json.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
 import mcpTools from './unit/mcp/tools.test.ts';
 import mcpOutput from './unit/mcp/output.test.ts';
 import mcpSaveDir from './unit/mcp/save-dir.test.ts';
+import recipePersonQr from './unit/recipes/person-qr.test.ts';
 import recipeRunner from './unit/recipes/runner.test.ts';
 import recipeSources from './unit/recipes/sources.test.ts';
 import localPairing from './unit/local/pairing.test.ts';
@@ -81,12 +83,14 @@ run({
   bridgeDesktop,
   configDir,
   extensionManifest,
+  extensionQr,
   extensionStatus,
   updatesJson,
   mcpGate,
   mcpTools,
   mcpOutput,
   mcpSaveDir,
+  recipePersonQr,
   recipeRunner,
   recipeSources,
   localPairing,

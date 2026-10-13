@@ -19,7 +19,8 @@
     "@gjsify/adwaita-core": "0.54.0",
     "@gjsify/adwaita-icons": "0.54.0",
     "@gjsify/adwaita-web": "0.54.0",
-    "@wxt-dev/browser": "^0.3.0"
+    "@wxt-dev/browser": "^0.3.0",
+    "jsqr": "1.4.0"
   },
   "devDependencies": {
     "@girs/gdkpixbuf-2.0": "5.4.0",

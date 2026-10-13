@@ -68,6 +68,7 @@ import { loadGrants, settle } from './grants.ts';
 import { networkAvailable, rowsOf } from './network.ts';
 import { savesAvailable, watchSaves, type Save } from './saves.ts';
 import { askPage, inject } from './inject.ts';
+import { decodeQr, type QrCandidate } from './qr.ts';
 import { loadSettings, originPattern, saveSettings } from './settings.ts';
 import type { PageRequest } from './page-messages.ts';
 import { groupApi, sessionsApi } from './sessions-store.ts';
@@ -884,6 +885,30 @@ const handlers: { [M in Method]: Handler<M> } = {
       route.frame,
       route.index,
     )) as unknown as Result<'page.download'>;
+  },
+
+  /**
+   * Decode the login QR code on the page, for the recipe runner to hand to the person (ADR 0022).
+   * `read` on the tab's origin and its own switch. The pixels come from the page's elements, so the
+   * tab need not be the active one; what is decoded is never put in an error or a log line.
+   */
+  async 'page.readQr'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const tab = await getTab(tabId);
+    await gate('page.readQr', tab.url, policy, ctx);
+    const raw = params as unknown as Record<string, unknown>;
+    const name = Array.isArray(raw.name)
+      ? raw.name.filter((n): n is string => typeof n === 'string' && n.trim() !== '').slice(0, 10)
+      : undefined;
+    const data = await page(tabId, ctx, { beifahrer: 'qr', name });
+    const candidates = (data.candidates ?? []) as QrCandidate[];
+    const text = decodeQr(candidates);
+    if (text === null)
+      return fail(
+        'not_found',
+        `no QR code could be read: ${candidates.length} image(s) looked at, ${String(data.unreadable ?? 0)} could not be read from the page (a cross-origin image cannot)`,
+      );
+    return { text } as Result<'page.readQr'>;
   },
 
   async 'page.rows'(params, policy, ctx) {

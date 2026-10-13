@@ -106,7 +106,7 @@ answer's own click.
 |**Never fill a password field; never switch the person's tab** (screenshots refuse a tab that is not
 the active one). The one thing typed for the person is a one-time code they relayed, only via
 `page.enterCode` into a field marked as one, behind the off-by-default switch `oneTimeCodes`, redacted
-everywhere ([ADR 0020](docs/adr/0020-one-time-codes-the-person-relays.md)). Never read or replay
+everywhere ([ADR 0020](docs/adr/0020-one-time-codes-the-person-relays.md)). A login QR code is decoded only by `page.readQr` for the person to scan, behind the off-by-default switch `qrCodes` ([ADR 0022](docs/adr/0022-login-qr-code-for-the-person.md)). Never read or replay
 credentials, tokens or cookies.
 |**Nothing leaves the device.** No telemetry, no remote endpoint. The Firefox manifest declares
 `data_collection_permissions: none`, and that must stay true.

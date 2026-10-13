@@ -97,6 +97,12 @@ export type Step =
       whenAny?: ElementQuery[];
       prompt: string;
       codeParam?: string;
+      /**
+       * Decode the QR code the page shows and hand its content to the person with the prompt (ADR 0022).
+       * `name` narrows to images whose alt, label, title, id or class carries one of the words. Without
+       * the `qrCodes` switch the step still ends the run; the link is just missing.
+       */
+      qr?: { name?: string[] };
     })
   /**
    * Ends the run with `done` when the page shows what `when` describes, and is skipped otherwise.
@@ -164,7 +170,7 @@ const STEP_KEYS: Record<StepAction, string[]> = {
   'click-row': ['param'],
   capture: ['target', 'maxBytes', 'nameParam'],
   checkpoint: ['message'],
-  person: ['kind', 'when', 'whenAny', 'prompt', 'codeParam'],
+  person: ['kind', 'when', 'whenAny', 'prompt', 'codeParam', 'qr'],
   finish: ['when'],
   'enter-code': ['target', 'param'],
 };
@@ -468,6 +474,20 @@ function step(value: unknown, where: string, params: Set<string>): Step {
         const name = str(src.codeParam, `${where}.codeParam`, 40);
         if (!params.has(name)) fail(`${where}.codeParam`, `"${name}" is not a declared param`);
         out.codeParam = name;
+      }
+      if (src.qr !== undefined) {
+        if (typeof src.qr !== 'object' || src.qr === null || Array.isArray(src.qr))
+          fail(`${where}.qr`, 'must be an object');
+        const qr = src.qr as Record<string, unknown>;
+        onlyKeys(qr, ['name'], `${where}.qr`);
+        out.qr =
+          qr.name === undefined
+            ? {}
+            : {
+                name: arr(qr.name, `${where}.qr.name`, 1, 10).map((n, i) =>
+                  str(n, `${where}.qr.name[${i}]`, 60),
+                ),
+              };
       }
       return out;
     }

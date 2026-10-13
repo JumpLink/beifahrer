@@ -1,8 +1,8 @@
 {
   "id": "aok/login",
   "title": "Log back in to Meine AOK with the Meine AOK app",
-  "description": "On the Meine AOK login pages or an expired session: always takes the app path (Mit Meine AOK-App einloggen), never the password path. The login page can take more than 15 s to render. The QR code and the TAN page need a visible, active tab. The run ends with needs_person kind code: ask the person to scan the QR code shown in the browser tab with the Meine AOK app and tell you the TAN, then resume at the step in next with the TAN in param code. It never accepts the terms-update or cookie banner. Already logged in (button Posteingang) ends with done.",
-  "version": "1.0.0",
+  "description": "On the Meine AOK login pages or an expired session: always takes the app path (Mit Meine AOK-App einloggen), never the password path. The login page can take more than 15 s to render. The run ends with needs_person kind code: ask the person to scan the QR code with the Meine AOK app and tell you the TAN, then resume at the step in next with the TAN in param code. When the switch \"Read a login QR code\" is on, person.link holds the QR code's content for the person to open or scan on their own device; it is a session challenge, so pass it on unchanged and nowhere else. It never accepts the terms-update or cookie banner. Already logged in (button Posteingang) ends with done.",
+  "version": "1.1.0",
   "match": {
     "urls": ["https://login.meine.aok.de/*", "https://meine.aok.de/client/*"]
   },
@@ -60,7 +60,8 @@
       "kind": "code",
       "when": { "role": "button", "name": ["Weiter zur TAN-Eingabe"] },
       "prompt": "Scan the QR code shown in the browser tab with the Meine AOK app and tell me the TAN it shows.",
-      "codeParam": "code"
+      "codeParam": "code",
+      "qr": {}
     },
     {
       "id": "to-tan",

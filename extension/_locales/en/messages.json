@@ -234,6 +234,9 @@
   "method_page_enterCode": {
     "message": "Typed a one-time code"
   },
+  "method_page_readQr": {
+    "message": "Read a login QR code"
+  },
   "method_page_click": {
     "message": "Clicked"
   },
@@ -314,6 +317,9 @@
   },
   "feature_oneTimeCodes_label": {
     "message": "Type one-time codes you relay"
+  },
+  "feature_qrCodes_label": {
+    "message": "Read a login QR code for you"
   },
   "feature_click_label": {
     "message": "Click"

@@ -141,6 +141,8 @@ export default async () => {
         fill: true,
         // The second factor is the person's own act; relaying a code is switched on deliberately.
         oneTimeCodes: false,
+        // A login QR code is a session challenge; reading it for the person is switched on deliberately.
+        qrCodes: false,
         click: true,
         // With the other far-reaching capabilities: a script is off until the person says so.
         script: false,
