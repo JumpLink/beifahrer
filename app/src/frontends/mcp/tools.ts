@@ -24,6 +24,7 @@ import {
 import { BridgeError, browserLabel, type BrowserAccess } from '../../bridge/bridge.ts';
 import { registerFindTools } from './find-tools.ts';
 import { registerRecipeTools, type RecipeToolOptions } from './recipe-tools.ts';
+import { captureSink, type SaveOptions } from '../../save-dir.ts';
 import { registerTabTools } from './tab-tools.ts';
 
 export type Call = <M extends Method>(method: M, params: Params<M>, browser?: string) => Promise<Result<M>>;
@@ -51,6 +52,14 @@ export const browserParam = z
   .optional()
   .describe(
     'Which connected browser — only needed when several are connected. A family (firefox, chromium), a name, or a connection id from browsers_list.',
+  );
+
+export const saveDirParam = z
+  .string()
+  .optional()
+  .describe(
+    'Absolute directory to write the file to instead of getting base64 back; the answer is {path, filename, mime, size, sha256, via}, so you can hand `path` to another tool without the bytes passing through you. ' +
+      "Only a directory the person allowed (the server's --save-dir / BEIFAHRER_SAVE_DIR) or one below it; without that setting the call is refused. Files are named after the download, never overwritten, readable by the person only.",
   );
 
 const tabIdParam = z.number().int().describe('Tab id from tabs_list or tab_active');
@@ -176,6 +185,7 @@ export function registerTools(
   server: McpServer,
   handle: BridgeHandle,
   recipes: RecipeToolOptions = {},
+  files: SaveOptions = {},
 ): void {
   const call: Call = async <M extends Method>(method: M, params: Params<M>, browser?: string) =>
     (await bridgeOf(handle)).call(method, params, browser);
@@ -585,7 +595,8 @@ export function registerTools(
       title: 'Click a button that hands over a document',
       description:
         'For a portal button that has no link behind it (a "Download" button, an attachment that opens in a viewer tab): ' +
-        'clicks it, lets the PAGE fetch the document with its own session, and returns the file as base64. The page ' +
+        'clicks it, lets the PAGE fetch the document with its own session, and returns the file as base64 (or, with saveDir, ' +
+        'as a file on disk). The page ' +
         'does the fetching; no token or header ever reaches you. What it may produce is bounded: a link or blob of the ' +
         "tab's own origin, or a page on a sister origin of the same site (app-api.<site> for a <site> tab), which needs " +
         'level "read" on its own. With the "Take hidden downloads" switch on (and the browser\'s downloads permission ' +
@@ -599,13 +610,17 @@ export function registerTools(
         ref: z.string().describe('Button or link ref from page_outline, e.g. e12'),
         maxBytes: z.number().int().optional().describe('Refuse anything larger (default 10000000)'),
         timeoutMs: z.number().int().optional().describe('How long to wait for the document (default 15000)'),
+        saveDir: saveDirParam,
         browser: browserParam,
       },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     },
-    async ({ tabId, ref, maxBytes, timeoutMs, browser }) => {
+    async ({ tabId, ref, maxBytes, timeoutMs, saveDir, browser }) => {
       try {
-        return text(await call('page.capture', { tabId, ref, maxBytes, timeoutMs }, browser));
+        // Before the click: a refused directory must not cost a document its "unread" state.
+        const save = captureSink(files.saveRoot, saveDir);
+        const doc = await call('page.capture', { tabId, ref, maxBytes, timeoutMs }, browser);
+        return text(save ? save(doc) : doc);
       } catch (err) {
         return failure(err);
       }
@@ -902,5 +917,5 @@ export function registerTools(
 
   registerTabTools(server, call);
   registerFindTools(server, call);
-  registerRecipeTools(server, call, recipes);
+  registerRecipeTools(server, call, recipes, files);
 }

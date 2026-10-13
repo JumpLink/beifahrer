@@ -77,6 +77,8 @@ export interface RunOptions {
   until?: string;
   /** The person asked for exactly the action the recipe's final step performs. */
   explicitRequest?: boolean;
+  /** Where a `capture` step's file goes instead of into the log as base64 (save-dir.ts). */
+  saveCapture?: (doc: Result<'page.capture'>) => unknown;
   browser?: string;
 }
 
@@ -363,7 +365,7 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
           const ref = await resolve(narrow(step.target, step.nameParam));
           const doc = await call('page.capture', { tabId, ref, maxBytes: step.maxBytes }, browser);
           entry.detail = `${doc.filename} (${doc.mime}, ${doc.size} bytes, via ${doc.via})`;
-          entry.result = doc;
+          entry.result = opts.saveCapture ? opts.saveCapture(doc) : doc;
           break;
         }
       }

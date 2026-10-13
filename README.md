@@ -426,6 +426,14 @@ fill and click at all (the extension's per-site level and its confirmations stil
 }
 ```
 
+**Files on disk instead of base64.** `page_capture` and `recipe_run` return a captured document as
+base64, which costs an agent that only wants to hand the file on (to a Paperless upload, say) its
+context. Start the server with `--save-dir /abs/path` (or `BEIFAHRER_SAVE_DIR`) and a call may pass
+`saveDir`, an absolute directory at or below that one; the answer is then `{path, filename, mime,
+size, sha256, via}` and no bytes. Without the setting `saveDir` is refused, before anything is
+clicked. Files are named after the download, never overwritten, and readable by you only
+([ADR 0021](docs/adr/0021-captured-files-on-disk.md)).
+
 `beifahrer config <agent>` prints this snippet in the format of your agent (Claude Code, opencode,
 Codex CLI, Gemini CLI, Cursor, VS Code, Claude Desktop, Zed) and the file it goes in. It writes `beifahrer`
 as the command, which is the installed binary; from a checkout, put the `gjsify run …` form above in
