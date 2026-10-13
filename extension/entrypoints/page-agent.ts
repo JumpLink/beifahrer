@@ -1461,6 +1461,101 @@ const ROWS_BUDGET_MS = 20_000;
  * ref — the others are gone from the DOM by the time the scroll ends. Without `match` the scroll
  * position is put back where it was. Rows with the same text count once.
  */
+/** A candidate this small cannot be a QR code a phone could scan from a screen. */
+const QR_MIN_SIDE = 80;
+/** Large enough for a decoder to see the modules, small enough to cross the message channel. */
+const QR_RENDER = 400;
+const QR_MAX_CANDIDATES = 6;
+
+function qrLabel(el: Element): string {
+  return [
+    el.getAttribute('alt'),
+    el.getAttribute('aria-label'),
+    el.getAttribute('title'),
+    el.id,
+    el.getAttribute('class'),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+/** An <svg> drawn as an image, so that it can be rasterized like an <img>. Null if the browser refuses. */
+function svgImage(svg: SVGElement): Promise<HTMLImageElement | null> {
+  const source = new XMLSerializer().serializeToString(svg);
+  const img = new Image();
+  return new Promise((resolve) => {
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(source)}`;
+  });
+}
+
+/**
+ * The pixels of every image-like element big enough to be a QR code, for the extension to decode
+ * (ADR 0022). Pixels, not text: the decoder lives in the background, so this script, which is
+ * injected into every tab the agent touches, does not carry it. A cross-origin image taints the
+ * canvas and is skipped; the count says how many were, so a failure can name the reason.
+ *
+ * The page's own pixels are read, never a screenshot: nothing here needs the tab to be active.
+ */
+async function qrPixels(names: string[] | undefined): Promise<PageResponse> {
+  const wanted = (names ?? []).map((n) => n.toLowerCase()).filter(Boolean);
+  const elements = [...document.querySelectorAll('img, canvas, svg')].filter((el) => {
+    const box = el.getBoundingClientRect();
+    if (box.width < QR_MIN_SIDE || box.height < QR_MIN_SIDE) return false;
+    if (wanted.length === 0) return true;
+    const label = qrLabel(el);
+    return wanted.some((n) => label.includes(n));
+  });
+  const candidates: { width: number; height: number; rgba: string }[] = [];
+  let unreadable = 0;
+  for (const el of elements.slice(0, QR_MAX_CANDIDATES)) {
+    const source = el instanceof SVGElement ? await svgImage(el) : (el as CanvasImageSource);
+    const w =
+      el instanceof HTMLImageElement
+        ? el.naturalWidth
+        : el instanceof HTMLCanvasElement
+          ? el.width
+          : el.getBoundingClientRect().width;
+    const h =
+      el instanceof HTMLImageElement
+        ? el.naturalHeight
+        : el instanceof HTMLCanvasElement
+          ? el.height
+          : el.getBoundingClientRect().height;
+    if (!source || !w || !h) {
+      unreadable++;
+      continue;
+    }
+    const scale = QR_RENDER / Math.max(w, h);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(w * scale));
+    canvas.height = Math.max(1, Math.round(h * scale));
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) {
+      unreadable++;
+      continue;
+    }
+    // Transparent pixels would read as black; a QR code is dark on light.
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = false;
+    try {
+      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      candidates.push({
+        width: data.width,
+        height: data.height,
+        rgba: toBase64(new Uint8Array(data.data.buffer)),
+      });
+    } catch {
+      unreadable++;
+    }
+  }
+  return { ok: true, data: { candidates, unreadable, seen: elements.length } };
+}
+
 async function rows(match: string | undefined, maxRows: number): Promise<PageResponse> {
   const wanted = match ? normalizeText(match) : '';
   const seen = new Set<string>();
@@ -1843,6 +1938,7 @@ const VERB: Partial<Record<PageRequest['beifahrer'], 'reading' | 'editing'>> = {
   expect: 'reading',
   download: 'reading',
   rows: 'reading',
+  qr: 'reading',
   capture: 'editing',
   captured: 'reading',
   describe: 'editing',
@@ -1890,6 +1986,8 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
       return download(req.ref, req.url, req.maxBytes);
     case 'rows':
       return rows(req.match, req.maxRows);
+    case 'qr':
+      return qrPixels(req.name);
     case 'capture':
       return armCapture(req.ref);
     case 'captured':

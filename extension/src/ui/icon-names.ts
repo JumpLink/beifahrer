@@ -12,6 +12,7 @@ export const FEATURE_ICON: Record<Feature, string> = {
   network: 'network-transmit-receive-symbolic',
   fill: 'insert-text-symbolic',
   oneTimeCodes: 'dialog-password-symbolic',
+  qrCodes: 'camera-photo-symbolic',
   click: 'input-mouse-symbolic',
   script: 'utilities-terminal-symbolic',
   open: 'tab-new-symbolic',

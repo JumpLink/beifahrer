@@ -39,6 +39,8 @@ export type PageRequest = PageTarget &
     | { beifahrer: 'download'; ref?: string; url?: string; maxBytes: number }
     /** The rows of a list (ADR 0018); `match` stops at the first row whose text contains it. */
     | { beifahrer: 'rows'; match?: string; maxRows: number }
+    /** The pixels of the QR-code-sized images, canvases and SVGs on the page (ADR 0022). */
+    | { beifahrer: 'qr'; name?: string[] }
     /**
      * Click a button and watch for the link the PAGE clicks in answer (ADR 0018): the first half of
      * `page.capture`. Answers at once; `captured` is the question that follows.

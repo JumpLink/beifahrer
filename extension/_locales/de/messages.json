@@ -233,6 +233,9 @@
   "method_page_enterCode": {
     "message": "Einmalcode eingegeben"
   },
+  "method_page_readQr": {
+    "message": "Login-QR-Code gelesen"
+  },
   "method_page_click": {
     "message": "Geklickt"
   },
@@ -313,6 +316,9 @@
   },
   "feature_oneTimeCodes_label": {
     "message": "Einmalcodes eintippen, die du weitergibst"
+  },
+  "feature_qrCodes_label": {
+    "message": "Login-QR-Code für dich auslesen"
   },
   "feature_click_label": {
     "message": "Klicken"

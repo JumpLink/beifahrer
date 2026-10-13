@@ -34,6 +34,7 @@ export const METHOD_WORDS: Record<Method, string> = {
   'page.capture': 'downloaded a document by clicking',
   'page.fill': 'filled a field',
   'page.enterCode': 'entered a one-time code',
+  'page.readQr': 'read a login QR code',
   'page.click': 'clicked',
   'page.press': 'pressed a key',
   'page.select': 'chose an option',

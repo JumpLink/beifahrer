@@ -108,6 +108,7 @@
     "@gjsify/runtime": "0.54.0",
     "@gjsify/unit": "0.54.0",
     "@types/node": "^26.6.2",
+    "qrcode-generator": "2.0.4",
     "@types/ws": "^8.18.1",
     "@types/yargs": "^17.0.35",
     "oxfmt": "^0.70.0",

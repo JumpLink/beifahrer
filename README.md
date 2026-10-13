@@ -140,6 +140,7 @@ all (options page):
 | Fill in forms | `page_fill`, `page_press`, `page_select`, `page_check` — text into a field, keys into a form, a dropdown option, a checkbox. Still only at *Read + edit*, and you confirm | on |
 | Click | `page_click`, still only at *Read + edit*, and you confirm | on |
 | Type one-time codes you relay | `page_enter_code` — types a TAN or SMS code you gave the agent into a field the page marks as a one-time code. Never a password or PIN field, 4 to 10 letters or digits, the code is masked in every log and window, you confirm every time ([ADR 0020](docs/adr/0020-one-time-codes-the-person-relays.md)) | **off** |
+| Read a login QR code for you | a recipe step decodes the QR code a login page shows and hands its content to you through the messenger, so you can scan it with your own app. Only recipes call it, nothing is logged or kept, no tool exists for it ([ADR 0022](docs/adr/0022-login-qr-code-for-the-person.md)) | **off** |
 | Run scripts | `page_evaluate` — the agent runs its own code in the page (Firefox only; Chromium's content-script policy forbids it), still only at *Read + edit*, and you see every script before it runs | **off** |
 | Point the browser at a URL | `tab_open`, `page_navigate` — only sites at *Read* or higher | on |
 | Manage tabs and windows | `tabs_move`, `tabs_pin`, `tabs_close`, `tabs_group`, `tabs_ungroup`, `window_create` | **off** |

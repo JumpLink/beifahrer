@@ -81,7 +81,7 @@ keys by name, and any other key it does not know.
 | `click-row` | clicks the row whose text contains a param's value | `param` |
 | `capture` | clicks a button that hands over a document and returns the file (as base64, or on disk when the run passes `saveDir`, ADR 0021); may end on a sister origin of the site, which needs its own level (ADR 0018) | `target`, `maxBytes` |
 | `checkpoint` | stops the run with a message, so the agent looks before it goes on | `message` |
-| `person` | ends the run with `needs_person` when the page shows `when` (one query) or any of `whenAny`; skipped otherwise | `kind` (`login`, `code`, `approval`, `device`), `when` or `whenAny`, `prompt` (short English sentence), `codeParam` (the param the relayed code comes back in) |
+| `person` | ends the run with `needs_person` when the page shows `when` (one query) or any of `whenAny`; skipped otherwise | `kind` (`login`, `code`, `approval`, `device`), `when` or `whenAny`, `prompt` (short English sentence), `codeParam` (the param the relayed code comes back in), optional `qr` (`{}` or `{name: [words]}`: decode the page's QR code into `person.link`, behind the `qrCodes` switch, [ADR 0022](../docs/adr/0022-login-qr-code-for-the-person.md)) |
 | `finish` | ends the run with `done` when the page shows `when`; skipped otherwise. Put it before `person` steps so a page that proves success is never read as a challenge | `when` (one query) |
 | `enter-code` | types a one-time code the person relayed, into a field marked as one (`page.enterCode`, needs the switch *Type one-time codes you relay*) | `target`, `param` |
 | `submit` | a click that publishes (posts, saves, sends) | `target`; must have `"requiresExplicitRequest": true` |
@@ -96,7 +96,7 @@ result of the run. The param of an `enter-code` or `person` step is secret wheth
 says so.
 
 **`needs_person`.** A `person` step that matches ends the run with
-`{status: "needs_person", message, next, person: {kind, origin, prompt, acceptsCode, codeParam?}}`.
+`{status: "needs_person", message, next, person: {kind, origin, prompt, acceptsCode, codeParam?, link?}}`.
 The agent tells the person `prompt`, then resumes with `from: next`; when `acceptsCode` is true the
 code the person gave goes in the param named `codeParam`. A site recipe declares a code step by
 putting a `person` step (kind `code`, `codeParam`) in front of an `enter-code` step that targets the

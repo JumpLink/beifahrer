@@ -66,6 +66,11 @@ export interface PersonNeed {
   acceptsCode: boolean;
   /** The param to pass the relayed code in, on the resume. */
   codeParam?: string;
+  /**
+   * What the page's QR code says (ADR 0022): a session challenge for the person to open or scan. It
+   * is in this field and nowhere else of the result, and never in the step log.
+   */
+  link?: string;
 }
 
 export interface RunOptions {
@@ -146,6 +151,25 @@ export class TabProbe {
       if (all) return true;
     }
     return false;
+  }
+}
+
+/**
+ * The content of the QR code on the page, or undefined. Every failure is "no link": the switch is off,
+ * the image is cross-origin, the page shows none. The person can still scan the code in the tab, and
+ * the error is dropped on purpose — it must not carry anything the page showed.
+ */
+async function readQrLink(
+  call: Call,
+  tabId: number,
+  name: string[] | undefined,
+  browser: string | undefined,
+): Promise<string | undefined> {
+  try {
+    const { text } = await call('page.readQr', { tabId, ...(name ? { name } : {}) }, browser);
+    return text || undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -254,6 +278,7 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
           const origin = originOf(await tabUrl(call, tabId, browser)) ?? '';
           const next = recipe.steps[i + 1]?.id ?? step.id;
           log.push({ ...entry, status: 'stopped', detail: step.prompt });
+          const link = step.qr ? await readQrLink(call, tabId, step.qr.name, browser) : undefined;
           return result(
             'needs_person',
             `step "${step.id}": ${step.prompt} Ask the person, then continue with from: "${next}"` +
@@ -265,6 +290,7 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
               prompt: step.prompt,
               acceptsCode: step.codeParam !== undefined,
               ...(step.codeParam ? { codeParam: step.codeParam } : {}),
+              ...(link ? { link } : {}),
             },
           );
         }

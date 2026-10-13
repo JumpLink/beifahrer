@@ -265,6 +265,15 @@ export interface MethodMap {
     params: { tabId: number; ref: string; code: string };
     result: { ref: string; length: number };
   };
+  /**
+   * Decode the QR code a login page shows for the person to scan (ADR 0022). Reached only by the
+   * recipe runner — there is no tool for it — and its `text` is a session challenge: it goes to the
+   * person through the messenger and nowhere else. Never logged, never in an error.
+   */
+  'page.readQr': {
+    params: { tabId: number; name?: string[] };
+    result: { text: string };
+  };
   'page.click': { params: { tabId: number; ref: string }; result: { ref: string } };
   /**
    * A key, or text typed one character at a time.

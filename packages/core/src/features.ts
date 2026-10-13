@@ -28,6 +28,7 @@ export const FEATURES = [
   'network',
   'fill',
   'oneTimeCodes',
+  'qrCodes',
   'click',
   'script',
   'open',
@@ -80,6 +81,12 @@ export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = 
       'page_enter_code — types the code YOU sent through the messenger into the one-time-code field of a ' +
       'login page. Never a password or PIN field; the code stays out of every log (ADR 0020)',
   },
+  qrCodes: {
+    label: 'Read a login QR code for you',
+    detail:
+      'recipes only — decodes the QR code image a login page shows and hands its content to YOU through the ' +
+      'messenger, so you can scan it. Never logged, never kept (ADR 0022)',
+  },
   click: { label: 'Click', detail: 'page_click — still needs Read + edit on the site' },
   script: {
     label: 'Run scripts',
@@ -125,6 +132,9 @@ export const DEFAULT_FEATURES: Features = {
   // Off: the second factor is the person's act, and typing a code the person relayed is a decision they
   // make once, per browser, behind a warning (ADR 0020).
   oneTimeCodes: false,
+  // Off: the content of a login QR code is a session challenge. Decoding it so the person can scan it is
+  // a decision they make once, per browser, behind a warning (ADR 0022).
+  qrCodes: false,
   click: true,
   // Off, with screenshots, downloads, tab management and sessions: every capability that reaches
   // past "act on the one page in front of the person" — and this one more than any of them. Running
@@ -165,6 +175,7 @@ export const FEATURE_OF = {
   'page.network': 'network',
   'page.fill': 'fill',
   'page.enterCode': 'oneTimeCodes',
+  'page.readQr': 'qrCodes',
   // press, select and check ride on `fill`, not on switches of their own. They are the same act —
   // putting a value into a form control — and a page agent needs all four to get through one form.
   // The reason is consent, not tidiness: a person who switches OFF "Fill fields" means "do not type
