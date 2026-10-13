@@ -119,6 +119,14 @@ code field by role and name.
 | `openproject/add-comment` | OpenProject (metas `app_base_path` + `app_title`), any domain | de: measured; en: OpenProject's `label_type_to_comment`, `label_submit_comment` |
 | `openproject/edit-description` | same | de: measured + `js-de.yml` `placeholders.description`, `inplace.button_save`; en: `js-en.yml` |
 | `atruvia/login` | the logged-out page and the login page of an Atruvia / VR banking portal, any bank's domain (by path) | de: measured on the portal |
+| `aok/login` | the login pages and the client pages of Meine AOK (`login.meine.aok.de`, `meine.aok.de/client`), every AOK member | de: measured on the portal |
+
+`aok/login` gets an agent back into Meine AOK. It always takes the app path ("Mit Meine AOK-App
+einloggen"), never the password path, and accepts no banner. The QR code page ends the run with
+`needs_person` kind `code`: the person scans the QR code in the browser tab with the Meine AOK app and
+relays the TAN, and the run resumes at the step in `next` with the TAN in param `code`. The tab must be
+visible and active, and the login page can take more than 15 s to render. Already logged in (button
+Posteingang) ends with `done`. Then run `aok/list-postbox`.
 
 `atruvia/login` gets an agent back into a postbox after the short bank session ended. It only
 **clicks**: the browser's own password manager fills the VR-NetKey and the PIN, and Beifahrer never

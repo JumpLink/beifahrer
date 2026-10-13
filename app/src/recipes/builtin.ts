@@ -7,6 +7,7 @@
  */
 
 import aokDownloadAttachment from '../../../recipes/aok/download-attachment.json' with { type: 'json' };
+import aokLogin from '../../../recipes/aok/login.json' with { type: 'json' };
 import aokListPostbox from '../../../recipes/aok/list-postbox.json' with { type: 'json' };
 import atruviaDownloadDocument from '../../../recipes/atruvia/download-document.json' with { type: 'json' };
 import atruviaLogin from '../../../recipes/atruvia/login.json' with { type: 'json' };
@@ -18,6 +19,7 @@ import type { RecipeFile } from './sources.ts';
 
 export const BUILTIN: RecipeFile[] = [
   { source: 'built-in:aok/download-attachment.json', data: aokDownloadAttachment },
+  { source: 'built-in:aok/login.json', data: aokLogin },
   { source: 'built-in:aok/list-postbox.json', data: aokListPostbox },
   { source: 'built-in:atruvia/download-document.json', data: atruviaDownloadDocument },
   { source: 'built-in:atruvia/login.json', data: atruviaLogin },
