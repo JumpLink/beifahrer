@@ -4,7 +4,7 @@ import { loadOrCreateToken, newToken, tokenPath, writeToken } from '@beifahrer/l
 
 import { desktopSource } from '../../bridge/desktop.ts';
 import { BridgeError, label, listenInRange, type Bridge } from '../../bridge/bridge.ts';
-import { rangeOf, rangeOptions, sessionLabel, type RangeArgs } from '../../bridge/session.ts';
+import { browserWaitOf, rangeOf, rangeOptions, sessionLabel, type RangeArgs } from '../../bridge/session.ts';
 import { saveDirOptions, saveRootOf, type SaveArgs } from '../../save-dir.ts';
 import { publishRegistry } from '../../registry/publisher.ts';
 import { VERSION } from '../../version.ts';
@@ -15,20 +15,32 @@ function finish(code: number): never {
   return process.exit(code);
 }
 
-export const mcpCommand: CommandModule<object, RangeArgs & SaveArgs & { 'allow-write'?: boolean }> = {
+export const mcpCommand: CommandModule<
+  object,
+  RangeArgs & SaveArgs & { 'allow-write'?: boolean; wait?: number }
+> = {
   command: 'mcp',
   describe: "Serve MCP over stdio, with this session's own browser bridge on 127.0.0.1",
   builder: (y) =>
-    y.options(rangeOptions).options(saveDirOptions).option('allow-write', {
-      type: 'boolean',
-      describe:
-        "Expose page_fill / page_click / tab_open (also: BEIFAHRER_MCP_ALLOW_WRITE=1). Which sites and whether the browser asks stay the extension's settings.",
-    }),
+    y
+      .options(rangeOptions)
+      .options(saveDirOptions)
+      .option('allow-write', {
+        type: 'boolean',
+        describe:
+          "Expose page_fill / page_click / tab_open (also: BEIFAHRER_MCP_ALLOW_WRITE=1). Which sites and whether the browser asks stay the extension's settings.",
+      })
+      .option('wait', {
+        type: 'number',
+        describe:
+          'Seconds the first call of a session waits for the extension to find it (default 15, or $BEIFAHRER_BROWSER_WAIT)',
+      }),
   handler: (argv) => {
     startMcpServer({
       range: rangeOf(argv),
       allowWrite: argv['allow-write'],
       saveRoot: saveRootOf(argv),
+      browserWaitMs: browserWaitOf(argv.wait),
     }).catch((err) => {
       console.error(err instanceof Error ? err.message : err);
       finish(1);

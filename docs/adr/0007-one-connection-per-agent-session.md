@@ -40,8 +40,9 @@ bridge.** No hub, no relay and no election. One mechanism.
   the meantime.
 - `beifahrer tool`, `call` and `serve` bind a port of the range the same way. `call` and a
   `tool` call wait for the extension to find them, bounded by `--wait` (default 20 s). Every
-  bridge call waits up to 7 s for a browser when none is connected yet, so the first call of a
-  session that has just started does not fail for being early.
+  bridge call waits up to 15 s (`beifahrer mcp --wait`, `BEIFAHRER_BROWSER_WAIT`) for the FIRST
+  browser of a session, so a call that has just started does not fail for being early. A session a
+  browser has left gets no wait: a person's disconnect must never be retried.
 
 ### Probing
 

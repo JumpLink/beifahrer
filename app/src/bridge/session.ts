@@ -46,3 +46,16 @@ export function labelOverride(): string | null {
 export function sessionLabel(client: string): string {
   return labelOverride() ?? defaultSessionLabel(client, process.cwd());
 }
+
+/** `--wait` / `BEIFAHRER_BROWSER_WAIT` in seconds, as milliseconds; undefined keeps the bridge's default. */
+export function browserWaitOf(
+  seconds: number | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+): number | undefined {
+  const raw =
+    seconds ?? (env.BEIFAHRER_BROWSER_WAIT?.trim() ? Number(env.BEIFAHRER_BROWSER_WAIT) : undefined);
+  if (raw === undefined) return undefined;
+  if (!Number.isFinite(raw) || raw < 0)
+    throw new Error(`--wait / BEIFAHRER_BROWSER_WAIT must be a number of seconds, got "${raw}"`);
+  return raw * 1000;
+}

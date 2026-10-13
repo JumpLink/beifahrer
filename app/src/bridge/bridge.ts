@@ -87,8 +87,10 @@ export interface BridgeOptions {
   timeoutMs?: number;
   helloTimeoutMs?: number;
   /**
-   * How long a call waits for a browser when none is connected. The extension finds a new bridge
-   * within one probe round (≤ 5 s), so a session's first call should not fail for being early.
+   * How long a call waits for the FIRST browser of a session. The extension finds a new bridge
+   * within a few probe rounds, which back off up to 5 s each, so a session's first call should not
+   * fail for being early. Never applied after a browser left: that is a decision or a loss, not
+   * lateness.
    */
   browserWaitMs?: number;
   /**
@@ -114,7 +116,7 @@ export interface BridgeOptions {
 /** Writes can wait for the confirmation window, which gives the person two minutes. */
 export const WRITE_TIMEOUT_MS = ASK_TIMEOUT_MS + 15_000;
 export const DEFAULT_TIMEOUT_MS = 30_000;
-export const BROWSER_WAIT_MS = 7_000;
+export const BROWSER_WAIT_MS = 15_000;
 const WRITES: ReadonlySet<Method> = new Set(['page.fill', 'page.enterCode', 'page.click', 'tabs.close']);
 
 /** `page.wait` waits up to MAX_WAIT_MS in the browser; the call must outlive that. */
@@ -266,8 +268,9 @@ export class Bridge extends EventEmitter implements BrowserAccess {
   }
 
   async call<M extends Method>(method: M, params: Params<M>, browser?: string): Promise<Result<M>> {
-    if (this.#live.size === 0) {
-      // A session that just started may be a probe round ahead of the extension.
+    if (this.#live.size === 0 && !this.#disconnected) {
+      // A session that just started may be a probe round ahead of the extension. Not after a
+      // browser left: a person's disconnect must never be retried (`goneSentence`).
       await this.waitForConnection(this.options.browserWaitMs ?? BROWSER_WAIT_MS).catch(() => undefined);
     }
     const target = this.resolve(browser);

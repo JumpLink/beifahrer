@@ -426,6 +426,10 @@ fill and click at all (the extension's per-site level and its confirmations stil
 }
 ```
 
+**A session that just started.** The extension finds a new session within a few seconds, so the
+first call waits up to 15 s for the first browser (`--wait <seconds>` or `BEIFAHRER_BROWSER_WAIT`).
+After a browser has left, a call fails at once: a person's disconnect is never retried.
+
 **Files on disk instead of base64.** `page_capture` and `recipe_run` return a captured document as
 base64, which costs an agent that only wants to hand the file on (to a Paperless upload, say) its
 context. Start the server with `--save-dir /abs/path` (or `BEIFAHRER_SAVE_DIR`) and a call may pass
