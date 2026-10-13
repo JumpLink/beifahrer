@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!--
+    The one source of every toolbar icon. scripts/icons.ts derives the variants: the monochrome
+    one swaps the fill of #sparkles for a mid-grey, and paused / not connected add a coloured dot
+    at the bottom right.
+  -->
+  <defs>
+    <linearGradient id="colour" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3584e4"/>
+      <stop offset="0.55" stop-color="#c061cb"/>
+      <stop offset="1" stop-color="#f66151"/>
+    </linearGradient>
+  </defs>
+  <path id="sparkles" fill="url(#colour)" d="M56 20Q56 66 102 66Q56 66 56 112Q56 66 10 66Q56 66 56 20Z M104 4Q104 24 124 24Q104 24 104 44Q104 24 84 24Q104 24 104 4Z M20 7Q20 20 33 20Q20 20 20 33Q20 20 7 20Q20 20 20 7Z"/>
+</svg>
