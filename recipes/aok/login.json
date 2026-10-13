@@ -1,0 +1,103 @@
+{
+  "id": "aok/login",
+  "title": "Log back in to Meine AOK with the Meine AOK app",
+  "description": "On the Meine AOK login pages or an expired session: always takes the app path (Mit Meine AOK-App einloggen), never the password path. The login page can take more than 15 s to render. The QR code and the TAN page need a visible, active tab. The run ends with needs_person kind code: ask the person to scan the QR code shown in the browser tab with the Meine AOK app and tell you the TAN, then resume at the step in next with the TAN in param code. It never accepts the terms-update or cookie banner. Already logged in (button Posteingang) ends with done.",
+  "version": "1.0.0",
+  "match": {
+    "urls": ["https://login.meine.aok.de/*", "https://meine.aok.de/client/*"]
+  },
+  "params": [
+    {
+      "name": "code",
+      "type": "string",
+      "description": "The TAN the person read from the Meine AOK app after scanning the QR code. Never invent one.",
+      "required": false,
+      "secret": true
+    }
+  ],
+  "steps": [
+    {
+      "id": "expired",
+      "action": "click",
+      "target": { "role": "link", "name": ["Zum Login"] },
+      "optional": true,
+      "note": "Only the error page of an expired session (errorCode 440, Login fehlgeschlagen) has this link."
+    },
+    {
+      "id": "settle",
+      "action": "wait",
+      "for": "load"
+    },
+    {
+      "id": "already-in",
+      "action": "finish",
+      "when": { "role": "button", "name": ["Posteingang"] },
+      "note": "A page on meine.aok.de/client with the Posteingang button is logged in."
+    },
+    {
+      "id": "wait-ident",
+      "action": "wait",
+      "for": { "role": "button", "name": ["Mit Meine AOK-App einloggen"] },
+      "timeoutMs": 30000,
+      "failMessage": "The Meine AOK login page did not appear (it can be slow, and the tab must be visible). Ask the person to open Meine AOK and log in themselves."
+    },
+    {
+      "id": "app-login",
+      "action": "click",
+      "target": { "role": "button", "name": ["Mit Meine AOK-App einloggen"] },
+      "note": "Always the app path. The password path leads to the AOK picker and is never used."
+    },
+    {
+      "id": "wait-qr",
+      "action": "wait",
+      "for": { "role": "button", "name": ["Weiter zur TAN-Eingabe"] },
+      "timeoutMs": 20000,
+      "failMessage": "The QR code page (1. TAN generieren) did not appear. Ask the person to log in themselves."
+    },
+    {
+      "id": "tan",
+      "action": "person",
+      "kind": "code",
+      "when": { "role": "button", "name": ["Weiter zur TAN-Eingabe"] },
+      "prompt": "Scan the QR code shown in the browser tab with the Meine AOK app and tell me the TAN it shows.",
+      "codeParam": "code"
+    },
+    {
+      "id": "to-tan",
+      "action": "click",
+      "target": { "role": "button", "name": ["Weiter zur TAN-Eingabe"] }
+    },
+    {
+      "id": "wait-tan-field",
+      "action": "wait",
+      "for": { "role": "textbox", "name": ["TAN eingeben"] },
+      "timeoutMs": 15000,
+      "failMessage": "The TAN field (2. TAN eingeben) did not appear."
+    },
+    {
+      "id": "enter-tan",
+      "action": "enter-code",
+      "target": { "role": "textbox", "name": ["TAN eingeben"] },
+      "param": "code"
+    },
+    {
+      "id": "confirm-tan",
+      "action": "click",
+      "target": { "role": "button", "name": ["TAN bestätigen"] },
+      "note": "The button's accessible name goes empty while it loads."
+    },
+    {
+      "id": "settle-tan",
+      "action": "wait",
+      "for": "load",
+      "note": "The check after the TAN can take long; a wait is capped at 30 s, so the load is awaited first."
+    },
+    {
+      "id": "wait-start",
+      "action": "wait",
+      "for": { "role": "button", "name": ["Posteingang"] },
+      "timeoutMs": 30000,
+      "failMessage": "Not logged in: the postbox did not appear after the TAN. The TAN may be wrong or expired. Ask the person to log in themselves."
+    }
+  ]
+}
