@@ -1,9 +1,13 @@
 {
   "id": "aok/download-attachment",
   "title": "Download the PDF attachment of a Meine AOK message",
-  "description": "Opens the message whose row text contains the given text and downloads its PDF attachment. The attachment is served from the portal's API origin, which needs level read as well (ADR 0018). The portal marks the message as read. Starts on a folder list; run aok/list-postbox first to see the rows.",
-  "version": "1.0.0",
-  "match": { "urls": ["https://meine.aok.de/client/postbox/*"] },
+  "description": "Opens the message whose row text contains the given text and downloads its PDF attachment. The attachment is served from the portal's API origin, which needs level read as well (ADR 0018). The portal marks the message as read. Starts on a folder list; run aok/list-postbox first to see the rows. The attachment button opens a dialog (Hinweise zum Speichern) and the file is handed over on its button Verstanden.",
+  "version": "1.1.0",
+  "match": {
+    "urls": [
+      "https://meine.aok.de/client/postbox/*"
+    ]
+  },
   "params": [
     {
       "name": "title",
@@ -13,8 +17,50 @@
     }
   ],
   "steps": [
-    { "id": "open-message", "action": "click-row", "param": "title" },
-    { "id": "wait-attachment", "action": "wait", "for": { "role": "button", "name": ".pdf" }, "timeoutMs": 10000 },
-    { "id": "download", "action": "capture", "target": { "role": "button", "name": ".pdf" } }
+    {
+      "id": "open-message",
+      "action": "click-row",
+      "param": "title"
+    },
+    {
+      "id": "wait-attachment",
+      "action": "wait",
+      "for": {
+        "role": "button",
+        "name": ".pdf"
+      },
+      "timeoutMs": 10000
+    },
+    {
+      "id": "open-attachment",
+      "action": "click",
+      "target": {
+        "role": "button",
+        "name": ".pdf"
+      },
+      "note": "Opens the dialog Hinweise zum Speichern; the download only starts on Verstanden."
+    },
+    {
+      "id": "wait-notice",
+      "action": "wait",
+      "for": {
+        "role": "button",
+        "name": [
+          "Verstanden"
+        ]
+      },
+      "timeoutMs": 10000,
+      "failMessage": "The dialog Hinweise zum Speichern did not appear, so the portal did not offer the file."
+    },
+    {
+      "id": "download",
+      "action": "capture",
+      "target": {
+        "role": "button",
+        "name": [
+          "Verstanden"
+        ]
+      }
+    }
   ]
 }

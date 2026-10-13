@@ -48,6 +48,7 @@ import {
   type Navigation,
   type ParsedRef,
   toTabInfo,
+  waitAcrossNavigation,
   withRule,
   type AccessContext,
   type Level,
@@ -60,7 +61,7 @@ import {
 import { askForAccess } from './access-prompt.ts';
 import { track } from './activity.ts';
 import { askPerson, type ConfirmAnswer } from './confirm.ts';
-import { fail } from './errors.ts';
+import { fail, MethodError } from './errors.ts';
 import { hideIndicator } from './indicator.ts';
 import { correctFrame, frameByIndex, framesOf, isWebUrl, type FrameRow } from './frames.ts';
 import { loadGrants, settle } from './grants.ts';
@@ -1049,8 +1050,20 @@ const handlers: { [M in Method]: Handler<M> } = {
     // Asked of every allowed frame AT THE SAME TIME, and the first document with a match wins. A
     // frame in which it never appears must not hold the others up, so this is a race and not a
     // sequence — a comment box that opens inside an embedded widget is the case that needs it.
+    // The top document is asked across navigations: a wait that began on the page before a submit
+    // loses its document, and that is the wait's normal case, not a failure. Every renewed ask is
+    // gated again, since the tab may have landed on another origin.
     const attempts = [
-      page(tabId, ctx, { beifahrer: 'wait', query, timeoutMs: left }),
+      waitAcrossNavigation({
+        deadline,
+        attempt: (leftMs) => page(tabId, ctx, { beifahrer: 'wait', query, timeoutMs: leftMs }),
+        settle: async () => {
+          await sleep(200);
+          await waitForLoad(tabId, deadline);
+          await gate('page.wait', (await getTab(tabId)).url, policy, ctx);
+        },
+        messageOf: (err) => (err instanceof MethodError ? err.wire.message : undefined),
+      }),
       ...framesAtLevel(await locateFrames(tabId, (await getTab(tabId)).url ?? ''), policy, ctx, 'read').map(
         (row) =>
           // `row.index` again: a `wait` that found the element answers with its ref, and a ref from a

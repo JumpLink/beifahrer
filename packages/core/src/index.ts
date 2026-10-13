@@ -26,3 +26,4 @@ export * from './shortcut.ts';
 export * from './registry.ts';
 export * from './agents.ts';
 export * from './doctor.ts';
+export * from './wait.ts';
