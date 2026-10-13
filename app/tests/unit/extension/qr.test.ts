@@ -32,7 +32,7 @@ function candidateOf(text: string, opts: { scale?: number; invert?: boolean } = 
 const blank: QrCandidate = {
   width: 2,
   height: 2,
-  rgba: btoa(String.fromCharCode(...new Array(16).fill(255))),
+  rgba: btoa(String.fromCharCode(...Array.from({ length: 16 }, () => 255))),
 };
 
 export default async () => {
