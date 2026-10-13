@@ -37,6 +37,7 @@ import updatesJson from './unit/extension/updates-json.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
 import mcpTools from './unit/mcp/tools.test.ts';
 import mcpOutput from './unit/mcp/output.test.ts';
+import mcpSaveDir from './unit/mcp/save-dir.test.ts';
 import recipeRunner from './unit/recipes/runner.test.ts';
 import recipeSources from './unit/recipes/sources.test.ts';
 import localPairing from './unit/local/pairing.test.ts';
@@ -83,6 +84,7 @@ run({
   mcpGate,
   mcpTools,
   mcpOutput,
+  mcpSaveDir,
   recipeRunner,
   recipeSources,
   localPairing,

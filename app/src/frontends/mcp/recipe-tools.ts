@@ -11,7 +11,8 @@ import type { Recipe } from '@beifahrer/core';
 
 import { runRecipe, TabProbe } from '../../recipes/runner.ts';
 import { loadCatalog, type RecipeCatalog } from '../../recipes/sources.ts';
-import { browserParam, failure, text, type Call } from './tools.ts';
+import { captureSink, type SaveOptions } from '../../save-dir.ts';
+import { browserParam, failure, saveDirParam, text, type Call } from './tools.ts';
 
 export interface RecipeToolOptions {
   /** Injected by tests; the real server reads the catalogue fresh on every call. */
@@ -33,7 +34,12 @@ function summary(recipe: Recipe, source: string) {
   };
 }
 
-export function registerRecipeTools(server: McpServer, call: Call, opts: RecipeToolOptions = {}): void {
+export function registerRecipeTools(
+  server: McpServer,
+  call: Call,
+  opts: RecipeToolOptions = {},
+  files: SaveOptions = {},
+): void {
   const catalog = opts.catalog ?? (() => loadCatalog());
 
   server.registerTool(
@@ -99,6 +105,7 @@ export function registerRecipeTools(server: McpServer, call: Call, opts: RecipeT
         'writes need level "read + edit" and the person may be asked to confirm each one. Stops at the first failing step and names it. ' +
         'A step that publishes (posting a comment, saving) runs ONLY with explicitRequest: true, and you may set that ONLY when the person asked for exactly that action ' +
         '(e.g. "post this comment"). Otherwise the run stops before it and the draft stays on the page for the person to review; continue later with from: <that step>. ' +
+        'A capture step (a downloaded document) returns its file as base64 inside the log; pass saveDir to have it written to disk instead and get only its path. ' +
         'A "forbidden" or "denied" error is the person\'s decision, not a malfunction.',
       inputSchema: {
         tabId: z.number().int(),
@@ -110,20 +117,23 @@ export function registerRecipeTools(server: McpServer, call: Call, opts: RecipeT
           .boolean()
           .optional()
           .describe('true ONLY when the person asked for exactly the action of the final step (post / save)'),
+        saveDir: saveDirParam,
         browser: browserParam,
       },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     },
-    async ({ tabId, id, params, from, until, explicitRequest, browser }) => {
+    async ({ tabId, id, params, from, until, explicitRequest, saveDir, browser }) => {
       try {
         const loaded = catalog().recipes.get(id);
         if (!loaded) return failure(new Error(`no recipe "${id}" — recipes_list shows the known ones`));
+        const saveCapture = captureSink(files.saveRoot, saveDir);
         const run = await runRecipe(call, loaded.recipe, {
           tabId,
           params,
           from,
           until,
           explicitRequest,
+          saveCapture,
           browser,
         });
         const res = text(run);

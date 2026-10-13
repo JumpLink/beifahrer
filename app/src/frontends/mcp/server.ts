@@ -31,13 +31,13 @@ import { registerTools, type BridgeHandle } from './tools.ts';
 
 const SERVER_NAME = 'beifahrer';
 
-export function createMcpServer(handle: BridgeHandle, allowWrite: boolean): McpServer {
+export function createMcpServer(handle: BridgeHandle, allowWrite: boolean, saveRoot?: string): McpServer {
   const server = new McpServer({ name: SERVER_NAME, version: VERSION });
   // Before any registration — the gate wraps registerTool, so anything registered earlier would
   // slip past it. It fails CLOSED: a tool whose author forgot the annotation goes missing from
   // `tools/list`, which gets noticed, instead of a mutation being quietly reachable.
   applyReadOnlyGate(server, allowWrite);
-  registerTools(server, handle);
+  registerTools(server, handle, {}, { saveRoot });
   return server;
 }
 
@@ -88,10 +88,14 @@ export async function startBridge(
   return handle;
 }
 
-export async function startMcpServer(opts: { range: PortRange; allowWrite?: boolean }): Promise<void> {
+export async function startMcpServer(opts: {
+  range: PortRange;
+  allowWrite?: boolean;
+  saveRoot?: string;
+}): Promise<void> {
   const allowWrite = opts.allowWrite === true || process.env.BEIFAHRER_MCP_ALLOW_WRITE === '1';
   const handle = await startBridge(opts.range, 'mcp');
-  const server = createMcpServer(handle, allowWrite);
+  const server = createMcpServer(handle, allowWrite, opts.saveRoot);
   // The client says who it is only in the MCP handshake, after the bridge is up: rename then.
   server.server.oninitialized = () => {
     const name = server.server.getClientVersion()?.name;

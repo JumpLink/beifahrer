@@ -79,7 +79,7 @@ keys by name, and any other key it does not know.
 | `read`, `outline` | returns the page text / outline in the run log | `maxChars` / `maxItems` |
 | `rows` | returns the rows of the list on the page (scrolls a virtual-scroll list) | `maxRows` |
 | `click-row` | clicks the row whose text contains a param's value | `param` |
-| `capture` | clicks a button that hands over a document and returns the file; may end on a sister origin of the site, which needs its own level (ADR 0018) | `target`, `maxBytes` |
+| `capture` | clicks a button that hands over a document and returns the file (as base64, or on disk when the run passes `saveDir`, ADR 0021); may end on a sister origin of the site, which needs its own level (ADR 0018) | `target`, `maxBytes` |
 | `checkpoint` | stops the run with a message, so the agent looks before it goes on | `message` |
 | `person` | ends the run with `needs_person` when the page shows `when` (one query) or any of `whenAny`; skipped otherwise | `kind` (`login`, `code`, `approval`, `device`), `when` or `whenAny`, `prompt` (short English sentence), `codeParam` (the param the relayed code comes back in) |
 | `enter-code` | types a one-time code the person relayed, into a field marked as one (`page.enterCode`, needs the switch *Type one-time codes you relay*) | `target`, `param` |

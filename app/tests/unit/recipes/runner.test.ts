@@ -386,6 +386,22 @@ export default async () => {
       expect(calls.some(([m]) => m === 'page.click')).toBe(false);
     });
 
+    await it('capture hands the file to saveCapture and logs what it returns, not the bytes', async () => {
+      const x = withRows();
+      const run = await runRecipe(
+        x.call,
+        list([{ id: 'd', action: 'capture', target: { role: 'button', name: 'Einen Kommentar' } }], []),
+        {
+          tabId: 7,
+          saveCapture: (doc) => ({ path: `/inbox/${doc.filename}`, size: doc.size }),
+        },
+      );
+      expect(run.status).toBe('done');
+      const result = run.log.find((l) => l.step === 'd')?.result as { path?: string; base64?: string };
+      expect(result.path?.startsWith('/inbox/')).toBe(true);
+      expect(result.base64).toBe(undefined);
+    });
+
     await it('a nameParam whose value is empty fails the step instead of taking the first match', async () => {
       const x = withRows();
       const run = await runRecipe(
