@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Beifahrer — concept B, "Lenkrad".
+  A driving-school steering wheel: the agent may steer, the person stays in the car. The spark
+  marks who has the wheel right now. Circle guide (r=46 inside the 59.5 guide), 2px grid,
+  8px front profile along the rim.
+-->
+<svg width="128" height="128" viewBox="0 0 128 128" version="1.1"
+     xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="rim" x1="0" y1="18" x2="0" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9141ac"/>
+      <stop offset="1" stop-color="#813d9c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- front profile: the whole wheel 8px lower (Learn6502 depth) -->
+  <g id="profile" transform="translate(0,8)" fill="#613583">
+    <path fill-rule="evenodd"
+          d="M64 18 A46 46 0 1 0 64 110 A46 46 0 1 0 64 18 Z
+             M64 32 A32 32 0 1 1 64 96 A32 32 0 1 1 64 32 Z"/>
+    <rect x="22" y="58" width="84" height="12" rx="6"/>
+    <rect x="58" y="64" width="12" height="46" rx="6"/>
+  </g>
+
+  <!-- wheel: rim is a curved surface, so it carries the gradient -->
+  <path id="rim-face" fill="url(#rim)" fill-rule="evenodd"
+        d="M64 18 A46 46 0 1 0 64 110 A46 46 0 1 0 64 18 Z
+           M64 32 A32 32 0 1 1 64 96 A32 32 0 1 1 64 32 Z"/>
+  <rect id="spoke-h" x="22" y="58" width="84" height="12" rx="6" fill="#9141ac"/>
+  <rect id="spoke-v" x="58" y="64" width="12" height="46" rx="6" fill="#9141ac"/>
+  <circle id="hub" cx="64" cy="64" r="18" fill="#613583"/>
+
+  <!-- the co-driver's spark -->
+  <path id="spark" d="M100 16 Q100 30 114 30 Q100 30 100 44 Q100 30 86 30 Q100 30 100 16 Z"
+        fill="#dc8add"/>
+</svg>

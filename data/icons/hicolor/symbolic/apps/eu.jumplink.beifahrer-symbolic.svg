@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Beifahrer — concept B symbolic: steering wheel with the co-driver's spark. Fill only. -->
+<svg width="16" height="16" viewBox="0 0 16 16" version="1.1"
+     xmlns="http://www.w3.org/2000/svg">
+  <g fill="#241f31">
+    <path fill-rule="evenodd"
+          d="M7 1.5 A6.5 6.5 0 1 0 7 14.5 A6.5 6.5 0 1 0 7 1.5 Z
+             M7 3.5 A4.5 4.5 0 1 1 7 12.5 A4.5 4.5 0 1 1 7 3.5 Z"/>
+    <rect x="1.6" y="7.2" width="10.8" height="1.6" rx="0.8"/>
+    <rect x="6.2" y="8" width="1.6" height="6.4" rx="0.8"/>
+    <circle cx="7" cy="8" r="2"/>
+    <path d="M13 1 Q13 3.5 15.5 3.5 Q13 3.5 13 6 Q13 3.5 10.5 3.5 Q13 3.5 13 1 Z"/>
+  </g>
+</svg>

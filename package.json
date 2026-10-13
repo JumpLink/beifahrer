@@ -34,7 +34,7 @@
       ],
       "defaultLanguage": "en",
       "repository": "JumpLink/beifahrer",
-      "icon": "extension/icons/sparkles.svg",
+      "icon": "data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg",
       "releaseAssets": false,
       "downloads": [
         {
