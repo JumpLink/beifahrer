@@ -142,3 +142,9 @@ new-device page with kind `device`, and a login page that stays open with kind `
 **Unverified until a live run:** the headings and the TAN field name for the device and TAN pages
 (written from generic Atruvia wording), the names of the confirm button after a TAN, and that the
 TAN field passes the one-time-code guard on the real page.
+
+**Known gap: pagination on Meine AOK.** The postbox shows page numbers ("1 2") that `page_find` cannot
+address. The page agent assigns a role only to real controls (`a[href]`, `button`, `input`, an explicit
+`role`); a page number built from a `div` or `span` with a click handler has none of them, and a click
+handler cannot be seen from a content script. Unmeasured: whether those elements carry a `tabindex`.
+Until that is measured on the live page, `aok/list-postbox` lists the first page only.

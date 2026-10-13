@@ -22,6 +22,7 @@ import chunks from './unit/core/chunks.test.ts';
 import expectRules from './unit/core/expect.test.ts';
 import networkRules from './unit/core/network.test.ts';
 import navigate from './unit/core/navigate.test.ts';
+import wait from './unit/core/wait.test.ts';
 import refs from './unit/core/refs.test.ts';
 import toolbar from './unit/core/toolbar.test.ts';
 import shortcut from './unit/core/shortcut.test.ts';
@@ -69,6 +70,7 @@ run({
   expectRules,
   networkRules,
   navigate,
+  wait,
   refs,
   toolbar,
   shortcut,
