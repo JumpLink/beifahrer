@@ -134,11 +134,28 @@ export default async () => {
       const file = BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/login')!;
       const r = parseRecipe(file.data) as Recipe;
       expect(r.steps.map((s) => s.action).join(',')).toBe(
-        'click,wait,click,wait,person,person,enter-code,click,person,wait',
+        'click,wait,click,wait,finish,person,person,enter-code,click,person,wait',
       );
       expect(r.params.map((p) => `${p.name}:${p.secret}`).join(',')).toBe('code:true');
       expect(r.steps.some((s) => s.action === 'fill')).toBe(false);
       expect(r.match.every((m) => m.urls !== undefined)).toBe(true);
+    });
+
+    await it('the built-in atruvia login checks success before any person step', async () => {
+      const r = parseRecipe(
+        BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/login')!.data,
+      ) as Recipe;
+      const actions = r.steps.map((s) => s.action);
+      expect(actions.indexOf('finish')).toBeLessThan(actions.indexOf('person'));
+      expect(JSON.stringify(r)).not.toMatch(/"name":\["Browsererkennung"\]/);
+    });
+
+    await it('a finish step needs a query and refuses keys it does not know', async () => {
+      refused(withStep({ id: 'x', action: 'finish' }), /when/);
+      refused(
+        withStep({ id: 'x', action: 'finish', when: { role: 'button', name: 'a' }, kind: 'login' }),
+        /unknown key "kind"/,
+      );
     });
 
     await it('the built-in atruvia download names the row on both the wait and the capture', async () => {

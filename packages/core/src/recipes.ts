@@ -98,6 +98,12 @@ export type Step =
       prompt: string;
       codeParam?: string;
     })
+  /**
+   * Ends the run with `done` when the page shows what `when` describes, and is skipped otherwise.
+   * It is how a recipe puts "already there" in front of the `person` steps that follow, so a page
+   * that proves success can never be read as a challenge.
+   */
+  | (StepBase & { action: 'finish'; when: ElementQuery })
   /** Types the one-time code the person relayed (`page.enterCode`, ADR 0020). */
   | (StepBase & { action: 'enter-code'; target: ElementQuery; param: string });
 
@@ -116,6 +122,7 @@ export const STEP_ACTIONS: readonly StepAction[] = [
   'capture',
   'checkpoint',
   'person',
+  'finish',
   'enter-code',
 ];
 
@@ -158,6 +165,7 @@ const STEP_KEYS: Record<StepAction, string[]> = {
   capture: ['target', 'maxBytes', 'nameParam'],
   checkpoint: ['message'],
   person: ['kind', 'when', 'whenAny', 'prompt', 'codeParam'],
+  finish: ['when'],
   'enter-code': ['target', 'param'],
 };
 const COMMON_STEP_KEYS = ['id', 'action', 'note', 'requiresExplicitRequest'];
@@ -463,6 +471,8 @@ function step(value: unknown, where: string, params: Set<string>): Step {
       }
       return out;
     }
+    case 'finish':
+      return { ...base, action: 'finish', when: query(src.when, `${where}.when`) };
     case 'enter-code': {
       const name = str(src.param, `${where}.param`, 40);
       if (!params.has(name)) fail(`${where}.param`, `"${name}" is not a declared param`);
