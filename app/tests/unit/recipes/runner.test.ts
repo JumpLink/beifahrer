@@ -495,9 +495,7 @@ export default async () => {
         );
         const run = await runRecipe(x.call, login(), { tabId: 7 });
         expect(run.status).toBe('done');
-        expect(run.log.map((l) => l.status).join(',')).toBe(
-          'ok,ok,ok,ok,skipped,skipped,skipped,skipped,skipped,ok',
-        );
+        expect(run.log.map((l) => l.status).join(',')).toBe('ok,ok,ok,ok,ok');
         expect(x.calls.filter(([m]) => m === 'page.click').length).toBe(2);
         expect(x.calls.some(([m]) => m === 'page.fill')).toBe(false);
       });
@@ -556,7 +554,7 @@ export default async () => {
       });
 
       await it('a device approval page ends the run with needs_person (device), without a code', async () => {
-        for (const heading of ['SecureGo plus freigeben', 'Browsererkennung', 'Anmeldung mit neuem Gerät']) {
+        for (const heading of ['SecureGo plus freigeben', 'Anmeldung mit neuem Gerät']) {
           const x = portal(AUTH, LOGIN_PAGE, [['heading', heading]]);
           const run = await runRecipe(x.call, login(), { tabId: 7 });
           expect(run.status).toBe('needs_person');
@@ -564,6 +562,23 @@ export default async () => {
           expect(run.person?.acceptsCode).toBe(false);
           expect(run.person?.codeParam).toBe(undefined);
         }
+      });
+
+      await it('a start page with the Postfach button and the Browsererkennung promo is done, not needs_person', async () => {
+        const x = portal(AUTH, LOGIN_PAGE, [
+          ['button', 'Postfach: 2 ungelesen'],
+          ['heading', 'Jetzt neu: Browsererkennung'],
+        ]);
+        const run = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(run.status).toBe('done');
+        expect(run.person).toBe(undefined);
+        expect(run.log.at(-1)!.step).toBe('already-in');
+      });
+
+      await it('the promo heading alone is no device challenge', async () => {
+        const x = portal(AUTH, LOGIN_PAGE, [['heading', 'Jetzt neu: Browsererkennung']]);
+        const run = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(run.person?.kind).not.toBe('device');
       });
 
       await it('the login page staying open (no saved PIN) ends the run with needs_person (login)', async () => {

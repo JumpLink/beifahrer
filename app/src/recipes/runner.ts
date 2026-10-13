@@ -268,6 +268,17 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
             },
           );
         }
+        case 'finish': {
+          const found = await call('page.find', { tabId, ...step.when, maxResults: 1 }, browser);
+          if (found.count === 0) {
+            entry.status = 'skipped';
+            entry.detail = 'not on the page';
+            break;
+          }
+          entry.detail = `${describeQuery(step.when)} is on the page`;
+          log.push(entry);
+          return result('done', `${recipe.id}: finished at step "${step.id}"`);
+        }
         case 'enter-code': {
           const code = params[step.param];
           if (code === undefined) {
