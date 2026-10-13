@@ -391,6 +391,39 @@ export default async () => {
       await bridge.stop();
     });
 
+    await it('a fresh session fails after the grace when no browser ever comes', async () => {
+      const bridge = await startBridge({ browserWaitMs: 400 });
+      const started = Date.now();
+      let message = '';
+      try {
+        await bridge.call('tabs.list', {});
+      } catch (err) {
+        message = (err as Error).message;
+      }
+      expect(message).toMatch(/no browser is connected to this Beifahrer session/);
+      expect(Date.now() - started >= 350).toBe(true);
+      await bridge.stop();
+    });
+
+    await it('does not wait once a browser has left, whoever ended it', async () => {
+      for (const code of [CLOSE.personDisconnected, 1001]) {
+        const bridge = await startBridge({ browserWaitMs: 5_000 });
+        const r = await connect(bridge);
+        r.ws.close(code, 'bye');
+        while (bridge.connections().length > 0) await new Promise((res) => setTimeout(res, 20));
+        const started = Date.now();
+        let message = '';
+        try {
+          await bridge.call('tabs.list', {});
+        } catch (err) {
+          message = (err as Error).message;
+        }
+        expect(message).toMatch(/no browser is connected/);
+        expect(Date.now() - started < 1_000).toBe(true);
+        await bridge.stop();
+      }
+    });
+
     await it('each bridge serves only the browsers connected to it', async () => {
       const a = await startBridge({ label: 'a' });
       const b = await startBridge({ label: 'b' });

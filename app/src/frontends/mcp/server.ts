@@ -92,9 +92,10 @@ export async function startMcpServer(opts: {
   range: PortRange;
   allowWrite?: boolean;
   saveRoot?: string;
+  browserWaitMs?: number;
 }): Promise<void> {
   const allowWrite = opts.allowWrite === true || process.env.BEIFAHRER_MCP_ALLOW_WRITE === '1';
-  const handle = await startBridge(opts.range, 'mcp');
+  const handle = await startBridge(opts.range, 'mcp', { browserWaitMs: opts.browserWaitMs });
   const server = createMcpServer(handle, allowWrite, opts.saveRoot);
   // The client says who it is only in the MCP handshake, after the bridge is up: rename then.
   server.server.oninitialized = () => {
