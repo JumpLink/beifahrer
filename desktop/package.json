@@ -18,7 +18,7 @@
     "format:check": "gjsify format --check .",
     "lint": "gjsify lint .",
     "lint:fix": "gjsify lint --fix .",
-    "build": "gjsify build src/main.ts --app gjs --outfile dist/beifahrer-desktop.gjs.mjs",
+    "build": "gjsify build src/main.ts --app gjs --outfile dist/beifahrer-desktop.gjs.mjs --channel web",
     "build:node": "gjsify build src/main.ts --app node --outfile dist/beifahrer-desktop.node.mjs",
     "start": "gjsify run dist/beifahrer-desktop.gjs.mjs",
     "test": "gjsify test"
@@ -36,9 +36,10 @@
   "dependencies": {
     "@beifahrer/core": "*",
     "@beifahrer/local": "*",
-    "@gjsify/adwaita-app": "0.54.0",
-    "@gjsify/adwaita-core": "0.54.0",
-    "@gjsify/node-gi": "0.54.0"
+    "@gjsify/adwaita-app": "0.63.1-next.237",
+    "@gjsify/adwaita-core": "0.63.1-next.237",
+    "@gjsify/distribution": "0.63.1-next.237",
+    "@gjsify/node-gi": "0.63.0"
   },
   "devDependencies": {
     "@girs/adw-1": "5.4.0",
@@ -46,11 +47,11 @@
     "@girs/gio-2.0": "5.4.0",
     "@girs/glib-2.0": "5.4.0",
     "@girs/gtk-4.0": "5.4.0",
-    "@gjsify/cli": "0.54.0",
-    "@gjsify/node-globals": "0.54.0",
-    "@gjsify/rolldown-native": "0.54.0",
-    "@gjsify/runtime": "0.54.0",
-    "@gjsify/unit": "0.54.0",
+    "@gjsify/cli": "0.63.1-next.237",
+    "@gjsify/node-globals": "0.63.1-next.237",
+    "@gjsify/rolldown-native": "0.63.1-next.237",
+    "@gjsify/runtime": "0.63.1-next.237",
+    "@gjsify/unit": "0.63.1-next.237",
     "@types/node": "^26.6.2"
   }
 }
