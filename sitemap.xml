@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://jumplink.eu/beifahrer/en/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/"/>
+  </url>
+  <url>
+    <loc>https://jumplink.eu/beifahrer/de/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/"/>
+  </url>
+  <url>
+    <loc>https://jumplink.eu/beifahrer/en/support/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/support/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/support/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/support/"/>
+  </url>
+  <url>
+    <loc>https://jumplink.eu/beifahrer/de/support/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/support/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/support/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/support/"/>
+  </url>
+</urlset>
