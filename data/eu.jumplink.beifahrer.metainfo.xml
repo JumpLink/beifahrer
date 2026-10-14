@@ -63,6 +63,14 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.11" date="2026-10-14">
+      <description>
+        <ul>
+          <li>New app and extension icon: a VW bus instead of the sparkles</li>
+          <li>About dialog with a Support link</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.5" date="2026-10-12"/>
   </releases>
 </component>
