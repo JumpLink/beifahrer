@@ -60,7 +60,7 @@ export function stateOf(
 }
 
 /**
- * The toolbar's own sparkles, so the hero and the toolbar button always look alike: the same looks
+ * The toolbar's own bus, so the hero and the toolbar button always look alike: the same looks
  * in the same order, and `wide` (a live "all sites" grant, ADR 0010) only decorates a connected
  * one, exactly as on the button.
  */

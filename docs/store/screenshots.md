@@ -18,15 +18,13 @@ picture, and crop nothing but the surrounding desktop.
 Chrome also needs two images that are not screenshots: the 128×128 icon inside the zip, and a
 **mandatory** 440×280 small promo tile.
 
-The icon is 128×128, rendered from `extension/icons/sparkles.svg` by
+The icon is 128×128, rendered from `data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg` by
 `extension/scripts/icons.ts` — but it does **not** yet meet Chrome's padding rule, and the docs must
-not say it does. Measured on `extension/.output/chrome-mv3/icons/idle-128.png`: the opaque artwork
-is 121 × 107 px inside the 128 × 128 canvas, with margins L7 R0 T5 B16 — the second sparkle runs to
-the right edge. Chrome wants 96×96 of artwork centred in 128×128, so the artwork has to shrink by
-about a fifth on each axis. The source SVG is a single 128×128 `viewBox`, so this is a change to
-`extension/icons/sparkles.svg` (or a wrapper canvas around it), and it is a **product** change, not
-one these docs may make. It is a decision for a person: shrink the artwork, or keep the icon and
-accept that Chrome downscales it.
+not say it does. The bus spans 108 × 93 of the 128 × 128 canvas (x 10–118, y 15–108 in the SVG),
+where Chrome wants 96×96 of artwork centred in 128×128, so the artwork has to shrink by about a
+tenth on the long axis. This is a change to the app icon (or a wrapper canvas around it), and it is
+a **product** change, not one these docs may make. It is a decision for a person: shrink the
+artwork, or keep the icon and accept that Chrome downscales it.
 
 The promo tile is artwork nobody has made yet.
 
@@ -146,8 +144,8 @@ Everything below uses the output of that one run, on the synthetic fixtures alre
 ### The 440×280 promo tile — **needs a person, an artist**
 
 Nothing in the repository produces a store promo tile, and a screenshot is the wrong source for one.
-It is a designed image: the sparkles mark, the name, on a flat background. `extension/icons/` holds
-the two SVG sources, which is a legitimate starting point; the layout is a decision. Mandatory on
+It is a designed image: the bus mark, the name, on a flat background. `data/icons/hicolor/` holds
+the SVG sources, which is a legitimate starting point; the layout is a decision. Mandatory on
 Chrome, optional on Edge.
 
 ## Which shots, for which store
@@ -182,5 +180,5 @@ Edge's **Duplicate** action copies a screenshot into the other languages, so upl
 5. **Whether the in-page pill shot needs a real person in the frame.** Nothing in the extension
    requires one, and inventing a face for a store listing is a decision, not a task.
 6. **The icon's padding.** The artwork is 121 × 107 px inside 128 × 128, not the 96 × 96 Chrome asks
-   for. Shrinking it is a change to `extension/icons/sparkles.svg` — product work, and the one item
+   for. Shrinking it is a change to the app icon — product work, and the one item
    here that touches the shipped extension rather than the store material.
