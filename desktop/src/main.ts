@@ -7,6 +7,7 @@ import { createTranslate, pickLocale } from './i18n.ts';
 import { viewOf } from './status-model.ts';
 import { watchRegistry } from './watch.ts';
 import { pairingView } from './pairing-model.ts';
+import { installAboutAction } from './about.ts';
 import { createWindow } from './window.ts';
 
 const t = createTranslate(pickLocale([...GLib.get_language_names()]));
@@ -16,6 +17,7 @@ const ports = portsOf(parsePortRange(process.env.BEIFAHRER_PORT, process.env.BEI
 const code = await runAdwaitaApp({
   applicationId: 'eu.jumplink.beifahrer',
   createWindow: (app) => {
+    installAboutAction(app, t);
     const ui = createWindow(app, t);
     // What the last probe found that no session announced. It is kept as ports and not as "listening",
     // so a bridge that stops between two probes does not show up as a stranger.
