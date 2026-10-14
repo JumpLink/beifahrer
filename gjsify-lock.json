@@ -34,6 +34,7 @@
     "@girs/gtk-4.0@5.4.0",
     "@gjsify/adwaita-icons@0.63.1-next.237",
     "@gjsify/adwaita-web@0.63.1-next.237",
+    "@gjsify/app-settings@0.63.1-next.237",
     "@wxt-dev/browser@^0.3.0",
     "jsqr@1.4.0",
     "@girs/gdkpixbuf-2.0@5.4.0",
@@ -717,6 +718,19 @@
       },
       "peerDependenciesMeta": {
         "@gjsify/app-settings": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@gjsify/app-settings": {
+      "version": "0.63.1-next.237",
+      "resolved": "https://registry.npmjs.org/@gjsify/app-settings/-/app-settings-0.63.1-next.237.tgz",
+      "integrity": "sha512-1CXpIpDNyXNTHlgt+lI/q4WcG5VV1Yvq/7KPKTu7uiPEEPmIaaqHQJpWlokd7zcLinp65fJj6ixU6UvHcB1VSA==",
+      "peerDependencies": {
+        "@nativescript/core": "*"
+      },
+      "peerDependenciesMeta": {
+        "@nativescript/core": {
           "optional": true
         }
       }
