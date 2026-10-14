@@ -7,10 +7,11 @@
 
 import Adw from 'gi://Adw?version=1';
 import Gio from 'gi://Gio?version=2.0';
+import { donationsAllowed } from '@gjsify/distribution';
 
 import type { Translate } from './i18n.ts';
 
-export const SUPPORT_URL = 'https://jumplink.eu/beifahrer/#support';
+export const SUPPORT_URL = 'https://jumplink.eu/beifahrer/en/support/';
 const WEBSITE = 'https://jumplink.eu/beifahrer/';
 const APP_ID = 'eu.jumplink.beifahrer';
 
@@ -24,7 +25,7 @@ export function installAboutAction(app: Adw.Application, t: Translate): void {
       website: WEBSITE,
       issueUrl: 'https://github.com/JumpLink/beifahrer/issues',
     });
-    dialog.add_link(t('about.support'), SUPPORT_URL);
+    if (donationsAllowed()) dialog.add_link(t('about.support'), SUPPORT_URL);
     dialog.present(app.get_active_window());
   });
   app.add_action(action);

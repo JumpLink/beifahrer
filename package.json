@@ -23,6 +23,10 @@
     "start": "gjsify workspace beifahrer-cli start",
     "test": "gjsify workspace beifahrer-cli test"
   },
+  "devDependencies": {
+    "@gjsify/cli": "0.63.1-next.237",
+    "@gjsify/site": "0.63.1-next.237"
+  },
   "gjsify": {
     "site": {
       "metainfo": "data/eu.jumplink.beifahrer.metainfo.xml",
