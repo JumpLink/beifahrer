@@ -41,5 +41,7 @@
   "agents.command": "Oder in einem Befehl",
   "agents.docs": "Dokumentation",
   "agents.checked": "Am {date} gegen die Dokumentation des Agenten geprüft. Funktioniert es nicht mehr, folge dem Link.",
-  "agents.note": "Welche Seiten der Agent erreichen darf und ob der Browser vor einer Änderung fragt, stellst du in der Erweiterung ein. --allow-write lässt den Agenten es nur versuchen."
+  "agents.note": "Welche Seiten der Agent erreichen darf und ob der Browser vor einer Änderung fragt, stellst du in der Erweiterung ein. --allow-write lässt den Agenten es nur versuchen.",
+  "menu.about": "Über Beifahrer",
+  "about.support": "Unterstützen"
 }

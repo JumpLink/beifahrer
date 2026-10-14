@@ -9,6 +9,7 @@
  */
 
 import Adw from 'gi://Adw?version=1';
+import Gio from 'gi://Gio?version=2.0';
 import Gtk from 'gi://Gtk?version=4.0';
 
 import { createAgentsPage } from './agents-page.ts';
@@ -96,12 +97,15 @@ export function createWindow(app: Adw.Application, t: Translate): DesktopWindow 
   stack.add_titled_with_icon(pairingPage.widget, 'browser', t('page.browser'), 'web-browser-symbolic');
   stack.add_titled_with_icon(agentsPage.widget, 'agent', t('page.agent'), 'utilities-terminal-symbolic');
 
+  const header = new Adw.HeaderBar({
+    titleWidget: new Adw.ViewSwitcher({ stack, policy: Adw.ViewSwitcherPolicy.WIDE }),
+  });
+  const menu = new Gio.Menu();
+  menu.append(t('menu.about'), 'app.about');
+  header.pack_end(new Gtk.MenuButton({ iconName: 'open-menu-symbolic', menuModel: menu, primary: true }));
+
   const toolbar = new Adw.ToolbarView();
-  toolbar.add_top_bar(
-    new Adw.HeaderBar({
-      titleWidget: new Adw.ViewSwitcher({ stack, policy: Adw.ViewSwitcherPolicy.WIDE }),
-    }),
-  );
+  toolbar.add_top_bar(header);
   toolbar.set_content(stack);
   overlay.set_child(toolbar);
 

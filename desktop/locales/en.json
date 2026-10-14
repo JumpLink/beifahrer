@@ -41,5 +41,7 @@
   "agents.command": "Or in one command",
   "agents.docs": "Documentation",
   "agents.checked": "Checked against the agent's documentation on {date}. If it no longer works, follow the link.",
-  "agents.note": "Which sites the agent may reach, and whether the browser asks before a change, you set in the extension. --allow-write only lets the agent try."
+  "agents.note": "Which sites the agent may reach, and whether the browser asks before a change, you set in the extension. --allow-write only lets the agent try.",
+  "menu.about": "About Beifahrer",
+  "about.support": "Support"
 }
