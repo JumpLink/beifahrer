@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+Beifahrer C3 — Bully, yellow with an orange upper side and a surfboard on the rack: the trip,
+not the commute. Variant e of Pascal's d (lighting pass); c of b: the roof is a TOP FACE seen from slightly above,
+like the money stack in the GNOME HIG — the side face meets it with square shoulders, the
+rounding lives in the roof's far corners, and the board lies flat on it instead of standing up.
+-->
+
+<svg
+   width="128"
+   height="128"
+   viewBox="0 0 128 128"
+   version="1.1"
+   id="svg6"
+   xmlns="http://www.w3.org/2000/svg">
+  
+  <defs
+     id="defs4">
+    <!-- side face: square shoulders where it meets the roof, round only at the bottom -->
+    <clipPath
+       id="body-clip">
+      <path
+         d="M10 34 H118 V96 A12 12 0 0 1 106 108 H22 A12 12 0 0 1 10 96 Z"
+         id="path1" />
+    </clipPath>
+    <linearGradient
+       id="glass"
+       x1="0"
+       y1="42"
+       x2="0"
+       y2="66"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#b8d4f6"
+         id="stop1" />
+      <stop
+         offset="1"
+         stop-color="#7fb0ec"
+         id="stop2" />
+    </linearGradient>
+    <!-- the far edge of the roof turns away from the light, the near edge catches it -->
+    <linearGradient
+       id="roof-top"
+       x1="0"
+       y1="18"
+       x2="0"
+       y2="34"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#deddda"
+         id="stop3" />
+      <stop
+         offset="1"
+         stop-color="#ffffff"
+         id="stop4" />
+    </linearGradient>
+    <clipPath
+       id="door-clip">
+      <rect
+         x="70"
+         y="42"
+         width="26"
+         height="24"
+         rx="4"
+         id="rect4" />
+    </clipPath>
+    <!-- light from straight above: the roof's top face is lit almost evenly, only its rounded
+         ends turn away; the board's deck is lit, its rail is in its own shadow -->
+    <linearGradient id="roof-lit" x1="0" y1="18" x2="0" y2="34" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e8e7e4"/>
+      <stop offset="0.35" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f6f5f4"/>
+    </linearGradient>
+    <linearGradient id="roof-ends" x1="10" y1="0" x2="118" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.14"/>
+      <stop offset="0.16" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="0.84" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.14"/>
+    </linearGradient>
+    <radialGradient id="board-shadow" cx="64" cy="30" r="40" gradientTransform="matrix(1 0 0 0.09 0 27.3)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="deck" x1="0" y1="14" x2="0" y2="25" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#99c1f1"/>
+      <stop offset="1" stop-color="#62a0ea"/>
+    </linearGradient>
+    <linearGradient id="deck-ends" x1="24" y1="0" x2="106" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1a5fb4" stop-opacity="0.35"/>
+      <stop offset="0.2" stop-color="#1a5fb4" stop-opacity="0"/>
+      <stop offset="0.8" stop-color="#1a5fb4" stop-opacity="0"/>
+      <stop offset="1" stop-color="#1a5fb4" stop-opacity="0.35"/>
+    </linearGradient>
+    <linearGradient id="rail" x1="24" y1="0" x2="106" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1a5fb4"/>
+      <stop offset="0.5" stop-color="#1c71d8"/>
+      <stop offset="1" stop-color="#1a5fb4"/>
+    </linearGradient>
+  </defs>
+  <!-- roof, top face: lit from above, darker only where its ends round away -->
+  <path id="roof" d="M10 34 V30 A14 12 0 0 1 24 18 H104 A14 12 0 0 1 118 30 V34 Z" fill="url(#roof-lit)"/>
+  <path id="roof-shade" d="M10 34 V30 A14 12 0 0 1 24 18 H104 A14 12 0 0 1 118 30 V34 Z" fill="url(#roof-ends)"/>
+  <!-- the board's shadow falls straight down onto the roof, nearer to us than the board -->
+  <rect id="board-shadow" x="20" y="25" width="88" height="8" fill="url(#board-shadow)"/>
+  <!-- rack: feet on the roof, bars rising under the board -->
+  <rect id="rack-rear-foot" x="32" y="28" width="7" height="3" rx="1.5" fill="#77767b"/>
+  <rect id="rack-front-foot" x="89" y="28" width="7" height="3" rx="1.5" fill="#77767b"/>
+  <rect id="rack-rear" x="34" y="16" width="3" height="13" rx="1.5" fill="#9a9996"/>
+  <rect id="rack-front" x="91" y="16" width="3" height="13" rx="1.5" fill="#9a9996"/>
+  <!-- surfboard lying flat, nose forward: the rail is its thickness and sits in its own shadow -->
+  <path id="board-rail" d="M30 17 H88 C97 17 104 19.5 104 22 C104 24.5 97 27 88 27 H30 A5 5 0 0 1 30 17 Z" fill="url(#rail)"/>
+  <path id="board" d="M30 15 H88 C97 15 104 17.5 104 20 C104 22.5 97 25 88 25 H30 A5 5 0 0 1 30 15 Z" fill="url(#deck)"/>
+  <path id="board-ends" d="M30 15 H88 C97 15 104 17.5 104 20 C104 22.5 97 25 88 25 H30 A5 5 0 0 1 30 15 Z" fill="url(#deck-ends)"/>
+  <rect id="stringer" x="31" y="19.5" width="66" height="1" rx="0.5" fill="#ffffff" opacity="0.45"/>
+  <path id="board-glint" d="M33 16.8 H62" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.75"/>
+  <path id="board-glint-2" d="M66 16.8 H70" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <!-- side face: lower body, orange upper half, light along the shoulder -->
+  <path
+     id="body"
+     d="M10 34 H118 V96 A12 12 0 0 1 106 108 H22 A12 12 0 0 1 10 96 Z"
+     fill="#f6d32d" />
+  <rect
+     id="belt-light"
+     x="10"
+     y="72"
+     width="108"
+     height="2"
+     clip-path="url(#body-clip)"
+     fill="#f9f06b" />
+  <rect
+     id="upper"
+     x="10"
+     y="34"
+     width="108"
+     height="38"
+     clip-path="url(#body-clip)"
+     fill="#ffbe6f" />
+  <rect
+     id="shoulder"
+     x="10"
+     y="34"
+     width="108"
+     height="2"
+     clip-path="url(#body-clip)"
+     fill="#ffa348" />
+  <rect
+     id="belt"
+     x="10"
+     y="68"
+     width="108"
+     height="4"
+     clip-path="url(#body-clip)"
+     fill="#ffa348" />
+  <!-- windows -->
+  <rect
+     id="window-1"
+     x="18"
+     y="42"
+     width="22"
+     height="24"
+     rx="4"
+     fill="url(#glass)" />
+  <rect
+     id="window-2"
+     x="44"
+     y="42"
+     width="22"
+     height="24"
+     rx="4"
+     fill="url(#glass)" />
+  <path
+     d="M22 66 L30 42 H34 L26 66 Z M48 66 L56 42 H60 L52 66 Z"
+     fill="#ffffff"
+     opacity="0.35"
+     id="path5" />
+  <rect
+     id="window-door"
+     x="70"
+     y="42"
+     width="26"
+     height="24"
+     rx="4"
+     fill="url(#glass)" />
+  <path
+     id="windscreen"
+     d="M100 42 H108 A4 4 0 0 1 112 46 V62 A4 4 0 0 1 108 66 H100 Z"
+     fill="url(#glass)" />
+  <!-- passenger: shirt, head looking ahead, sunglasses, hair -->
+  <rect
+     id="shirt"
+     x="72"
+     y="58"
+     width="16"
+     height="8"
+     fill="#3584e4"
+     clip-path="url(#door-clip)" />
+  <circle
+     id="head"
+     cx="84"
+     cy="54"
+     r="8"
+     fill="#ffbe6f" />
+  <circle
+     id="nose"
+     cx="92"
+     cy="56"
+     r="2"
+     fill="#ffbe6f" />
+  <path
+     id="hair"
+     d="M76 54 A8 8 0 0 1 92 54 H88 A4 4 0 0 0 80 54 Z"
+     fill="#63452c" />
+  <rect
+     id="sunglasses"
+     x="85"
+     y="52"
+     width="9"
+     height="3"
+     rx="1.5"
+     fill="#241f31" />
+  <!-- the arm, resting on the sill and out into the wind -->
+  <rect
+     id="sleeve"
+     x="70"
+     y="62"
+     width="12"
+     height="12"
+     rx="4"
+     fill="#1a5fb4" />
+  <rect
+     id="forearm"
+     x="78"
+     y="64"
+     width="26"
+     height="7"
+     rx="3.5"
+     fill="#ffbe6f" />
+  <rect
+     x="80"
+     y="64"
+     width="22"
+     height="2"
+     rx="1"
+     fill="#ffd9a0"
+     id="rect5" />
+  <circle
+     id="hand"
+     cx="104"
+     cy="69"
+     r="4"
+     fill="#ffbe6f" />
+  <!-- details -->
+  <rect
+     id="door-seam"
+     x="66"
+     y="74"
+     width="2"
+     height="30"
+     fill="#000000"
+     opacity="0.18" />
+  <rect
+     id="door-handle"
+     x="72"
+     y="80"
+     width="8"
+     height="3"
+     rx="1.5"
+     fill="#deddda" />
+  <rect
+     id="tail-light"
+     x="10"
+     y="84"
+     width="4"
+     height="8"
+     rx="2"
+     fill="#e01b24" />
+  <circle
+     id="headlight-rim"
+     cx="114"
+     cy="86"
+     r="6"
+     fill="#deddda" />
+  <circle
+     id="headlight"
+     cx="114"
+     cy="86"
+     r="4"
+     fill="#f9f06b" />
+  <rect
+     id="bumper"
+     x="106"
+     y="96"
+     width="14"
+     height="4"
+     rx="2"
+     fill="#deddda" />
+  <!-- wheels -->
+  <circle
+     id="arch-rear"
+     cx="36"
+     cy="108"
+     r="15"
+     fill="#3d3846"
+     clip-path="url(#body-clip)" />
+  <circle
+     id="arch-front"
+     cx="92"
+     cy="108"
+     r="15"
+     fill="#3d3846"
+     clip-path="url(#body-clip)" />
+  <circle
+     id="tyre-rear"
+     cx="36"
+     cy="105"
+     r="11"
+     fill="#241f31" />
+  <circle
+     id="tyre-front"
+     cx="92"
+     cy="105"
+     r="11"
+     fill="#241f31" />
+  <circle
+     id="hub-rear"
+     cx="36"
+     cy="105"
+     r="6"
+     fill="#deddda" />
+  <circle
+     id="hub-front"
+     cx="92"
+     cy="105"
+     r="6"
+     fill="#deddda" />
+  <circle
+     cx="36"
+     cy="105"
+     r="2"
+     fill="#9a9996"
+     id="circle5" />
+  <circle
+     cx="92"
+     cy="105"
+     r="2"
+     fill="#9a9996"
+     id="circle6" />
+</svg>

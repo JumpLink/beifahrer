@@ -26,6 +26,7 @@
       <li xml:lang="de">Nur lokal: Die Brücke läuft auf deinem Rechner</li>
     </ul>
   </description>
+  <icon type="stock">eu.jumplink.beifahrer</icon>
   <url type="homepage">https://jumplink.eu/beifahrer/</url>
   <url type="vcs-browser">https://github.com/JumpLink/beifahrer</url>
   <url type="bugtracker">https://github.com/JumpLink/beifahrer/issues</url>
