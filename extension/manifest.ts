@@ -83,11 +83,9 @@ export const GECKO_ANDROID_STRICT_MIN_VERSION = '142.0';
  */
 export const TOGGLE_PAUSE_SHORTCUT = 'Alt+Shift+B';
 
-/** Toolbar and store icons, all derived from icons/sparkles.svg (scripts/icons.ts). */
+/** Toolbar and store icons, all derived from the app icon in data/icons/ (scripts/icons.ts). */
 export const ICON_SIZES = [16, 32, 48, 128] as const;
 
-/** Sizes drawn from icons/sparkles-small.svg, the fuller toolbar form. */
-export const isSmall = (size: number): boolean => size <= 32;
 export const ICON_VARIANTS = ['idle', 'active', 'paused', 'offline', 'wide', 'wide-active'] as const;
 export type IconVariant = (typeof ICON_VARIANTS)[number];
 

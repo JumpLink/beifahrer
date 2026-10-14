@@ -245,7 +245,7 @@ Primary Owner ([create a dev account](https://learn.microsoft.com/en-us/microsof
 | Extension name | Beifahrer | `_locales/*/messages.json` → `extName` |
 | Short description | Let an AI agent use this browser. You choose, site by site, what it may read and change. | `_locales/*/messages.json` → `extDescription`. Edge reads this field from the manifest, so changing it means a new package |
 | Description (per language) | the full description below, in `en-US` and `de-DE` | here; the English is the Chrome text above, the German a translation a person must check |
-| Extension logo (per language) | 1:1, 300×300 recommended, 128×128 minimum | the store rule is on [publish an extension](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension); the source artwork is `extension/icons/sparkles.svg`, rendered by `extension/scripts/icons.ts` |
+| Extension logo (per language) | 1:1, 300×300 recommended, 128×128 minimum | the store rule is on [publish an extension](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension); the source artwork is `data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg`, rendered by `extension/scripts/icons.ts` |
 | Screenshots (optional, up to 6) | 640×480 or 1280×800 | [publish an extension](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension) — see [screenshots.md](screenshots.md) |
 | Small promo tile (optional) | 440×280 | same page |
 | Large promo tile (optional) | 1400×560 | same page |

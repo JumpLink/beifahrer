@@ -1,13 +1,13 @@
 /**
  * What the toolbar button shows, from the extension's state. Pure and exhaustive: the person
  * must be able to tell at a glance whether an agent is in the browser right now, and whether it
- * is stopped. The icon is sparkles (the "AI" motif), drawn from one SVG (extension/icons/):
+ * is stopped. The icon is the Beifahrer bus, drawn from the app icon (data/icons/):
  *
  *   not connected        monochrome + red dot     no agent can reach this browser at all
  *   paused               monochrome + yellow dot   the person's own stop
  *   "all sites" granted  monochrome + blue dot     a temporary grant is live (ADR 0010)
- *   agent active         the sparkles in colour   a request running, and ACTIVE_MS after
- *   connected, idle      monochrome sparkles      nothing is happening
+ *   agent active         the bus in colour        a request running, and ACTIVE_MS after
+ *   connected, idle      monochrome bus            nothing is happening
  *
  * That order is `alarmOf` below, and it is the one the popup's own word and banner follow, so the
  * button and the popup never disagree about what matters most (ADR 0014).
@@ -28,7 +28,7 @@ export type Connection = 'unpaired' | 'connecting' | 'connected' | 'offline' | '
 export type ToolbarIcon = 'idle' | 'active' | 'paused' | 'offline' | 'wide' | 'wide-active';
 
 /**
- * The colour each look leads with: the dot for the four that carry one, the sparkles for the two
+ * The colour each look leads with: the dot for the four that carry one, the bus for the two
  * that do not. Adwaita's own palette (red 3, yellow 4, blue 3), because the toolbar button is the
  * one place with no page stylesheet to inherit a theme from. The build draws the dot with it
  * (extension/scripts/icons.ts) and the badge fallback paints the button with it

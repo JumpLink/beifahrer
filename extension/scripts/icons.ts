@@ -1,11 +1,12 @@
 /**
- * Render the toolbar icons from ONE source, icons/sparkles.svg: the variants are derived here as
- * SVG text, and rasterised to PNG for Chromium at every size the manifest names. On GJS through
- * GdkPixbuf, whose SVG loader is librsvg: the stack a GNOME desktop draws its icons with, so no
- * rasteriser is vendored here. Firefox gets the variant SVGs themselves (manifest.ts `iconPaths`).
+ * Render the toolbar icons from the app's own icon, data/icons/hicolor/: the colour bus
+ * (scalable/apps/eu.jumplink.beifahrer.svg) and its symbolic twin. The variants are derived here
+ * as SVG text and rasterised to PNG at every size the manifest names, for every browser. On GJS
+ * through GdkPixbuf, whose SVG loader is librsvg: the stack a GNOME desktop draws its icons with,
+ * so no rasteriser is vendored here.
  *
- *   idle      monochrome sparkles              connected, nothing running
- *   active    the sparkles in colour           an agent request running, and a few seconds after
+ *   idle      monochrome bus                   connected, nothing running
+ *   active    the bus in colour                an agent request running, and a few seconds after
  *   paused    monochrome + yellow dot          the person pressed Stop
  *   offline   monochrome + red dot             no bridge connection: no agent reaches this browser
  *   wide      monochrome + blue dot            "all sites" is granted for now (ADR 0010)
@@ -21,9 +22,9 @@ import { join } from 'node:path';
 
 import { LOOK_COLOUR, MONOCHROME } from '@beifahrer/core';
 
-import { ICON_SIZES, ICON_VARIANTS, isSmall, type IconVariant, type Target } from '../manifest.ts';
+import { ICON_SIZES, ICON_VARIANTS, type IconVariant, type Target } from '../manifest.ts';
 
-/** Whether the sparkles carry their colour, and whether the look leads with a dot. */
+/** Whether the bus carries its colour, and whether the look leads with a dot. */
 const LOOK: Record<IconVariant, { colour: boolean; dot: boolean }> = {
   idle: { colour: false, dot: false },
   active: { colour: true, dot: false },
@@ -34,33 +35,44 @@ const LOOK: Record<IconVariant, { colour: boolean; dot: boolean }> = {
   'wide-active': { colour: true, dot: true },
 };
 
-export function variantSvg(source: string, variant: IconVariant): string {
+/** The symbolic source draws everything in this one fill; the monochrome look swaps it. */
+const SYMBOLIC_INK = '#241f31';
+
+/**
+ * The app icons open with a prolog and a long design comment: GdkPixbuf sniffs the first bytes for
+ * `<svg` and gives up on the file otherwise, so the derived copy starts at the root element.
+ */
+const iconSource = (root: string, ...path: string[]): string => {
+  const svg = readFileSync(join(root, '..', 'data', 'icons', 'hicolor', ...path), 'utf8');
+  return svg.slice(svg.indexOf('<svg'));
+};
+
+export function variantSvg(colourSource: string, symbolicSource: string, variant: IconVariant): string {
   const { colour, dot } = LOOK[variant];
-  let svg = colour ? source : source.replace('fill="url(#colour)"', `fill="${MONOCHROME}"`);
-  if (svg === source && !colour)
-    throw new Error('icons/sparkles.svg: #sparkles lost its fill="url(#colour)"');
-  // A white ring keeps the dot apart from the sparkles at 16 px.
-  if (dot)
+  let svg = colour ? colourSource : symbolicSource.replaceAll(SYMBOLIC_INK, MONOCHROME);
+  if (!colour && svg === symbolicSource) throw new Error('the symbolic icon lost its fill ' + SYMBOLIC_INK);
+  // The dot sits at the bottom right in each source's own units (128 and 16), with a white ring
+  // to keep it apart from the bus at 16 px.
+  if (dot) {
+    const unit = colour ? 1 : 1 / 8;
     svg = svg.replace(
       '</svg>',
-      `  <circle cx="102" cy="102" r="24" fill="${LOOK_COLOUR[variant]}" stroke="#ffffff" stroke-width="6"/>\n</svg>`,
+      `  <circle cx="${102 * unit}" cy="${102 * unit}" r="${24 * unit}" fill="${LOOK_COLOUR[variant]}" stroke="#ffffff" stroke-width="${6 * unit}"/>\n</svg>`,
     );
+  }
   return svg;
 }
 
 /** Render every variant once into `stage`; `copyIcons` then places what each target needs. */
 export function renderIcons(root: string, stage: string): void {
-  const source = readFileSync(join(root, 'icons', 'sparkles.svg'), 'utf8');
-  // Toolbar sizes get their own, fuller form — see the comment in icons/sparkles-small.svg.
-  const small = readFileSync(join(root, 'icons', 'sparkles-small.svg'), 'utf8');
+  const colour = iconSource(root, 'scalable', 'apps', 'eu.jumplink.beifahrer.svg');
+  const symbolic = iconSource(root, 'symbolic', 'apps', 'eu.jumplink.beifahrer-symbolic.svg');
   mkdirSync(join(stage, 'icons'), { recursive: true });
   for (const variant of ICON_VARIANTS) {
     const svg = join(stage, 'icons', `${variant}.svg`);
-    const svgSmall = join(stage, 'icons', `${variant}-small.svg`);
-    writeFileSync(svg, variantSvg(source, variant));
-    writeFileSync(svgSmall, variantSvg(small, variant));
+    writeFileSync(svg, variantSvg(colour, symbolic, variant));
     for (const size of ICON_SIZES) {
-      const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(isSmall(size) ? svgSmall : svg, size, size);
+      const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(svg, size, size);
       pixbuf.savev(join(stage, 'icons', `${variant}-${size}.png`), 'png', [], []);
     }
   }

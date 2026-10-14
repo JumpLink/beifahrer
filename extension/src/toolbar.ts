@@ -1,5 +1,5 @@
 /**
- * The toolbar button as a status light: monochrome sparkles when connected and idle, coloured
+ * The toolbar button as a status light: monochrome bus when connected and idle, coloured
  * while an agent is at work, a yellow dot while paused, a red one without a bridge connection.
  * What to show is `toolbarLook` in core, in the ladder `alarmOf` there names; this file only
  * paints it, on whichever button API the browser has (`action` in MV3, `browserAction` in MV2).

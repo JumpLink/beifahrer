@@ -50,7 +50,7 @@ adw-preferences-group.empty .adw-preferences-group-listbox {
   gap: var(--spacing-s);
 }
 
-/* The hero: the toolbar's own sparkles, the name, one word of state. */
+/* The hero: the toolbar's own bus, the name, one word of state. */
 .hero {
   display: flex;
   align-items: center;
@@ -74,7 +74,7 @@ adw-preferences-group.empty .adw-preferences-group-listbox {
   transition: transform 0.3s ease;
 }
 
-/* While the agent works the sparkles breathe, the same signal the toolbar gives by colour. */
+/* While the agent works the bus breathes, the same signal the toolbar gives by colour. */
 .hero-icon.working {
   animation: sparkle 1.6s ease-in-out infinite;
 }

@@ -57,16 +57,16 @@ Firefox / Chromium
 
 ## Seeing it, and stopping it
 
-**The toolbar button tells you what is going on.** Its icon is a set of sparkles, and the rows are
+**The toolbar button tells you what is going on.** Its icon is the Beifahrer bus, and the rows are
 in the order they matter:
 
 | Icon | Means |
 |---|---|
 | grey + **red dot** | **no agent is connected**: not paired, or no bridge running. Nothing can reach the browser, so the extension does nothing |
 | grey + **yellow dot** | paused: the agent gets nothing |
-| grey + **blue dot** | *All sites* is on for now (the sparkles still turn coloured while the agent works) |
-| **coloured** sparkles | an agent is using this browser right now (and for 5 s after its last request) |
-| grey sparkles | connected to an agent, nothing happening |
+| grey + **blue dot** | *All sites* is on for now (the bus still turns coloured while the agent works) |
+| **coloured** bus | an agent is using this browser right now (and for 5 s after its last request) |
+| grey bus | connected to an agent, nothing happening |
 
 A missing connection outranks a pause: with no bridge there is nothing an agent could do anyway, and
 it is the one thing only you can fix ([ADR 0014](docs/adr/0014-not-connected-speaks-first.md)).

@@ -26,6 +26,8 @@ const PAGES = ['popup', 'options', 'confirm'];
 const WIDTH = { popup: 360, options: 800, confirm: 520 };
 /** The confirm window opens on the request an E2E build holds for it (e2e-seed.ts). */
 const HASH = { confirm: '#e2e-preview' };
+/** Chromium screenshots at this device scale (BEIFAHRER_E2E_SCALE=2 for the docs images). */
+const SHOT_SCALE = Number(process.env.BEIFAHRER_E2E_SCALE) || 1;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** What BEIFAHRER_DESKTOP_ACCENT=green (browsers.e2e.mjs) must paint, from adwaita-core's palette. */
 const ACCENT_BG = ADW_ACCENT_BG_COLORS.green;
@@ -273,7 +275,7 @@ async function screenshots(c, page, dir) {
     await c.send('Emulation.setDeviceMetricsOverride', {
       width: WIDTH[page],
       height,
-      deviceScaleFactor: 1,
+      deviceScaleFactor: SHOT_SCALE,
       mobile: false,
     });
     await sleep(200);

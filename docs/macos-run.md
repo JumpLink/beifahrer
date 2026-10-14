@@ -59,7 +59,7 @@ brew install gjs librsvg gobject-introspection
 | Package | Why Beifahrer needs it |
 |---|---|
 | `gjs` | The app runs on GJS, and the extension is **bundled on GJS** too ([ADR 0002](adr/0002-build-on-gjs-not-wxt.md)). The e2e spawns `gjsify run app/dist/beifahrer.gjs.mjs`. |
-| `librsvg` | `extension/scripts/icons.ts` renders the sparkles icons from `icons/sparkles.svg` — same rasterizer `ship` uses. |
+| `librsvg` | `extension/scripts/icons.ts` renders the toolbar icons from the app icon in `data/icons/` — same rasterizer `ship` uses. |
 | `gobject-introspection` | The GJS typelibs `Gi` imports at runtime. |
 
 The Homebrew `gjs` formula is 1.88.x, which pairs with spidermonkey 140.x. That pairing is what
