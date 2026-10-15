@@ -44,7 +44,7 @@
         "name": "Pascal Garber",
         "email": "pascal@jumplink.eu"
       },
-      "summary": "Browser bridge for AI agents, under a per-site policy you control",
+      "summary": "Let AI use your browser",
       "license": {
         "project": "AGPL-3.0-or-later"
       },

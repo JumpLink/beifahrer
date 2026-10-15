@@ -5,8 +5,8 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>AGPL-3.0-or-later</project_license>
   <name>Beifahrer</name>
-  <summary>Browser bridge for AI agents, under a per-site policy you control</summary>
-  <summary xml:lang="de">Browser-Brücke für KI-Agenten, mit einer Richtlinie pro Website</summary>
+  <summary>Let AI use your browser</summary>
+  <summary xml:lang="de">KI nutzt deinen Browser</summary>
   <developer id="eu.jumplink">
     <name>Pascal Garber</name>
   </developer>
@@ -71,6 +71,14 @@
         </ul>
       </description>
     </release>
-    <release version="0.1.5" date="2026-10-12"/>
+    <release version="0.1.5" date="2026-10-12">
+      <description>
+        <ul>
+          <li>Scripts get their own switch in the per-site policy, and you can stop script prompts</li>
+          <li>New beifahrer doctor command to check the setup</li>
+          <li>Desktop app: Browser and Agent pages with the pairing token and connect snippet</li>
+        </ul>
+      </description>
+    </release>
   </releases>
 </component>
