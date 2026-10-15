@@ -3,6 +3,7 @@ import { describe, expect, it } from '@gjsify/unit';
 import {
   downloadFilename,
   judgeCapture,
+  judgeDownloadReach,
   judgeSave,
   refusedOpenMessage,
   registrableDomain,
@@ -211,6 +212,39 @@ export default async () => {
       expect(downloadFilename(null, url)).toBe('12.pdf');
       expect(downloadFilename(null, 'https://bank.example/portal/')).toBe('document');
       expect(downloadFilename('attachment', 'https://bank.example/')).toBe('document');
+    });
+  });
+  await describe('judgeDownloadReach', async () => {
+    const tab = 'https://www.site.example/portal/downloads';
+    const none = () => false;
+
+    await it('admits a sister origin of the same site', async () => {
+      const r = judgeDownloadReach('https://download.site.example/a.zip', tab, none);
+      expect(r.ok && r.kind).toBe('sister');
+    });
+    await it('admits an origin with its own rule, nothing else', async () => {
+      const only = (o: string) => o === 'https://files.other.example';
+      const r = judgeDownloadReach('https://files.other.example/a.zip', tab, only);
+      expect(r.ok && r.kind).toBe('explicit');
+      expect(judgeDownloadReach('https://evil.example/a.zip', tab, only).ok).toBe(false);
+    });
+    await it('refuses a stranger when no rule names it (fail closed)', async () => {
+      expect(judgeDownloadReach('https://evil.example/a.zip', tab, none).ok).toBe(false);
+    });
+    await it('refuses http and other ports even for an explicit rule', async () => {
+      const all = () => true;
+      expect(judgeDownloadReach('http://files.other.example/a', tab, all).ok).toBe(false);
+      expect(judgeDownloadReach('https://files.other.example:8443/a', tab, all).ok).toBe(false);
+    });
+    await it('refuses a sister over http, a blob of another origin and non-web schemes', async () => {
+      const all = () => true;
+      expect(judgeDownloadReach('http://download.site.example/a', tab, all).ok).toBe(false);
+      expect(judgeDownloadReach('blob:https://evil.example/1', tab, all).ok).toBe(false);
+      expect(judgeDownloadReach('file:///etc/passwd', tab, all).ok).toBe(false);
+      expect(judgeDownloadReach('javascript:alert(1)', tab, all).ok).toBe(false);
+    });
+    await it('refuses a look-alike registrable domain', async () => {
+      expect(judgeDownloadReach('https://download.site.example.evil.com/a', tab, none).ok).toBe(false);
     });
   });
 };

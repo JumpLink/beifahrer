@@ -1374,7 +1374,20 @@ async function download(
 
   // Where it may reach is decided in core, so the bound is testable without a browser.
   const resolved = resolveDownloadTarget(target, location.href);
-  if (!resolved.ok) return { ok: false, code: 'invalid', message: resolved.message };
+  if (!resolved.ok) {
+    // Another origin is not this document's call: say where the link points and let the extension
+    // judge it (policy, sister origin, the person's rule). Anything else stays refused here.
+    if (resolved.reason === 'cross-origin' && target) {
+      try {
+        const there = new URL(target, location.href);
+        if (there.protocol === 'https:' || there.protocol === 'http:')
+          return { ok: true, data: { elsewhere: there.href } };
+      } catch {
+        // Falls through to the refusal below.
+      }
+    }
+    return { ok: false, code: 'invalid', message: resolved.message };
+  }
 
   let res: Response;
   try {

@@ -27,6 +27,7 @@ import {
   expectationOf,
   isMethod,
   judgeCapture,
+  judgeDownloadReach,
   refusedOpenMessage,
   levelFor,
   parseNetwork,
@@ -64,6 +65,7 @@ import { askPerson, type ConfirmAnswer } from './confirm.ts';
 import { fail, MethodError } from './errors.ts';
 import { hideIndicator } from './indicator.ts';
 import { correctFrame, frameByIndex, framesOf, isWebUrl, type FrameRow } from './frames.ts';
+import { fetchDocument } from './fetch-document.ts';
 import { loadGrants, settle } from './grants.ts';
 import { networkAvailable, rowsOf } from './network.ts';
 import { savesAvailable, watchSaves, type Save } from './saves.ts';
@@ -878,13 +880,27 @@ const handlers: { [M in Method]: Handler<M> } = {
     const route = ref
       ? await routeFor('page.download', tabId, ref, policy, ctx)
       : { frame: 0, index: 0, ref: undefined as string | undefined, origin: '', confirm: false };
-    return (await page(
+    const doc = await page(
       tabId,
       ctx,
       { beifahrer: 'download', ref: route.ref, url, maxBytes },
       route.frame,
       route.index,
-    )) as unknown as Result<'page.download'>;
+    );
+    if (typeof doc.elsewhere !== 'string') return doc as unknown as Result<'page.download'>;
+
+    // The link leaves the document's origin. Two ways on (`judgeDownloadReach`), and the level on the
+    // TARGET's own origin is asked before a byte is fetched: the tab's permission does not cover it.
+    const from = route.origin || tab.url || '';
+    const reach = judgeDownloadReach(doc.elsewhere, from, (origin) => {
+      const rule = policy.origins[origin];
+      return !!rule && atLeast(rule.level, 'read');
+    });
+    if (!reach.ok) return fail('invalid', reach.message);
+    await gate('page.download', reach.url, policy, ctx);
+    const got = await fetchDocument(reach.url, maxBytes);
+    if ('error' in got) return fail(got.error, got.message);
+    return got as Result<'page.download'>;
   },
 
   /**

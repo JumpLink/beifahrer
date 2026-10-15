@@ -179,6 +179,48 @@ export function judgeCapture(captured: string, tabUrl: string): CapturedTarget {
   return { ok: true, kind: 'sister', url: url.href, origin: url.origin };
 }
 
+export type DownloadReach =
+  | { ok: true; kind: 'same-origin' | 'sister' | 'explicit'; url: string; origin: string }
+  | { ok: false; message: string };
+
+/**
+ * Whether `page.download` may fetch `target` although it is not on the tab's own origin.
+ *
+ * Two ways in, nothing else: a sister origin (`judgeCapture`: https, default port, same registrable
+ * domain — `www.elster.de` → `download.elster.de`) or an origin the person gave an EXPLICIT rule at
+ * `read` or above (`isExplicit`, the caller's view of the stored policy: never the wildcard, never a
+ * temporary grant). The caller still applies the per-site level and the browser's host permission to
+ * the target's origin before a byte is fetched; this only says whether the two may be related.
+ * Anything not https, a blob of another origin, and every other site is refused.
+ */
+export function judgeDownloadReach(
+  target: string,
+  fromUrl: string,
+  isExplicit: (origin: string) => boolean,
+): DownloadReach {
+  const verdict = judgeCapture(target, fromUrl);
+  if (verdict.ok) {
+    return verdict.kind === 'blob'
+      ? { ok: false, message: 'a blob is not a link to another site' }
+      : { ok: true, kind: verdict.kind, url: verdict.url, origin: verdict.origin };
+  }
+  let url: URL;
+  try {
+    url = new URL(target);
+  } catch {
+    return { ok: false, message: verdict.message };
+  }
+  if (url.protocol === 'https:' && url.port === '' && isExplicit(url.origin)) {
+    return { ok: true, kind: 'explicit', url: url.href, origin: url.origin };
+  }
+  return {
+    ok: false,
+    message:
+      `${url.origin} is not the tab's site and has no rule of its own — the person can allow it ` +
+      `(level Read) in Beifahrer, or open the link in the tab first`,
+  };
+}
+
 /**
  * Whether a download the BROWSER reports may be taken as the capture's document (ADR 0019).
  *
