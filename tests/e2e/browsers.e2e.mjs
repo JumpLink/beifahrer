@@ -1247,7 +1247,7 @@ async function savesScenario(browser) {
       'complete, with path and size',
       natDoc?.download?.state === 'complete' &&
         natDoc.download.bytes === 3000 &&
-        /file\.bin$/.test(natDoc.download.path),
+        natDoc.download.path.endsWith('file.bin'),
       nat.text.slice(0, 300),
     );
     check(name, 'and the file is where it says', files().includes('file.bin'), files().join(', '));
