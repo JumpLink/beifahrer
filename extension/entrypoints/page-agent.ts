@@ -1374,7 +1374,20 @@ async function download(
 
   // Where it may reach is decided in core, so the bound is testable without a browser.
   const resolved = resolveDownloadTarget(target, location.href);
-  if (!resolved.ok) return { ok: false, code: 'invalid', message: resolved.message };
+  if (!resolved.ok) {
+    // Another origin is not this document's call: say where the link points and let the extension
+    // judge it (policy, sister origin, the person's rule). Anything else stays refused here.
+    if (resolved.reason === 'cross-origin' && target) {
+      try {
+        const there = new URL(target, location.href);
+        if (there.protocol === 'https:' || there.protocol === 'http:')
+          return { ok: true, data: { elsewhere: there.href } };
+      } catch {
+        // Falls through to the refusal below.
+      }
+    }
+    return { ok: false, code: 'invalid', message: resolved.message };
+  }
 
   let res: Response;
   try {
@@ -1627,10 +1640,13 @@ function armCapture(ref: string): PageResponse {
     if (!a || state.href) return;
     const own = a === el || a.contains(el) || el.contains(a);
     const download = a.hasAttribute('download') || a.href.startsWith('blob:');
-    if (own && !download) return;
+    // The clicked link itself: a file link the browser would save on its own, a second copy of what
+    // capture is about to fetch. A link that opens a new tab stays the tab path's business.
+    if (own && !download && a.target === '_blank') return;
     const target = resolveDownloadTarget(a.href, location.href);
-    if (!target.ok) return;
-    state.href = target.url;
+    if (target.ok) state.href = target.url;
+    else if (target.reason === 'cross-origin' && /^https?:/.test(a.href)) state.href = a.href;
+    else return;
     ev.preventDefault();
   };
   document.addEventListener('click', onClick, true);

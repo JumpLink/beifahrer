@@ -27,6 +27,7 @@ import {
   expectationOf,
   isMethod,
   judgeCapture,
+  judgeDownloadReach,
   refusedOpenMessage,
   levelFor,
   parseNetwork,
@@ -64,6 +65,7 @@ import { askPerson, type ConfirmAnswer } from './confirm.ts';
 import { fail, MethodError } from './errors.ts';
 import { hideIndicator } from './indicator.ts';
 import { correctFrame, frameByIndex, framesOf, isWebUrl, type FrameRow } from './frames.ts';
+import { fetchDocument } from './fetch-document.ts';
 import { loadGrants, settle } from './grants.ts';
 import { networkAvailable, rowsOf } from './network.ts';
 import { savesAvailable, watchSaves, type Save } from './saves.ts';
@@ -789,6 +791,28 @@ async function takeSave(
   return { ...doc, via: 'save' } as unknown as Result<'page.capture'>;
 }
 
+/**
+ * A link that leaves the document's origin. Two ways on (`judgeDownloadReach`), and the level on the
+ * TARGET's own origin is asked before a byte is fetched: the tab's permission does not cover it.
+ */
+async function fetchElsewhere(
+  target: string,
+  from: string,
+  maxBytes: number,
+  policy: Policy,
+  ctx: CallContext,
+): Promise<Record<string, unknown>> {
+  const reach = judgeDownloadReach(target, from, (origin) => {
+    const rule = policy.origins[origin];
+    return !!rule && atLeast(rule.level, 'read');
+  });
+  if (!reach.ok) return fail('invalid', reach.message);
+  await gate('page.download', reach.url, policy, ctx);
+  const got = await fetchDocument(reach.url, maxBytes);
+  if ('error' in got) return fail(got.error, got.message);
+  return got as unknown as Record<string, unknown>;
+}
+
 const handlers: { [M in Method]: Handler<M> } = {
   async 'tabs.list'(_params, policy, ctx) {
     const [tabs, focused] = await Promise.all([browser.tabs.query({}), focusedWindowId()]);
@@ -878,13 +902,21 @@ const handlers: { [M in Method]: Handler<M> } = {
     const route = ref
       ? await routeFor('page.download', tabId, ref, policy, ctx)
       : { frame: 0, index: 0, ref: undefined as string | undefined, origin: '', confirm: false };
-    return (await page(
+    const doc = await page(
       tabId,
       ctx,
       { beifahrer: 'download', ref: route.ref, url, maxBytes },
       route.frame,
       route.index,
-    )) as unknown as Result<'page.download'>;
+    );
+    if (typeof doc.elsewhere !== 'string') return doc as unknown as Result<'page.download'>;
+    return (await fetchElsewhere(
+      doc.elsewhere,
+      route.origin || tab.url || '',
+      maxBytes,
+      policy,
+      ctx,
+    )) as Result<'page.download'>;
   },
 
   /**
@@ -954,7 +986,9 @@ const handlers: { [M in Method]: Handler<M> } = {
       while (Date.now() < deadline) {
         const caught = await page(tabId, ctx, { beifahrer: 'captured', waitMs: 400 });
         if (typeof caught.href === 'string') {
-          const doc = await page(tabId, ctx, { beifahrer: 'download', url: caught.href, maxBytes });
+          let doc = await page(tabId, ctx, { beifahrer: 'download', url: caught.href, maxBytes });
+          if (typeof doc.elsewhere === 'string')
+            doc = await fetchElsewhere(doc.elsewhere, tab.url, maxBytes, policy, ctx);
           return { ...doc, via: 'link' } as unknown as Result<'page.capture'>;
         }
         const save = saves?.take();
