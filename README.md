@@ -503,9 +503,21 @@ goes in (`beifahrer config <agent>` prints the same). Its Browser page shows the
 reveal it), and warns when a second token file with a different token exists. Both it and the
 command also say when something listens on a port of the range that no running session announced
 (an older Beifahrer, a hung bridge, another program), by a plain TCP connect that sends nothing. It only looks: it cannot pause the agent or change what it may do, and it knows nothing of a pause
-(that is the toolbar button's to show). Not packaged yet; from a checkout:
+(that is the toolbar button's to show).
+
+Packaged as its OWN set of artifacts, named `beifahrer-desktop-*`, next to the bridge's
+`beifahrer-*`: `gjsify ship` takes one `kind` per project ([ADR 0017](docs/adr/0017-native-desktop-app.md)
+§ 6) and these two differ in it, so `desktop/` ships `kind: "app"` with the plain app ID
+`eu.jumplink.beifahrer` while `app/` stays the `cli` under `eu.jumplink.beifahrer.Cli`. Both install
+side by side, and both are on every release — see [Releasing](#releasing). The window is started by
+double-click or from the menu: the Linux packages register a desktop entry, macOS gets a
+`Beifahrer.app`, Windows a `Beifahrer\beifahrer-desktop.exe`. It needs the bridge to have something
+to show; on its own it reports an empty registry.
+
+From a checkout instead:
 `gjsify workspace beifahrer-desktop build && gjsify workspace beifahrer-desktop start`.
-Run so far on macOS arm64 only.
+Run so far on Linux and macOS arm64; the Windows and macOS packages are assembled on Linux and have
+not been launched on their own OS.
 
 ## Releasing
 
@@ -515,8 +527,13 @@ tag is not `vX.Y.Z` of exactly that. Then `git tag vX.Y.Z && git push --tags` ru
 passes, builds and attaches every installable format to the tag's GitHub release:
 
 - browser extension zips (Firefox + Chromium)
-- the CLI: `.deb`, `.rpm`, `.flatpak`, a macOS `.app.zip` (arm64 + x64), a Windows program
-  directory `.zip` and `.msi` (x64)
+- the bridge (`beifahrer-*`): `.deb`, `.rpm`, `.flatpak`, a macOS `.app.zip` (arm64 + x64), a
+  Windows program directory `.zip` and `.msi` (x64)
+- the desktop window (`beifahrer-desktop-*`): the same six formats again, from `desktop/`
+
+The macOS and Windows packages of the window carry their own node runtime and GTK closure, so they
+are ~220 MB where the bridge's are a few hundred kilobytes; the Linux ones stay small because the
+GJS and GTK they need are the system's.
 
 All of it unsigned, which is a legitimate deliverable rather than a placeholder (gjsify ADR 0024
 § A13) — see the comment above the "Attach everything to the release" step in

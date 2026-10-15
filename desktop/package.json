@@ -24,6 +24,73 @@
     "test": "gjsify test"
   },
   "gjsify": {
+    "ship": {
+      "appId": "eu.jumplink.beifahrer",
+      "binaryName": "beifahrer-desktop",
+      "kind": "app",
+      "name": "Beifahrer",
+      "channel": "web",
+      "bundle": {
+        "linux": "dist/beifahrer-desktop.gjs.mjs",
+        "darwin": "dist/beifahrer-desktop.node.mjs",
+        "win32": "dist/beifahrer-desktop.node.mjs"
+      },
+      "app": {
+        "darwin": "node",
+        "win32": "node"
+      },
+      "icon": "../data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg",
+      "developer": {
+        "id": "eu.jumplink",
+        "name": "Pascal Garber",
+        "email": "pascal@jumplink.eu"
+      },
+      "summary": "Browser bridge for AI agents, under a per-site policy you control",
+      "description": [
+        {
+          "p": "Beifahrer lets an AI agent work in your own browser, with your own sessions and the tab you are looking at, instead of in a separate automated one."
+        },
+        {
+          "p": "This window shows which agent sessions run and which browsers hang on them, the snippet that registers Beifahrer with your coding agent, and the pairing token to paste into each browser."
+        },
+        {
+          "p": "It only looks. Every site is covered by a policy you set in the browser, and the window can neither change it nor pause the agent."
+        }
+      ],
+      "categories": [
+        "Development",
+        "Utility"
+      ],
+      "keywords": [
+        "Browser",
+        "AI",
+        "MCP",
+        "Agent",
+        "Automation"
+      ],
+      "branding": {
+        "accentLight": "#d9c2f0",
+        "accentDark": "#613583"
+      },
+      "contentRating": "oars-1.1",
+      "license": {
+        "project": "AGPL-3.0-or-later",
+        "file": "../LICENSE"
+      },
+      "homepageUrl": "https://jumplink.eu/beifahrer/",
+      "bugtrackerUrl": "https://github.com/JumpLink/beifahrer/issues",
+      "vcsBrowserUrl": "https://github.com/JumpLink/beifahrer",
+      "flatpak": {
+        "finishArgs": [
+          "--share=ipc",
+          "--socket=wayland",
+          "--socket=fallback-x11",
+          "--device=dri",
+          "--filesystem=xdg-config/beifahrer:ro",
+          "--filesystem=xdg-run/beifahrer:ro"
+        ]
+      }
+    },
     "test": {
       "entry": "tests/test.mts",
       "outdir": "dist-test",
@@ -32,6 +99,14 @@
         "node"
       ]
     }
+  },
+  "optionalDependencies": {
+    "@gjsify/gtk-runtime-darwin-arm64": "0.63.0",
+    "@gjsify/gtk-runtime-darwin-x64": "0.63.0",
+    "@gjsify/gtk-runtime-win32-x64": "0.63.0",
+    "@gjsify/node-runtime-darwin-arm64": "0.63.0",
+    "@gjsify/node-runtime-darwin-x64": "0.63.0",
+    "@gjsify/node-runtime-win32-x64": "0.63.0"
   },
   "dependencies": {
     "@beifahrer/core": "*",
