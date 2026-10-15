@@ -1,26 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 Achievement draft "supporter" — beifahrer.
-Shared base shape across all three apps: a 10-lobe scalloped seal (union of ten discs, so
-the rim waves instead of showing cog teeth), an 8 px front profile like the app icons, and
-a recessed round field. Only the motif is app-specific. No text, no raster, no filters.
+The object is a ticket with a stub; only the motif changes per achievement. Shared frame across all
+three apps: 192 x 96 (2:1), 2 px grid, drawn for raster heights 48 and 96 logical px, with a
+locked state that keeps the geometry as a muted silhouette. Title and description come from
+gettext and are drawn next to the artwork, never inside it.
+No text, no raster, no filters, no baked shadows.
 -->
-<svg width="128" height="128" viewBox="0 0 128 128" version="1.1"
+<svg width="192" height="96" viewBox="0 0 192 96" version="1.1"
      xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="rim" x1="0" y1="8" x2="0" y2="116" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#a252bb"/><stop offset="1" stop-color="#9141ac"/>
-    </linearGradient>
-    <linearGradient id="field" x1="0" y1="26" x2="0" y2="90" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ebdcf8"/><stop offset="1" stop-color="#d9c2f0"/>
-    </linearGradient>
+    <linearGradient id="body" x1="0" y1="10" x2="0" y2="86" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff8d8"/><stop offset="1" stop-color="#f5c211"/></linearGradient>
+    <linearGradient id="field" x1="0" y1="18" x2="0" y2="78" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fffdf2"/><stop offset="1" stop-color="#f9e9b8"/></linearGradient>
+    <linearGradient id="holo" x1="0" y1="96" x2="192" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#99c1f0"/><stop offset="0.3" stop-color="#dc8add"/><stop offset="0.6" stop-color="#f9f06b"/><stop offset="1" stop-color="#8ff0a4"/></linearGradient>
+    <clipPath id="ticket-clip"><path d="M14 10 H178 A6 6 0 0 1 184 16 V80 A6 6 0 0 1 178 86 H14 A6 6 0 0 1 8 80 V16 A6 6 0 0 1 14 10 Z M154 74 A7 7 0 0 0 168 74 A7 7 0 0 0 154 74 Z" clip-rule="evenodd"/></clipPath>
   </defs>
-  <path id="seal-profile" d="M103.35 53.21 A13 13 0 0 1 103.35 78.79 A13 13 0 0 1 88.32 99.47 A13 13 0 0 1 64.00 107.38 A13 13 0 0 1 39.68 99.47 A13 13 0 0 1 24.65 78.79 A13 13 0 0 1 24.65 53.21 A13 13 0 0 1 39.68 32.53 A13 13 0 0 1 64.00 24.62 A13 13 0 0 1 88.32 32.53 A13 13 0 0 1 103.35 53.21 Z" fill="#613583"/>
-  <path id="seal" d="M103.35 45.21 A13 13 0 0 1 103.35 70.79 A13 13 0 0 1 88.32 91.47 A13 13 0 0 1 64.00 99.38 A13 13 0 0 1 39.68 91.47 A13 13 0 0 1 24.65 70.79 A13 13 0 0 1 24.65 45.21 A13 13 0 0 1 39.68 24.53 A13 13 0 0 1 64.00 16.62 A13 13 0 0 1 88.32 24.53 A13 13 0 0 1 103.35 45.21 Z" fill="url(#rim)"/>
-  <circle id="field-bezel" cx="64" cy="58" r="34" fill="#613583"/>
-  <circle id="field" cx="64" cy="58" r="32" fill="url(#field)"/>
-  <g id="motif" transform="translate(0,-2)">
-  <path id="heart" d="M64 82 C52 72 38 62 38 50 C38 42 44 38 51 38 C57 38 62 42 64 46
-        C66 42 71 38 77 38 C84 38 90 42 90 50 C90 62 76 72 64 82 Z" fill="#613583"/>
-  </g>
+  <path id="ticket" d="M14 10 H178 A6 6 0 0 1 184 16 V80 A6 6 0 0 1 178 86 H14 A6 6 0 0 1 8 80 V16 A6 6 0 0 1 14 10 Z M154 74 A7 7 0 0 0 168 74 A7 7 0 0 0 154 74 Z" fill="url(#body)" fill-rule="evenodd" stroke="#63452c" stroke-width="4"/>
+  <g clip-path="url(#ticket-clip)"><path id="holo-band" d="M80 86 L116 10 H134 L98 86 Z" fill="url(#holo)"/></g>
+  <path id="road" d="M94 84 L118 84 L128 20 L120 20 Z" fill="#fcefa8" stroke="#63452c" stroke-width="3" stroke-linejoin="round"/>
+  <path id="road-markings" d="M106 80 L123 26" fill="none" stroke="#fffdf2" stroke-width="4" stroke-linecap="round" stroke-dasharray="6 8"/>
+  <path id="perforation" d="M136 16 V80" stroke="#63452c" stroke-width="4" stroke-dasharray="8 8" stroke-linecap="round"/>
+  <circle id="punch-field" cx="56" cy="48" r="32" fill="url(#field)" stroke="#63452c" stroke-width="5"/>
+  <g id="motif" transform="translate(56,48) scale(1.15)"><path d="M0 18 C-10 9 -20 1 -20 -8 C-20 -14 -15 -18 -9 -18 C-4 -18 -1 -15 0 -12 C1 -15 4 -18 9 -18 C15 -18 20 -14 20 -8 C20 1 10 9 0 18 Z" fill="#63452c"/></g>
+  <circle id="wheel" cx="161" cy="38" r="16" fill="none" stroke="#63452c" stroke-width="5"/>
+  <path id="spoke-1" d="M161 38 L147 38" stroke="#63452c" stroke-width="5" stroke-linecap="round"/><path id="spoke-2" d="M161 38 L175 38" stroke="#63452c" stroke-width="5" stroke-linecap="round"/><path id="spoke-3" d="M161 38 L161 52" stroke="#63452c" stroke-width="5" stroke-linecap="round"/>
+  <circle id="wheel-hub" cx="161" cy="38" r="4" fill="#63452c"/>
+  <path d="M28 11 Q29.5 16.5 35 18 Q29.5 19.5 28 25 Q26.5 19.5 21 18 Q26.5 16.5 28 11 Z" fill="#fffdf2"/>
+  <path d="M116 76 Q117.3 80.7 122 82 Q117.3 83.3 116 88 Q114.7 83.3 110 82 Q114.7 80.7 116 76 Z" fill="#fffdf2"/>
 </svg>
