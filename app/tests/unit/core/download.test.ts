@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@gjsify/unit';
 
 import {
+  describeDownload,
   downloadFilename,
   judgeCapture,
   judgeDownloadReach,
@@ -245,6 +246,32 @@ export default async () => {
     });
     await it('refuses a look-alike registrable domain', async () => {
       expect(judgeDownloadReach('https://download.site.example.evil.com/a', tab, none).ok).toBe(false);
+    });
+  });
+  // Issues #126 and #127: what the agent is told about a file the browser saved itself.
+  await describe('describeDownload', async () => {
+    await it('reports a finished file with its path and size', async () => {
+      const r = describeDownload(
+        { state: 'complete', filename: '/d/file.bin', fileSize: 3000, mime: 'a/b' },
+        false,
+      );
+      expect(r.state).toBe('complete');
+      expect(r.path).toBe('/d/file.bin');
+      expect(r.bytes).toBe(3000);
+    });
+    await it('names the reason of an interrupted one', async () => {
+      const r = describeDownload({ state: 'interrupted', error: 'USER_CANCELED' }, false);
+      expect(r.state).toBe('interrupted');
+      expect(r.reason ?? '').toMatch(/where to save/);
+    });
+    await it('calls a nameless item still running at the end the save dialog', async () => {
+      const r = describeDownload({ state: 'in_progress', filename: '' }, true);
+      expect(r.state).toBe('dialog');
+      expect(r.reason ?? '').toMatch(/asking the person/);
+    });
+    await it('calls a named running item a timeout, and no item a timeout too', async () => {
+      expect(describeDownload({ state: 'in_progress', filename: '/d/x' }, true).state).toBe('timeout');
+      expect(describeDownload(undefined, true).state).toBe('timeout');
     });
   });
 };

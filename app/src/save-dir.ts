@@ -124,6 +124,8 @@ export function captureSink(
     );
   const dir = targetDir(root, requested);
   return (doc) => {
+    // The browser wrote this one itself: there are no bytes here to write, only its outcome.
+    if (doc.via === 'download') return doc as unknown as SavedFile;
     const bytes = Buffer.from(doc.base64, 'base64');
     const wanted = safeFilename(doc.filename);
     const ext = extname(wanted);

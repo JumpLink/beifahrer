@@ -1237,6 +1237,20 @@ async function savesScenario(browser) {
       String(FILE_HITS.count - before),
     );
     check(name, 'and no browser copy left behind', files().length === 1, files().join(', '));
+
+    // Issue #126: a file the browser saves by itself comes back as its outcome, not as bytes.
+    const nat = await capture('native');
+    const natDoc = nat.error ? null : JSON.parse(nat.text);
+    check(name, 'a native save answers via: "download"', natDoc?.via === 'download', nat.text.slice(0, 300));
+    check(
+      name,
+      'complete, with path and size',
+      natDoc?.download?.state === 'complete' &&
+        natDoc.download.bytes === 3000 &&
+        /file\.bin$/.test(natDoc.download.path),
+      nat.text.slice(0, 300),
+    );
+    check(name, 'and the file is where it says', files().includes('file.bin'), files().join(', '));
   } finally {
     await a.client.close().catch(() => undefined);
     await stopBrowser(proc, browser === 'firefox');
@@ -3341,6 +3355,8 @@ const SAVES_FIXTURE = (variant) => `<!doctype html><html><head><title>Saves</tit
 <button id="save">Save report</button>
 <script>
   document.getElementById('save').addEventListener('click', () => {
+    // A save the browser makes by itself: a navigation to an attachment, no anchor and no blob (#126).
+    if ('${variant}' === 'native') { location.href = '/file.bin'; return; }
     const blob = new Blob(['%PDF-1.4 e2e ' + 'x'.repeat(2000)], { type: 'application/pdf' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -3359,7 +3375,9 @@ const page = (req) =>
   req.url?.startsWith('/link')
     ? LINK_FIXTURE
     : req.url?.startsWith('/saves')
-      ? SAVES_FIXTURE(req.url.includes('v=revoke') ? 'revoke' : 'keep')
+      ? SAVES_FIXTURE(
+          req.url.includes('v=revoke') ? 'revoke' : req.url.includes('v=native') ? 'native' : 'keep',
+        )
       : req.url?.startsWith('/elsewhere')
         ? ELSEWHERE_FIXTURE
         : req.url?.startsWith('/openproject')

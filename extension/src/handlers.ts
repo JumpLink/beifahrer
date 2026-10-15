@@ -26,6 +26,7 @@ import {
   evaluateRequestOf,
   expectationOf,
   isMethod,
+  type DownloadOutcome,
   judgeCapture,
   judgeDownloadReach,
   refusedOpenMessage,
@@ -792,6 +793,29 @@ async function takeSave(
 }
 
 /**
+ * A file the browser saved by itself (issue #126): no bytes to hand over, so the answer is what
+ * became of the download. Waiting for its end is bounded by `downloadTimeoutMs`; a browser that asks
+ * where to save shows up as `dialog` or `interrupted` with the reason (issue #127).
+ */
+async function reportNative(
+  save: Save,
+  saves: { finish(save: Save, waitMs: number): Promise<DownloadOutcome> },
+  waitMs: number,
+): Promise<Result<'page.capture'>> {
+  const outcome = await saves.finish(save, waitMs);
+  const name = outcome.path.split(/[\\/]/).pop() ?? '';
+  return {
+    url: save.url,
+    filename: name,
+    mime: outcome.mime,
+    size: outcome.bytes,
+    base64: '',
+    via: 'download',
+    download: outcome,
+  };
+}
+
+/**
  * A link that leaves the document's origin. Two ways on (`judgeDownloadReach`), and the level on the
  * TARGET's own origin is asked before a byte is fetched: the tab's permission does not cover it.
  */
@@ -970,6 +994,7 @@ const handlers: { [M in Method]: Handler<M> } = {
     const tab = await getTab(tabId);
     const maxBytes = Math.min(Math.max(Number(raw.maxBytes) || 10_000_000, 1_000), 25_000_000);
     const timeoutMs = Math.min(Math.max(Number(raw.timeoutMs) || 15_000, 1_000), 60_000);
+    const downloadTimeoutMs = Math.min(Math.max(Number(raw.downloadTimeoutMs) || 30_000, 1_000), 120_000);
     const route = await routeFor('page.capture', tabId, ref, policy, ctx);
     if (route.frame !== 0)
       return fail('invalid', "a capture works on the tab's own document, not on a frame");
@@ -993,6 +1018,8 @@ const handlers: { [M in Method]: Handler<M> } = {
         }
         const save = saves?.take();
         if (save) return await takeSave(tabId, ctx, save, saves!, maxBytes);
+        const own = saves?.takeNative();
+        if (own) return await reportNative(own, saves!, downloadTimeoutMs);
         const hit = opened.take();
         if (!hit) continue;
         const verdict = judgeCapture(hit.url, tab.url);
@@ -1013,7 +1040,8 @@ const handlers: { [M in Method]: Handler<M> } = {
         'failed',
         `nothing was handed over within ${timeoutMs} ms: the click produced no download link and opened no tab. ` +
           'Is the page logged in, and is this the button that downloads? If the browser saved a file ' +
-          'on its own, the page started that download out of sight (ADR 0019): ' +
+          'on its own, the page started that download out of sight (ADR 0019). If the browser is set to ask ' +
+          'where to save, its dialog may be waiting for the person and no download exists until they answer: ' +
           (saves
             ? savesAvailable()
               ? 'it was not a blob of this page, so it was left alone.'

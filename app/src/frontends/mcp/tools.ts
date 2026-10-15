@@ -601,6 +601,9 @@ export function registerTools(
         "tab's own origin, or a page on a sister origin of the same site (app-api.<site> for a <site> tab), which needs " +
         'level "read" on its own. With the "Take hidden downloads" switch on (and the browser\'s downloads permission ' +
         'granted), a blob the page saves out of sight is taken too (via: "save") and the browser\'s own copy is removed. ' +
+        'A file the browser saves by itself (a plain download) comes back as via: "download" with no bytes and a ' +
+        '"download" object: state complete | interrupted | timeout | dialog, the path on disk, bytes and the reason. ' +
+        '"dialog" means the browser asks the person where to save: only they can answer it, do not click again. ' +
         'A viewer tab the click opened is closed again. It marks the document as read on ' +
         'portals that do that on download. Needs level "read + edit", the Click and Download switches, and, unless ' +
         "switched off, the person's confirmation. " +
@@ -610,16 +613,27 @@ export function registerTools(
         ref: z.string().describe('Button or link ref from page_outline, e.g. e12'),
         maxBytes: z.number().int().optional().describe('Refuse anything larger (default 10000000)'),
         timeoutMs: z.number().int().optional().describe('How long to wait for the document (default 15000)'),
+        downloadTimeoutMs: z
+          .number()
+          .int()
+          .optional()
+          .describe(
+            'How long to wait for a file the browser saves itself to finish (default 30000, max 120000)',
+          ),
         saveDir: saveDirParam,
         browser: browserParam,
       },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     },
-    async ({ tabId, ref, maxBytes, timeoutMs, saveDir, browser }) => {
+    async ({ tabId, ref, maxBytes, timeoutMs, downloadTimeoutMs, saveDir, browser }) => {
       try {
         // Before the click: a refused directory must not cost a document its "unread" state.
         const save = captureSink(files.saveRoot, saveDir);
-        const doc = await call('page.capture', { tabId, ref, maxBytes, timeoutMs }, browser);
+        const doc = await call(
+          'page.capture',
+          { tabId, ref, maxBytes, timeoutMs, downloadTimeoutMs },
+          browser,
+        );
         return text(save ? save(doc) : doc);
       } catch (err) {
         return failure(err);

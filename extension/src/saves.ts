@@ -23,17 +23,16 @@
  */
 
 import { browser } from '@wxt-dev/browser';
-import { judgeSave } from '@beifahrer/core';
+import { describeDownload, judgeSave, type DownloadOutcome, type DownloadSnapshot } from '@beifahrer/core';
 
 export interface Save {
   id: number;
   url: string;
 }
 
-interface DownloadItem {
+interface DownloadItem extends DownloadSnapshot {
   id: number;
   url?: string;
-  state?: string;
 }
 
 interface DownloadsApi {
@@ -81,18 +80,38 @@ async function settled(api: DownloadsApi, id: number): Promise<string | null> {
  */
 export function watchSaves(tabUrl: string): {
   take(): Save | undefined;
+  takeNative(): Save | undefined;
+  finish(save: Save, waitMs: number): Promise<DownloadOutcome>;
   discard(save: Save): Promise<void>;
   stop(): void;
 } {
   const api = downloads();
   const found: Save[] = [];
+  const native: Save[] = [];
   const onCreated = (item: DownloadItem): void => {
-    if (found.length || typeof item.url !== 'string') return;
-    if (judgeSave(item.url, tabUrl).ok) found.push({ id: item.id, url: item.url });
+    if (typeof item.url !== 'string') return;
+    if (judgeSave(item.url, tabUrl).ok) {
+      if (!found.length) found.push({ id: item.id, url: item.url });
+    } else if (!native.length) {
+      // Any other download that starts while the capture waits: only its state is reported (#126),
+      // the event carries no tab id, so it may be one the person started elsewhere.
+      native.push({ id: item.id, url: item.url });
+    }
   };
   api?.onCreated.addListener(onCreated);
   return {
     take: () => found.shift(),
+    takeNative: () => native.shift(),
+    async finish(save, waitMs) {
+      if (!api) return describeDownload(undefined, true);
+      const deadline = Date.now() + waitMs;
+      for (;;) {
+        const item = (await api.search({ id: save.id }).catch(() => []))[0];
+        const timedOut = Date.now() >= deadline;
+        if ((item && item.state !== 'in_progress') || timedOut) return describeDownload(item, timedOut);
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    },
     stop: () => api?.onCreated.removeListener(onCreated),
     async discard(save) {
       if (!api) return;
