@@ -1,0 +1,25 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: gjsify-site\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Bridge"
+msgstr "Bridge"
+
+msgid "The MCP server your coding agent connects to. Every setup needs it."
+msgstr "Der MCP-Server, mit dem sich dein Coding-Agent verbindet. Jede Installation braucht ihn."
+
+msgid "Browser extension"
+msgstr "Browser-Erweiterung"
+
+msgid "Beifahrer's half inside the browser. Pair it with the bridge using the token the bridge shows."
+msgstr "Beifahrers Hälfte im Browser. Verbinde sie mit der Bridge über das Token, das die Bridge anzeigt."
+
+msgid "Desktop window"
+msgstr "Desktop-Fenster"
+
+msgid "Optional. Shows which agent sessions run, which browsers hang on them, and the pairing token to paste."
+msgstr "Optional. Zeigt, welche Agent-Sitzungen laufen, welche Browser daran hängen und das Token zum Verbinden."

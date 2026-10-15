@@ -375,7 +375,23 @@ Page text is written by whoever runs the site, and an agent reading it can be st
 (prompt injection). That is the reason for the per-site levels: keep your bank at *Read*, and an
 injected instruction has nothing to write with.
 
-## Install (from source, for now)
+## Install
+
+Ready-made downloads for Linux, macOS and Windows are on the
+[Beifahrer page](https://jumplink.eu/beifahrer/), which offers the right one for the system you
+are on. Beifahrer is three pieces, installed in this order:
+
+1. **Bridge** — the MCP server your coding agent connects to. Every setup needs it. Deb, RPM and
+   a Flatpak bundle on Linux, an app on macOS, an installer or a portable zip on Windows.
+2. **Browser extension** — Beifahrer's half inside the browser. The stores do not carry it yet, so
+   the page offers the signed Firefox `.xpi` and the Chromium zip from the release directly.
+3. **Desktop window** (optional) — shows which agent sessions run, which browsers hang on them,
+   and the token to paste. It starts by double-click or from the applications menu; the bridge
+   alone is a command-line program and stays one.
+
+Pairing and the MCP registration are the same either way — see [Pair it](#pair-it) below.
+
+### From source
 
 Requires [gjsify](https://github.com/gjsify/gjsify) and GJS, nothing else: the extension is
 bundled on GJS ([ADR 0002](docs/adr/0002-build-on-gjs-not-wxt.md)), and the bridge runs on GJS or
@@ -407,11 +423,14 @@ else in the build knows the difference.
   `releases/latest/download/updates.json`, and Firefox keeps the URL from the installed version for
   good, so it has to stay put and stay version-free.
 
-Pair it:
+### Pair it
 
 ```sh
-gjsify run app/dist/beifahrer.gjs.mjs token   # prints the token; paste it in the extension's options
+beifahrer token                               # installed package
+gjsify run app/dist/beifahrer.gjs.mjs token   # from a checkout
 ```
+
+Either prints the token; paste it in the extension's options.
 
 Register the MCP server with your agent. It needs `mcp`, and `--allow-write` if the agent may
 fill and click at all (the extension's per-site level and its confirmations still apply):
@@ -495,6 +514,8 @@ Design decisions: [docs/adr/](docs/adr/) — index: [docs/](docs/README.md). Con
 rules: [AGENTS.md](AGENTS.md).
 
 ## Desktop window (preview)
+
+<img src="docs/images/desktop-light.png" alt="The Beifahrer window on its Status page: Ready, one agent session with its port and browser" width="520">
 
 `beifahrer status` prints which agent sessions are running and which browsers hang on them; the
 native libadwaita window in [desktop/](desktop/) shows the same live ([ADR 0017](docs/adr/0017-native-desktop-app.md)).

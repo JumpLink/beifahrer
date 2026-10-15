@@ -39,27 +39,51 @@
       "defaultLanguage": "en",
       "repository": "JumpLink/beifahrer",
       "icon": "data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg",
-      "releaseAssets": false,
+      "releaseAssets": true,
+      "pageTranslations": "site/po",
+      "components": [
+        {
+          "id": "bridge",
+          "name": "Bridge",
+          "summary": "The MCP server your coding agent connects to. Every setup needs it.",
+          "match": "^beifahrer[-_][0-9.]+-[0-9]+[._]|^eu\\.jumplink\\.beifahrer\\.Cli-"
+        },
+        {
+          "id": "extension",
+          "name": "Browser extension",
+          "summary": "Beifahrer's half inside the browser. Pair it with the bridge using the token the bridge shows.",
+          "match": "\\.xpi$|-mv[23]\\.zip$"
+        },
+        {
+          "id": "window",
+          "name": "Desktop window",
+          "summary": "Optional. Shows which agent sessions run, which browsers hang on them, and the pairing token to paste."
+        }
+      ],
       "downloads": [
         {
           "platform": "firefox",
           "format": "store",
+          "component": "extension",
           "available": false
         },
         {
           "platform": "chromium",
           "format": "store",
+          "component": "extension",
           "available": false
         },
         {
           "platform": "firefox",
           "format": "source",
-          "url": "https://github.com/JumpLink/beifahrer#install-from-source-for-now"
+          "component": "extension",
+          "url": "https://github.com/JumpLink/beifahrer#from-source"
         },
         {
           "platform": "chromium",
           "format": "source",
-          "url": "https://github.com/JumpLink/beifahrer#install-from-source-for-now"
+          "component": "extension",
+          "url": "https://github.com/JumpLink/beifahrer#from-source"
         }
       ],
       "screenshots": {
