@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Achievement draft "ten-tasks", locked state — beifahrer.
+The object is a ticket with a stub; only the motif changes per achievement. Shared frame across all
+three apps: 192 x 96 (2:1), 2 px grid, drawn for raster heights 48 and 96 logical px, with a
+locked state that keeps the geometry as a muted silhouette. Title and description come from
+gettext and are drawn next to the artwork, never inside it.
+No text, no raster, no filters, no baked shadows.
+-->
+<svg width="192" height="96" viewBox="0 0 192 96" version="1.1"
+     xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="body" x1="0" y1="10" x2="0" y2="86" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e7e1ee"/><stop offset="1" stop-color="#d3cadd"/></linearGradient>
+    <linearGradient id="field" x1="0" y1="18" x2="0" y2="78" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e7e1ee"/><stop offset="1" stop-color="#d3cadd"/></linearGradient>
+  </defs>
+  <path id="ticket" d="M14 10 H178 A6 6 0 0 1 184 16 V80 A6 6 0 0 1 178 86 H14 A6 6 0 0 1 8 80 V16 A6 6 0 0 1 14 10 Z M154 74 A7 7 0 0 0 168 74 A7 7 0 0 0 154 74 Z" fill="url(#body)" fill-rule="evenodd" stroke="#6e6180" stroke-width="4"/>
+  <path id="road" d="M94 84 L118 84 L128 20 L120 20 Z" fill="#bdb2cb" stroke="#6e6180" stroke-width="3" stroke-linejoin="round"/>
+  <path id="road-markings" d="M106 80 L123 26" fill="none" stroke="#e7e1ee" stroke-width="4" stroke-linecap="round" stroke-dasharray="6 8"/>
+  <path id="perforation" d="M136 16 V80" stroke="#6e6180" stroke-width="4" stroke-dasharray="8 8" stroke-linecap="round"/>
+  <circle id="punch-field" cx="56" cy="48" r="32" fill="url(#field)" stroke="#6e6180" stroke-width="5"/>
+  <g id="motif" transform="translate(56,48) scale(1.15)"><path d="M-14 -3 L0 -15 L14 -3" fill="none" stroke="#6e6180" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M-14 7 L0 -5 L14 7" fill="none" stroke="#6e6180" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M-14 17 L0 5 L14 17" fill="none" stroke="#6e6180" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <circle id="wheel" cx="161" cy="38" r="16" fill="none" stroke="#6e6180" stroke-width="5"/>
+  <path id="spoke-1" d="M161 38 L147 38" stroke="#6e6180" stroke-width="5" stroke-linecap="round"/><path id="spoke-2" d="M161 38 L175 38" stroke="#6e6180" stroke-width="5" stroke-linecap="round"/><path id="spoke-3" d="M161 38 L161 52" stroke="#6e6180" stroke-width="5" stroke-linecap="round"/>
+  <circle id="wheel-hub" cx="161" cy="38" r="4" fill="#6e6180"/>
+</svg>
