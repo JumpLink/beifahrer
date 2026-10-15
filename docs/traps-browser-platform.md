@@ -128,5 +128,13 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
 - **A revoked blob is unreadable.** `fetch(blob:)` fails once the page revoked it, in both browsers.
   Leave the browser's copy and say so.
 - **`DownloadItem` has no tab id**, so a capture cannot tell which tab started the save.
+- **The "ask where to save" dialog is not an event** (issue #127, `probes/downloads/dialog.mjs`, headless,
+  profile set to ask). Chromium creates the item with an empty `filename` and, headless, ends it as
+  `interrupted` / `USER_CANCELED` at once; a person would leave it `in_progress` without a name. Firefox
+  creates NO item for a click-started download until the person answers (only a `.part` file shows).
+  `downloads.download({ saveAs: false })` does not help a page's own click: Chromium still honours the
+  profile's prompt and cancels, Firefox skips the dialog for an extension download, but capture cannot
+  turn the page's click into one. So a nameless running item at the end of the wait is reported as
+  `dialog`, and no item at all ends in the capture timeout, whose message names the dialog.
 - **A permission in both `permissions` and `optional_permissions` loads fine** (the e2e build does
   exactly that for `downloads` and `webRequest`).

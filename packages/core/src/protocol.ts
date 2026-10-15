@@ -22,6 +22,7 @@
 
 import type { AccessCheck } from './access-check.ts';
 import { parseDesktop, type DesktopInfo } from './desktop.ts';
+import type { DownloadOutcome } from './download-state.ts';
 import type { ExpectState } from './expect.ts';
 import type { ScriptWorld } from './evaluate.ts';
 import type { Navigation } from './navigate.ts';
@@ -239,7 +240,14 @@ export interface MethodMap {
    * THAT origin too. Needs `write` on the tab (it is a click) and the Download switch.
    */
   'page.capture': {
-    params: { tabId: number; ref: string; maxBytes?: number; timeoutMs?: number };
+    params: {
+      tabId: number;
+      ref: string;
+      maxBytes?: number;
+      timeoutMs?: number;
+      /** How long to wait for a file the browser saves itself to finish (default 30000). */
+      downloadTimeoutMs?: number;
+    };
     result: {
       url: string;
       filename: string;
@@ -248,9 +256,11 @@ export interface MethodMap {
       base64: string;
       /**
        * How the page handed it over: an anchor click, a tab it opened, or a file it saved out of
-       * sight (the optional "save" switch, ADR 0019).
+       * sight (the optional "save" switch, ADR 0019), or a file the browser saved itself
+       * (`download`: no bytes come back, `base64` is empty and `download` says what became of it).
        */
-      via: 'link' | 'tab' | 'save';
+      via: 'link' | 'tab' | 'save' | 'download';
+      download?: DownloadOutcome;
     };
   };
   'page.fill': {

@@ -401,7 +401,10 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
         case 'capture': {
           const ref = await resolve(narrow(step.target, step.nameParam));
           const doc = await call('page.capture', { tabId, ref, maxBytes: step.maxBytes }, browser);
-          entry.detail = `${doc.filename} (${doc.mime}, ${doc.size} bytes, via ${doc.via})`;
+          entry.detail =
+            doc.via === 'download'
+              ? `browser download ${doc.download?.state ?? 'unknown'}: ${doc.download?.path || 'no file'} (${doc.size} bytes)${doc.download?.reason ? `, ${doc.download.reason}` : ''}`
+              : `${doc.filename} (${doc.mime}, ${doc.size} bytes, via ${doc.via})`;
           entry.result = opts.saveCapture ? opts.saveCapture(doc) : doc;
           break;
         }

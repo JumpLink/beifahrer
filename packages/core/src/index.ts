@@ -14,6 +14,7 @@ export * from './one-time-code.ts';
 export * from './ports.ts';
 export * from './connections.ts';
 export * from './desktop.ts';
+export * from './download-state.ts';
 export * from './download.ts';
 export * from './evaluate.ts';
 export * from './keys.ts';
