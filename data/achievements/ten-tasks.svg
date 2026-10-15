@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Achievement draft "ten-tasks" — beifahrer.
+Shared base shape across all three apps: a 10-lobe scalloped seal (union of ten discs, so
+the rim waves instead of showing cog teeth), an 8 px front profile like the app icons, and
+a recessed round field. Only the motif is app-specific. No text, no raster, no filters.
+-->
+<svg width="128" height="128" viewBox="0 0 128 128" version="1.1"
+     xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="rim" x1="0" y1="8" x2="0" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a252bb"/><stop offset="1" stop-color="#9141ac"/>
+    </linearGradient>
+    <linearGradient id="field" x1="0" y1="26" x2="0" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ebdcf8"/><stop offset="1" stop-color="#d9c2f0"/>
+    </linearGradient>
+  </defs>
+  <path id="seal-profile" d="M103.35 53.21 A13 13 0 0 1 103.35 78.79 A13 13 0 0 1 88.32 99.47 A13 13 0 0 1 64.00 107.38 A13 13 0 0 1 39.68 99.47 A13 13 0 0 1 24.65 78.79 A13 13 0 0 1 24.65 53.21 A13 13 0 0 1 39.68 32.53 A13 13 0 0 1 64.00 24.62 A13 13 0 0 1 88.32 32.53 A13 13 0 0 1 103.35 53.21 Z" fill="#613583"/>
+  <path id="seal" d="M103.35 45.21 A13 13 0 0 1 103.35 70.79 A13 13 0 0 1 88.32 91.47 A13 13 0 0 1 64.00 99.38 A13 13 0 0 1 39.68 91.47 A13 13 0 0 1 24.65 70.79 A13 13 0 0 1 24.65 45.21 A13 13 0 0 1 39.68 24.53 A13 13 0 0 1 64.00 16.62 A13 13 0 0 1 88.32 24.53 A13 13 0 0 1 103.35 45.21 Z" fill="url(#rim)"/>
+  <circle id="field-bezel" cx="64" cy="58" r="34" fill="#613583"/>
+  <circle id="field" cx="64" cy="58" r="32" fill="url(#field)"/>
+  <g id="motif" transform="translate(0,-2)">
+  <path id="chevron-1" d="M46 54 L64 40 L82 54" fill="none" stroke="#613583" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path id="chevron-2" d="M46 70 L64 56 L82 70" fill="none" stroke="#613583" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path id="chevron-3" d="M46 86 L64 72 L82 86" fill="none" stroke="#613583" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
