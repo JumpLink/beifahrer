@@ -1217,6 +1217,26 @@ async function savesScenario(browser) {
     );
     await sleep(1_500);
     check(name, "and the browser's own copy stays", files().length === 1, files().join(', '));
+
+    // Point 2: one click on a file link is one request and one copy, not two.
+    const before = FILE_HITS.count;
+    const opened = await tool(a.client, 'tab_open', { url: `${ALLOWED}/link` });
+    const tabId = JSON.parse(opened.text).tab?.tabId;
+    await tool(a.client, 'page_wait', { tabId, for: 'load' });
+    const outline = await tool(a.client, 'page_outline', { tabId });
+    const ref = /\[(e\d+)\] link "Get file/.exec(outline.text)?.[1];
+    const got = ref
+      ? await tool(a.client, 'page_capture', { tabId, ref, timeoutMs: 10_000 })
+      : { error: true, text: `no link in: ${outline.text.slice(0, 300)}` };
+    await sleep(2_000);
+    check(name, 'a clicked file link comes back', !got.error, got.text.slice(0, 300));
+    check(
+      name,
+      'with one request to the server',
+      FILE_HITS.count - before === 1,
+      String(FILE_HITS.count - before),
+    );
+    check(name, 'and no browser copy left behind', files().length === 1, files().join(', '));
   } finally {
     await a.client.close().catch(() => undefined);
     await stopBrowser(proc, browser === 'firefox');
@@ -3330,18 +3350,25 @@ const SAVES_FIXTURE = (variant) => `<!doctype html><html><head><title>Saves</tit
   });
 </script>
 </body></html>`;
+// Point 2 of the download gaps: how often does the SERVER see a file that one click asked for?
+const FILE_HITS = { count: 0 };
+const LINK_FIXTURE = `<!doctype html><html><head><title>Link</title></head><body>
+<a id="file" href="/file.bin">Get file</a>
+</body></html>`;
 const page = (req) =>
-  req.url?.startsWith('/saves')
-    ? SAVES_FIXTURE(req.url.includes('v=revoke') ? 'revoke' : 'keep')
-    : req.url?.startsWith('/elsewhere')
-      ? ELSEWHERE_FIXTURE
-      : req.url?.startsWith('/openproject')
-        ? OP_FIXTURE
-        : req.url?.startsWith('/frame-foreign')
-          ? FOREIGN_FRAME_FIXTURE
-          : req.url?.startsWith('/frame')
-            ? FRAME_FIXTURE
-            : FIXTURE;
+  req.url?.startsWith('/link')
+    ? LINK_FIXTURE
+    : req.url?.startsWith('/saves')
+      ? SAVES_FIXTURE(req.url.includes('v=revoke') ? 'revoke' : 'keep')
+      : req.url?.startsWith('/elsewhere')
+        ? ELSEWHERE_FIXTURE
+        : req.url?.startsWith('/openproject')
+          ? OP_FIXTURE
+          : req.url?.startsWith('/frame-foreign')
+            ? FOREIGN_FRAME_FIXTURE
+            : req.url?.startsWith('/frame')
+              ? FRAME_FIXTURE
+              : FIXTURE;
 const fixture = createServer((req, res) => {
   // Issue #35: the two API paths, before anything is HTML. `/api/submit` answers 500 on purpose —
   // a failing POST with a status is the row an agent is looking for, and a page that answered 200
@@ -3354,6 +3381,20 @@ const fixture = createServer((req, res) => {
   if (req.url?.startsWith('/api/submit')) {
     res.writeHead(500, { 'content-type': 'application/json' });
     res.end('{"ok":false}');
+    return;
+  }
+  if (req.url?.startsWith('/file.bin')) {
+    FILE_HITS.count++;
+    res.writeHead(200, {
+      'content-type': 'application/octet-stream',
+      'content-disposition': 'attachment; filename="file.bin"',
+    });
+    res.end(Buffer.alloc(3000, 7));
+    return;
+  }
+  if (req.url?.startsWith('/hits')) {
+    res.writeHead(200, { 'content-type': 'text/plain' });
+    res.end(String(FILE_HITS.count));
     return;
   }
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
