@@ -109,6 +109,12 @@ jobs:
           gjsify workspace beifahrer-desktop build
           gjsify workspace beifahrer-desktop test
 
+      # The window's `--app node` bundle, which the macOS and Windows packages below carry — same
+      # reason as the bridge's: neither host has a GJS runtime to interpret the other one
+      # (`desktop/package.json#gjsify.ship.app`).
+      - name: Build the desktop node bundle (for macOS + Windows packaging)
+        run: gjsify workspace beifahrer-desktop build:node
+
       # The builds a person would install. Not a release — just proof they package.
       - name: Package the extension
         run: gjsify workspace beifahrer-extension zip
@@ -146,6 +152,32 @@ jobs:
             fi
           done
 
+      # The desktop window is its OWN ship project rather than a second target of the bridge's, and
+      # that is `gjsify ship` talking: it takes ONE `kind` per project (ADR 0017 § 6) and these two
+      # differ in it — `app` here, `cli` there. Hence `binaryName: "beifahrer-desktop"`, a separate
+      # `desktop/ship/out`, and names that cannot collide with the bridge's. A person installs
+      # either or both: the window without the bridge shows an empty registry, the bridge without
+      # the window is the headless MCP server it has always been.
+      - name: Package the desktop app (.deb + .rpm)
+        working-directory: desktop
+        run: gjsify ship linux --skip-build --target deb,rpm
+
+      # `all`/`noarch` here too, for the same payload reason as above: the Linux row is the GJS
+      # bundle plus a launcher and carries no native binary. The macOS and Windows rows further
+      # down DO — they bundle their own node — so those spell an arch out.
+      - name: Assert the desktop packages arrived
+        working-directory: desktop/ship/out
+        run: |
+          set -eu
+          ls -la
+          version=$(node -p "require('$GITHUB_WORKSPACE/desktop/package.json').version")
+          for f in "beifahrer-desktop_${version}-1_all.deb" "beifahrer-desktop-${version}-1.noarch.rpm"; do
+            if [ ! -s "$f" ]; then
+              echo "::error::missing or empty artifact: $f"
+              exit 1
+            fi
+          done
+
       # macOS and Windows runtimes are `optionalDependencies` gated by os/cpu
       # (`@gjsify/node-runtime-{darwin-arm64,darwin-x64,win32-x64}`), which a plain install on this
       # Linux host SKIPS — naming the target installs it instead, and `ship` picks up both that
@@ -159,11 +191,22 @@ jobs:
         working-directory: app
         run: gjsify ship darwin --arch arm64 --skip-build --target macos-app-zip
 
+      # Both ship projects out of the SAME platform install: `gjsify install --os/--cpu` swaps which
+      # runtime and which native addon node_modules holds, and `ship` reads that at pack time. Once
+      # per arch rather than once per project is the difference between three installs and six.
+      - name: Ship the desktop app for macOS (arm64)
+        working-directory: desktop
+        run: gjsify ship darwin --arch arm64 --skip-build --target macos-app-zip
+
       - name: Package macOS (x64)
         run: gjsify install --os darwin --cpu x64 --immutable
 
       - name: Ship macOS (x64)
         working-directory: app
+        run: gjsify ship darwin --arch x64 --skip-build --target macos-app-zip
+
+      - name: Ship the desktop app for macOS (x64)
+        working-directory: desktop
         run: gjsify ship darwin --arch x64 --skip-build --target macos-app-zip
 
       # `msi` needs `wixl` (msitools, installed above); `windows-dir-zip` needs nothing `ship`
@@ -173,6 +216,10 @@ jobs:
 
       - name: Ship Windows (x64)
         working-directory: app
+        run: gjsify ship windows --arch x64 --skip-build --target windows-dir-zip,msi
+
+      - name: Ship the desktop app for Windows (x64)
+        working-directory: desktop
         run: gjsify ship windows --arch x64 --skip-build --target windows-dir-zip,msi
 
       - name: Assert the macOS and Windows artifacts arrived
@@ -186,6 +233,25 @@ jobs:
             "beifahrer-${version}-1.macos.x86_64.zip" \
             "beifahrer-${version}-1.windows.x64.zip" \
             "beifahrer-${version}-1.x64.msi"; do
+            if [ ! -s "$f" ]; then
+              echo "::error::missing or empty artifact: $f"
+              exit 1
+            fi
+          done
+
+      # `x86_64` for the macOS x64 row and `x64` for the Windows ones, exactly as above: those are
+      # the spellings each platform's own tooling uses, and `utils/ship/formats.ts` renders them.
+      - name: Assert the desktop macOS and Windows artifacts arrived
+        working-directory: desktop/ship/out
+        run: |
+          set -eu
+          ls -la
+          version=$(node -p "require('$GITHUB_WORKSPACE/desktop/package.json').version")
+          for f in \
+            "beifahrer-desktop-${version}-1.macos.arm64.zip" \
+            "beifahrer-desktop-${version}-1.macos.x86_64.zip" \
+            "beifahrer-desktop-${version}-1.windows.x64.zip" \
+            "beifahrer-desktop-${version}-1.x64.msi"; do
             if [ ! -s "$f" ]; then
               echo "::error::missing or empty artifact: $f"
               exit 1
@@ -221,6 +287,25 @@ jobs:
           path: |
             app/ship/out/*.zip
             app/ship/out/*.msi
+          compression-level: 0
+
+      # The desktop window's packages under their own `ship-*` names rather than mixed into the two
+      # above: release.yml downloads by pattern and merges, so the split costs that step nothing,
+      # and a `ship/out` per project is what keeps a glob from picking up the other one's files.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ship-desktop-deb-rpm
+          path: |
+            desktop/ship/out/*.deb
+            desktop/ship/out/*.rpm
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ship-desktop-macos-windows
+          path: |
+            desktop/ship/out/*.zip
+            desktop/ship/out/*.msi
           compression-level: 0
 
   # The Flatpak half of `gjsify ship`, split out for two reasons the job above must not inherit.
@@ -323,8 +408,19 @@ jobs:
       - name: Build the bridge bundle
         run: gjsify workspace beifahrer-cli build
 
+      - name: Build the desktop bundle
+        run: gjsify workspace beifahrer-desktop build
+
       - name: Package the bridge (.flatpak)
         working-directory: app
+        run: gjsify ship linux --skip-build --target flatpak
+
+      # The window's Flatpak, against the same runtime the bridge's uses. This one is a GUI app, so
+      # `desktop/package.json#gjsify.ship.flatpak.finishArgs` opens wayland/x11/dri/ipc where the
+      # bridge's opens the network — and gives it the beifahrer config and runtime directories
+      # READ-ONLY, because the window is a view and never a policy (ADR 0005, ADR 0017).
+      - name: Package the desktop app (.flatpak)
+        working-directory: desktop
         run: gjsify ship linux --skip-build --target flatpak
 
       # Same reason as the `.deb`/`.rpm` assert: `ship` writes nothing and still exits 0 when the
@@ -342,10 +438,31 @@ jobs:
             exit 1
           fi
 
+      # `eu.jumplink.beifahrer`, without the `.Cli` suffix the bridge carries: the window owns the
+      # plain app ID because it is the thing a person launches, and the two IDs are what lets both
+      # Flatpaks sit side by side.
+      - name: Assert the desktop bundle arrived
+        working-directory: desktop/ship/out
+        run: |
+          set -eu
+          ls -la
+          version=$(node -p "require('$GITHUB_WORKSPACE/desktop/package.json').version")
+          f="eu.jumplink.beifahrer-${version}-1.x86_64.flatpak"
+          if [ ! -s "$f" ]; then
+            echo "::error::missing or empty artifact: $f"
+            exit 1
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: ship-flatpak
           path: app/ship/out/*.flatpak
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ship-desktop-flatpak
+          path: desktop/ship/out/*.flatpak
           compression-level: 0
 
   # The Node-hosted half of the checks on a Windows host, and nothing else — read the scope before

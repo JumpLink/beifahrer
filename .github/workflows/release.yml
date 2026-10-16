@@ -6,10 +6,12 @@ name: Release
 # toolchain is installed and what "green" means. A release therefore cannot be cut from a commit
 # whose tests, type check or lint did not pass.
 #
-# The CLI's own packages follow the same rule and are built there too, not here: ci.yml ships
-# `ship-deb-rpm` (`.deb`, `.rpm`), `ship-macos-windows` (both `macos-app-zip`s, `windows-dir-zip`,
-# `.msi`) and `ship-flatpak` (`.flatpak`) as uploaded artifacts, and the `release` job below only
-# attaches them. Every one of those assembles on the SAME `fedora:44` container: `gjsify ship`'s
+# The installable packages follow the same rule and are built there too, not here: ci.yml ships
+# the bridge as `ship-deb-rpm` (`.deb`, `.rpm`), `ship-macos-windows` (both `macos-app-zip`s,
+# `windows-dir-zip`, `.msi`) and `ship-flatpak` (`.flatpak`), and the desktop window as the same
+# three under `ship-desktop-*`, as uploaded artifacts; the `release` job below only attaches them.
+# TWO ship projects, because `gjsify ship` takes one `kind` per project (ADR 0017 § 6): the bridge
+# is `cli`, the window is `app`, and a release carries both so a person can install either or both. Every one of those assembles on the SAME `fedora:44` container: `gjsify ship`'s
 # darwin/windows targets are not host-bound to assemble, only to run (see the comment at the fetch
 # step below), so `gjsify install --os darwin --cpu arm64 --immutable` followed by `gjsify ship
 # darwin --arch arm64 --skip-build --target macos-app-zip` on that same container is the whole
@@ -80,36 +82,42 @@ jobs:
           name: extension-zips
           path: zips
 
-      # The CLI's own packages, again out of CI rather than built here (see the header). THREE
-      # artifacts, not one: `.deb` + `.rpm` and the macOS/Windows packages come out of the container
-      # that already runs the bridge's tests, the `.flatpak` out of the privileged flatpak-builder
-      # job, and merging them into a single upload would mean one of those jobs losing its packages
-      # whenever the other half of the run did not happen.
-      - name: Fetch the CLI packages CI built
+      # The installable packages, again out of CI rather than built here (see the header). SIX
+      # artifacts, not one: per ship project, `.deb` + `.rpm` and the macOS/Windows packages come
+      # out of the container that already runs the tests, the `.flatpak` out of the privileged
+      # flatpak-builder job, and merging them into a single upload would mean one of those jobs
+      # losing its packages whenever the other half of the run did not happen. `merge-multiple`
+      # flattens them into one directory, which is safe because the bridge's names start
+      # `beifahrer-`/`beifahrer_` and the window's `beifahrer-desktop-`/`beifahrer-desktop_`.
+      - name: Fetch the packages CI built
         uses: actions/download-artifact@v4
         with:
           pattern: ship-*
           merge-multiple: true
-          path: cli
+          path: packages
 
       # Everything is attached by ONE `gh release create`, so a release either carries the zips and
-      # the CLI packages or does not exist yet — a release that got the zips and silently lost the
+      # the packages or does not exist yet — a release that got the zips and silently lost the
       # `.deb` would be the shape of failure worth the two directory checks. They are checks on the
       # DIRECTORIES, not on a glob: a glob that matches nothing expands to itself, so
-      # `gh release create … cli/*.deb` would upload a file literally named `cli/*.deb` and report
-      # success.
-      # Each file named individually, not just the two directory checks above: a zips/ or cli/
+      # `gh release create … packages/*.deb` would upload a file literally named `packages/*.deb`
+      # and report success.
+      # Each file named individually, not just the two directory checks above: a zips/ or packages/
       # holding SOME files would pass those and still let `gh release create` publish an
       # incomplete release. Names and versions are the ones scripts/build.ts and
       # utils/ship/formats.ts actually render (ci.yml's own asserts), derived from the TAG rather
       # than a checkout — this job never checks the repo out, and `v<version>` is the tag this
       # workflow is triggered on.
+      #
+      # The `beifahrer-desktop-*` half is the window, the `beifahrer-*` half the bridge, and the
+      # two Flatpak IDs differ in the same way (`eu.jumplink.beifahrer` against
+      # `eu.jumplink.beifahrer.Cli`) so both can be installed at once.
       - name: Assert every artifact arrived
         env:
           TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -eu
-          ls -la zips cli
+          ls -la zips packages
           version="${TAG#v}"
           missing=0
           for f in \
@@ -117,13 +125,20 @@ jobs:
             "zips/beifahrer-${version}-edge-mv3.zip" \
             "zips/beifahrer-${version}-firefox-mv2.zip" \
             "zips/beifahrer-${version}-safari-mv3.zip" \
-            "cli/beifahrer_${version}-1_all.deb" \
-            "cli/beifahrer-${version}-1.noarch.rpm" \
-            "cli/beifahrer-${version}-1.macos.arm64.zip" \
-            "cli/beifahrer-${version}-1.macos.x86_64.zip" \
-            "cli/beifahrer-${version}-1.windows.x64.zip" \
-            "cli/beifahrer-${version}-1.x64.msi" \
-            "cli/eu.jumplink.beifahrer.Cli-${version}-1.x86_64.flatpak"; do
+            "packages/beifahrer_${version}-1_all.deb" \
+            "packages/beifahrer-${version}-1.noarch.rpm" \
+            "packages/beifahrer-${version}-1.macos.arm64.zip" \
+            "packages/beifahrer-${version}-1.macos.x86_64.zip" \
+            "packages/beifahrer-${version}-1.windows.x64.zip" \
+            "packages/beifahrer-${version}-1.x64.msi" \
+            "packages/eu.jumplink.beifahrer.Cli-${version}-1.x86_64.flatpak" \
+            "packages/beifahrer-desktop_${version}-1_all.deb" \
+            "packages/beifahrer-desktop-${version}-1.noarch.rpm" \
+            "packages/beifahrer-desktop-${version}-1.macos.arm64.zip" \
+            "packages/beifahrer-desktop-${version}-1.macos.x86_64.zip" \
+            "packages/beifahrer-desktop-${version}-1.windows.x64.zip" \
+            "packages/beifahrer-desktop-${version}-1.x64.msi" \
+            "packages/eu.jumplink.beifahrer-${version}-1.x86_64.flatpak"; do
             if [ ! -s "$f" ]; then
               echo "::error::missing or empty artifact: $f"
               missing=1
@@ -139,15 +154,15 @@ jobs:
           TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -eu
-          ls -la zips cli
+          ls -la zips packages
           [ -n "$(ls -A zips)" ] || { echo "::error::no extension zips were downloaded"; exit 1; }
-          [ -n "$(ls -A cli)" ] || { echo "::error::no CLI packages were downloaded"; exit 1; }
+          [ -n "$(ls -A packages)" ] || { echo "::error::no packages were downloaded"; exit 1; }
           # `--generate-notes` is GitHub's own, from the previous tag: no note to keep in step here.
-          gh release create "$TAG" zips/*.zip cli/* --title "$TAG" --generate-notes
+          gh release create "$TAG" zips/*.zip packages/* --title "$TAG" --generate-notes
           gh release view "$TAG" --json assets --jq '.assets[].name'
 
       # macOS (arm64 + x64, `macos-app-zip`) and Windows (x64, `windows-dir-zip` + `.msi`) ARE
-      # attached now, from `cli/` above — assembling them does not need a Mac or a Windows runner
+      # attached now, from `packages/` above — assembling them needs no Mac and no Windows runner
       # (see the header), only naming the target so `gjsify install` does not skip the
       # `optionalDependencies` runtime it would otherwise stage with no interpreter in it. What this
       # does NOT do is RUN the Mach-O or PE payload: that is verified on its own OS or not at all, so
