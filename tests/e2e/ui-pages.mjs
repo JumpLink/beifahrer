@@ -38,7 +38,7 @@ const ACCENT_BUDGET_MS = 10_000;
 const PROBE = `JSON.stringify({
   defined: ['adw-switch-row', 'adw-preferences-group', 'gtk-button'].every((t) => !!customElements.get(t)),
   styled: !!document.getElementById('adwaita-web-style'),
-  upgraded: !!document.querySelector('adw-switch-row .adw-row-text, adw-action-row .adw-action-row-text, adw-status-page:not([hidden]) *'),
+  upgraded: !!document.querySelector('adw-switch-row .adw-row-text, adw-action-row .adw-row-text, adw-status-page:not([hidden]) *'),
   translated: !document.querySelector('[data-i18n]') || [...document.querySelectorAll('[data-i18n]')].every((e) => e.textContent.trim() !== ''),
   lang: document.documentElement.lang,
   accent: getComputedStyle(document.documentElement).getPropertyValue('--accent-bg-color').trim(),

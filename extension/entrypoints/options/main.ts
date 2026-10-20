@@ -44,6 +44,7 @@ import {
 import { scriptQuietControl } from '../../src/ui/script-quiet.ts';
 import { infoButton } from '../../src/ui/info.ts';
 import { heroIcon, stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
+import { showToast } from '../../src/ui/toast.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const ALL = { origins: ['<all_urls>'] };
@@ -57,7 +58,7 @@ const NETWORK = { permissions: ['webRequest'] as ['webRequest'] };
 /** The same kind of grant as `NETWORK`: every download of the browser, not one site's (ADR 0019). */
 const DOWNLOADS = { permissions: ['downloads'] as ['downloads'] };
 const toast = (text: string, options: { buttonLabel?: string; onAction?: () => void } = {}) =>
-  $<Adw.ToastOverlay>('toasts').addToast(text, { timeout: 4, ...options });
+  showToast(text, { timeout: 4, ...options });
 
 const status = async () => (await browser.runtime.sendMessage({ type: 'status' })) as Status | undefined;
 
