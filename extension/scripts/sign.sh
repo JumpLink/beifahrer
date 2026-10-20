@@ -36,7 +36,7 @@ fi
 set -a
 . "$ENV_FILE"
 set +a
-gjsify run build
+../node_modules/.bin/gjsify run build
 ../node_modules/.bin/web-ext sign \
   --source-dir .output/firefox-mv2 \
   --artifacts-dir .output/signed \
