@@ -63,6 +63,14 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.13" date="2026-10-20">
+      <description>
+        <ul>
+          <li>Reading a page works again after the first call in the same tab</li>
+          <li>Long warnings and row titles in the extension wrap instead of being cut off</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.12" date="2026-10-20">
       <description>
         <ul>
