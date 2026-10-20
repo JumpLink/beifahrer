@@ -63,6 +63,15 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.12" date="2026-10-20">
+      <description>
+        <ul>
+          <li>The desktop app now also runs on Windows and macOS</li>
+          <li>Agents can download a file a page links to and see whether it finished</li>
+          <li>Clicking a file link downloads it once instead of twice</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.11" date="2026-10-14">
       <description>
         <ul>
