@@ -39,7 +39,6 @@ import {
   renderFeatures,
   setFeature,
   setQuietly,
-  switchRowIcon,
 } from '../../src/ui/features.ts';
 import { scriptQuietControl } from '../../src/ui/script-quiet.ts';
 import { infoButton } from '../../src/ui/info.ts';
@@ -508,10 +507,10 @@ async function main(): Promise<void> {
   for (const id of ['port', 'port-count']) $(id).addEventListener('notify::value', renderRange);
   $('save').addEventListener('click', () => void connect());
 
-  switchRowIcon($('pause'), 'media-playback-pause-symbolic');
-  switchRowIcon($('confirm-close'), 'window-close-symbolic');
-  switchRowIcon($('ask-sites'), 'dialog-question-symbolic');
-  switchRowIcon($('autosave'), 'document-open-recent-symbolic');
+  $('pause').append(prefixIcon('media-playback-pause-symbolic'));
+  $('confirm-close').append(prefixIcon('window-close-symbolic'));
+  $('ask-sites').append(prefixIcon('dialog-question-symbolic'));
+  $('autosave').append(prefixIcon('document-open-recent-symbolic'));
   $('pairing').append(infoButton('pairing_info'));
   $('features').append(infoButton('features_info'));
   $('shots-grant').addEventListener('click', async () => {

@@ -34,12 +34,12 @@ export function onToggle(row: Adw.SwitchRow, handler: (active: boolean) => void)
 }
 
 /**
- * A row's hover text. The row's own `title` attribute is its heading, so the text goes on its
- * label column, which an action row names `.adw-action-row-text` and a switch row
- * `.adw-row-text`. Looking for only the second left every action row without one.
+ * A row's hover text: the widget's own `tooltip-text`, which adwaita-web applies to the row's
+ * parts (title attribute on the label column and its siblings). The row's own `title` attribute
+ * stays the heading — `tooltip-text` is the GTK property for hover text and exists since 0.64.2.
  */
 export function hoverText(row: Element, text: string): void {
-  row.querySelector('.adw-action-row-text, .adw-row-text')?.setAttribute('title', text);
+  row.setAttribute('tooltip-text', text);
 }
 
 /** A symbolic icon for a row's prefix slot. */
@@ -48,20 +48,6 @@ export function prefixIcon(name: string): HTMLElement {
   icon.setAttribute('icon-name', name);
   icon.slot = 'prefix';
   return icon;
-}
-
-/**
- * gjsify gap (unfixed, @gjsify/adwaita-web 0.53.0): <adw-switch-row> replaces its children when
- * it upgrades and has no prefix slot, though libadwaita's AdwSwitchRow is an AdwActionRow with
- * `add_prefix`. So the icon is put in front of the label column once the row is upgraded
- * (connected), and `.switch-row-prefix` in style.css spaces it like a prefix.
- */
-export function switchRowIcon(row: HTMLElement, name: string): void {
-  if (row.querySelector(':scope > .switch-row-prefix')) return;
-  const icon = document.createElement('gtk-image');
-  icon.setAttribute('icon-name', name);
-  icon.className = 'switch-row-prefix';
-  row.prepend(icon);
 }
 
 const featureRows = new WeakMap<HTMLElement, Map<Feature, Adw.SwitchRow>>();
@@ -88,7 +74,7 @@ export async function renderFeatures(
       onToggle(row, (on) => (custom ? custom(row, on) : void setFeature(feature, on)));
       rows.set(feature, row);
       container.append(row);
-      switchRowIcon(row, FEATURE_ICON[feature]);
+      row.append(prefixIcon(FEATURE_ICON[feature]));
     }
     featureRows.set(container, rows);
   }
