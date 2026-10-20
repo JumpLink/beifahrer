@@ -35,6 +35,7 @@ import bridgeDesktop from './unit/bridge/desktop.test.ts';
 import extensionManifest from './unit/extension/manifest.test.ts';
 import extensionQr from './unit/extension/qr.test.ts';
 import extensionStatus from './unit/extension/status.test.ts';
+import extensionGuardOnce from './unit/extension/guard-once.test.ts';
 import updatesJson from './unit/extension/updates-json.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
 import mcpTools from './unit/mcp/tools.test.ts';
@@ -85,6 +86,7 @@ run({
   extensionManifest,
   extensionQr,
   extensionStatus,
+  extensionGuardOnce,
   updatesJson,
   mcpGate,
   mcpTools,

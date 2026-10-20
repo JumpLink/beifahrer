@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { zipSync } from 'fflate';
 
 import { TARGETS, manifestFor } from '../manifest.ts';
+import { oncePerRealm } from './guard-once.ts';
 import { copyIcons, renderIcons } from './icons.ts';
 import { checkLocales, sourceFiles } from './locales.ts';
 import { localBin } from './platform.ts';
@@ -154,6 +155,9 @@ if (localeErrors.length) throw new Error(`_locales is inconsistent:\n  ${localeE
 rmSync(STAGE, { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
 for (const [name, entry] of Object.entries(SCRIPTS)) bundle(name, entry);
+// Injected before every request, the agent must evaluate once per realm (issue #138, guard-once.ts).
+const AGENT_BUNDLE = join(STAGE, 'page-agent.js');
+writeFileSync(AGENT_BUNDLE, oncePerRealm(readFileSync(AGENT_BUNDLE, 'utf8')));
 const ICON_STAGE = join(OUT, '.icons');
 renderIcons(ROOT, ICON_STAGE);
 

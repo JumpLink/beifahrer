@@ -3,8 +3,13 @@
  *
  * MV3 (Chromium) has `scripting.executeScript`; MV2 (Firefox, Epiphany) has
  * `tabs.executeScript`. Both inject the same built file, `page-agent.js`, into the extension's
- * isolated world; the agent guards against a second injection itself, so injecting before every
- * request is cheap and always safe.
+ * isolated world. The BUILD wraps that whole bundle in a once-per-realm guard
+ * (`__beifahrerAgentLoaded`, scripts/guard-once.ts): the agent is injected before every request,
+ * and a dependency's top-level side effect — @gjsify/adwaita-core claiming the Gio resource
+ * registry — throws when evaluated twice in one realm (issue #138). The agent's own
+ * `__beifahrer*` guards sit inside the bundle and never run once a dependency has thrown, so
+ * evaluating at most once is the build's job. Injecting before every request is therefore cheap
+ * and always safe: a second injection is a no-op.
  *
  * FRAMES (issue #32). The agent is injected into every frame, and each frame is addressed on its
  * own. Two things make that cheap, and both were checked before building it:
