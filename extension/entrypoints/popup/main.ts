@@ -181,13 +181,6 @@ async function main(): Promise<void> {
   // than none, so "all sites" is not offered there.
   if ((await browserInfo()).family === 'safari') $('wide').hidden = true;
 
-  // gjsify gap (unfixed, @gjsify/adwaita-web 0.53.0): <adw-toggle> has no tooltip, so the
-  // explanation of each level goes on its rendered button as a native hover text.
-  for (const button of levels.querySelectorAll<HTMLButtonElement>('button.adw-toggle')) {
-    const name = (['none', 'read', 'write'] as const)[[...button.parentElement!.children].indexOf(button)];
-    if (name) button.title = t(LEVEL_TIPS[name]);
-  }
-
   const openOptions = (hash = '') => {
     if (!hash) return void browser.runtime.openOptionsPage();
     void browser.tabs.create({ url: browser.runtime.getURL(`/options.html#${hash}`) });

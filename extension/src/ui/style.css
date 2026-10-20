@@ -4,15 +4,6 @@
  * literals, so both schemes follow `prefers-color-scheme` with the rest of the page.
  */
 
-:root:root {
-  /* gjsify gap (unfixed, @gjsify/adwaita-web 0.53.0): the font stack has no macOS face.
-     Doubled so it outranks the package's own `:root`, which is injected after this file.
-     The package ships no font on purpose (GNOME has Adwaita Sans installed). Its stack names
-     'Segoe UI' for Windows but nothing for macOS, which would fall through to Helvetica:
-     `system-ui` / `-apple-system` give San Francisco there, and the desktop font elsewhere. */
-  --font-family: 'Adwaita Sans', 'Cantarell', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-}
-
 /* The UA's `[hidden] { display: none }` loses to any author `display` (the Adwaita rows set one),
    and the popup then showed "Ask me before every change" at level Read. */
 [hidden] {
@@ -25,15 +16,6 @@ body {
 
 adw-preferences-group.empty .adw-preferences-group-listbox {
   display: none;
-}
-
-/* gjsify gap (unfixed, @gjsify/adwaita-web 0.53.0): row titles and subtitles are
-   `white-space: nowrap` with an ellipsis, and the rows have no `title-lines` / `subtitle-lines`.
-   libadwaita's default for both is 0, "no limit": the text wraps. Without this the popup cut the
-   pause switch's explanation off mid-sentence. Remove once the package wraps by default. */
-:root .adw-row-title,
-:root .adw-row-subtitle {
-  white-space: normal;
 }
 
 .page {
@@ -142,29 +124,19 @@ adw-toast-overlay#toasts .adw-toast-overlay-toasts {
   color: var(--warning-color);
 }
 
-/* See switchRowIcon (features.ts): the prefix icon a switch row cannot slot. */
-adw-switch-row > .switch-row-prefix {
-  flex: none;
-  margin-inline-end: 12px;
-}
-
 adw-action-row.warning gtk-image {
   color: var(--warning-color);
 }
 
-/* A warning is a sentence, not a label: it wraps, and where its buttons leave it too little room
-   (the popup) they move below it. Fixed upstream in gjsify: rows wrap their title by default
-   (`title-lines=0`) after 0.54.0; drop the white-space rule with the next @gjsify bump. */
+/* A warning is a sentence, not a label: the title wraps — adwaita-web does that itself since
+   0.64.2 (`title-lines=0` wraps by default) — and where its buttons leave it too little room
+   (the popup) they move below it. */
 adw-action-row.warning {
   flex-wrap: wrap;
 }
 
 adw-action-row.warning .adw-action-row-text {
   flex: 1 1 14em;
-}
-
-adw-action-row.warning .adw-row-title {
-  white-space: normal;
 }
 
 adw-action-row.warning .adw-action-row-suffix {
@@ -179,7 +151,9 @@ adw-action-row.warning .adw-action-row-suffix {
    by src/ui/banner.ts; without it the strip stays the neutral surface it always was. */
 /* gjsify gap (docs/gjsify-gaps.md): `adw-banner` is as tall as its content, so a banner without a button
    (the options page, which is where the token is) is a thin strip with the title flush left. libadwaita's
-   banner is at least 46px tall and centres its title. Fixed upstream in gjsify: remove when it ships. */
+   banner is at least 46px tall and centres its title. Checked at @gjsify/adwaita-web 0.64.2 against
+   `dist/adwaita-web.css`: `adw-banner` still has no `min-height` and `.adw-banner-title` no centring —
+   still open. */
 adw-banner {
   min-height: 46px;
 }

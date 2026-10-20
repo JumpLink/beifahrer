@@ -80,7 +80,8 @@ styles. Light and dark follow `prefers-color-scheme` through the package's own t
   settings page elsewhere, in light and dark.
 - A bug or gap in the elements is fixed in gjsify, not around it here. Those met while building
   this are listed in [docs/gjsify-gaps.md](../gjsify-gaps.md), and a temporary local override is marked
-  `gjsify gap (unfixed, …)` so it is removed on the next bump.
+  `gjsify gap (unfixed, …)` so it is removed on the next bump — and since 0.64.2 also `gjsify gap (checked, …)`
+where a re-audit found the shim still needed.
 - The popup opens a 520 KB script it did not need before. Per-element entry points in
   `@gjsify/adwaita-web` would take most of it away without a change here beyond the imports.
 - Adding a method now also means adding its activity words (`method_<name>` in every locale),
