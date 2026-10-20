@@ -963,6 +963,18 @@ async function accessScenario(browser) {
       await sleep(500);
     }
     check(name, 'all sites: its page is readable', !read.error, read.text.slice(0, 200));
+
+    // Issue #138: the agent is injected before EVERY call, and until this fix the second
+    // evaluation of its bundle in the same document threw (a dependency claims the Gio resource
+    // registry at module top level) — so the SECOND page call is the regression, not the first.
+    const first = await tool(a.client, 'page_outline', { tabId });
+    const second = await tool(a.client, 'page_outline', { tabId });
+    check(
+      name,
+      'a second page call on the same document still answers (issue #138)',
+      !first.error && !second.error,
+      `${first.text.slice(0, 120)} / ${second.text.slice(0, 120)}`,
+    );
     const blocked = await quickly(a.client, 'tab_open', { url: `${BLOCKED}/fixture`, active: false });
     check(
       name,
