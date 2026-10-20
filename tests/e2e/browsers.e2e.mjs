@@ -2862,6 +2862,7 @@ async function pausedChecks(browser, client) {
     ['page_navigate', { tabId: 1, url }],
     ['page_screenshot', { tabId: 1 }],
     ['page_fill', { tabId: 1, ref: 'e1', text: 'x' }],
+    ['page_enter_code', { tabId: 1, ref: 'e1', code: '1234' }],
     ['page_click', { tabId: 1, ref: 'e1' }],
     ['page_press', { tabId: 1, key: 'Enter' }],
     ['page_select', { tabId: 1, ref: 'e1', values: ['x'] }],
