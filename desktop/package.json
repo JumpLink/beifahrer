@@ -101,20 +101,20 @@
     }
   },
   "optionalDependencies": {
-    "@gjsify/gtk-runtime-darwin-arm64": "0.64.0",
-    "@gjsify/gtk-runtime-darwin-x64": "0.64.0",
-    "@gjsify/gtk-runtime-win32-x64": "0.64.0",
-    "@gjsify/node-runtime-darwin-arm64": "0.64.0",
-    "@gjsify/node-runtime-darwin-x64": "0.64.0",
-    "@gjsify/node-runtime-win32-x64": "0.64.0"
+    "@gjsify/gtk-runtime-darwin-arm64": "0.64.2",
+    "@gjsify/gtk-runtime-darwin-x64": "0.64.2",
+    "@gjsify/gtk-runtime-win32-x64": "0.64.2",
+    "@gjsify/node-runtime-darwin-arm64": "0.64.2",
+    "@gjsify/node-runtime-darwin-x64": "0.64.2",
+    "@gjsify/node-runtime-win32-x64": "0.64.2"
   },
   "dependencies": {
     "@beifahrer/core": "*",
     "@beifahrer/local": "*",
-    "@gjsify/adwaita-app": "0.64.1",
-    "@gjsify/adwaita-core": "0.64.1",
-    "@gjsify/distribution": "0.64.1",
-    "@gjsify/node-gi": "0.64.0"
+    "@gjsify/adwaita-app": "0.64.2",
+    "@gjsify/adwaita-core": "0.64.2",
+    "@gjsify/distribution": "0.64.2",
+    "@gjsify/node-gi": "0.64.2"
   },
   "devDependencies": {
     "@girs/adw-1": "5.4.0",
@@ -122,11 +122,11 @@
     "@girs/gio-2.0": "5.4.0",
     "@girs/glib-2.0": "5.4.0",
     "@girs/gtk-4.0": "5.4.0",
-    "@gjsify/cli": "0.64.1",
-    "@gjsify/node-globals": "0.64.1",
-    "@gjsify/rolldown-native": "0.64.1",
-    "@gjsify/runtime": "0.64.1",
-    "@gjsify/unit": "0.64.1",
+    "@gjsify/cli": "0.64.2",
+    "@gjsify/node-globals": "0.64.2",
+    "@gjsify/rolldown-native": "0.64.2",
+    "@gjsify/runtime": "0.64.2",
+    "@gjsify/unit": "0.64.2",
     "@types/node": "^26.6.2"
   }
 }

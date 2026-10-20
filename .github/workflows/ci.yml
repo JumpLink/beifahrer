@@ -28,7 +28,7 @@ jobs:
       - name: Install system prerequisites
         run: >
           dnf install -y --setopt=install_weak_deps=False
-          git tar xz findutils gjs libsoup3 gdk-pixbuf2 librsvg2 msitools
+          git tar xz findutils gjs libsoup3 gdk-pixbuf2 librsvg2 msitools glib2-devel
 
       - uses: actions/checkout@v4
 

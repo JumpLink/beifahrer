@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/eu/jumplink/Beifahrer">
+    <file>icons/scalable/actions/document-open-recent-symbolic.svg</file>
+    <file>icons/scalable/actions/help-about-symbolic.svg</file>
+    <file>icons/scalable/actions/format-justify-left-symbolic.svg</file>
+    <file>icons/scalable/actions/insert-text-symbolic.svg</file>
+    <file>icons/scalable/actions/media-playback-pause-symbolic.svg</file>
+    <file>icons/scalable/actions/media-playback-start-symbolic.svg</file>
+    <file>icons/scalable/actions/tab-new-symbolic.svg</file>
+    <file>icons/scalable/devices/input-mouse-symbolic.svg</file>
+    <file>icons/scalable/places/folder-download-symbolic.svg</file>
+    <file>icons/scalable/apps/utilities-terminal-symbolic.svg</file>
+    <file>icons/scalable/apps/web-browser-symbolic.svg</file>
+    <file>icons/scalable/status/dialog-password-symbolic.svg</file>
+    <file>icons/scalable/status/dialog-question-symbolic.svg</file>
+    <file>icons/scalable/status/dialog-warning-symbolic.svg</file>
+  </gresource>
+</gresources>

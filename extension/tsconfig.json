@@ -9,7 +9,7 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
-    "types": ["filesystem", "har-format"]
+    "types": ["filesystem", "har-format", "@gjsify/rolldown-plugin-gjsify/types"]
   },
   "include": ["./entrypoints/**/*", "./src/**/*", "./manifest.ts"]
 }

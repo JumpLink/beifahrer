@@ -16,12 +16,13 @@ import {
 } from '../../src/ui/features.ts';
 import { scriptQuietControl, type ScriptQuietControl } from '../../src/ui/script-quiet.ts';
 import { heroIcon, stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
+import { showToast } from '../../src/ui/toast.ts';
 import { renderSessions } from '../../src/ui/sessions.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const levels = $<Adw.ToggleGroup>('levels');
 const confirmRow = $<Adw.SwitchRow>('confirm');
-const toast = (text: string) => $<Adw.ToastOverlay>('toasts').addToast(text, { timeout: 3 });
+const toast = (text: string) => showToast(text, { timeout: 3 });
 
 /** The origin the popup is about, read once in `main`; the site rows all write for it. */
 let origin: string | null = null;
