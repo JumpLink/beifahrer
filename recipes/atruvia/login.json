@@ -1,8 +1,8 @@
 {
   "id": "atruvia/login",
   "title": "Log back in to a bank portal that the browser already knows",
-  "description": "On the logged-out page or the login page of an Atruvia / VR banking portal: leaves the logged-out page for the login page, then presses Anmelden and waits for the start page with its Postfach button. It never types a PIN or password: the browser's own password manager has to have filled the VR-NetKey and the PIN. If the portal asks for a second factor, the run ends with needs_person: a TAN field (kind code, pass the relayed TAN as param code and resume at the step in next), or an approval on the person's own device such as SecureGo or a new-device check (kind device). If the login page stays (no saved PIN), it ends with needs_person kind login. Matched on any bank's domain by the portal's paths.",
-  "version": "1.1.1",
+  "description": "On the logged-out page or the login page of an Atruvia / VR banking portal: leaves the logged-out page for the login page, then presses Anmelden and waits for the start page with its Postfach button. It never types a PIN or password: the browser's own password manager has to have filled the VR-NetKey and the PIN. If the portal asks for a second factor, the run ends with needs_person: a TAN field (kind code, pass the relayed TAN as param code and resume at the step in next), or an approval on the person's own device such as SecureGo or a new-device check (kind device). After the click it waits up to 12 s for the start page before it looks for a second factor. If the login page stays (for example no saved PIN), it ends with needs_person kind login. Matched on any bank's domain by the portal's paths.",
+  "version": "1.2.0",
   "match": {
     "urls": [
       "https://*/services_cloud/portal/logout*",
@@ -44,6 +44,14 @@
       "action": "wait",
       "for": "load",
       "note": "Lets the page after the button settle before the second-factor checks look at it."
+    },
+    {
+      "id": "leave-login",
+      "action": "wait",
+      "for": { "role": "button", "name": ["Postfach"] },
+      "timeoutMs": 12000,
+      "optional": true,
+      "note": "The portal is a single-page app: \"load\" returns at once, so the login page is still there while it signs in. Give it time to reach the start page; a second-factor page never shows the button and is reached after the timeout."
     },
     {
       "id": "already-in",
@@ -88,7 +96,7 @@
       "action": "person",
       "kind": "login",
       "when": { "role": "heading", "name": ["Anmelden"] },
-      "prompt": "The login page is still open: no PIN was saved. Please log in yourself, then tell me."
+      "prompt": "The login page is still open: the portal did not sign in. The browser may have no saved PIN, or the saved one was not accepted. Please log in yourself, then tell me."
     },
     {
       "id": "wait-start",

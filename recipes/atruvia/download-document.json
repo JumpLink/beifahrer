@@ -1,8 +1,8 @@
 {
   "id": "atruvia/download-document",
   "title": "Download one document from a bank portal postbox",
-  "description": "Scrolls the postbox to the row whose text contains the given title, then presses THAT row's Download button and returns the file. The portal marks a document as read when it is downloaded. Matched on any bank's domain by the portal's page metadata and the postbox path.",
-  "version": "1.1.0",
+  "description": "Scrolls the postbox to the row whose text contains the given title, then presses THAT row's Download button and returns the file. The postbox shows one customer's mailbox at a time: the person or agent has to open the right mailbox (and tab) first. The portal marks a document as read when it is downloaded. Matched on any bank's domain by the portal's page metadata and the postbox path.",
+  "version": "1.1.1",
   "match": {
     "urls": [
       "https://*/services_cloud/portal/webcomp/epostfach/*"
@@ -24,7 +24,7 @@
     {
       "name": "title",
       "type": "string",
-      "description": "Text of the row, as atruvia/list-postbox lists it (a substring is enough).",
+      "description": "The document name as shown at the start of the row, e.g. \"Kontoauszug 004/2025\". Not the account number, not the date and not the whole row text: it is also matched against the Download button's accessible name, which words the account number differently.",
       "required": true
     }
   ],

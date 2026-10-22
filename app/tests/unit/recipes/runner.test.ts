@@ -198,6 +198,35 @@ export default async () => {
       expect(run.message).toMatch(/step 1 "wait" \(wait\) failed: timeout: nothing matched/);
     });
 
+    await it('an optional wait that times out is skipped and the run continues', async () => {
+      const ext = fakeExtension();
+      const r = recipe({
+        steps: [
+          { id: 'wait', action: 'wait', for: { role: 'richtext' }, optional: true },
+          { id: 'after', action: 'read' },
+        ],
+        params: [],
+      });
+      const run = await runRecipe(ext.call, r, { tabId: 7 });
+      expect(run.status).toBe('done');
+      expect(run.log.map((l) => `${l.step}:${l.status}`).join(' ')).toBe('wait:skipped after:ok');
+    });
+
+    await it('an optional wait still fails on an error that is not a timeout', async () => {
+      const ext = fakeExtension({
+        fail: {
+          'page.wait': new BridgeError({ code: 'forbidden', message: 'op.example is at level "none"' }),
+        },
+      });
+      const r = recipe({
+        steps: [{ id: 'wait', action: 'wait', for: { role: 'richtext' }, optional: true }],
+        params: [],
+      });
+      const run = await runRecipe(ext.call, r, { tabId: 7 });
+      expect(run.status).toBe('failed');
+      expect(run.message).toMatch(/"wait" \(wait\) failed: forbidden/);
+    });
+
     await it('refuses bad params before any call', async () => {
       const ext = fakeExtension();
       const missing = await runRecipe(ext.call, recipe(), { tabId: 7, params: {} });
@@ -425,8 +454,11 @@ export default async () => {
         url: string,
         shown: Array<[FindRole, string]>,
         afterLogin: Array<[FindRole, string]>,
-        opts: { enterFails?: string } = {},
+        opts: { enterFails?: string; slow?: boolean } = {},
       ) => {
+        // `slow`: a single-page app that signs in after the click returns, so the page still shows the
+        // login form until something waits for the next one.
+        let pending: Array<[FindRole, string]> | undefined;
         let n = 1;
         let elements = shown.map(([role, name]) => ({ ref: `e${n++}`, role, name }));
         const calls: Array<[string, Record<string, unknown>]> = [];
@@ -462,8 +494,10 @@ export default async () => {
               ].map(([role, name]) => ({ ref: `e${n++}`, role: role as FindRole, name: name! }));
             if (el.name === 'Bestätigen')
               elements = START.map(([role, name]) => ({ ref: `e${n++}`, role, name }));
-            if (el.role === 'button' && el.name === 'Anmelden')
-              elements = afterLogin.map(([role, name]) => ({ ref: `e${n++}`, role, name }));
+            if (el.role === 'button' && el.name === 'Anmelden') {
+              if (opts.slow) pending = afterLogin;
+              else elements = afterLogin.map(([role, name]) => ({ ref: `e${n++}`, role, name }));
+            }
             return { ref: p.ref };
           }
           if (m === 'page.enterCode') {
@@ -473,6 +507,10 @@ export default async () => {
           if (m === 'page.wait') {
             const { tabId: _t, for: want } = p;
             if (want === 'load') return { waitedMs: 1 };
+            if (pending && (want as ElementQuery).name?.includes('Postfach')) {
+              elements = pending.map(([role, name]) => ({ ref: `e${n++}`, role, name }));
+              pending = undefined;
+            }
             const first = elements.filter((e) =>
               queryMatches(want as ElementQuery, { role: e.role, name: e.name, text: '' }),
             )[0];
@@ -495,7 +533,7 @@ export default async () => {
         );
         const run = await runRecipe(x.call, login(), { tabId: 7 });
         expect(run.status).toBe('done');
-        expect(run.log.map((l) => l.status).join(',')).toBe('ok,ok,ok,ok,ok');
+        expect(run.log.map((l) => l.status).join(',')).toBe('ok,ok,ok,ok,ok,ok');
         expect(x.calls.filter(([m]) => m === 'page.click').length).toBe(2);
         expect(x.calls.some(([m]) => m === 'page.fill')).toBe(false);
       });
@@ -521,6 +559,23 @@ export default async () => {
         ['button', 'Anmelden'],
       ];
       const AUTH = 'https://bank.example/services_auth/auth-frontend/?x=1';
+
+      await it('a portal that signs in after the click is waited for, not read as "no PIN"', async () => {
+        const x = portal(AUTH, LOGIN_PAGE, START, { slow: true });
+        const run = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(run.status).toBe('done');
+        expect(run.person).toBe(undefined);
+      });
+
+      await it('a login page that never goes away still ends with needs_person (login)', async () => {
+        const x = portal(AUTH, LOGIN_PAGE, LOGIN_PAGE);
+        const run = await runRecipe(x.call, login(), { tabId: 7 });
+        expect(run.status).toBe('needs_person');
+        expect(run.person?.kind).toBe('login');
+        expect(run.person?.prompt).toMatch(/still open/);
+        expect(run.person?.prompt).not.toMatch(/no PIN was saved/);
+        expect(run.log.find((l) => l.step === 'leave-login')!.status).toBe('skipped');
+      });
 
       await it('a TAN field ends the run with needs_person (code), and the resume types the relayed code', async () => {
         const x = portal(AUTH, LOGIN_PAGE, [
