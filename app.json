@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "id": "eu.jumplink.beifahrer",
+  "name": {
+    "en": "Beifahrer"
+  },
+  "summary": {
+    "en": "Let AI use your browser",
+    "de": "KI nutzt deinen Browser"
+  },
+  "icon": "https://jumplink.eu/beifahrer/eu.jumplink.beifahrer.svg",
+  "url": "https://jumplink.eu/beifahrer/",
+  "languages": [
+    "en",
+    "de"
+  ],
+  "developer": {
+    "id": "eu.jumplink",
+    "name": "Pascal Garber"
+  }
+}
