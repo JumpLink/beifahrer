@@ -359,14 +359,25 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
         }
         case 'wait': {
           const wanted = step.for === 'load' ? step.for : narrow(step.for, step.nameParam);
+          let timedOut = false;
           const r = await call('page.wait', { tabId, for: wanted, timeoutMs: step.timeoutMs }, browser).catch(
             (err: unknown) => {
+              const isTimeout = err instanceof BridgeError && err.wire.code === 'timeout';
+              // An optional wait only forgives the timeout; a forbidden or paused still fails the run.
+              if (step.optional && isTimeout) {
+                timedOut = true;
+                return undefined;
+              }
               // Only the timeout is the recipe's to explain; a forbidden or paused stays the extension's word.
-              if (step.failMessage && err instanceof BridgeError && err.wire.code === 'timeout')
-                throw new StepFailed(step.failMessage);
+              if (step.failMessage && isTimeout) throw new StepFailed(step.failMessage);
               throw err;
             },
           );
+          if (!r || timedOut) {
+            entry.status = 'skipped';
+            entry.detail = `not seen within ${step.timeoutMs ?? 'the default'} ms (optional)`;
+            break;
+          }
           entry.detail = `after ${r.waitedMs} ms${r.match ? `: ${r.match.description}` : ''}`;
           break;
         }

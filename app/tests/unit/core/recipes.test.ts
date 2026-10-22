@@ -130,11 +130,35 @@ export default async () => {
       refused(withStep({ id: 'x', action: 'read', failMessage: 'no' }), /unknown key "failMessage"/);
     });
 
+    await it('a wait step takes optional, as a boolean only', async () => {
+      const ok = parseRecipe(
+        withStep({ id: 'x', action: 'wait', for: { role: 'button' }, optional: true }),
+      ) as Recipe;
+      expect((ok.steps[5] as { optional?: boolean }).optional).toBe(true);
+      refused(
+        withStep({ id: 'x', action: 'wait', for: 'load', optional: 'yes' }),
+        /optional: must be a boolean/,
+      );
+    });
+
+    await it('the built-in atruvia login waits optionally for the start page before the checks', async () => {
+      const r = parseRecipe(
+        BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/login')!.data,
+      ) as Recipe;
+      const ids = r.steps.map((s) => s.id);
+      const wait = r.steps[ids.indexOf('leave-login')] as { optional?: boolean; timeoutMs?: number };
+      expect(wait.optional).toBe(true);
+      expect(wait.timeoutMs! <= 15000).toBe(true);
+      expect(ids.indexOf('leave-login')).toBeGreaterThan(ids.indexOf('login'));
+      expect(ids.indexOf('leave-login')).toBeLessThan(ids.indexOf('already-in'));
+      expect(ids.indexOf('leave-login')).toBeLessThan(ids.indexOf('no-pin'));
+    });
+
     await it('the built-in atruvia login only clicks and waits: no fill, no param', async () => {
       const file = BUILTIN.find((f) => (f.data as { id?: string }).id === 'atruvia/login')!;
       const r = parseRecipe(file.data) as Recipe;
       expect(r.steps.map((s) => s.action).join(',')).toBe(
-        'click,wait,click,wait,finish,person,person,enter-code,click,person,wait',
+        'click,wait,click,wait,wait,finish,person,person,enter-code,click,person,wait',
       );
       expect(r.params.map((p) => `${p.name}:${p.secret}`).join(',')).toBe('code:true');
       expect(r.steps.some((s) => s.action === 'fill')).toBe(false);

@@ -79,6 +79,8 @@ export type Step =
       timeoutMs?: number;
       nameParam?: string;
       failMessage?: string;
+      /** A timeout skips the step instead of failing the run; any other error still fails it. */
+      optional?: boolean;
     })
   | (StepBase & { action: 'read'; maxChars?: number })
   | (StepBase & { action: 'outline'; maxItems?: number })
@@ -163,7 +165,7 @@ const STEP_KEYS: Record<StepAction, string[]> = {
   click: ['target', 'nameParam', 'optional'],
   submit: ['target', 'nameParam'],
   fill: ['target', 'param', 'as', 'mode'],
-  wait: ['for', 'timeoutMs', 'nameParam', 'failMessage'],
+  wait: ['for', 'timeoutMs', 'nameParam', 'failMessage', 'optional'],
   read: ['maxChars'],
   outline: ['maxItems'],
   rows: ['maxRows', 'param'],
@@ -414,6 +416,10 @@ function step(value: unknown, where: string, params: Set<string>): Step {
       if (src.timeoutMs !== undefined)
         out.timeoutMs = int(src.timeoutMs, `${where}.timeoutMs`, 100, MAX_WAIT_MS);
       if (src.failMessage !== undefined) out.failMessage = str(src.failMessage, `${where}.failMessage`, 500);
+      if (src.optional !== undefined) {
+        if (typeof src.optional !== 'boolean') fail(`${where}.optional`, 'must be a boolean');
+        if (src.optional) out.optional = true;
+      }
       return out;
     }
     case 'read': {

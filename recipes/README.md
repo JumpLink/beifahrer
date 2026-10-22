@@ -75,7 +75,7 @@ keys by name, and any other key it does not know.
 | `find` | fails unless the element is there | `target` |
 | `click` | clicks it | `target`, `optional` (skipped when the element is not there) |
 | `fill` | puts a param's value into a field or editor | `target`, `param`, `as` (`text`/`html`), `mode` (`replace`/`append`) |
-| `wait` | waits for the page to load or an element to appear | `for` (`"load"` or a query), `timeoutMs` (≤ 30000), `failMessage` (what the failure says when the wait times out) |
+| `wait` | waits for the page to load or an element to appear | `for` (`"load"` or a query), `timeoutMs` (≤ 30000), `failMessage` (what the failure says when the wait times out), `optional` (a timeout skips the step instead of failing; any other error still fails) |
 | `read`, `outline` | returns the page text / outline in the run log | `maxChars` / `maxItems` |
 | `rows` | returns the rows of the list on the page (scrolls a virtual-scroll list) | `maxRows` |
 | `click-row` | clicks the row whose text contains a param's value | `param` |
