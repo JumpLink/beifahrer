@@ -47,7 +47,7 @@ The listing fields below are the ones that page names.
 | Description | the full description below | here |
 | Category (up to 2) | *a person decides* — candidates: Productivity, Developer Tools | AMO allows two |
 | Support email | *a person's address* | — |
-| Support website | *a URL that must resolve* | — |
+| Support website | <https://jumplink.eu/beifahrer/> is live; a dedicated support page or the issue tracker is still a person's decision | `package.json` → `homepage` |
 | License | GNU Affero GPL v3.0 or later | `package.json` → `license` |
 | "This add-on has a privacy policy" | tick, and paste [privacy.md](privacy.md) into the field | Beifahrer transmits nothing off the device, so the honest answer is the tick **and** the text — AMO asks for a policy whenever any data is transmitted, and a policy that says "nothing" is still the clearest answer to a reviewer |
 | Notes for Reviewers | see below | — |
@@ -143,7 +143,8 @@ Package: `beifahrer-0.1.0-chrome-mv3.zip` from the release.
 | Summary (≤ 132 characters) | Let an AI agent use this browser. You choose, site by site, what it may read and change. | `_locales/*/messages.json` → `extDescription`, 88 characters. Chrome states the 132 limit in [prepare your extension](https://developer.chrome.com/docs/webstore/prepare) |
 | Description | the full description below | here |
 | Category | *a person decides* — candidates: Productivity, Developer Tools, Workflow & Planning | — |
-| Homepage, support URL | *URLs that must resolve* | — |
+| Homepage URL | <https://jumplink.eu/beifahrer/> | `package.json` → `homepage`; same address as `gjsify.site.url`, built by `gjsify site build` |
+| Support URL | *a URL that must resolve* — a person decides whether this is the homepage, a support page, or the issue tracker | — |
 | Privacy policy URL | *a URL that must resolve*, serving [privacy.md](privacy.md) | — |
 | Single purpose | see below | — |
 | Language | English (United States); German available | `_locales/` carries `en` and `de` |
