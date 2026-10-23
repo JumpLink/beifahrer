@@ -113,6 +113,23 @@
           }
         ]
       },
+      "privacy": {
+        "statements": {
+          "en": "docs/store/privacy.md",
+          "de": "docs/store/privacy.de.md"
+        }
+      },
+      "legalNotice": {
+        "statements": {
+          "en": "docs/store/legal-notice.md",
+          "de": "docs/store/legal-notice.de.md"
+        }
+      },
+      "relatedApps": [
+        {
+          "url": "https://jumplink.eu/steuererklaerung/"
+        }
+      ],
       "support": [
         {
           "kind": "GitHub Sponsors",
