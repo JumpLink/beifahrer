@@ -3,6 +3,7 @@
   "version": "0.1.13",
   "private": true,
   "license": "AGPL-3.0-or-later",
+  "homepage": "https://jumplink.eu/beifahrer/",
   "type": "module",
   "description": "Beifahrer \u2014 let an AI agent ride along in the browser you already use (Firefox, Chromium), under a per-site policy you control. A WebExtension plus an MCP server that runs on GJS via gjsify.",
   "workspaces": [

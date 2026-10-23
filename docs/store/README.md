@@ -42,9 +42,10 @@ were read in the tree this was written against (`0.1.0`, branch off `b79a9bd`).
    ([create-dev-account](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/create-dev-account)).
    AMO needs a Mozilla account; whether listing costs anything is `<verify>`. Do this before writing
    a word of copy: it is the only step that can be blocked by something outside this repository.
-2. **The URLs.** Every store asks for a homepage, a support URL and a privacy-policy URL. None exists
-   yet — see the list below. A page that 404s is a rejection, and the cheapest fix is publishing
-   three short pages first.
+2. **The URLs.** Every store asks for a homepage, a support URL and a privacy-policy URL. The
+   homepage is live (`https://jumplink.eu/beifahrer/`); support and the privacy policy are not — see
+   the list below. A page that 404s is a rejection, and the cheapest fix is publishing the remaining
+   two pages first.
 3. **Screenshots.** A script renders the three extension pages today; the two shots that show what
    the agent does on a page need a person's hands. [screenshots.md](screenshots.md) says which is
    which, so the accounts and the URLs can be done while they are being taken.
@@ -57,13 +58,16 @@ were read in the tree this was written against (`0.1.0`, branch off `b79a9bd`).
 
 Nothing below can be derived from the repository. Each item is a decision, a name, or an account.
 
-- **Choose the public URLs.** The repository remote is `git@github.com:JumpLink/beifahrer.git` and it
-  is **already public** (measured with `gh repo view --json visibility`), which is what AMO's listed
-  review wants to see for the source. What is missing is not the repository but a place to point a
-  store at: `package.json` carries no `homepage`, so nothing in the tree names a homepage, a
-  support site or a privacy-policy URL, and no such page is hosted. `"private": true` in
-  `package.json` is the npm-publish guard and has nothing to do with the repository's visibility —
-  do not read it as "not public". Someone has to decide what the three pages say and where they live.
+- **The homepage is settled.** `https://jumplink.eu/beifahrer/` — `gjsify.site.url`, built by
+  `gjsify site build` from the AppStream metainfo and deployed by
+  [`deploy-site.yml`](../../.github/workflows/deploy-site.yml); now also `package.json` → `homepage`.
+  The repository remote is `git@github.com:JumpLink/beifahrer.git` and it is **already public**
+  (measured with `gh repo view --json visibility`), which is what AMO's listed review wants to see
+  for the source. `"private": true` in `package.json` is the npm-publish guard and has nothing to do
+  with the repository's visibility — do not read it as "not public".
+- **Two URLs are still open: support and the privacy policy.** Someone has to decide whether support
+  is the homepage, a dedicated page, or the issue tracker, and where `privacy.md` gets hosted — see
+  below for the privacy-policy page question.
 - **Decide who the support contact is.** AMO asks for a support email and a support website; both
   are a person's decision, not a string the project can pick.
 - **Answer the fee and account questions.** Every `<verify>` in these four files.
