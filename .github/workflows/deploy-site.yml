@@ -10,6 +10,8 @@ on:
       - "package.json"
       - "data/**"
       - "docs/images/**"
+      - "docs/store/privacy*.md"
+      - "docs/store/legal-notice*.md"
       - "gjsify-lock.json"
       - ".github/workflows/deploy-site.yml"
   workflow_dispatch:
