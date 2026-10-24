@@ -90,6 +90,13 @@ adw-preferences-group.empty .adw-preferences-group-listbox {
   align-items: center;
 }
 
+.legal-links {
+  display: flex;
+  gap: var(--spacing-m);
+  justify-content: center;
+  font-size: 0.85em;
+}
+
 .actions .spacer {
   flex: 1 1 auto;
 }

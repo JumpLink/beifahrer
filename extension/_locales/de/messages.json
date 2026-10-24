@@ -829,5 +829,11 @@
   },
   "pill_editing_frame": {
     "message": "Agent bearbeitet diese eingebettete Seite"
+  },
+  "privacy_link": {
+    "message": "Datenschutz"
+  },
+  "legal_link": {
+    "message": "Impressum"
   }
 }
