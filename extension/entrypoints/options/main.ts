@@ -559,4 +559,12 @@ async function main(): Promise<void> {
   if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
 }
 
+function setupLegalLinks(): void {
+  const lang = uiLanguage().toLowerCase().startsWith('de') ? 'de' : 'en';
+  const base = `https://jumplink.eu/beifahrer/${lang}`;
+  (document.getElementById('privacy-link') as HTMLAnchorElement).href = `${base}/privacy/`;
+  (document.getElementById('legal-link') as HTMLAnchorElement).href = `${base}/legal-notice/`;
+}
+
+setupLegalLinks();
 void main();

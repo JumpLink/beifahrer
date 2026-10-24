@@ -830,5 +830,11 @@
   },
   "pill_editing_frame": {
     "message": "Agent is editing this embedded page"
+  },
+  "privacy_link": {
+    "message": "Privacy"
+  },
+  "legal_link": {
+    "message": "Legal notice"
   }
 }
