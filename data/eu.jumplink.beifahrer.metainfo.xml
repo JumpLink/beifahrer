@@ -63,6 +63,13 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.14" date="2026-10-24">
+      <description>
+        <ul>
+          <li>The About window links to the privacy policy and the legal notice</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.13" date="2026-10-20">
       <description>
         <ul>
