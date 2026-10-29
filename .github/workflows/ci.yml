@@ -6,8 +6,18 @@ on:
   pull_request:
   workflow_dispatch:
   # Also callable, so a tag's release runs this exact job instead of a second copy of it that has
-  # to be kept in step with this one. Nothing here needs a secret, so a caller forwards none.
+  # to be kept in step with this one. Only the `macos` job reads secrets, and only when the caller
+  # asks it to sign — release.yml does, with `secrets: inherit`; a push or a PR packs unsigned.
   workflow_call:
+    inputs:
+      sign:
+        description: "Sign and notarise the macOS packages when the Apple secrets are there"
+        type: boolean
+        default: false
+      release:
+        description: "This run is a release: signing is then required, not just attempted"
+        type: boolean
+        default: false
 
 # The gjsify toolchain, as in curlew/troedler: `gjsify install --immutable`, the bundled
 # `gjsify tsc` type-check, `gjsify build` for the app, and the unit tests under BOTH gjs and node.
@@ -182,32 +192,28 @@ jobs:
       # (`@gjsify/node-runtime-{darwin-arm64,darwin-x64,win32-x64}`), which a plain install on this
       # Linux host SKIPS — naming the target installs it instead, and `ship` picks up both that
       # runtime and the matching `@gjsify/node-gi` native addon from node_modules at pack time.
-      # Assembly is not host-bound (ADR 0024 § A1): the Mach-O and PE payloads are only VERIFIED on
-      # their own OS — a Mac or a Windows runner would be for that, not assembled on one.
-      - name: Package macOS (arm64)
-        run: gjsify install --os darwin --cpu arm64 --immutable
-
-      - name: Ship macOS (arm64)
-        working-directory: app
-        run: gjsify ship darwin --arch arm64 --skip-build --target macos-app-zip
-
+      # Assembly is not host-bound (ADR 0024 § A1), but signing (`codesign`), notarising
+      # (`notarytool`) and the `.dmg` (`hdiutil`) are, so macOS is only STAGED here and the `macos`
+      # job below packs it. `--from-stage` is what splits the work along that line: a stage carries
+      # its own closure and needs no project on the other side.
+      #
       # Both ship projects out of the SAME platform install: `gjsify install --os/--cpu` swaps which
-      # runtime and which native addon node_modules holds, and `ship` reads that at pack time. Once
+      # runtime and which native addon node_modules holds, and `ship` reads that at stage time. Once
       # per arch rather than once per project is the difference between three installs and six.
-      - name: Ship the desktop app for macOS (arm64)
-        working-directory: desktop
-        run: gjsify ship darwin --arch arm64 --skip-build --target macos-app-zip
-
-      - name: Package macOS (x64)
-        run: gjsify install --os darwin --cpu x64 --immutable
-
-      - name: Ship macOS (x64)
-        working-directory: app
-        run: gjsify ship darwin --arch x64 --skip-build --target macos-app-zip
-
-      - name: Ship the desktop app for macOS (x64)
-        working-directory: desktop
-        run: gjsify ship darwin --arch x64 --skip-build --target macos-app-zip
+      #
+      # Tarred because `upload-artifact` drops the executable bit and flattens symlinks, and a
+      # `.app` with either gone does not launch.
+      - name: Stage macOS (arm64 + x64)
+        run: |
+          set -eu
+          for arch in arm64 x64; do
+            gjsify install --os darwin --cpu "$arch" --immutable
+            for project in app desktop; do
+              (cd "$project" && gjsify ship darwin --arch "$arch" --skip-build --stage \
+                --target macos-app-zip,macos-app-dmg --out "ship/stage-$arch")
+              tar -C "$project/ship/stage-$arch" -cf "macos-stage-$project-$arch.tar" stage
+            done
+          done
 
       # `msi` needs `wixl` (msitools, installed above); `windows-dir-zip` needs nothing `ship`
       # does not write itself.
@@ -222,15 +228,13 @@ jobs:
         working-directory: desktop
         run: gjsify ship windows --arch x64 --skip-build --target windows-dir-zip,msi
 
-      - name: Assert the macOS and Windows artifacts arrived
+      - name: Assert the Windows artifacts arrived
         working-directory: app/ship/out
         run: |
           set -eu
           ls -la
           version=$(node -p "require('$GITHUB_WORKSPACE/app/package.json').version")
           for f in \
-            "beifahrer-${version}-1.macos.arm64.zip" \
-            "beifahrer-${version}-1.macos.x86_64.zip" \
             "beifahrer-${version}-1.windows.x64.zip" \
             "beifahrer-${version}-1.x64.msi"; do
             if [ ! -s "$f" ]; then
@@ -239,17 +243,13 @@ jobs:
             fi
           done
 
-      # `x86_64` for the macOS x64 row and `x64` for the Windows ones, exactly as above: those are
-      # the spellings each platform's own tooling uses, and `utils/ship/formats.ts` renders them.
-      - name: Assert the desktop macOS and Windows artifacts arrived
+      - name: Assert the desktop Windows artifacts arrived
         working-directory: desktop/ship/out
         run: |
           set -eu
           ls -la
           version=$(node -p "require('$GITHUB_WORKSPACE/desktop/package.json').version")
           for f in \
-            "beifahrer-desktop-${version}-1.macos.arm64.zip" \
-            "beifahrer-desktop-${version}-1.macos.x86_64.zip" \
             "beifahrer-desktop-${version}-1.windows.x64.zip" \
             "beifahrer-desktop-${version}-1.x64.msi"; do
             if [ ! -s "$f" ]; then
@@ -275,18 +275,23 @@ jobs:
           path: |
             app/ship/out/*.deb
             app/ship/out/*.rpm
+            app/ship/out/*.deb.gjsify-release.json
+            app/ship/out/*.rpm.gjsify-release.json
           # Already-compressed packages; the default level 6 would spend minutes re-compressing them
           # on the way up and again on the way down for no gain.
           compression-level: 0
 
       # `ship-*`, matching `ship-deb-rpm` and `ship-flatpak`, so release.yml's existing
-      # `pattern: ship-*` download already picks this up with no change to that step.
+      # `pattern: ship-*` download already picks this up with no change to that step. Each file
+      # travels with its release record (ADR 0124 in gjsify), which the site reads.
       - uses: actions/upload-artifact@v4
         with:
-          name: ship-macos-windows
+          name: ship-windows
           path: |
             app/ship/out/*.zip
             app/ship/out/*.msi
+            app/ship/out/*.zip.gjsify-release.json
+            app/ship/out/*.msi.gjsify-release.json
           compression-level: 0
 
       # The desktop window's packages under their own `ship-*` names rather than mixed into the two
@@ -298,15 +303,215 @@ jobs:
           path: |
             desktop/ship/out/*.deb
             desktop/ship/out/*.rpm
+            desktop/ship/out/*.deb.gjsify-release.json
+            desktop/ship/out/*.rpm.gjsify-release.json
           compression-level: 0
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ship-desktop-macos-windows
+          name: ship-desktop-windows
           path: |
             desktop/ship/out/*.zip
             desktop/ship/out/*.msi
+            desktop/ship/out/*.zip.gjsify-release.json
+            desktop/ship/out/*.msi.gjsify-release.json
           compression-level: 0
+
+      # Not `ship-*`: release.yml attaches everything it matches, and these are inputs to the
+      # `macos` job, not release assets.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-stage
+          path: macos-stage-*.tar
+          compression-level: 0
+          if-no-files-found: error
+
+  # ── macOS: pack, sign and notarise ───────────────────────────────────────────────────────────
+  # Packs the stages above into a `.zip` and a `.dmg` per arch and per ship project. The identity is
+  # a Developer ID Application certificate (direct distribution outside the App Store), the notary
+  # credential an App Store Connect API key. Repository secrets:
+  #
+  #   APPLE_DEVELOPER_ID_P12_BASE64   the certificate + private key, `base64 -w0`
+  #   APPLE_DEVELOPER_ID_P12_PASSWORD its export password
+  #   APPLE_NOTARY_KEY_P8             the `AuthKey_<id>.p8` file, as text
+  #   APPLE_NOTARY_KEY_ID             the key id
+  #   APPLE_NOTARY_ISSUER_ID          the issuer UUID
+  #
+  # Read only when the caller passes `sign` (release.yml does): a push or a PR packs UNSIGNED, which
+  # still proves the stage packs on macOS, without eight notary submissions per commit. A release
+  # does not run without them, because an unsigned `.app` that Gatekeeper refuses on every Mac is
+  # the silent kind of wrong.
+  macos:
+    name: macOS packages
+    needs: build-and-test
+    runs-on: macos-latest
+    env:
+      P12_BASE64: ${{ inputs.sign && secrets.APPLE_DEVELOPER_ID_P12_BASE64 || '' }}
+      P12_PASSWORD: ${{ inputs.sign && secrets.APPLE_DEVELOPER_ID_P12_PASSWORD || '' }}
+      NOTARY_KEY_P8: ${{ inputs.sign && secrets.APPLE_NOTARY_KEY_P8 || '' }}
+      NOTARY_KEY_ID: ${{ inputs.sign && secrets.APPLE_NOTARY_KEY_ID || '' }}
+      NOTARY_ISSUER_ID: ${{ inputs.sign && secrets.APPLE_NOTARY_ISSUER_ID || '' }}
+    steps:
+      # All five or none: a partial set (a password not yet stored) packs unsigned with a notice
+      # naming what is missing, rather than failing half-way through the keychain import.
+      - name: Decide whether to sign
+        env:
+          RELEASE: ${{ inputs.release }}
+        run: |
+          set -eu
+          missing=""
+          for v in P12_BASE64 P12_PASSWORD NOTARY_KEY_P8 NOTARY_KEY_ID NOTARY_ISSUER_ID; do
+            eval "val=\${$v:-}"
+            [ -n "$val" ] || missing="$missing $v"
+          done
+          if [ -z "$missing" ]; then
+            echo "CAN_SIGN=1" >> "$GITHUB_ENV"
+          elif [ "$RELEASE" = "true" ]; then
+            echo "::error::a release needs the secrets behind:$missing"
+            exit 1
+          else
+            echo "::notice::not signing, missing:$missing"
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      # The same version that assembled the stage — the CLI warns when the two phases differ,
+      # because a version difference can change the artifact's bytes.
+      - name: Bootstrap the gjsify CLI
+        run: |
+          VERSION=$(node -p "require('./app/package.json').devDependencies['@gjsify/cli']")
+          npm install -g "@gjsify/cli@$VERSION"
+
+      - name: Download the macOS stages
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-stage
+
+      # A throwaway keychain, unlocked for the job. `codesign` cannot prompt on a runner, so the
+      # key's partition list is opened to it up front; without that the signature fails with
+      # errSecInternalComponent. It is also made the DEFAULT keychain because `notarytool` reads
+      # the default one and gjsify passes it no `--keychain`.
+      - name: Import the signing identity
+        if: ${{ env.CAN_SIGN == '1' }}
+        run: |
+          set -eu
+          keychain="$RUNNER_TEMP/build.keychain-db"
+          password=$(openssl rand -base64 24)
+          printf '%s' "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/identity.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/identity.p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" login.keychain-db
+          security default-keychain -d user -s "$keychain"
+          rm -f "$RUNNER_TEMP/identity.p12"
+          identity=$(security find-identity -v -p codesigning "$keychain" | awk '/Developer ID Application/ { print $2; exit }')
+          [ -n "$identity" ] || { echo "::error::no Developer ID Application identity in the .p12"; exit 1; }
+          echo "SIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
+
+      - name: Store the notary credential
+        if: ${{ env.CAN_SIGN == '1' }}
+        run: |
+          set -eu
+          printf '%s\n' "$NOTARY_KEY_P8" > "$RUNNER_TEMP/notary.p8"
+          chmod 600 "$RUNNER_TEMP/notary.p8"
+          xcrun notarytool store-credentials gjsify-notary \
+            --key "$RUNNER_TEMP/notary.p8" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID"
+          rm -f "$RUNNER_TEMP/notary.p8"
+
+      - name: Pack the macOS zips and dmgs
+        run: |
+          set -eu
+          if [ -z "${SIGN_IDENTITY:-}" ]; then
+            echo "::notice::not signing — packing UNSIGNED macOS packages"
+            sign=""
+          else
+            sign="--sign $SIGN_IDENTITY --notarize gjsify-notary"
+          fi
+          for project in app desktop; do
+            mkdir -p "out-$project"
+            for arch in arm64 x64; do
+              mkdir "pack-$project-$arch"
+              tar -C "pack-$project-$arch" -xf "macos-stage-$project-$arch.tar"
+              # shellcheck disable=SC2086
+              gjsify ship --from-stage "pack-$project-$arch/stage" --expect-target "darwin-$arch" \
+                --target macos-app-zip,macos-app-dmg --out "ship-$project-$arch" $sign
+              cp "ship-$project-$arch"/out/*.zip "ship-$project-$arch"/out/*.dmg \
+                "ship-$project-$arch"/out/*.gjsify-release.json "out-$project/"
+            done
+            ls -la "out-$project"
+          done
+
+      # Asserted by name because `ship` exits 0 after writing nothing when every target is filtered
+      # away. macOS labels x64 as `x86_64` (`MACOS_ARCH` in gjsify). Signed, each `.app` and each
+      # `.dmg` is judged by Gatekeeper with the quarantine bit a browser download carries: a
+      # signed-but-not-notarised app passes `codesign --verify` and is refused there.
+      - name: Assert and check the macOS packages
+        run: |
+          set -eu
+          missing=0
+          for pair in app:beifahrer desktop:beifahrer-desktop; do
+            project=${pair%%:*} bin=${pair#*:}
+            version=$(node -p "require('./$project/package.json').version")
+            for arch in arm64 x86_64; do
+              for f in "out-$project/$bin-$version-1.macos.$arch.zip" "out-$project/$bin-$version-1.$arch.dmg"; do
+                if [ ! -s "$f" ] || [ ! -s "$f.gjsify-release.json" ]; then
+                  echo "::error::missing or empty artifact or release record: $f"
+                  missing=1
+                fi
+              done
+              [ -n "${SIGN_IDENTITY:-}" ] || continue
+              [ "$missing" -eq 0 ] || continue
+              quarantine="0083;$(printf %x "$(date +%s)");Safari;"
+              check="check-$project-$arch"
+              rm -rf "$check" && mkdir "$check"
+              ditto -x -k "out-$project/$bin-$version-1.macos.$arch.zip" "$check"
+              app=$(ls -d "$check"/*.app)
+              codesign --verify --deep --strict "$app"
+              xattr -w com.apple.quarantine "$quarantine" "$app"
+              spctl --assess --type execute -vv "$app" 2>&1 | tee "$check.log"
+              grep -q "source=Notarized Developer ID" "$check.log" || {
+                echo "::error::$bin $arch is signed but Gatekeeper does not see it as notarised"
+                missing=1
+              }
+              dmg="out-$project/$bin-$version-1.$arch.dmg"
+              xcrun stapler validate "$dmg"
+              xattr -w com.apple.quarantine "$quarantine" "$dmg"
+              spctl --assess --type open --context context:primary-signature -vv "$dmg" 2>&1 | tee "$check.log"
+              grep -q "source=Notarized Developer ID" "$check.log" || {
+                echo "::error::the $bin $arch dmg is not seen as notarised"
+                missing=1
+              }
+              rm -rf "$check" "$check.log"
+            done
+          done
+          [ "$missing" -eq 0 ]
+
+      - name: Remove the signing keychain
+        if: ${{ always() && env.CAN_SIGN == '1' }}
+        run: |
+          security default-keychain -d user -s login.keychain-db || true
+          security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ship-macos
+          path: out-app/*
+          compression-level: 0
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ship-desktop-macos
+          path: out-desktop/*
+          compression-level: 0
+          if-no-files-found: error
 
   # The Flatpak half of `gjsify ship`, split out for two reasons the job above must not inherit.
   #
@@ -456,13 +661,17 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ship-flatpak
-          path: app/ship/out/*.flatpak
+          path: |
+            app/ship/out/*.flatpak
+            app/ship/out/*.flatpak.gjsify-release.json
           compression-level: 0
 
       - uses: actions/upload-artifact@v4
         with:
           name: ship-desktop-flatpak
-          path: desktop/ship/out/*.flatpak
+          path: |
+            desktop/ship/out/*.flatpak
+            desktop/ship/out/*.flatpak.gjsify-release.json
           compression-level: 0
 
   # The Node-hosted half of the checks on a Windows host, and nothing else — read the scope before

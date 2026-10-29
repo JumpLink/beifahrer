@@ -1,5 +1,6 @@
 import { browser } from '@wxt-dev/browser';
 import { originOf, withRule, withRuleQuiet, type Level, type OriginRule } from '@beifahrer/core';
+import { GjsifyOptionList } from '@gjsify/adwaita-core';
 import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../../src/bridge-client.ts';
 import { GRANTS_MESSAGE, type WideDuration, type WideView } from '../../src/grants-messages.ts';
@@ -146,7 +147,7 @@ function renderWideChoices(status: Status | undefined): void {
   if (wideFor.dataset.model === key) return;
   const keep = wideFor.selectedValue;
   wideFor.dataset.model = key;
-  wideFor.model = model;
+  wideFor.model = GjsifyOptionList.new(model);
   wideFor.selectedValue = model.some((m) => m.value === keep) ? keep : 'hour';
 }
 
@@ -186,10 +187,10 @@ async function main(): Promise<void> {
     void browser.tabs.create({ url: browser.runtime.getURL(`/options.html#${hash}`) });
   };
 
-  wideLevel.model = [
+  wideLevel.model = GjsifyOptionList.new([
     { value: 'read', label: t('level_read') },
     { value: 'write', label: t('level_write') },
-  ];
+  ]);
   wideLevel.selectedValue = 'read';
 
   refresh = async () => {

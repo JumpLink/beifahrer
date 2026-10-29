@@ -15,6 +15,7 @@ import {
   type SavedSession,
   type SessionNameIssue,
 } from '@beifahrer/core';
+import { GjsifyOptionList } from '@gjsify/adwaita-core';
 import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../../src/bridge-client.ts';
 import { GRANTS_MESSAGE, type WideView } from '../../src/grants-messages.ts';
@@ -124,7 +125,7 @@ async function renderSites(): Promise<void> {
   for (const [origin, rule] of entries) {
     const row = document.createElement('adw-combo-row') as Adw.ComboRow;
     row.setAttribute('title', origin);
-    row.model = SITE_CHOICES.map(([value, label]) => ({ value, label: t(label) }));
+    row.model = GjsifyOptionList.new(SITE_CHOICES.map(([value, label]) => ({ value, label: t(label) })));
     group.addRow(row);
     row.selectedValue =
       rule.level === 'write' ? (rule.confirmWrites === false ? 'write-silent' : 'write') : rule.level;
