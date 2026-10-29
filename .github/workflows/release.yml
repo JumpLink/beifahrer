@@ -7,15 +7,16 @@ name: Release
 # whose tests, type check or lint did not pass.
 #
 # The installable packages follow the same rule and are built there too, not here: ci.yml ships
-# the bridge as `ship-deb-rpm` (`.deb`, `.rpm`), `ship-macos-windows` (both `macos-app-zip`s,
-# `windows-dir-zip`, `.msi`) and `ship-flatpak` (`.flatpak`), and the desktop window as the same
-# three under `ship-desktop-*`, as uploaded artifacts; the `release` job below only attaches them.
+# the bridge as `ship-deb-rpm` (`.deb`, `.rpm`), `ship-windows` (`windows-dir-zip`, `.msi`),
+# `ship-macos` (`.zip` + `.dmg` per arch, signed and notarised) and `ship-flatpak` (`.flatpak`), and
+# the desktop window as the same four under `ship-desktop-*`, as uploaded artifacts, each file with
+# its `.gjsify-release.json` record; the `release` job below only attaches them.
 # TWO ship projects, because `gjsify ship` takes one `kind` per project (ADR 0017 § 6): the bridge
-# is `cli`, the window is `app`, and a release carries both so a person can install either or both. Every one of those assembles on the SAME `fedora:44` container: `gjsify ship`'s
-# darwin/windows targets are not host-bound to assemble, only to run (see the comment at the fetch
-# step below), so `gjsify install --os darwin --cpu arm64 --immutable` followed by `gjsify ship
-# darwin --arch arm64 --skip-build --target macos-app-zip` on that same container is the whole
-# difference — no second toolchain. Only the Flatpak needs flatpak-builder plus
+# is `cli`, the window is `app`, and a release carries both so a person can install either or both.
+# Everything but macOS assembles on the SAME `fedora:44` container, and macOS is STAGED there too;
+# only packing it needs a Mac, because `codesign`, `notarytool` and `hdiutil` exist nowhere else —
+# ci.yml's `macos` job, which signs because this workflow passes `sign` and its secrets. Only the
+# Flatpak needs flatpak-builder plus
 # org.gnome.Platform//50 and org.gnome.Sdk//50 under `options: --privileged`, which is why it alone
 # stays a separate job; repeating any of this here would be a second copy of a toolchain this
 # repository has decided to define once.
@@ -59,6 +60,12 @@ jobs:
   build:
     needs: version
     uses: ./.github/workflows/ci.yml
+    # A branch dispatch signs too when the secrets are there, so signing is rehearsed before a tag;
+    # only a release REQUIRES them.
+    with:
+      sign: true
+      release: ${{ startsWith(github.ref, 'refs/tags/v') || (inputs.publish && inputs.tag != '') }}
+    secrets: inherit
 
   release:
     needs: build
@@ -82,10 +89,10 @@ jobs:
           name: extension-zips
           path: zips
 
-      # The installable packages, again out of CI rather than built here (see the header). SIX
-      # artifacts, not one: per ship project, `.deb` + `.rpm` and the macOS/Windows packages come
-      # out of the container that already runs the tests, the `.flatpak` out of the privileged
-      # flatpak-builder job, and merging them into a single upload would mean one of those jobs
+      # The installable packages, again out of CI rather than built here (see the header). EIGHT
+      # artifacts, not one: per ship project, `.deb` + `.rpm` and the Windows packages come out of
+      # the container that already runs the tests, macOS out of the job that signs it, the
+      # `.flatpak` out of the privileged flatpak-builder job, and merging them into a single upload would mean one of those jobs
       # losing its packages whenever the other half of the run did not happen. `merge-multiple`
       # flattens them into one directory, which is safe because the bridge's names start
       # `beifahrer-`/`beifahrer_` and the window's `beifahrer-desktop-`/`beifahrer-desktop_`.
@@ -129,6 +136,8 @@ jobs:
             "packages/beifahrer-${version}-1.noarch.rpm" \
             "packages/beifahrer-${version}-1.macos.arm64.zip" \
             "packages/beifahrer-${version}-1.macos.x86_64.zip" \
+            "packages/beifahrer-${version}-1.arm64.dmg" \
+            "packages/beifahrer-${version}-1.x86_64.dmg" \
             "packages/beifahrer-${version}-1.windows.x64.zip" \
             "packages/beifahrer-${version}-1.x64.msi" \
             "packages/eu.jumplink.beifahrer.Cli-${version}-1.x86_64.flatpak" \
@@ -136,6 +145,8 @@ jobs:
             "packages/beifahrer-desktop-${version}-1.noarch.rpm" \
             "packages/beifahrer-desktop-${version}-1.macos.arm64.zip" \
             "packages/beifahrer-desktop-${version}-1.macos.x86_64.zip" \
+            "packages/beifahrer-desktop-${version}-1.arm64.dmg" \
+            "packages/beifahrer-desktop-${version}-1.x86_64.dmg" \
             "packages/beifahrer-desktop-${version}-1.windows.x64.zip" \
             "packages/beifahrer-desktop-${version}-1.x64.msi" \
             "packages/eu.jumplink.beifahrer-${version}-1.x86_64.flatpak"; do
@@ -161,20 +172,12 @@ jobs:
           gh release create "$TAG" zips/*.zip packages/* --title "$TAG" --generate-notes
           gh release view "$TAG" --json assets --jq '.assets[].name'
 
-      # macOS (arm64 + x64, `macos-app-zip`) and Windows (x64, `windows-dir-zip` + `.msi`) ARE
-      # attached now, from `packages/` above — assembling them needs no Mac and no Windows runner
-      # (see the header), only naming the target so `gjsify install` does not skip the
-      # `optionalDependencies` runtime it would otherwise stage with no interpreter in it. What this
-      # does NOT do is RUN the Mach-O or PE payload: that is verified on its own OS or not at all, so
-      # a `macos-latest` / `windows-latest` job staying absent is a gap in verification, not in the
-      # release's contents, and the honest place to close it if it matters later.
-      #
-      # UNSIGNED on both, by design (ADR 0024 § A13 in gjsify) — this is a legitimate deliverable,
-      # not a placeholder. Where signing would attach, on a runner that actually holds the identity:
-      #   macOS   — `gjsify ship darwin --arch <arch> --skip-build --target macos-app-zip --sign
-      #             <identity>` (Developer ID; `--notarize <keychain-profile>` on top of that)
-      #   Windows — same shape, `--sign <certificate thumbprint or PFX path>` reaching `signtool`
-      #             (UNVERIFIED upstream: no run in gjsify has ever invoked it)
+      # macOS is signed with a Developer ID and notarised, the `.dmg` stapled; ci.yml's `macos` job
+      # checks each one against Gatekeeper before it is uploaded. Windows (x64, `windows-dir-zip` +
+      # `.msi`) is still UNSIGNED, by design (ADR 0024 § A13 in gjsify) — a legitimate deliverable,
+      # not a placeholder. Signing would attach as `--sign <certificate thumbprint or PFX path>`
+      # reaching `signtool` (UNVERIFIED upstream: no run in gjsify has ever invoked it), on a runner
+      # that holds the identity.
 
       # The signed Firefox build and `updates.json` (issue #3), signed from a person's machine and
       # dropped in as release assets. Deliberately NOT a CI step: it needs AMO's API key, which is a
