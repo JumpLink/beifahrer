@@ -113,8 +113,7 @@ jobs:
       # holding SOME files would pass those and still let `gh release create` publish an
       # incomplete release. Names and versions are the ones scripts/build.ts and
       # utils/ship/formats.ts actually render (ci.yml's own asserts), derived from the TAG rather
-      # than a checkout — this job never checks the repo out, and `v<version>` is the tag this
-      # workflow is triggered on.
+      # than the checkout below, and `v<version>` is the tag this workflow is triggered on.
       #
       # The `beifahrer-desktop-*` half is the window, the `beifahrer-*` half the bridge, and the
       # two Flatpak IDs differ in the same way (`eu.jumplink.beifahrer` against
@@ -157,10 +156,35 @@ jobs:
           done
           [ "$missing" -eq 0 ]
 
+      # The release body comes from the `releases` entry of the gjsify config in `app/package.json`
+      # — the field `gjsify` renders the metainfo `<releases>` from, so body and metainfo cannot
+      # drift once both are config-driven. `release-notes` exits 1 when the tag has no entry, so a
+      # release fails loudly instead of publishing an empty body. This repo has no `releases` entry
+      # yet: it must gain one before the next tag.
+      - uses: actions/checkout@v4
+        with:
+          # The tag, not the branch a dispatch happened to select: the `releases` entry is read
+          # from the ref being released.
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - name: Set up Node 24 for the release notes
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Generate the release notes
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -eu
+          VERSION=$(node -p "require('./app/package.json').devDependencies['@gjsify/cli']")
+          npm install -g "@gjsify/cli@$VERSION"
+          cd app && gjsify release-notes "$TAG" --compare > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
       - name: Attach everything to the release
         env:
           GH_TOKEN: ${{ github.token }}
-          # This job never checks the repository out, so `gh` cannot infer it from a .git.
           GH_REPO: ${{ github.repository }}
           TAG: ${{ inputs.tag || github.ref_name }}
         run: |
@@ -168,8 +192,7 @@ jobs:
           ls -la zips packages
           [ -n "$(ls -A zips)" ] || { echo "::error::no extension zips were downloaded"; exit 1; }
           [ -n "$(ls -A packages)" ] || { echo "::error::no packages were downloaded"; exit 1; }
-          # `--generate-notes` is GitHub's own, from the previous tag: no note to keep in step here.
-          gh release create "$TAG" zips/*.zip packages/* --title "$TAG" --generate-notes
+          gh release create "$TAG" zips/*.zip packages/* --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
           gh release view "$TAG" --json assets --jq '.assets[].name'
 
       # macOS is signed with a Developer ID and notarised, the `.dmg` stapled; ci.yml's `macos` job
