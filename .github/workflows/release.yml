@@ -202,18 +202,6 @@ jobs:
       # reaching `signtool` (UNVERIFIED upstream: no run in gjsify has ever invoked it), on a runner
       # that holds the identity.
 
-      # The signed Firefox build and `updates.json` (issue #3), signed from a person's machine and
-      # dropped in as release assets. Deliberately NOT a CI step: it needs AMO's API key, which is a
-      # credential with a quota and a review queue behind it, and a release that silently spends
-      # someone's key is worse than one that waits for them.
-      #
-      #   sh extension/scripts/sign.sh v0.2.0
-      #   gh release upload v0.2.0 extension/.output/signed/*.xpi extension/.output/signed/updates.json
-      #
-      # `updates.json` must keep its exact name — `browser_specific_settings.gecko.update_url` asks
-      # for `releases/latest/download/updates.json`, and Firefox keeps that URL from the INSTALLED
-      # version, so it cannot be moved later.
-
       # -----------------------------------------------------------------------------------------
       # STORE SUBMISSIONS GO HERE, and are deliberately absent: each one needs an account in a
       # store nobody can be created for from CI, plus a secret this repository does not hold and
@@ -226,9 +214,6 @@ jobs:
       #                       $EDGE_ADDONS_CLIENT_SECRET, $EDGE_ADDONS_API_TOKEN  (Partner Center
       #                       product + Entra app; Edge's API is a Microsoft Graph extension of
       #                       the Store API)
-      #   AMO               — $AMO_WEB_EXT_API_KEY, $AMO_WEB_EXT_API_SECRET  (the same pair
-      #                       extension/scripts/sign.sh already reads from
-      #                       ~/.config/beifahrer/amo.env; unlisted needs no review queue)
       #   Safari            — none of these help: a macOS Safari App Extension is signed by Xcode
       #                       against a provisioning profile and uploaded through App Store
       #                       Connect by a person. It stays a manual step, and `safari-mv3` ships
@@ -239,3 +224,80 @@ jobs:
       # CLI — a bridge on their own needs an extension that talks to it, which is the native-messaging
       # host manifest no package registers yet (issue #44).
       # -----------------------------------------------------------------------------------------
+
+  # The signed Firefox build and `updates.json` (issue #3), as release assets. A job of its own,
+  # AFTER `release`: the release already carries every other asset by then, so an AMO outage or a
+  # rejected signing leaves this job red and the release intact. `updates.json` must keep its exact
+  # name — `browser_specific_settings.gecko.update_url` asks for `releases/latest/download/updates.json`,
+  # and Firefox keeps that URL from the INSTALLED version, so it cannot be moved later.
+  #
+  # Idempotent: AMO refuses to sign one version twice, so a rerun (or a `workflow_dispatch` re-cut)
+  # first asks the release for a `.xpi` and stops there if it exists. The key pair is passed to the
+  # signing step only.
+  sign-firefox:
+    needs: release
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || (inputs.publish && inputs.tag != '') }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    # sign.sh runs `gjsify run build`, which renders icons through GdkPixbuf/librsvg on GJS: the
+    # same toolchain as ci.yml's build-and-test, hence the same image and prerequisites.
+    container:
+      image: fedora:44
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Install system prerequisites
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          git tar xz findutils gjs libsoup3 gdk-pixbuf2 librsvg2 glib2-devel gh
+
+      - name: Already signed?
+        id: have
+        run: |
+          set -eu
+          names=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          if echo "$names" | grep -q '\.xpi$'; then
+            echo "::notice::$TAG already has a signed .xpi; AMO signs a version once, so nothing to do"
+            echo "$names" | grep -qx 'updates.json' || echo "::warning::$TAG has an .xpi but no updates.json: attach it by hand (sh extension/scripts/sign.sh $TAG)"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.have.outputs.skip == 'false'
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Trust the checkout
+        if: steps.have.outputs.skip == 'false'
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Set up Node 24
+        if: steps.have.outputs.skip == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install the toolchain (gjsify, web-ext)
+        if: steps.have.outputs.skip == 'false'
+        run: |
+          set -eu
+          VERSION=$(node -p "require('./app/package.json').devDependencies['@gjsify/cli']")
+          npm install -g "@gjsify/cli@$VERSION"
+          gjsify install --immutable
+
+      - name: Sign on AMO and attach
+        if: steps.have.outputs.skip == 'false'
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_WEB_EXT_API_KEY }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_WEB_EXT_API_SECRET }}
+        run: |
+          set -eu
+          sh extension/scripts/sign.sh "$TAG"
+          ls -la extension/.output/signed
+          gh release upload "$TAG" extension/.output/signed/*.xpi extension/.output/signed/updates.json
+          gh release view "$TAG" --json assets --jq '.assets[].name'
