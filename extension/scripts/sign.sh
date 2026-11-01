@@ -3,7 +3,9 @@
 # store, and Firefox Release then keeps it installed across restarts. The signed .xpi lands in
 # .output/signed/.
 #
-# Credentials never live in the repo. Put them in ~/.config/beifahrer/amo.env (chmod 600):
+# Credentials never live in the repo. In CI they arrive as WEB_EXT_API_KEY / WEB_EXT_API_SECRET in the
+# environment (release.yml's `sign-firefox` job); on a machine, put them in
+# ~/.config/beifahrer/amo.env (chmod 600), which wins when it exists:
 #   WEB_EXT_API_KEY=user:12345:67
 #   WEB_EXT_API_SECRET=…
 # (issued at https://addons.mozilla.org/developers/addon/api/key/)
@@ -29,13 +31,15 @@ set -eu
 cd "$(dirname "$0")/.."
 TAG="${1:-}"
 ENV_FILE="${BEIFAHRER_AMO_ENV:-${XDG_CONFIG_HOME:-$HOME/.config}/beifahrer/amo.env}"
-if [ ! -r "$ENV_FILE" ]; then
-  echo "missing $ENV_FILE — see the header of $0" >&2
+if [ -r "$ENV_FILE" ]; then
+  set -a
+  . "$ENV_FILE"
+  set +a
+elif [ -z "${WEB_EXT_API_KEY:-}" ] || [ -z "${WEB_EXT_API_SECRET:-}" ]; then
+  # CI has no file: release.yml passes the pair in the environment.
+  echo "missing $ENV_FILE and WEB_EXT_API_KEY/WEB_EXT_API_SECRET — see the header of $0" >&2
   exit 2
 fi
-set -a
-. "$ENV_FILE"
-set +a
 ../node_modules/.bin/gjsify run build
 ../node_modules/.bin/web-ext sign \
   --source-dir .output/firefox-mv2 \

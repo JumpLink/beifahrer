@@ -384,7 +384,8 @@ are on. Beifahrer is three pieces, installed in this order:
 1. **Bridge** — the MCP server your coding agent connects to. Every setup needs it. Deb, RPM and
    a Flatpak bundle on Linux, an app on macOS, an installer or a portable zip on Windows.
 2. **Browser extension** — Beifahrer's half inside the browser. The stores do not carry it yet, so
-   the page offers the signed Firefox `.xpi` and the Chromium zip from the release directly.
+   the page offers the signed Firefox `.xpi` (one click, updates itself through `updates.json`) and
+   the Chromium zip from the release directly.
 3. **Desktop window** (optional) — shows which agent sessions run, which browsers hang on them,
    and the token to paste. It starts by double-click or from the applications menu; the bridge
    alone is a command-line program and stays one.
@@ -548,6 +549,8 @@ tag is not `vX.Y.Z` of exactly that. Then `git tag vX.Y.Z && git push --tags` ru
 passes, builds and attaches every installable format to the tag's GitHub release:
 
 - browser extension zips (Firefox + Chromium)
+- the signed Firefox `.xpi` and `updates.json`, signed on AMO by a job that runs after the release
+  exists (a failed signing leaves the other assets in place; a rerun skips a tag that already has its `.xpi`)
 - the bridge (`beifahrer-*`): `.deb`, `.rpm`, `.flatpak`, a macOS `.app.zip` (arm64 + x64), a
   Windows program directory `.zip` and `.msi` (x64)
 - the desktop window (`beifahrer-desktop-*`): the same six formats again, from `desktop/`
@@ -563,8 +566,7 @@ signing identity exists. On macOS an unsigned `.app` downloaded in a browser car
 attribute and is killed at launch without a message; run `xattr -dr com.apple.quarantine
 Beifahrer.app` once after unzipping. (Measured with a hand-set attribute, not a real browser
 download; ad-hoc signing with `--sign -` did not change the result, so it is not used.) What is NOT
-in the release: a signed Firefox `.xpi` (manual, needs a
-person's AMO key) and any store submission — both documented in the same file.
+in the release: any store submission — documented in the same file.
 
 ## License
 
