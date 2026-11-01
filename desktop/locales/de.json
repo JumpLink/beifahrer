@@ -42,6 +42,7 @@
   "agents.docs": "Dokumentation",
   "agents.checked": "Am {date} gegen die Dokumentation des Agenten geprüft. Funktioniert es nicht mehr, folge dem Link.",
   "agents.note": "Welche Seiten der Agent erreichen darf und ob der Browser vor einer Änderung fragt, stellst du in der Erweiterung ein. --allow-write lässt den Agenten es nur versuchen.",
+  "agents.nobridge": "Die Bridge von Beifahrer wurde nicht am üblichen Ort gefunden, der Befehl unten ist also ein Platzhalter. Installiere die Bridge oder ersetze den Befehl durch den vollständigen Pfad von beifahrer.",
   "menu.about": "Über Beifahrer",
   "about.support": "Unterstützen",
   "about.privacy": "Datenschutz",

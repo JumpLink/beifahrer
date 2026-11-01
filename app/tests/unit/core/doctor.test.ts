@@ -50,6 +50,34 @@ export default async () => {
       expect(exitCodeOf(checks)).toBe(0);
     });
 
+    await it('says nothing about agent configs when none exists, and is ok when every command resolves', async () => {
+      expect(byId(diagnose(input()), 'agents')).toBe(undefined);
+      const ok = diagnose(
+        input({
+          agentCommands: [
+            { agent: 'Cursor', file: '/h/.cursor/mcp.json', command: 'beifahrer', resolves: true },
+          ],
+        }),
+      );
+      expect(byId(ok, 'agents')!.level).toBe('ok');
+    });
+
+    await it('warns with the command to put there when an agent config points at nothing', async () => {
+      const checks = diagnose(
+        input({
+          agentCommands: [
+            { agent: 'Cursor', file: '/h/.cursor/mcp.json', command: '/gone/beifahrer', resolves: false },
+          ],
+          suggestedCommand: '/Applications/Beifahrer.app/Contents/MacOS/beifahrer',
+        }),
+      );
+      const c = byId(checks, 'agents')!;
+      expect(c.level).toBe('warn');
+      expect(c.title).toMatch(/Cursor .*\/gone\/beifahrer.*\/h\/\.cursor\/mcp\.json/);
+      expect(c.fix).toMatch(/Contents\/MacOS\/beifahrer/);
+      expect(exitCodeOf(checks)).toBe(0);
+    });
+
     await it('warns, with a next step, when no session runs; and that alone does not fail', async () => {
       const checks = diagnose(input());
       const s = byId(checks, 'sessions')!;

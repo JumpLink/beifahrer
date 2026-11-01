@@ -15,7 +15,7 @@ import { unregisteredPorts, type RegistryStatus } from './registry.ts';
 export type CheckLevel = 'ok' | 'warn' | 'fail';
 
 export interface Check {
-  id: 'version' | 'ports' | 'listeners' | 'token' | 'sessions' | 'registry';
+  id: 'version' | 'ports' | 'listeners' | 'token' | 'sessions' | 'registry' | 'agents';
   level: CheckLevel;
   /** What was found, one line. */
   title: string;
@@ -34,6 +34,17 @@ export interface DoctorInput {
   /** Registry files that were not entries. */
   skipped: number;
   token: { path: string; exists: boolean; other: string | null };
+  /** The command each existing agent config file starts Beifahrer with, and whether it resolves. */
+  agentCommands?: readonly AgentCommand[];
+  /** What `beifahrer config` would write as the command on this host. */
+  suggestedCommand?: string;
+}
+
+export interface AgentCommand {
+  agent: string;
+  file: string;
+  command: string;
+  resolves: boolean;
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -110,6 +121,24 @@ export function diagnose(input: DoctorInput): Check[] {
       id: 'sessions',
       level: 'ok',
       title: `${plural(sessions, 'agent session', 'agent sessions')} running, ${plural(browsers, 'browser', 'browsers')} connected`,
+    });
+  }
+
+  const configured = input.agentCommands ?? [];
+  const broken = configured.filter((c) => !c.resolves);
+  for (const c of broken) {
+    checks.push({
+      id: 'agents',
+      level: 'warn',
+      title: `${c.agent} starts Beifahrer with \`${c.command}\` (${c.file}), and that does not exist or is not on PATH`,
+      fix: `Replace the command in that file with ${input.suggestedCommand ? `\`${input.suggestedCommand}\`` : 'the path of the installed bridge'}; \`beifahrer config\` prints the whole snippet.`,
+    });
+  }
+  if (configured.length > 0 && broken.length === 0) {
+    checks.push({
+      id: 'agents',
+      level: 'ok',
+      title: `${plural(configured.length, 'agent config starts', 'agent configs start')} Beifahrer with a command that exists`,
     });
   }
 

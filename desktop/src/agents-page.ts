@@ -11,6 +11,7 @@ import { AGENTS } from '@beifahrer/core';
 import { agentView } from './agents-model.ts';
 import { copyText } from './clipboard.ts';
 import type { Translate } from './i18n.ts';
+import { detectInstall } from './install.ts';
 import { clamped } from './window.ts';
 
 export interface AgentsPage {
@@ -66,12 +67,16 @@ export function createAgentsPage(t: Translate, toast: (title: string) => void): 
   const note = new Gtk.Label({ wrap: true, xalign: 0, label: t('agents.note') });
   note.add_css_class('dim-label');
 
+  const hint = new Gtk.Label({ wrap: true, xalign: 0 });
+  hint.add_css_class('warning');
+  const install = detectInstall();
+
   const column = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 24 });
-  for (const w of [choose, where, card, copy, checked, note]) column.append(w);
+  for (const w of [choose, hint, where, card, copy, checked, note]) column.append(w);
 
   const render = () => {
     const agent = AGENTS[pick.get_selected()] ?? AGENTS[0]!;
-    const view = agentView(agent, write.get_active(), process.platform, t);
+    const view = agentView(agent, write.get_active(), process.platform, t, install);
     snippet.set_label(view.snippet);
     userFile.set_subtitle(view.userFile);
     projectFile.set_subtitle(view.projectFile ?? '');
@@ -80,6 +85,8 @@ export function createAgentsPage(t: Translate, toast: (title: string) => void): 
     command.set_visible(view.command !== null);
     docs.set_uri(view.docs);
     checked.set_label(view.checked);
+    hint.set_label(view.hint ?? '');
+    hint.set_visible(view.hint !== null);
   };
   pick.connect('notify::selected', render);
   write.connect('notify::active', render);

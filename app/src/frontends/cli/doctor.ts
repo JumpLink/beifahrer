@@ -5,11 +5,20 @@
  */
 
 import type { CommandModule } from 'yargs';
-import { diagnose, exitCodeOf, portsOf, statusOf, type Check, type CheckLevel } from '@beifahrer/core';
+import {
+  diagnose,
+  exitCodeOf,
+  serverSpec,
+  portsOf,
+  statusOf,
+  type Check,
+  type CheckLevel,
+} from '@beifahrer/core';
 import { inspectToken, probePorts, readEntries, registryDir } from '@beifahrer/local';
 
 import { rangeOf, rangeOptions, type RangeArgs } from '../../bridge/session.ts';
 import { VERSION } from '../../version.ts';
+import { agentCommands, detectInstall } from './install.ts';
 
 const MARK: Record<CheckLevel, string> = { ok: '✔', warn: '!', fail: '✖' };
 
@@ -56,6 +65,8 @@ export const doctorCommand: CommandModule<object, { json?: boolean } & RangeArgs
       ),
       skipped,
       token: inspectToken(),
+      agentCommands: agentCommands(),
+      suggestedCommand: serverSpec({ allowWrite: false, install: detectInstall() }).command,
     });
     console.log(argv.json ? JSON.stringify(checks, null, 2) : renderChecks(checks));
     // Exit explicitly, like every command that is not `mcp` (see `finish` in commands.ts).
