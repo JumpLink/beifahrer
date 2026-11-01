@@ -460,9 +460,13 @@ clicked. Files are named after the download, never overwritten, and readable by 
 ([ADR 0021](docs/adr/0021-captured-files-on-disk.md)).
 
 `beifahrer config <agent>` prints this snippet in the format of your agent (Claude Code, opencode,
-Codex CLI, Gemini CLI, Cursor, VS Code, Claude Desktop, Zed) and the file it goes in. It writes `beifahrer`
-as the command, which is the installed binary; from a checkout, put the `gjsify run …` form above in
-its place.
+Codex CLI, Gemini CLI, Cursor, VS Code, Claude Desktop, Zed) and the file it goes in. The command is the one that
+works on the host it runs on: `beifahrer` for the deb/rpm (on `PATH`), the absolute path of the
+launcher for the macOS app (`/Applications/Beifahrer.app/Contents/MacOS/beifahrer`) and the Windows
+program directory (`%ProgramFiles%\Beifahrer\beifahrer.exe`), and `flatpak run
+eu.jumplink.beifahrer.Cli mcp` inside the Flatpak. From a checkout, put the `gjsify run …` form
+above in its place. `beifahrer doctor` checks that the command in your agents' config files still
+resolves.
 
 Then open a site, click the Beifahrer toolbar button, and pick a level.
 
@@ -559,13 +563,11 @@ The macOS and Windows packages of the window carry their own node runtime and GT
 are ~220 MB where the bridge's are a few hundred kilobytes; the Linux ones stay small because the
 GJS and GTK they need are the system's.
 
-All of it unsigned, which is a legitimate deliverable rather than a placeholder (gjsify ADR 0024
-§ A13) — see the comment above the "Attach everything to the release" step in
-[release.yml](.github/workflows/release.yml) for where `--sign`/`--notarize` would attach once a
-signing identity exists. On macOS an unsigned `.app` downloaded in a browser carries the quarantine
-attribute and is killed at launch without a message; run `xattr -dr com.apple.quarantine
-Beifahrer.app` once after unzipping. (Measured with a hand-set attribute, not a real browser
-download; ad-hoc signing with `--sign -` did not change the result, so it is not used.) What is NOT
+The macOS `.dmg` and `.zip` are Developer-ID signed, notarized and stapled (since v0.1.15), so
+Gatekeeper opens them without a workaround. The Windows packages (`.zip`, `.msi`) are still
+unsigned, which is a legitimate deliverable rather than a placeholder (gjsify ADR 0024 § A13); see
+the comment below the "Attach everything to the release" step in
+[release.yml](.github/workflows/release.yml) for where `--sign` would attach. What is NOT
 in the release: any store submission — documented in the same file.
 
 ## License

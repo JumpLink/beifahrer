@@ -1,6 +1,15 @@
 import { describe, expect, it } from '@gjsify/unit';
 
-import { AGENTS, findAgent, serverSpec, snippetOf, userConfigPath } from '@beifahrer/core';
+import {
+  AGENTS,
+  commandInConfig,
+  findAgent,
+  launcherOf,
+  serverSpec,
+  shellQuote,
+  snippetOf,
+  userConfigPath,
+} from '@beifahrer/core';
 
 const withWrite = serverSpec({ allowWrite: true });
 const readOnly = serverSpec({ allowWrite: false });
@@ -68,6 +77,85 @@ export default async () => {
         'claude mcp add --transport stdio beifahrer -- beifahrer mcp --allow-write',
       );
       expect(AGENTS.filter((a) => a.cli).map((a) => a.id)).toStrictEqual(['claude-code']);
+    });
+  });
+
+  await describe('command per install', async () => {
+    const mac = '/Applications/Beifahrer.app/Contents/MacOS/beifahrer';
+    const win = 'C:\\Program Files\\Beifahrer\\beifahrer.exe';
+
+    await it('keeps `beifahrer` for deb/rpm, a checkout and an unknown host', async () => {
+      expect(serverSpec({ allowWrite: false }).command).toBe('beifahrer');
+      expect(serverSpec({ allowWrite: false, install: { platform: 'linux' } }).command).toBe('beifahrer');
+      expect(
+        serverSpec({ allowWrite: false, install: { platform: 'darwin', launcher: undefined } }).command,
+      ).toBe('beifahrer');
+    });
+
+    await it('goes through `flatpak run` inside a Flatpak', async () => {
+      const s = serverSpec({ allowWrite: true, install: { platform: 'linux', flatpak: true } });
+      expect(s.command).toBe('flatpak');
+      expect(s.args).toStrictEqual(['run', 'eu.jumplink.beifahrer.Cli', 'mcp', '--allow-write']);
+    });
+
+    await it('uses the absolute launcher of a macOS app bundle and a Windows program directory', async () => {
+      expect(serverSpec({ allowWrite: false, install: { platform: 'darwin', launcher: mac } }).command).toBe(
+        mac,
+      );
+      const s = serverSpec({ allowWrite: false, install: { platform: 'win32', launcher: win } });
+      expect(s.command).toBe(win);
+      expect(JSON.parse(snippetOf(agent('cursor'), s))).toStrictEqual({
+        mcpServers: { beifahrer: { command: win, args: ['mcp'] } },
+      });
+      expect(snippetOf(agent('cursor'), s)).toMatch(/C:\\\\Program Files\\\\Beifahrer\\\\beifahrer\.exe/);
+      expect(snippetOf(agent('codex'), s)).toMatch(
+        /command = "C:\\\\Program Files\\\\Beifahrer\\\\beifahrer\.exe"/,
+      );
+    });
+
+    await it('falls back to `beifahrer` when the launcher was looked for and not found', async () => {
+      expect(serverSpec({ allowWrite: false, install: { platform: 'win32', launcher: null } }).command).toBe(
+        'beifahrer',
+      );
+    });
+
+    await it('finds the launcher beside the bundled node, and nowhere else', async () => {
+      expect(launcherOf('darwin', '/Applications/Beifahrer.app/Contents/Helpers/Beifahrer')).toBe(mac);
+      expect(launcherOf('win32', 'C:\\Program Files\\Beifahrer\\node.exe')).toBe(win);
+      expect(launcherOf('darwin', '/usr/local/bin/node')).toBe(undefined);
+      expect(launcherOf('linux', '/usr/bin/gjs')).toBe(undefined);
+      expect(launcherOf('win32', null)).toBe(undefined);
+    });
+
+    await it('quotes a path with spaces in the one-liner, for the shell of that platform', async () => {
+      const posix = serverSpec({
+        allowWrite: false,
+        install: {
+          platform: 'darwin',
+          launcher: '/Users/a b/Applications/Beifahrer.app/Contents/MacOS/beifahrer',
+        },
+      });
+      expect(agent('claude-code').cli!(posix)).toBe(
+        "claude mcp add --transport stdio beifahrer -- '/Users/a b/Applications/Beifahrer.app/Contents/MacOS/beifahrer' mcp",
+      );
+      const w = serverSpec({ allowWrite: false, install: { platform: 'win32', launcher: win } });
+      expect(agent('claude-code').cli!(w)).toBe(
+        'claude mcp add --transport stdio beifahrer -- "C:\\Program Files\\Beifahrer\\beifahrer.exe" mcp',
+      );
+      expect(shellQuote("it's", 'linux')).toBe("'it'\\''s'");
+    });
+  });
+
+  await describe('commandInConfig', async () => {
+    await it('reads the command back out of each shape', async () => {
+      const s = serverSpec({ allowWrite: true, install: { platform: 'linux', flatpak: true } });
+      for (const a of AGENTS) expect(commandInConfig(a, snippetOf(a, s))).toBe('flatpak');
+    });
+
+    await it('is null for a file that does not register Beifahrer or does not parse', async () => {
+      expect(commandInConfig(agent('cursor'), '{"mcpServers":{}}')).toBe(null);
+      expect(commandInConfig(agent('zed'), '{ // comment\n}')).toBe(null);
+      expect(commandInConfig(agent('codex'), '[mcp_servers.other]\ncommand = "x"')).toBe(null);
     });
   });
 };

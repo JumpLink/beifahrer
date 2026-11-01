@@ -13,7 +13,10 @@ import {
   snippetOf,
   userConfigPath,
   type AgentEntry,
+  type Install,
 } from '@beifahrer/core';
+
+import { detectInstall } from './install.ts';
 
 export function renderAgentList(): string {
   return [
@@ -22,8 +25,13 @@ export function renderAgentList(): string {
   ].join('\n');
 }
 
-export function renderConfig(agent: AgentEntry, allowWrite: boolean, platform: string): string {
-  const server = serverSpec({ allowWrite });
+export function renderConfig(
+  agent: AgentEntry,
+  allowWrite: boolean,
+  platform: string,
+  install: Install = { platform },
+): string {
+  const server = serverSpec({ allowWrite, install });
   const user = userConfigPath(agent, platform);
   const lines = [
     `${agent.name}: add this to ${user ?? 'its config (the docs name no fixed file here)'}` +
@@ -53,7 +61,9 @@ export const configCommand: CommandModule<object, { agent?: string; 'allow-write
       process.exit(1);
     }
     console.log(
-      agent ? renderConfig(agent, argv['allow-write'] === true, process.platform) : renderAgentList(),
+      agent
+        ? renderConfig(agent, argv['allow-write'] === true, process.platform, detectInstall())
+        : renderAgentList(),
     );
     process.exit(0);
   },

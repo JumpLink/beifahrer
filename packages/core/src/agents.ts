@@ -11,19 +11,66 @@
 
 export const CHECKED = '2026-10-04';
 
-/** The server every snippet registers. `command` is the installed `beifahrer` (README, Install). */
+/** The Flatpak app id of the bridge (`app/package.json`, `gjsify.ship.appId`). */
+export const FLATPAK_ID = 'eu.jumplink.beifahrer.Cli';
+
+/** Where the bridge lives on this host, as far as the caller could tell. */
+export interface Install {
+  platform: string;
+  /** Running inside a Flatpak sandbox: the bridge is then reached through `flatpak run`. */
+  flatpak?: boolean;
+  /**
+   * Absolute path of the bridge's launcher. `undefined`: not looked for (a checkout, deb/rpm, tests);
+   * `null`: looked in the known places and found none.
+   */
+  launcher?: string | null;
+}
+
+/**
+ * The launcher next to a process's executable, or undefined when the path is not one of an installed
+ * bridge. The running executable is the bundled node, not the launcher: `Contents/Helpers/Beifahrer`
+ * in the .app, `node.exe` in the program directory (gjsify `ship` layout). The caller still checks that
+ * the file exists: a node from `C:\Program Files\nodejs` has the same shape.
+ */
+export function launcherOf(platform: string, execPath: string | null | undefined): string | undefined {
+  if (!execPath) return undefined;
+  if (platform === 'darwin') {
+    const m = /^(.*\.app)\/Contents\/(?:MacOS|Helpers)\/[^/]+$/.exec(execPath);
+    return m ? `${m[1]}/Contents/MacOS/beifahrer` : undefined;
+  }
+  if (platform === 'win32') {
+    const m = /^(.*)[\\/](?:node|beifahrer)\.exe$/i.exec(execPath);
+    return m ? `${m[1]}\\beifahrer.exe` : undefined;
+  }
+  return undefined;
+}
+
+/** The server every snippet registers. `command` is what starts the bridge on THIS host. */
 export interface ServerSpec {
   name: string;
   command: string;
   args: string[];
+  /** The platform the command is for, which decides how a one-liner quotes it. */
+  platform: string;
 }
 
-export function serverSpec(opts: { allowWrite: boolean }): ServerSpec {
-  return {
-    name: 'beifahrer',
-    command: 'beifahrer',
-    args: opts.allowWrite ? ['mcp', '--allow-write'] : ['mcp'],
-  };
+export function serverSpec(opts: { allowWrite: boolean; install?: Install }): ServerSpec {
+  const mcp = opts.allowWrite ? ['mcp', '--allow-write'] : ['mcp'];
+  const install = opts.install;
+  const platform = install?.platform ?? 'linux';
+  if (install?.flatpak) {
+    return { name: 'beifahrer', command: 'flatpak', args: ['run', FLATPAK_ID, ...mcp], platform };
+  }
+  // deb/rpm put `beifahrer` on PATH; a checkout or an unknown host keeps that too.
+  return { name: 'beifahrer', command: install?.launcher ?? 'beifahrer', args: mcp, platform };
+}
+
+/** One word of a shell command line, quoted for `platform`'s shell (POSIX sh, or cmd/PowerShell). */
+export function shellQuote(word: string, platform: string): string {
+  if (platform === 'win32') {
+    return word === '' || /[\s"&|<>^%()]/.test(word) ? `"${word.replace(/"/g, '\\"')}"` : word;
+  }
+  return /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, `'\\''`)}'`;
 }
 
 export type Platform = 'linux' | 'darwin' | 'win32';
@@ -68,7 +115,8 @@ export const AGENTS: readonly AgentEntry[] = [
     docs: 'https://code.claude.com/docs/en/mcp',
     user: HOME_ALL('~/.claude.json'),
     project: '.mcp.json',
-    cli: (s) => `claude mcp add --transport stdio ${s.name} -- ${[s.command, ...s.args].join(' ')}`,
+    cli: (s) =>
+      `claude mcp add --transport stdio ${s.name} -- ${[s.command, ...s.args].map((w) => shellQuote(w, s.platform)).join(' ')}`,
   },
   {
     id: 'opencode',
@@ -178,4 +226,44 @@ const json = (value: unknown) => JSON.stringify(value, null, 2);
 /** The file to put it in on `platform`, or null when the agent's docs do not name one. */
 export function userConfigPath(agent: AgentEntry, platform: string): string | null {
   return platform === 'linux' || platform === 'darwin' || platform === 'win32' ? agent.user[platform] : null;
+}
+
+/**
+ * The command a config file starts Beifahrer with, or null when the file does not register it or is
+ * not plain JSON/TOML (Zed's settings may carry comments; a file that does not parse is left alone).
+ */
+export function commandInConfig(agent: AgentEntry, text: string): string | null {
+  if (agent.shape === 'codex') {
+    const lines = text.split(/\r?\n/);
+    const at = lines.findIndex((l) => l.trim() === '[mcp_servers.beifahrer]');
+    if (at < 0) return null;
+    for (const line of lines.slice(at + 1)) {
+      if (line.trimStart().startsWith('[')) break;
+      const m = /^\s*command\s*=\s*(?:"((?:[^"\\]|\\.)*)"|'([^']*)')/.exec(line);
+      if (!m) continue;
+      if (m[2] !== undefined) return m[2];
+      try {
+        return JSON.parse(`"${m[1]}"`) as string;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+  let doc: unknown;
+  try {
+    doc = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  const key = { mcpServers: 'mcpServers', opencode: 'mcp', vscode: 'servers', zed: 'context_servers' }[
+    agent.shape
+  ];
+  const entry = ((doc as Record<string, unknown> | null)?.[key] as Record<string, unknown> | undefined)?.[
+    'beifahrer'
+  ] as { command?: unknown } | undefined;
+  const command = entry?.command;
+  if (typeof command === 'string') return command;
+  if (Array.isArray(command) && typeof command[0] === 'string') return command[0];
+  return null;
 }

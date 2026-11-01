@@ -42,6 +42,7 @@
   "agents.docs": "Documentation",
   "agents.checked": "Checked against the agent's documentation on {date}. If it no longer works, follow the link.",
   "agents.note": "Which sites the agent may reach, and whether the browser asks before a change, you set in the extension. --allow-write only lets the agent try.",
+  "agents.nobridge": "Beifahrer's bridge was not found in the usual place, so the command below is a placeholder. Install the bridge, or replace the command with the full path of beifahrer.",
   "menu.about": "About Beifahrer",
   "about.support": "Support",
   "about.privacy": "Privacy",

@@ -39,5 +39,23 @@ export default async () => {
       expect(v.projectFile).toBe(null);
       expect(v.checked).toMatch(/^Checked against the agent's documentation on 20\d\d-\d\d-\d\d\./);
     });
+    await it('uses the installed launcher, and hints when the bridge was looked for and not found', async () => {
+      const launcher = '/Applications/Beifahrer.app/Contents/MacOS/beifahrer';
+      const found = agentView(findAgent('cursor')!, false, 'darwin', t, { platform: 'darwin', launcher });
+      expect(found.snippet).toMatch(/Beifahrer\.app\/Contents\/MacOS\/beifahrer/);
+      expect(found.hint).toBe(null);
+      const missing = agentView(findAgent('cursor')!, false, 'darwin', t, {
+        platform: 'darwin',
+        launcher: null,
+      });
+      expect(missing.hint).toMatch(/not found/);
+      expect(missing.snippet).toMatch(/"command": "beifahrer"/);
+      const flatpak = agentView(findAgent('cursor')!, false, 'linux', t, {
+        platform: 'linux',
+        flatpak: true,
+      });
+      expect(flatpak.hint).toBe(null);
+      expect(flatpak.snippet).toMatch(/"flatpak"/);
+    });
   });
 };
