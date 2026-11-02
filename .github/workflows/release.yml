@@ -16,7 +16,7 @@ name: Release
 # only packing it needs a Mac, because `codesign`, `notarytool` and `hdiutil` exist nowhere else —
 # ci.yml's `macos` job, which signs because this workflow passes `sign` and its secrets. Only the
 # Flatpak needs flatpak-builder plus
-# org.gnome.Platform//50 and org.gnome.Sdk//50 under `options: --privileged`, which is why it alone
+# org.gnome.Platform//51 and org.gnome.Sdk//51 under `options: --privileged`, which is why it alone
 # stays a separate job; repeating any of this here would be a second copy of a toolchain this
 # repository has decided to define once.
 on:
