@@ -2,6 +2,8 @@
 
 - **Status:** accepted. § 2 and § 3 are partly superseded by [ADR 0023](0023-onboarding-for-beginners.md)
   (the window may write an agent's config on request) and § 6 is superseded by it (one package).
+  The window's lifetime is refined by [ADR 0024](0024-the-window-stays-in-the-background.md)
+  (proposed: it may stay in the background with a status icon).
 - **Date:** 2026-10-04
 - **Relates to:** [ADR 0015](0015-session-registry.md) (what it reads),
   [ADR 0005](0005-the-person-sees-and-stops-the-agent.md) (only the person pauses and resumes),
