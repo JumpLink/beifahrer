@@ -181,7 +181,14 @@ jobs:
           ls -la zips packages
           [ -n "$(ls -A zips)" ] || { echo "::error::no extension zips were downloaded"; exit 1; }
           [ -n "$(ls -A packages)" ] || { echo "::error::no packages were downloaded"; exit 1; }
-          gh release create "$TAG" zips/*.zip packages/* --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          # A dispatch re-cut of a tag that already has a release (v0.1.17) must not fail here, or
+          # `sign-firefox` after it is skipped: upload over the old assets and refresh the notes.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" zips/*.zip packages/* --clobber
+            gh release edit "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$TAG" zips/*.zip packages/* --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
           gh release view "$TAG" --json assets --jq '.assets[].name'
 
       # macOS is signed with a Developer ID and notarised, the `.dmg` stapled; ci.yml's `macos` job
@@ -241,7 +248,7 @@ jobs:
       - name: Install system prerequisites
         run: >
           dnf install -y --setopt=install_weak_deps=False
-          git tar xz findutils gjs libsoup3 gdk-pixbuf2 librsvg2 glib2-devel gh
+          git tar xz findutils gjs libsoup3 gdk-pixbuf2 librsvg2 json-glib glib2-devel gh
 
       - name: Already signed?
         id: have
