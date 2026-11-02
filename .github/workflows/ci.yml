@@ -442,7 +442,7 @@ jobs:
   # — on `mkdir -p /app`, the first line of the manifest `ship` renders, measured with a probe
   # manifest holding a single `cp` module and none of this repository's payload in it, so the
   # failure belongs to the container and not to the tree. With the flag added, the same three steps
-  # run to `flatpak build-bundle` on GNOME 50 and export the file. `gjsify ship` already passes
+  # run to `flatpak build-bundle` on GNOME 51 and export the file. `gjsify ship` already passes
   # `--disable-rofiles-fuse` for the same family of reason (no FUSE in a container); the privilege
   # is the part it cannot pass for itself.
   ship-flatpak:
@@ -477,13 +477,13 @@ jobs:
       # Read out of `app/package.json`, never repeated here — the same rule as the bootstrap below.
       # The value is what makes the install step ahead of `ship` name the runtime the manifest will
       # ask for: `gjsify.ship.flatpak.runtimeVersion` when a project sets one, else gjsify's
-      # `DEFAULT_GNOME_RUNTIME_VERSION`. Hard-coding 50 here instead would make a bump fail as
+      # `DEFAULT_GNOME_RUNTIME_VERSION`. Hard-coding 51 here instead would make a bump fail as
       # "runtime not installed" in the middle of a build rather than at the line that has to change.
       - name: Resolve the runtime version
         id: runtime
         run: |
           set -eu
-          version=$(node -p "require('./app/package.json').gjsify.ship?.flatpak?.runtimeVersion ?? 50")
+          version=$(node -p "require('./app/package.json').gjsify.ship?.flatpak?.runtimeVersion ?? 51")
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "building the Flatpak against org.gnome.Platform//$version + org.gnome.Sdk//$version"
 
