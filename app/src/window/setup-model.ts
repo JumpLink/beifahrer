@@ -372,6 +372,8 @@ export function applyView(result: ApplyResult, t: Translate): ApplyView {
 
 export const RELEASES_URL = 'https://github.com/JumpLink/beifahrer/releases';
 
+export const XPI_URL = `${RELEASES_URL}/latest/download/beifahrer.xpi`;
+
 export interface ExtensionView {
   title: string;
   body: string;
@@ -384,9 +386,11 @@ export interface ExtensionView {
 }
 
 /**
- * Firefox gets the release that matches this app, where the signed `.xpi` is attached: opening it in
- * Firefox installs it, and Firefox updates it through `updates.json` from then on. The file name of an
- * `.xpi` is chosen by Mozilla's signing, so the link is the release page and not a guessed file.
+ * Firefox gets the signed `.xpi` of the latest release: opening it in Firefox installs it, and Firefox
+ * updates it through `updates.json` from then on. Mozilla's signing picks the file's own name (a hash
+ * and the version), so the release workflow attaches a second copy under the fixed name `beifahrer.xpi`
+ * for this link. `latest` is the newest release, which is not always this app's version, and that is
+ * fine: the extension and the app talk a versioned protocol.
  * Chromium gets the zip from the same release, which the browser loads unpacked.
  */
 export function extensionView(browser: BrowserKind, version: string, t: Translate): ExtensionView {
@@ -395,7 +399,7 @@ export function extensionView(browser: BrowserKind, version: string, t: Translat
       title: t('setup.extension.firefox.title'),
       body: t('setup.extension.firefox.body'),
       linkLabel: t('setup.extension.firefox.link'),
-      url: `${RELEASES_URL}/tag/v${version}`,
+      url: XPI_URL,
       steps: [
         t('setup.extension.firefox.step1'),
         t('setup.extension.firefox.step2'),
