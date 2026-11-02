@@ -63,6 +63,23 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.17" date="2026-11-02">
+      <description>
+        <ul>
+          <li>One app per system: the window and the command line for coding agents are in the same package</li>
+          <li>Setup assistant in the window: pick your coding agent, review the change to its config and confirm it; the old file is backed up first</li>
+          <li>The macOS app and the Windows installer no longer collide with a second Beifahrer package</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.1.15" date="2026-10-30">
+      <description>
+        <ul>
+          <li>The macOS app is signed and notarised and comes as a disk image</li>
+          <li>The site links to the developer</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.14" date="2026-10-24">
       <description>
         <ul>
