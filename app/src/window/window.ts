@@ -125,8 +125,8 @@ export function createWindow(app: Adw.Application, t: Translate): DesktopWindow 
   const window = new Adw.ApplicationWindow({
     application: app,
     title: t('app.title'),
-    defaultWidth: 520,
-    defaultHeight: 560,
+    defaultWidth: 680,
+    defaultHeight: 640,
   });
   window.set_content(overlay);
 

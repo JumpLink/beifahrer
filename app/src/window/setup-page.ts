@@ -355,12 +355,25 @@ export function createSetupPage(
     go(next(state));
   });
 
+  // Only the steps scroll: Back and Next stay in view however many agents the first step lists.
   const body = column(18);
-  for (const w of [progress, heading, stack, nav]) body.append(w);
+  for (const w of [progress, heading, stack]) body.append(w);
+  const navClamp = new Adw.Clamp({
+    maximumSize: 640,
+    marginTop: 12,
+    marginBottom: 12,
+    marginStart: 12,
+    marginEnd: 12,
+  });
+  navClamp.set_child(nav);
+  const page = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, vexpand: true });
+  page.append(clamped(body));
+  page.append(new Gtk.Separator());
+  page.append(navClamp);
   render();
 
   return {
-    widget: clamped(body),
+    widget: page,
     showPairing(pairing) {
       token = pairing.token;
       // Only when it changed: setting the text of a row the person is looking at resets its reveal state.
