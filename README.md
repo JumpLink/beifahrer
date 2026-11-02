@@ -537,6 +537,11 @@ command also say when something listens on a port of the range that no running s
 it adds the Beifahrer entry to the agent's config after a diff, a timestamped backup and your confirmation,
 and refuses a file it cannot parse. Inside a Flatpak it shows the snippet instead.
 
+Closing the window quits, except in the Flatpak when GNOME's Background portal lets Beifahrer run
+in the background: then the window only hides, Background Apps shows the status line, and opening
+Beifahrer again or the window's menu entry Quit gets it back or ends it ([ADR 0024](docs/adr/0024-the-window-stays-in-the-background.md)).
+It asks once, at the first close, and never turns on autostart.
+
 It is the same package as the bridge ([ADR 0023](docs/adr/0023-onboarding-for-beginners.md)):
 `app/` ships ONE `kind: "app"` binary, `beifahrer`, under the app ID `eu.jumplink.beifahrer`. With no
 arguments it opens the window; any subcommand (`mcp`, `token`, `status`, `doctor`, `--help`, …) runs
