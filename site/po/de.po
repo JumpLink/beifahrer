@@ -9,8 +9,8 @@ msgstr ""
 msgid "Beifahrer"
 msgstr "Beifahrer"
 
-msgid "The app: a window that shows your agents, browsers and pairing token, and the MCP server your coding agent connects to. Every setup needs it."
-msgstr "Die App: ein Fenster, das deine Agenten, Browser und das Token zeigt, und der MCP-Server, mit dem sich dein Coding-Agent verbindet. Jede Installation braucht sie."
+msgid "The app: a window that shows your agents, browsers and pairing token, and the MCP server your coding agent connects to. Open it and follow the setup assistant."
+msgstr "Die App: ein Fenster, das deine Agenten, Browser und das Token zeigt, und der MCP-Server, mit dem sich dein Coding-Agent verbindet. Öffne sie und folge dem Einrichtungsassistenten."
 
 msgid "Browser extension"
 msgstr "Browser-Erweiterung"

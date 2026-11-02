@@ -1,7 +1,7 @@
 # 0023: Onboarding for beginners: one package, a window that can write the config
 
 - **Status:** accepted (decided by the person on 2026-11-01)
-- **Implemented:** step 6a (one package, one binary with a dispatch in `app/src/dispatch.ts`); the setup assistant (6b) is not.
+- **Implemented:** step 6a (one package, one binary with a dispatch in `app/src/dispatch.ts`) and 6b (the setup assistant, `app/src/window/setup-*.ts`, planner in `packages/core/src/config-edit.ts`).
 - **Date:** 2026-11-01
 - **Refines:** [0017](0017-native-desktop-app.md) (§ 2 and § 3 partly superseded, § 6 superseded)
 - **Relates to:** [0015](0015-session-registry.md) (what the window reads),

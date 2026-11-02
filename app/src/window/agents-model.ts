@@ -3,7 +3,7 @@
  * snippet, where it goes, the one-line command if there is one, the docs link. Pure, like the other
  * models. The table is `AGENTS` in core, the same one `beifahrer config` prints.
  *
- * The page writes into no agent's config; it shows text to copy (ADR 0017).
+ * This page writes into no agent's config; it shows text to copy (ADR 0017). The setup assistant is what writes.
  */
 
 import {

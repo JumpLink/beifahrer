@@ -1,6 +1,6 @@
 /**
  * The Agent page: pick a coding agent, get the snippet that registers Beifahrer with it and where it
- * goes. A view and a clipboard: it writes into no agent's config and starts nothing (ADR 0017).
+ * goes. A view and a clipboard: it writes into no agent's config and starts nothing (ADR 0017; the setup page is the one that writes).
  */
 
 import Adw from 'gi://Adw?version=1';

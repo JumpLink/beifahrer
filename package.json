@@ -45,7 +45,7 @@
         {
           "id": "app",
           "name": "Beifahrer",
-          "summary": "The app: a window that shows your agents, browsers and pairing token, and the MCP server your coding agent connects to. Every setup needs it.",
+          "summary": "The app: a window that shows your agents, browsers and pairing token, and the MCP server your coding agent connects to. Open it and follow the setup assistant.",
           "match": "^beifahrer[-_][0-9.]+-[0-9]+[._]|^eu\\.jumplink\\.beifahrer-[0-9]"
         },
         {

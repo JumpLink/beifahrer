@@ -3,7 +3,7 @@
  * and by the desktop window's "Connect an agent" page, so the two cannot say different things.
  *
  * Pure: the snippet is text and the path is a string with `~` in it. Nothing here reads or writes an
- * agent's config; the person pastes it (ADR 0017). Each entry was read from the agent's own docs on
+ * agent's config; the person pastes it, or the setup assistant writes it through `config-edit.ts` (ADR 0017, 0023). Each entry was read from the agent's own docs on
  * the date in `CHECKED`, and a field the docs did not settle is `null` rather than a guess: the
  * window then says "see the docs" instead of a path that may be wrong. Formats change, so
  * `docs` is the link a person follows when the snippet no longer works.

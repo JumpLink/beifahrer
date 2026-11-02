@@ -390,7 +390,11 @@ are on. Beifahrer is two pieces, installed in this order:
    the page offers the signed Firefox `.xpi` (one click, updates itself through `updates.json`) and
    the Chromium zip from the release directly.
 
-Pairing and the MCP registration are the same either way — see [Pair it](#pair-it) below.
+Then open the app and follow the setup assistant: it picks your coding agent, shows the change to
+its config before writing it (after a backup of the old file, and only once you confirm), shows the
+extension link for your browser and walks you through pasting the token. Nothing leaves your
+computer. Run it again any time: a config that is already right is reported and left alone. The
+manual way is [Pair it](#pair-it) below.
 
 ### From source
 
@@ -528,8 +532,10 @@ Its Agent page shows, per coding agent, the snippet that registers Beifahrer and
 goes in (`beifahrer config <agent>` prints the same). Its Browser page shows the pairing token to copy into each browser's extension (masked until you
 reveal it), and warns when a second token file with a different token exists. Both it and the
 command also say when something listens on a port of the range that no running session announced
-(an older Beifahrer, a hung bridge, another program), by a plain TCP connect that sends nothing. It only looks: it cannot pause the agent or change what it may do, and it knows nothing of a pause
-(that is the toolbar button's to show).
+(an older Beifahrer, a hung bridge, another program), by a plain TCP connect that sends nothing. It cannot pause the agent or change what it may do, and it knows nothing of a pause
+(that is the toolbar button's to show). Its one write is the Setup page ([ADR 0023](docs/adr/0023-onboarding-for-beginners.md)):
+it adds the Beifahrer entry to the agent's config after a diff, a timestamped backup and your confirmation,
+and refuses a file it cannot parse. Inside a Flatpak it shows the snippet instead.
 
 It is the same package as the bridge ([ADR 0023](docs/adr/0023-onboarding-for-beginners.md)):
 `app/` ships ONE `kind: "app"` binary, `beifahrer`, under the app ID `eu.jumplink.beifahrer`. With no
