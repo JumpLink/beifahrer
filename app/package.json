@@ -82,6 +82,7 @@
       "bugtrackerUrl": "https://github.com/JumpLink/beifahrer/issues",
       "vcsBrowserUrl": "https://github.com/JumpLink/beifahrer",
       "flatpak": {
+        "runtimeVersion": "51",
         "finishArgs": [
           "--share=network",
           "--share=ipc",
