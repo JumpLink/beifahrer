@@ -294,6 +294,10 @@ jobs:
         run: |
           set -eu
           sh extension/scripts/sign.sh "$TAG"
+          # AMO names the file `<hash>-<version>.xpi`. The setup assistant links to
+          # `releases/latest/download/beifahrer.xpi`, so a second copy carries that fixed name;
+          # updates.json keeps pointing at the original.
+          cp "$(ls -1t extension/.output/signed/*.xpi | head -1)" extension/.output/signed/beifahrer.xpi
           ls -la extension/.output/signed
           gh release upload "$TAG" extension/.output/signed/*.xpi extension/.output/signed/updates.json
           gh release view "$TAG" --json assets --jq '.assets[].name'

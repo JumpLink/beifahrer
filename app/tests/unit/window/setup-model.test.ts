@@ -56,9 +56,9 @@ export default async () => {
   });
 
   await describe('setup views', async () => {
-    await it('links the extension to this version and says there is no store listing', async () => {
+    await it('links Firefox to the signed file and Chromium to this version and says there is no store listing', async () => {
       const ff = extensionView('firefox', '1.2.3', t);
-      expect(ff.url).toBe('https://github.com/JumpLink/beifahrer/releases/tag/v1.2.3');
+      expect(ff.url).toBe('https://github.com/JumpLink/beifahrer/releases/latest/download/beifahrer.xpi');
       const cr = extensionView('chromium', '1.2.3', t);
       expect(cr.url).toBe(
         'https://github.com/JumpLink/beifahrer/releases/download/v1.2.3/beifahrer-1.2.3-chrome-mv3.zip',
