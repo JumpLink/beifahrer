@@ -59,7 +59,7 @@
           "p": "This window shows which agent sessions run and which browsers hang on them, the snippet that registers Beifahrer with your coding agent, and the pairing token to paste into each browser."
         },
         {
-          "p": "It only looks. Every site is covered by a policy you set in the browser, and the window can neither change it nor pause the agent."
+          "p": "Its setup assistant edits your agent's config only after a diff, a backup and your confirmation. Every site is covered by a policy you set in the browser, and the window can neither change it nor pause the agent."
         }
       ],
       "categories": [

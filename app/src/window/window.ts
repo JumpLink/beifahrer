@@ -1,7 +1,8 @@
 /**
- * The window: three pages under a view switcher. Status says what is running; Browser holds the pairing
- * token; Agent holds the snippet that connects a coding agent. A view only; there is no button here
- * that touches the browser's policy (ADR 0005, ADR 0017).
+ * The window: four pages under a view switcher. Setup is the assistant for a first run (ADR 0023);
+ * Status says what is running; Browser holds the pairing token; Agent holds the snippet that connects a
+ * coding agent. The only thing the window writes is an agent's MCP config, from Setup, after a
+ * confirmation. There is no button here that touches the browser's policy (ADR 0005, ADR 0017).
  *
  * Plain Adw/Gtk widgets from the GNOME HIG: `Adw.ViewStack` with an `Adw.ViewSwitcher` in the header,
  * an `Adw.StatusPage` for the state, `Adw.PreferencesGroup`s of rows for the lists, and an
@@ -12,10 +13,12 @@ import Adw from 'gi://Adw?version=1';
 import Gio from 'gi://Gio?version=2.0';
 import Gtk from 'gi://Gtk?version=4.0';
 
+import { agentCommands } from '../frontends/cli/install.ts';
 import { createAgentsPage } from './agents-page.ts';
 import type { Translate } from './i18n.ts';
 import { createPairingPage } from './pairing-page.ts';
 import type { PairingView } from './pairing-model.ts';
+import { createSetupPage } from './setup-page.ts';
 import type { StatusView } from './status-model.ts';
 
 export interface DesktopWindow {
@@ -87,6 +90,8 @@ export function createWindow(app: Adw.Application, t: Translate): DesktopWindow 
   const agentsPage = createAgentsPage(t, toast);
 
   const stack = new Adw.ViewStack();
+  const setupPage = createSetupPage(t, toast, () => stack.set_visible_child_name('status'));
+  stack.add_titled_with_icon(setupPage.widget, 'setup', t('page.setup'), 'emblem-system-symbolic');
   // A page without an icon name is drawn with `image-missing` in the switcher, so each one names one.
   stack.add_titled_with_icon(
     statusPage.widget,
@@ -96,6 +101,14 @@ export function createWindow(app: Adw.Application, t: Translate): DesktopWindow 
   );
   stack.add_titled_with_icon(pairingPage.widget, 'browser', t('page.browser'), 'web-browser-symbolic');
   stack.add_titled_with_icon(agentsPage.widget, 'agent', t('page.agent'), 'utilities-terminal-symbolic');
+  // A first run starts on the assistant; once an agent's config names Beifahrer, on the status.
+  let configured = false;
+  try {
+    configured = agentCommands().length > 0;
+  } catch {
+    configured = false;
+  }
+  stack.set_visible_child_name(configured ? 'status' : 'setup');
 
   const header = new Adw.HeaderBar({
     titleWidget: new Adw.ViewSwitcher({ stack, policy: Adw.ViewSwitcherPolicy.WIDE }),
@@ -120,7 +133,10 @@ export function createWindow(app: Adw.Application, t: Translate): DesktopWindow 
   return {
     window,
     showStatus: statusPage.show,
-    showPairing: pairingPage.show,
+    showPairing(view) {
+      pairingPage.show(view);
+      setupPage.showPairing(view);
+    },
     copyToken: pairingPage.copyToken,
   };
 }
