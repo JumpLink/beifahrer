@@ -1,8 +1,8 @@
 import { describe, expect, it } from '@gjsify/unit';
 import { entryOf, statusOf, type BridgeStatus } from '@beifahrer/core';
 
-import { createTranslate } from '../../src/i18n.ts';
-import { viewOf } from '../../src/status-model.ts';
+import { createTranslate } from '../../../src/window/i18n.ts';
+import { viewOf } from '../../../src/window/status-model.ts';
 
 const NOW = new Date('2026-10-04T12:00:00.000Z');
 const bridge = (instance: string, browsers: string[]): BridgeStatus => ({

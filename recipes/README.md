@@ -108,7 +108,7 @@ code field by role and name.
    files where it has them, and list every language you can confirm.
 2. Make the last write a `submit` if it publishes anything.
 3. Add the file to `app/src/recipes/builtin.ts` (the unit tests fail on a file left out) and
-   run `gjsify workspace beifahrer-cli test`.
+   run `gjsify workspace beifahrer-app test`.
 4. If you can, cover it in `tests/e2e/` against a **synthetic** page. Never commit a captured
    page of a real site.
 

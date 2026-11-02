@@ -379,16 +379,16 @@ injected instruction has nothing to write with.
 
 Ready-made downloads for Linux, macOS and Windows are on the
 [Beifahrer page](https://jumplink.eu/beifahrer/), which offers the right one for the system you
-are on. Beifahrer is three pieces, installed in this order:
+are on. Beifahrer is two pieces, installed in this order:
 
-1. **Bridge** — the MCP server your coding agent connects to. Every setup needs it. Deb, RPM and
-   a Flatpak bundle on Linux, an app on macOS, an installer or a portable zip on Windows.
+1. **The app** — one package per system: a window that shows which agent sessions run, which
+   browsers hang on them and the token to paste, and the MCP server your coding agent connects to.
+   Every setup needs it. Deb, RPM and a Flatpak bundle on Linux, an app on macOS, an installer or a
+   portable zip on Windows. Started without arguments (double-click, applications menu) it opens
+   the window; with a subcommand (`beifahrer mcp`) it is the command-line bridge.
 2. **Browser extension** — Beifahrer's half inside the browser. The stores do not carry it yet, so
    the page offers the signed Firefox `.xpi` (one click, updates itself through `updates.json`) and
    the Chromium zip from the release directly.
-3. **Desktop window** (optional) — shows which agent sessions run, which browsers hang on them,
-   and the token to paste. It starts by double-click or from the applications menu; the bridge
-   alone is a command-line program and stays one.
 
 Pairing and the MCP registration are the same either way — see [Pair it](#pair-it) below.
 
@@ -401,8 +401,8 @@ bundles: the GJS one keeps its `gi://`, which a bare `node` refuses.
 
 ```sh
 gjsify install
-gjsify workspace beifahrer-cli build          # app/dist/beifahrer.gjs.mjs, run on GJS
-gjsify workspace beifahrer-cli build:node     # app/dist/beifahrer.node.mjs, run on Node 24
+gjsify workspace beifahrer-app build          # app/dist/gjs/beifahrer.mjs, run on GJS
+gjsify workspace beifahrer-app build:node     # app/dist/node/beifahrer.mjs, run on Node 24
 gjsify workspace beifahrer-extension build    # extension/.output/<target>/, on GJS
 ```
 
@@ -428,7 +428,7 @@ else in the build knows the difference.
 
 ```sh
 beifahrer token                               # installed package
-gjsify run app/dist/beifahrer.gjs.mjs token   # from a checkout
+gjsify run app/dist/gjs/beifahrer.mjs token   # from a checkout
 ```
 
 Either prints the token; paste it in the extension's options.
@@ -441,7 +441,7 @@ fill and click at all (the extension's per-site level and its confirmations stil
   "mcpServers": {
     "beifahrer": {
       "command": "gjsify",
-      "args": ["run", "/path/to/beifahrer/app/dist/beifahrer.gjs.mjs", "mcp", "--allow-write"]
+      "args": ["run", "/path/to/beifahrer/app/dist/gjs/beifahrer.mjs", "mcp", "--allow-write"]
     }
   }
 }
@@ -464,7 +464,7 @@ Codex CLI, Gemini CLI, Cursor, VS Code, Claude Desktop, Zed) and the file it goe
 works on the host it runs on: `beifahrer` for the deb/rpm (on `PATH`), the absolute path of the
 launcher for the macOS app (`/Applications/Beifahrer.app/Contents/MacOS/beifahrer`) and the Windows
 program directory (`%ProgramFiles%\Beifahrer\beifahrer.exe`), and `flatpak run
-eu.jumplink.beifahrer.Cli mcp` inside the Flatpak. From a checkout, put the `gjsify run …` form
+eu.jumplink.beifahrer mcp` inside the Flatpak. From a checkout, put the `gjsify run …` form
 above in its place. `beifahrer doctor` checks that the command in your agents' config files still
 resolves.
 
@@ -493,9 +493,9 @@ gates. It listens on its own port of the range, like any agent session, and a ca
 Beifahrer was registered, and it also works from scripts:
 
 ```sh
-gjsify run app/dist/beifahrer.gjs.mjs tool --list
-gjsify run app/dist/beifahrer.gjs.mjs tool tabs_list
-gjsify run app/dist/beifahrer.gjs.mjs tool --allow-write recipe_run '{"tabId": 78, "id": "openproject/add-comment", "params": {"text": "…"}}'
+gjsify run app/dist/gjs/beifahrer.mjs tool --list
+gjsify run app/dist/gjs/beifahrer.mjs tool tabs_list
+gjsify run app/dist/gjs/beifahrer.mjs tool --allow-write recipe_run '{"tabId": 78, "id": "openproject/add-comment", "params": {"text": "…"}}'
 ```
 
 ## Development
@@ -508,10 +508,10 @@ gjsify workspace beifahrer-extension dev:chromium   # the same in Chromium (Play
 The dev browser runs in its own persistent profile (`~/.cache/beifahrer/dev-*`), is paired
 automatically with your local token, and looks for sessions on ports **47830–47839**, so it never
 meets the agent sessions of your everyday browser. Drive it with
-`gjsify run app/dist/beifahrer.gjs.mjs call <method> --port 47830`.
+`gjsify run app/dist/gjs/beifahrer.mjs call <method> --port 47830`.
 
 ```sh
-gjsify workspace beifahrer-cli test           # unit tests, on GJS and Node
+gjsify workspace beifahrer-app test           # unit tests, on GJS and Node
 node tests/e2e/browsers.e2e.mjs all           # the full chain in headless Chromium + Firefox
 ```
 
@@ -523,7 +523,7 @@ rules: [AGENTS.md](AGENTS.md).
 <img src="docs/images/desktop-light.png" alt="The Beifahrer window on its Status page: Ready, one agent session with its port and browser" width="520">
 
 `beifahrer status` prints which agent sessions are running and which browsers hang on them; the
-native libadwaita window in [desktop/](desktop/) shows the same live ([ADR 0017](docs/adr/0017-native-desktop-app.md)).
+native libadwaita window in [app/src/window/](app/src/window/) shows the same live ([ADR 0017](docs/adr/0017-native-desktop-app.md)).
 Its Agent page shows, per coding agent, the snippet that registers Beifahrer and the file it
 goes in (`beifahrer config <agent>` prints the same). Its Browser page shows the pairing token to copy into each browser's extension (masked until you
 reveal it), and warns when a second token file with a different token exists. Both it and the
@@ -531,17 +531,15 @@ command also say when something listens on a port of the range that no running s
 (an older Beifahrer, a hung bridge, another program), by a plain TCP connect that sends nothing. It only looks: it cannot pause the agent or change what it may do, and it knows nothing of a pause
 (that is the toolbar button's to show).
 
-Packaged as its OWN set of artifacts, named `beifahrer-desktop-*`, next to the bridge's
-`beifahrer-*`: `gjsify ship` takes one `kind` per project ([ADR 0017](docs/adr/0017-native-desktop-app.md)
-§ 6) and these two differ in it, so `desktop/` ships `kind: "app"` with the plain app ID
-`eu.jumplink.beifahrer` while `app/` stays the `cli` under `eu.jumplink.beifahrer.Cli`. Both install
-side by side, and both are on every release — see [Releasing](#releasing). The window is started by
-double-click or from the menu: the Linux packages register a desktop entry, macOS gets a
-`Beifahrer.app`, Windows a `Beifahrer\beifahrer-desktop.exe`. It needs the bridge to have something
-to show; on its own it reports an empty registry.
+It is the same package as the bridge ([ADR 0023](docs/adr/0023-onboarding-for-beginners.md)):
+`app/` ships ONE `kind: "app"` binary, `beifahrer`, under the app ID `eu.jumplink.beifahrer`. With no
+arguments it opens the window; any subcommand (`mcp`, `token`, `status`, `doctor`, `--help`, …) runs
+the CLI over stdio. The window is a second bundle (`window.mjs`) beside the CLI one, so a CLI call
+never loads GTK. The Linux packages register a desktop entry, macOS gets a `Beifahrer.app`, Windows a
+`Beifahrer\beifahrer.exe`. It needs a running bridge to have something to show; on its own it reports an
+empty registry.
 
-From a checkout instead:
-`gjsify workspace beifahrer-desktop build && gjsify workspace beifahrer-desktop start`.
+From a checkout instead: `gjsify workspace beifahrer-app build && gjsify workspace beifahrer-app start`.
 Run so far on Linux and macOS arm64; the Windows and macOS packages are assembled on Linux and have
 not been launched on their own OS.
 
@@ -555,13 +553,11 @@ passes, builds and attaches every installable format to the tag's GitHub release
 - browser extension zips (Firefox + Chromium)
 - the signed Firefox `.xpi` and `updates.json`, signed on AMO by a job that runs after the release
   exists (a failed signing leaves the other assets in place; a rerun skips a tag that already has its `.xpi`)
-- the bridge (`beifahrer-*`): `.deb`, `.rpm`, `.flatpak`, a macOS `.app.zip` (arm64 + x64), a
+- the app (`beifahrer-*`): `.deb`, `.rpm`, `.flatpak`, a macOS `.app.zip` + `.dmg` (arm64 + x64), a
   Windows program directory `.zip` and `.msi` (x64)
-- the desktop window (`beifahrer-desktop-*`): the same six formats again, from `desktop/`
 
-The macOS and Windows packages of the window carry their own node runtime and GTK closure, so they
-are ~220 MB where the bridge's are a few hundred kilobytes; the Linux ones stay small because the
-GJS and GTK they need are the system's.
+The macOS and Windows packages carry their own node runtime and GTK closure, so they are large;
+the Linux ones stay small because the GJS and GTK they need are the system's.
 
 The macOS `.dmg` and `.zip` are Developer-ID signed, notarized and stapled (since v0.1.15), so
 Gatekeeper opens them without a workaround. The Windows packages (`.zip`, `.msi`) are still
@@ -572,6 +568,6 @@ in the release: any store submission — documented in the same file.
 
 ## License
 
-The apps (`app/`, `extension/`, `desktop/`) and the repository root are
+The apps (`app/`, `extension/`) and the repository root are
 [AGPL-3.0-or-later](LICENSE). The reusable packages under `packages/` are
 [LGPL-3.0-or-later](packages/core/LICENSE), each with its own `LICENSE` and `COPYING`.

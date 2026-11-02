@@ -99,43 +99,32 @@ jobs:
         run: node tools/version.mjs check
 
       - name: Build the app bundle
-        run: gjsify workspace beifahrer-cli build
+        run: gjsify workspace beifahrer-app build
 
       # The `--app node` bundle darwin and win32 ship below — neither host has a GJS runtime
       # (`app/package.json#gjsify.ship.app`). Built once: `gjsify install --os/--cpu` further down
       # only swaps which platform's `@gjsify/node-gi` native addon `ship` copies in, which it reads
       # from node_modules at pack time, not from this bundle — so it is not rebuilt per target.
       - name: Build the node bundle (for macOS + Windows packaging)
-        run: gjsify workspace beifahrer-cli build:node
+        run: gjsify workspace beifahrer-app build:node
 
       - name: Build the extension on GJS (Chromium MV3 + Firefox MV2)
         run: gjsify workspace beifahrer-extension build
 
       - name: Unit tests (gjs + node)
-        run: gjsify workspace beifahrer-cli test
-
-      - name: Desktop app bundle and unit tests (gjs + node)
-        run: |
-          gjsify workspace beifahrer-desktop build
-          gjsify workspace beifahrer-desktop test
-
-      # The window's `--app node` bundle, which the macOS and Windows packages below carry — same
-      # reason as the bridge's: neither host has a GJS runtime to interpret the other one
-      # (`desktop/package.json#gjsify.ship.app`).
-      - name: Build the desktop node bundle (for macOS + Windows packaging)
-        run: gjsify workspace beifahrer-desktop build:node
+        run: gjsify workspace beifahrer-app test
 
       # The builds a person would install. Not a release — just proof they package.
       - name: Package the extension
         run: gjsify workspace beifahrer-extension zip
 
-      # The CLI's own installable artifacts (issue #44), out of the same bundle the tests above ran
+      # The one package's installable artifacts (issue #44, ADR 0023: the window and the CLI together), out of the same bundle the tests above ran
       # against. `.deb` and `.rpm` only, and that is not a half-measure: gjsify writes both itself
       # and execs nothing for them, so this step needs no tool this job does not already install —
       # `utils/ship/formats.ts` marks the two rows `requiredTools: []`, against the Flatpak's
       # `['flatpak-builder', 'flatpak']`. The Flatpak is the separate job below, which needs both of
       # those and a privileged container.
-      - name: Package the bridge (.deb + .rpm)
+      - name: Package Beifahrer (.deb + .rpm)
         working-directory: app
         run: gjsify ship linux --skip-build --target deb,rpm
 
@@ -162,32 +151,6 @@ jobs:
             fi
           done
 
-      # The desktop window is its OWN ship project rather than a second target of the bridge's, and
-      # that is `gjsify ship` talking: it takes ONE `kind` per project (ADR 0017 § 6) and these two
-      # differ in it — `app` here, `cli` there. Hence `binaryName: "beifahrer-desktop"`, a separate
-      # `desktop/ship/out`, and names that cannot collide with the bridge's. A person installs
-      # either or both: the window without the bridge shows an empty registry, the bridge without
-      # the window is the headless MCP server it has always been.
-      - name: Package the desktop app (.deb + .rpm)
-        working-directory: desktop
-        run: gjsify ship linux --skip-build --target deb,rpm
-
-      # `all`/`noarch` here too, for the same payload reason as above: the Linux row is the GJS
-      # bundle plus a launcher and carries no native binary. The macOS and Windows rows further
-      # down DO — they bundle their own node — so those spell an arch out.
-      - name: Assert the desktop packages arrived
-        working-directory: desktop/ship/out
-        run: |
-          set -eu
-          ls -la
-          version=$(node -p "require('$GITHUB_WORKSPACE/desktop/package.json').version")
-          for f in "beifahrer-desktop_${version}-1_all.deb" "beifahrer-desktop-${version}-1.noarch.rpm"; do
-            if [ ! -s "$f" ]; then
-              echo "::error::missing or empty artifact: $f"
-              exit 1
-            fi
-          done
-
       # macOS and Windows runtimes are `optionalDependencies` gated by os/cpu
       # (`@gjsify/node-runtime-{darwin-arm64,darwin-x64,win32-x64}`), which a plain install on this
       # Linux host SKIPS — naming the target installs it instead, and `ship` picks up both that
@@ -208,11 +171,9 @@ jobs:
           set -eu
           for arch in arm64 x64; do
             gjsify install --os darwin --cpu "$arch" --immutable
-            for project in app desktop; do
-              (cd "$project" && gjsify ship darwin --arch "$arch" --skip-build --stage \
-                --target macos-app-zip,macos-app-dmg --out "ship/stage-$arch")
-              tar -C "$project/ship/stage-$arch" -cf "macos-stage-$project-$arch.tar" stage
-            done
+            (cd app && gjsify ship darwin --arch "$arch" --skip-build --stage \
+              --target macos-app-zip,macos-app-dmg --out "ship/stage-$arch")
+            tar -C "app/ship/stage-$arch" -cf "macos-stage-app-$arch.tar" stage
           done
 
       # `msi` needs `wixl` (msitools, installed above); `windows-dir-zip` needs nothing `ship`
@@ -224,10 +185,6 @@ jobs:
         working-directory: app
         run: gjsify ship windows --arch x64 --skip-build --target windows-dir-zip,msi
 
-      - name: Ship the desktop app for Windows (x64)
-        working-directory: desktop
-        run: gjsify ship windows --arch x64 --skip-build --target windows-dir-zip,msi
-
       - name: Assert the Windows artifacts arrived
         working-directory: app/ship/out
         run: |
@@ -237,21 +194,6 @@ jobs:
           for f in \
             "beifahrer-${version}-1.windows.x64.zip" \
             "beifahrer-${version}-1.x64.msi"; do
-            if [ ! -s "$f" ]; then
-              echo "::error::missing or empty artifact: $f"
-              exit 1
-            fi
-          done
-
-      - name: Assert the desktop Windows artifacts arrived
-        working-directory: desktop/ship/out
-        run: |
-          set -eu
-          ls -la
-          version=$(node -p "require('$GITHUB_WORKSPACE/desktop/package.json').version")
-          for f in \
-            "beifahrer-desktop-${version}-1.windows.x64.zip" \
-            "beifahrer-desktop-${version}-1.x64.msi"; do
             if [ ! -s "$f" ]; then
               echo "::error::missing or empty artifact: $f"
               exit 1
@@ -292,29 +234,6 @@ jobs:
             app/ship/out/*.msi
             app/ship/out/*.zip.gjsify-release.json
             app/ship/out/*.msi.gjsify-release.json
-          compression-level: 0
-
-      # The desktop window's packages under their own `ship-*` names rather than mixed into the two
-      # above: release.yml downloads by pattern and merges, so the split costs that step nothing,
-      # and a `ship/out` per project is what keeps a glob from picking up the other one's files.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ship-desktop-deb-rpm
-          path: |
-            desktop/ship/out/*.deb
-            desktop/ship/out/*.rpm
-            desktop/ship/out/*.deb.gjsify-release.json
-            desktop/ship/out/*.rpm.gjsify-release.json
-          compression-level: 0
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ship-desktop-windows
-          path: |
-            desktop/ship/out/*.zip
-            desktop/ship/out/*.msi
-            desktop/ship/out/*.zip.gjsify-release.json
-            desktop/ship/out/*.msi.gjsify-release.json
           compression-level: 0
 
       # Not `ship-*`: release.yml attaches everything it matches, and these are inputs to the
@@ -434,7 +353,7 @@ jobs:
           else
             sign="--sign $SIGN_IDENTITY --notarize gjsify-notary"
           fi
-          for project in app desktop; do
+          for project in app; do
             mkdir -p "out-$project"
             for arch in arm64 x64; do
               mkdir "pack-$project-$arch"
@@ -456,7 +375,7 @@ jobs:
         run: |
           set -eu
           missing=0
-          for pair in app:beifahrer desktop:beifahrer-desktop; do
+          for pair in app:beifahrer; do
             project=${pair%%:*} bin=${pair#*:}
             version=$(node -p "require('./$project/package.json').version")
             for arch in arm64 x86_64; do
@@ -506,13 +425,6 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ship-desktop-macos
-          path: out-desktop/*
-          compression-level: 0
-          if-no-files-found: error
-
   # The Flatpak half of `gjsify ship`, split out for two reasons the job above must not inherit.
   #
   # flatpak-builder is one: gjsify writes `.deb` and `.rpm` itself and EXECS nothing, but a
@@ -541,7 +453,7 @@ jobs:
     steps:
       # The same list as the job above — gjs and libsoup3 because this job builds the bundle the
       # payload carries, and a bundle cannot be built without the host it runs on — plus the two
-      # flatpak tools. A `.flatpak` needs no GUI stack: `kind: "cli"` stages no desktop entry and
+      # flatpak tools. A `.flatpak` needs no GUI stack: `kind: "app"` needs no GUI stack to assemble, and
       # `gjsify.ship.flatpak.finishArgs` here is the network, the config directory and the session registry.
       - name: Install system prerequisites
         run: >
@@ -610,22 +522,11 @@ jobs:
 
       # The GJS bundle is the Linux payload; `build:node` is what the macOS and Windows rows carry,
       # and there is no runner here that could verify either.
-      - name: Build the bridge bundle
-        run: gjsify workspace beifahrer-cli build
+      - name: Build the bundle
+        run: gjsify workspace beifahrer-app build
 
-      - name: Build the desktop bundle
-        run: gjsify workspace beifahrer-desktop build
-
-      - name: Package the bridge (.flatpak)
+      - name: Package Beifahrer (.flatpak)
         working-directory: app
-        run: gjsify ship linux --skip-build --target flatpak
-
-      # The window's Flatpak, against the same runtime the bridge's uses. This one is a GUI app, so
-      # `desktop/package.json#gjsify.ship.flatpak.finishArgs` opens wayland/x11/dri/ipc where the
-      # bridge's opens the network — and gives it the beifahrer config and runtime directories
-      # READ-ONLY, because the window is a view and never a policy (ADR 0005, ADR 0017).
-      - name: Package the desktop app (.flatpak)
-        working-directory: desktop
         run: gjsify ship linux --skip-build --target flatpak
 
       # Same reason as the `.deb`/`.rpm` assert: `ship` writes nothing and still exits 0 when the
@@ -637,21 +538,6 @@ jobs:
           set -eu
           ls -la
           version=$(node -p "require('$GITHUB_WORKSPACE/app/package.json').version")
-          f="eu.jumplink.beifahrer.Cli-${version}-1.x86_64.flatpak"
-          if [ ! -s "$f" ]; then
-            echo "::error::missing or empty artifact: $f"
-            exit 1
-          fi
-
-      # `eu.jumplink.beifahrer`, without the `.Cli` suffix the bridge carries: the window owns the
-      # plain app ID because it is the thing a person launches, and the two IDs are what lets both
-      # Flatpaks sit side by side.
-      - name: Assert the desktop bundle arrived
-        working-directory: desktop/ship/out
-        run: |
-          set -eu
-          ls -la
-          version=$(node -p "require('$GITHUB_WORKSPACE/desktop/package.json').version")
           f="eu.jumplink.beifahrer-${version}-1.x86_64.flatpak"
           if [ ! -s "$f" ]; then
             echo "::error::missing or empty artifact: $f"
@@ -666,14 +552,6 @@ jobs:
             app/ship/out/*.flatpak.gjsify-release.json
           compression-level: 0
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ship-desktop-flatpak
-          path: |
-            desktop/ship/out/*.flatpak
-            desktop/ship/out/*.flatpak.gjsify-release.json
-          compression-level: 0
-
   # The Node-hosted half of the checks on a Windows host, and nothing else — read the scope before
   # reading a green tick as "the project works on Windows". It does not.
   #
@@ -681,7 +559,7 @@ jobs:
   # `windows-suites.yml` runs the NODE leg of each package's suite for exactly that reason. Three
   # of this project's steps above are therefore absent here, not skipped for convenience:
   # `gjsify foreach -A check` type-checks through `gjsify tsc`, whose GJS bundle it prefers and
-  # which only falls back to Node's tsc as a degraded path; `gjsify workspace beifahrer-cli test`
+  # which only falls back to Node's tsc as a degraded path; `gjsify workspace beifahrer-app test`
   # runs its suite under GJS as one of the two declared runtimes, and the bridge serves WebSockets
   # through libsoup (@gjsify/ws → Soup.Server), which has no Windows build; and the extension build
   # renders icons through GdkPixbuf/librsvg. So the e2e and the unit suite CANNOT run on Windows

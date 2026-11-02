@@ -6,7 +6,7 @@
  *
  * The bridge runs on GJS by default (what Linux ships); $BEIFAHRER_E2E_BRIDGE=node starts it with
  * plain `node` instead, from the `--app node` bundle — the same sources, built for Node. Needs
- * that bundle (`gjsify workspace beifahrer-cli build:node`).
+ * that bundle (`gjsify workspace beifahrer-app build:node`).
  *
  * Usage:  node tests/e2e/browsers.e2e.mjs [chromium|firefox|all]
  *
@@ -18,7 +18,7 @@
  * $BEIFAHRER_E2E_PORT_BASE (default 47900) so two runs can share a machine. Never the person's
  * 47813–47822.
  *
- * Needs: the app bundle for the chosen runtime (`gjsify workspace beifahrer-cli build`, or
+ * Needs: the app bundle for the chosen runtime (`gjsify workspace beifahrer-app build`, or
  * `… build:node` under $BEIFAHRER_E2E_BRIDGE=node), a Chromium that still loads
  * unpacked extensions (Chrome for Testing / Playwright's build — branded Chrome ≥ 137 does not)
  * via $BEIFAHRER_E2E_CHROMIUM or Playwright's browser cache for this platform, and Firefox via
@@ -98,7 +98,7 @@ const BRIDGE_RUNTIME = (() => {
   if (asked === 'node') return 'node';
   throw new Error(`BEIFAHRER_E2E_BRIDGE is "${asked}" — "gjs" (default) or "node"`);
 })();
-const BRIDGE_BUNDLE = join(ROOT, `app/dist/beifahrer.${BRIDGE_RUNTIME}.mjs`);
+const BRIDGE_BUNDLE = join(ROOT, `app/dist/${BRIDGE_RUNTIME}/beifahrer.mjs`);
 
 const FIXTURE = `<!doctype html><html><head><title>Beifahrer fixture</title></head><body>
 <h1>Ticket 3279</h1>

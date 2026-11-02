@@ -1,8 +1,8 @@
 import { describe, expect, it } from '@gjsify/unit';
 import { findAgent } from '@beifahrer/core';
 
-import { agentView } from '../../src/agents-model.ts';
-import { createTranslate } from '../../src/i18n.ts';
+import { agentView } from '../../../src/window/agents-model.ts';
+import { createTranslate } from '../../../src/window/i18n.ts';
 
 const t = createTranslate('en');
 const view = (id: string, allowWrite: boolean, platform = 'darwin', translate = t) =>

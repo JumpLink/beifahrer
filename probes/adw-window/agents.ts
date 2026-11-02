@@ -5,8 +5,8 @@ import GLib from 'gi://GLib?version=2.0';
 import Gtk from 'gi://Gtk?version=4.0';
 import { runAdwaitaApp } from '@gjsify/adwaita-app';
 
-import { createTranslate } from '../../desktop/src/i18n.ts';
-import { createWindow } from '../../desktop/src/window.ts';
+import { createTranslate } from '../../app/src/window/i18n.ts';
+import { createWindow } from '../../app/src/window/window.ts';
 
 const t = createTranslate('en');
 

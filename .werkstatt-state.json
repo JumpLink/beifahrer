@@ -12,17 +12,17 @@
     {
       "path": "app/dist",
       "class": "derived",
-      "recreate": "gjsify workspace beifahrer-cli build"
+      "recreate": "gjsify workspace beifahrer-app build"
     },
     {
       "path": "app/dist-test",
       "class": "derived",
-      "recreate": "gjsify workspace beifahrer-cli test"
+      "recreate": "gjsify workspace beifahrer-app test"
     },
     {
       "path": "app/ship",
       "class": "derived",
-      "recreate": "gjsify workspace beifahrer-cli build && gjsify workspace beifahrer-cli build:node, then `cd app && gjsify ship linux` (or `--target flatpak`)"
+      "recreate": "gjsify workspace beifahrer-app build && gjsify workspace beifahrer-app build:node, then `cd app && gjsify ship linux` (or `--target flatpak`)"
     },
     {
       "path": "extension/.output",

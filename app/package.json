@@ -1,10 +1,10 @@
 {
-  "name": "beifahrer-cli",
+  "name": "beifahrer-app",
   "version": "0.1.15",
   "license": "AGPL-3.0-or-later",
   "private": true,
   "type": "module",
-  "description": "The `beifahrer` binary: the loopback bridge the extension connects to, exposed as an MCP server and a small CLI. Bundled to one .gjs.mjs and run on GJS via gjsify.",
+  "description": "Beifahrer: one binary. Without arguments it opens the native libadwaita window; with a command it is the headless `beifahrer` CLI (the loopback bridge, exposed as an MCP server). Bundled to one .gjs.mjs and run on GJS via gjsify, or to one .node.mjs.",
   "main": "src/index.ts",
   "exports": {
     ".": "./src/index.ts"
@@ -18,43 +18,76 @@
     "format:check": "gjsify format --check .",
     "lint": "gjsify lint .",
     "lint:fix": "gjsify lint --fix .",
-    "build": "gjsify build src/index.ts --app gjs --outfile dist/beifahrer.gjs.mjs",
-    "build:node": "gjsify build src/index.ts --app node --outfile dist/beifahrer.node.mjs",
-    "start": "gjsify run dist/beifahrer.gjs.mjs",
+    "build": "gjsify build src/index.ts --app gjs --outfile dist/gjs/beifahrer.mjs && gjsify build src/window/main.ts --app gjs --outfile dist/gjs/window.mjs --channel web",
+    "build:node": "gjsify build src/index.ts --app node --outfile dist/node/beifahrer.mjs && gjsify build src/window/main.ts --app node --outfile dist/node/window.mjs --channel web",
+    "start": "gjsify run dist/gjs/beifahrer.mjs",
     "test": "gjsify test",
     "test:mcp": "node tests/integration/mcp-gjs-smoke.mjs"
   },
   "gjsify": {
     "ship": {
-      "appId": "eu.jumplink.beifahrer.Cli",
+      "appId": "eu.jumplink.beifahrer",
       "binaryName": "beifahrer",
-      "kind": "cli",
+      "kind": "app",
       "name": "Beifahrer",
+      "channel": "web",
       "bundle": {
-        "linux": "dist/beifahrer.gjs.mjs",
-        "darwin": "dist/beifahrer.node.mjs",
-        "win32": "dist/beifahrer.node.mjs"
+        "linux": "dist/gjs/beifahrer.mjs",
+        "darwin": "dist/node/beifahrer.mjs",
+        "win32": "dist/node/beifahrer.mjs"
       },
       "app": {
         "darwin": "node",
         "win32": "node"
       },
+      "icon": "../data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg",
       "developer": {
         "id": "eu.jumplink",
         "name": "Pascal Garber",
         "email": "pascal@jumplink.eu"
       },
-      "summary": "Let AI use your browser",
+      "summary": "Browser bridge for AI agents, under a per-site policy you control",
       "license": {
-        "project": "AGPL-3.0-or-later"
+        "project": "AGPL-3.0-or-later",
+        "file": "../LICENSE"
       },
-      "description": "beifahrer is the bridge between the beifahrer WebExtension and an AI agent, exposed as an MCP server. It listens on a loopback port from a fixed range; the extension, not the bridge, decides what the agent may read or change, and nothing leaves the machine.",
-      "homepageUrl": "https://github.com/JumpLink/beifahrer",
+      "description": [
+        {
+          "p": "Beifahrer lets an AI agent work in your own browser, with your own sessions and the tab you are looking at, instead of in a separate automated one."
+        },
+        {
+          "p": "This window shows which agent sessions run and which browsers hang on them, the snippet that registers Beifahrer with your coding agent, and the pairing token to paste into each browser."
+        },
+        {
+          "p": "It only looks. Every site is covered by a policy you set in the browser, and the window can neither change it nor pause the agent."
+        }
+      ],
+      "categories": [
+        "Development",
+        "Utility"
+      ],
+      "keywords": [
+        "Browser",
+        "AI",
+        "MCP",
+        "Agent",
+        "Automation"
+      ],
+      "branding": {
+        "accentLight": "#d9c2f0",
+        "accentDark": "#613583"
+      },
+      "contentRating": "oars-1.1",
+      "homepageUrl": "https://jumplink.eu/beifahrer/",
       "bugtrackerUrl": "https://github.com/JumpLink/beifahrer/issues",
       "vcsBrowserUrl": "https://github.com/JumpLink/beifahrer",
       "flatpak": {
         "finishArgs": [
           "--share=network",
+          "--share=ipc",
+          "--socket=wayland",
+          "--socket=fallback-x11",
+          "--device=dri",
           "--filesystem=xdg-config/beifahrer:create",
           "--filesystem=xdg-run/beifahrer:create"
         ]
@@ -88,6 +121,7 @@
     "@beifahrer/local": "*",
     "@gjsify/adwaita-app": "0.64.16",
     "@gjsify/adwaita-core": "0.64.16",
+    "@gjsify/distribution": "0.64.16",
     "@gjsify/mcp": "0.64.16",
     "@gjsify/node-gi": "0.64.16",
     "@gjsify/ws": "0.64.16",
@@ -102,17 +136,22 @@
     "@gjsify/node-runtime-win32-x64": "0.64.16"
   },
   "devDependencies": {
+    "@girs/adw-1": "5.4.0",
+    "@girs/gdk-4.0": "5.4.0",
+    "@girs/gio-2.0": "5.4.0",
+    "@girs/glib-2.0": "5.4.0",
+    "@girs/gtk-4.0": "5.4.0",
     "@gjsify/cli": "0.64.16",
     "@gjsify/node-globals": "0.64.16",
     "@gjsify/rolldown-native": "0.64.16",
     "@gjsify/runtime": "0.64.16",
     "@gjsify/unit": "0.64.16",
     "@types/node": "^26.6.2",
-    "qrcode-generator": "2.0.4",
     "@types/ws": "^8.18.1",
     "@types/yargs": "^17.0.35",
     "oxfmt": "^0.70.0",
     "oxlint": "^1.85.0",
+    "qrcode-generator": "2.0.4",
     "typescript": "^6.0.3"
   }
 }

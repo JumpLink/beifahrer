@@ -11,8 +11,8 @@
 
 export const CHECKED = '2026-10-04';
 
-/** The Flatpak app id of the bridge (`app/package.json`, `gjsify.ship.appId`). */
-export const FLATPAK_ID = 'eu.jumplink.beifahrer.Cli';
+/** The Flatpak app id of the one package (`gjsify.ship.appId`): `flatpak run <id> mcp` is the bridge. */
+export const FLATPAK_ID = 'eu.jumplink.beifahrer';
 
 /** Where the bridge lives on this host, as far as the caller could tell. */
 export interface Install {

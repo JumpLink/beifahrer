@@ -9,7 +9,6 @@
   "workspaces": [
     "packages/*",
     "app",
-    "desktop",
     "extension"
   ],
   "scripts": {
@@ -20,9 +19,9 @@
     "docs:links": "node tools/check-doc-links.mjs",
     "version:check": "node tools/version.mjs check",
     "version:set": "node tools/version.mjs set",
-    "build": "gjsify workspace beifahrer-cli build && gjsify workspace beifahrer-extension build",
-    "start": "gjsify workspace beifahrer-cli start",
-    "test": "gjsify workspace beifahrer-cli test"
+    "build": "gjsify workspace beifahrer-app build && gjsify workspace beifahrer-extension build",
+    "start": "gjsify workspace beifahrer-app start",
+    "test": "gjsify workspace beifahrer-app test"
   },
   "devDependencies": {
     "@gjsify/cli": "0.64.16",
@@ -44,21 +43,16 @@
       "pageTranslations": "site/po",
       "components": [
         {
-          "id": "bridge",
-          "name": "Bridge",
-          "summary": "The MCP server your coding agent connects to. Every setup needs it.",
-          "match": "^beifahrer[-_][0-9.]+-[0-9]+[._]|^eu\\.jumplink\\.beifahrer\\.Cli-"
+          "id": "app",
+          "name": "Beifahrer",
+          "summary": "The app: a window that shows your agents, browsers and pairing token, and the MCP server your coding agent connects to. Every setup needs it.",
+          "match": "^beifahrer[-_][0-9.]+-[0-9]+[._]|^eu\\.jumplink\\.beifahrer-[0-9]"
         },
         {
           "id": "extension",
           "name": "Browser extension",
-          "summary": "Beifahrer's half inside the browser. Pair it with the bridge using the token the bridge shows.",
+          "summary": "Beifahrer's half inside the browser. Pair it with the app using the token the app shows.",
           "match": "\\.xpi$|-mv[23]\\.zip$"
-        },
-        {
-          "id": "window",
-          "name": "Desktop window",
-          "summary": "Optional. Shows which agent sessions run, which browsers hang on them, and the pairing token to paste."
         }
       ],
       "downloads": [

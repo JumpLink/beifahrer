@@ -5,7 +5,6 @@ node_modules/
 dist/
 dist-test/
 app/ship/
-desktop/ship/
 extension/.output/
 extension/.output-e2e/
 extension/.output-dev/
