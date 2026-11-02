@@ -8,7 +8,7 @@
  * The dev browser probes ports 47830–47839 (BEIFAHRER_DEV_PORT sets the first), not the everyday
  * 47813–47822: every agent session of the person binds one of those, and a second browser on
  * them would make each agent call without `browser` ambiguous. Talk to the dev browser with
- * `gjsify run app/dist/beifahrer.gjs.mjs call <method> --port 47830`, or an MCP server started
+ * `gjsify run app/dist/gjs/beifahrer.mjs call <method> --port 47830`, or an MCP server started
  * with BEIFAHRER_PORT=47830.
  *
  *   --chromium    Chromium instead of Firefox (needs BEIFAHRER_E2E_CHROMIUM or Playwright's build)
@@ -38,7 +38,7 @@ function token(): string {
   const base = process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
   const file = process.env.BEIFAHRER_TOKEN_FILE || join(base, 'beifahrer', 'token');
   if (!existsSync(file)) {
-    console.error(`no pairing token at ${file} — run \`gjsify run app/dist/beifahrer.gjs.mjs token\` first`);
+    console.error(`no pairing token at ${file} — run \`gjsify run app/dist/gjs/beifahrer.mjs token\` first`);
     return process.exit(2);
   }
   return readFileSync(file, 'utf8').trim();

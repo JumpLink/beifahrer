@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@gjsify/unit';
 
-import { createTranslate } from '../../src/i18n.ts';
-import { pairingView } from '../../src/pairing-model.ts';
+import { createTranslate } from '../../../src/window/i18n.ts';
+import { pairingView } from '../../../src/window/pairing-model.ts';
 
 const t = createTranslate('en');
 

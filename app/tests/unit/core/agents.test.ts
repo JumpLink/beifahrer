@@ -95,7 +95,7 @@ export default async () => {
     await it('goes through `flatpak run` inside a Flatpak', async () => {
       const s = serverSpec({ allowWrite: true, install: { platform: 'linux', flatpak: true } });
       expect(s.command).toBe('flatpak');
-      expect(s.args).toStrictEqual(['run', 'eu.jumplink.beifahrer.Cli', 'mcp', '--allow-write']);
+      expect(s.args).toStrictEqual(['run', 'eu.jumplink.beifahrer', 'mcp', '--allow-write']);
     });
 
     await it('uses the absolute launcher of a macOS app bundle and a Windows program directory', async () => {

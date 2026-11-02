@@ -11,7 +11,7 @@ import { AGENTS } from '@beifahrer/core';
 import { agentView } from './agents-model.ts';
 import { copyText } from './clipboard.ts';
 import type { Translate } from './i18n.ts';
-import { detectInstall } from './install.ts';
+import { detectInstall } from '../frontends/cli/install.ts';
 import { clamped } from './window.ts';
 
 export interface AgentsPage {

@@ -8,7 +8,7 @@ Companion files: [traps-browser-platform.md](traps-browser-platform.md) ·
 
 ## A running bridge keeps the bundle it started from
 
-`gjsify workspace beifahrer-cli build` replaces `app/dist/beifahrer.gjs.mjs`, but a `beifahrer mcp`
+`gjsify workspace beifahrer-app build` replaces `app/dist/gjs/beifahrer.mjs`, but a `beifahrer mcp`
 process the agent's client already started keeps running the OLD one. A Safari screenshot (a
 358 KB answer) timed out after 150 s against such a process and worked at once against a freshly
 started one, so it read like a Safari bug for hours. After a bridge rebuild, restart the MCP server
@@ -17,7 +17,7 @@ before measuring anything that crosses the wire.
 ## Two runtimes, two bundles
 
 - **The bridge runs on GJS and on plain Node, and each needs its own bundle** (`build` →
-  `beifahrer.gjs.mjs`, `build:node` → `beifahrer.node.mjs`). gjsify routes GJS-only imports per
+  `gjs/beifahrer.mjs`, `build:node` → `node/beifahrer.mjs`). gjsify routes GJS-only imports per
   `--app` WHILE BUILDING (`gi://` and the built-ins become `@gjsify/node-gi` shims on a Node target,
   `packages/infra/resolve-npm/lib/index.mjs`), so the GJS bundle keeps its `gi://` and a bare `node`
   refuses that scheme. A build difference, not a source one — and for this bridge the Node build has

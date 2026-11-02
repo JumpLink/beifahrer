@@ -1,70 +1,12 @@
-import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
-import { callCommand, mcpCommand, serveCommand, tokenCommand } from './frontends/cli/commands.ts';
-import { configCommand } from './frontends/cli/config.ts';
-import { doctorCommand } from './frontends/cli/doctor.ts';
-import { statusCommand } from './frontends/cli/status.ts';
-import { toolCommand } from './frontends/cli/tool.ts';
-import { VERSION } from './version.ts';
+import { pickMode, WINDOW_BUNDLE } from './dispatch.ts';
 
-function reportError(err: unknown): void {
-  console.error(err instanceof Error ? err.message : String(err));
-  process.exitCode = 1;
-}
-
-const parseArgs = () =>
-  yargs(hideBin(process.argv))
-    .command(mcpCommand)
-    .command(tokenCommand)
-    .command(statusCommand)
-    .command(configCommand)
-    .command(doctorCommand)
-    .command(serveCommand)
-    .command(callCommand)
-    .command(toolCommand)
-    .demandCommand(1, 'Name a command — `beifahrer --help` lists them.')
-    // Unknown commands must fail: on GJS an unmatched command would leave the main loop running.
-    .strictCommands()
-    .scriptName('beifahrer')
-    .version(VERSION)
-    .locale('en')
-    .help()
-    .fail(false)
-    .exitProcess(false)
-    .parseAsync();
-
-// yargs can throw synchronously for some failures; normalise to a rejection so it is reported once.
-let parsed: ReturnType<typeof parseArgs>;
-try {
-  parsed = parseArgs();
-} catch (err) {
-  parsed = Promise.reject(err);
-}
-
-const runningOnGjs = typeof (globalThis as { imports?: unknown }).imports !== 'undefined';
-
-if (runningOnGjs) {
-  // GJS has no always-on event loop: a GLib main loop keeps the bridge's sockets and the MCP stdio
-  // server alive. Commands end themselves with process.exit(); this only steps in where nothing
-  // else will — parse errors and yargs' own --help / --version.
-  const GLib = (
-    globalThis as unknown as {
-      imports: { gi: { GLib: { MainLoop: new (ctx: unknown, running: boolean) => { run(): void } } } };
-    }
-  ).imports.gi.GLib;
-  const loop = new GLib.MainLoop(null, false);
-  parsed.then(
-    (argv) => {
-      const a = argv as Record<string, unknown> | undefined;
-      if (a?.help || a?.version) process.exit(typeof process.exitCode === 'number' ? process.exitCode : 0);
-    },
-    (err) => {
-      reportError(err);
-      process.exit(typeof process.exitCode === 'number' ? process.exitCode : 1);
-    },
-  );
-  loop.run();
+// One binary, two programs (ADR 0023). The window is a bundle of its own, loaded only when it is
+// asked for: bundled in, the node build would pull in GTK's bindings, which keep the process alive
+// after `--version` and load a toolkit the headless bridge a coding agent starts has no use for.
+if (pickMode(hideBin(process.argv)) === 'window') {
+  await import(new URL(WINDOW_BUNDLE, import.meta.url).href);
 } else {
-  parsed.catch(reportError);
+  await import('./cli.ts');
 }

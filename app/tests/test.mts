@@ -51,6 +51,11 @@ import registryStore from './unit/registry/store.test.ts';
 import registryPublisher from './unit/registry/publisher.test.ts';
 import configCommand from './unit/registry/config.test.ts';
 import doctorCommand from './unit/registry/doctor.test.ts';
+import i18n from './unit/window/i18n.test.ts';
+import windowAgentsModel from './unit/window/agents-model.test.ts';
+import windowPairingModel from './unit/window/pairing-model.test.ts';
+import windowStatusModel from './unit/window/status-model.test.ts';
+import dispatch from './unit/dispatch.test.ts';
 import statusCommand from './unit/registry/status.test.ts';
 
 run({
@@ -103,4 +108,9 @@ run({
   statusCommand,
   configCommand,
   doctorCommand,
+  i18n,
+  windowAgentsModel,
+  windowPairingModel,
+  windowStatusModel,
+  dispatch,
 });

@@ -139,8 +139,7 @@ messages are never translated. A new method needs `method_<name>` (activity word
 |---|---|---|
 | `packages/core` | **Pure, zero deps.** Wire protocol, `ports.ts`, `connections.ts`, policy (incl. `ALWAYS_CONFIRM`), `features.ts`, toolbar look, activity entries, redaction, saved sessions, `find.ts`, `recipes.ts`, the bounds of `page.evaluate` (`evaluate.ts`), the session-registry model (`registry.ts`, ADR 0015) | GJS, Node, browser |
 | `packages/local` | What every LOCAL process shares and only `node:fs`/`os`/`path` touch: `configDir()`, the pairing token, the registry's path and files. The CLI and the desktop app both read through it | GJS, Node |
-| `app/` | `beifahrer` CLI: `mcp`, `token`, `status`, `serve`, `call`, `tool`; the bridge (`src/bridge/`), MCP tools, recipe runner + sources | GJS (bundled by gjsify); tests also on Node |
-| `desktop/` | The native libadwaita window (ADR 0017): reads the session registry, shows the status ladder, en/de. A view, never a policy: it has no pause, resume, feature or level control | GJS and node-gi (measured on macOS arm64) |
+| `app/` | `beifahrer`: no args opens the libadwaita window (`src/window/`, ADR 0017: a view, never a policy: no pause, resume, feature or level control; GJS and node-gi), a subcommand runs the CLI (`mcp`, `token`, `status`, `serve`, `call`, `tool`; `src/dispatch.ts` picks); the bridge (`src/bridge/`), MCP tools, recipe runner + sources | GJS (bundled by gjsify); tests also on Node |
 | `extension/` | background, page agent (+ its pill), popup, options, confirm window (on `@gjsify/adwaita-web`, shared `src/ui/kit.ts` → `ui.js`), `_locales/` (en default, de), `manifest.ts` + `scripts/build.ts` | browser (build: GJS + GdkPixbuf/librsvg) |
 | `recipes/` | Built-in recipes (JSON), bundled via `app/src/recipes/builtin.ts` | data |
 | `tests/e2e/` | Full chain in headless Chromium + Firefox | Node driver; bridge on GJS or Node (`BEIFAHRER_E2E_BRIDGE=node`) |
@@ -150,8 +149,8 @@ messages are never translated. A new method needs `method_<name>` (activity word
 
 ```sh
 gjsify install                                  # never npm install
-gjsify workspace beifahrer-cli build            # app/dist/beifahrer.gjs.mjs
-gjsify workspace beifahrer-cli test             # unit tests on gjs + node
+gjsify workspace beifahrer-app build            # app/dist/gjs/beifahrer.mjs
+gjsify workspace beifahrer-app test             # unit tests on gjs + node
 gjsify workspace beifahrer-extension build      # both browser builds
 gjsify foreach -A check && gjsify foreach -A lint
 node_modules/.bin/oxfmt --check .                # not `gjsify format`: under GJS it skips HTML
@@ -205,7 +204,7 @@ repo does not own is the one case where "it was tested here once" stops being ev
 - This repo is a submodule of werkstatt: commit here first, then bump the pointer in the parent.
 - All `@gjsify/*` pins are the same exact version; `gjsify upgrade --check` is the gate (offline, 30
   deps) and `gjsify upgrade --align` the fix.
-- Licences: apps (`app/`, `extension/`, `desktop/`) and the root are AGPL-3.0-or-later; every
+- Licences: apps (`app/`, `extension/`) and the root are AGPL-3.0-or-later; every
   package under `packages/` is LGPL-3.0-or-later (own `LICENSE` + `COPYING`). A package never
   depends on an AGPL workspace. No SPDX headers in sources.
 - Docs in English. Comments explain *why*.

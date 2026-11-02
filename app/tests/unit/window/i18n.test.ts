@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@gjsify/unit';
 
-import { CATALOGS, createTranslate, pickLocale } from '../../src/i18n.ts';
+import { CATALOGS, createTranslate, pickLocale } from '../../../src/window/i18n.ts';
 
 const placeholders = (text: string) =>
   [...text.matchAll(/\{(\w+)\}/g)]

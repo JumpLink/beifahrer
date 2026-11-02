@@ -6,8 +6,8 @@
  * at run time and is a failure in the tests, so a German window never shows a raw key.
  */
 
-import de from '../locales/de.json' with { type: 'json' };
-import en from '../locales/en.json' with { type: 'json' };
+import de from '../../locales/de.json' with { type: 'json' };
+import en from '../../locales/en.json' with { type: 'json' };
 
 export type Locale = 'en' | 'de';
 export type Key = keyof typeof en;
