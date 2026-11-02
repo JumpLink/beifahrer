@@ -4,6 +4,7 @@
   gjsify code; the status icon waits for
   [gjsify ADR 0129](https://github.com/gjsify/gjsify/blob/main/docs/adr/0129-a-status-icon-on-every-desktop.md).
 - **Date:** 2026-11-02
+- **Implemented:** § 5 Flatpak step (`app/src/window/background-model.ts`, `background-portal.ts`, `main.ts`); the status icon and autostart (§ 4) are not.
 - **Refines:** [0017](0017-native-desktop-app.md) (the window's lifetime; § 2 and § 3 still hold)
 - **Relates to:** [0007](0007-one-connection-per-agent-session.md) (one bridge per agent session, no
   daemon), [0015](0015-session-registry.md) (what the window reads),

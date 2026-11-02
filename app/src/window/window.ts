@@ -115,6 +115,7 @@ export function createWindow(app: Adw.Application, t: Translate): DesktopWindow 
   });
   const menu = new Gio.Menu();
   menu.append(t('menu.about'), 'app.about');
+  menu.append(t('menu.quit'), 'app.quit');
   header.pack_end(new Gtk.MenuButton({ iconName: 'open-menu-symbolic', menuModel: menu, primary: true }));
 
   const toolbar = new Adw.ToolbarView();
