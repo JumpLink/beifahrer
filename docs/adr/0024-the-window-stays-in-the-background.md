@@ -1,7 +1,8 @@
 # 0024: The window stays in the background and shows the status
 
-- **Status:** proposed. The direction is decided by the person (2026-11-02); the implementation
-  waits for gjsify's status icon ([gjsify ADR 0129](https://github.com/gjsify/gjsify/pull/2514)).
+- **Status:** accepted (decided by the person on 2026-11-02). The Flatpak step (§ 5) needs no new
+  gjsify code; the status icon waits for
+  [gjsify ADR 0129](https://github.com/gjsify/gjsify/blob/main/docs/adr/0129-a-status-icon-on-every-desktop.md).
 - **Date:** 2026-11-02
 - **Refines:** [0017](0017-native-desktop-app.md) (the window's lifetime; § 2 and § 3 still hold)
 - **Relates to:** [0007](0007-one-connection-per-agent-session.md) (one bridge per agent session, no
