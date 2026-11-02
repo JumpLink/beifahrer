@@ -158,10 +158,9 @@ export function createSetupPage(
   const write = Gtk.Button.new_with_label(t('setup.config.write'));
   write.add_css_class('suggested-action');
   write.add_css_class('pill');
-  write.set_halign(Gtk.Align.START);
   const result = label('');
   const configStep = column();
-  for (const w of [fileGroup, configTitle, configText, diffBox, snippetBox, copy, backupNote, write, result])
+  for (const w of [fileGroup, configTitle, configText, diffBox, snippetBox, copy, backupNote, result])
     configStep.append(w);
   stack.add_named(configStep, 'config');
 
@@ -212,7 +211,6 @@ export function createSetupPage(
     snippetBox.set_visible(manual);
     copy.set_visible(manual);
     backupNote.set_visible(view.writable && view.kind === 'update');
-    write.set_visible(view.writable);
     write.set_sensitive(true);
     result.set_label('');
   };
@@ -321,6 +319,8 @@ export function createSetupPage(
   const spacer = new Gtk.Box({ hexpand: true });
   nav.append(backButton);
   nav.append(spacer);
+  // In the bar, not under the diff: a long diff pushed the button out of view while Next was greyed out.
+  nav.append(write);
   nav.append(nextButton);
 
   let shown: StepId | null = null;
@@ -333,6 +333,7 @@ export function createSetupPage(
     progress.set_label(t('setup.progress', { n: STEPS.indexOf(state.step) + 1, total: STEPS.length }));
     heading.set_label(t(`setup.step.${state.step}`));
     stack.set_visible_child_name(state.step);
+    write.set_visible(state.step === 'config' && view?.writable === true);
     backButton.set_sensitive(state.step !== STEPS[0]);
     nextButton.set_label(isLast(state) ? t('setup.finish') : t('setup.next'));
     nextButton.set_sensitive(canLeave(state));
