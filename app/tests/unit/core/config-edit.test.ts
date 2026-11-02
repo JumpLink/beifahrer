@@ -38,6 +38,48 @@ export default async () => {
       expect(text.endsWith('}\n')).toBe(true);
     });
 
+    await it('leaves the other servers exactly as written, compact ones included', async () => {
+      const before =
+        '{\n  "mcpServers": {\n    "other": { "command": "other-tool" }, \n    "second": {"command":"y"}\n  },\n  "n": 1\n}\n';
+      const text = after('cursor', before);
+      expect(
+        text.startsWith(
+          '{\n  "mcpServers": {\n    "other": { "command": "other-tool" }, \n    "second": {"command":"y"},\n    "beifahrer": {',
+        ),
+      ).toBe(true);
+      expect(text.endsWith('\n  },\n  "n": 1\n}\n')).toBe(true);
+      expect(JSON.parse(text).mcpServers.beifahrer).toStrictEqual({ command: 'beifahrer', args: ['mcp'] });
+      const plan = planConfigEdit(agent('cursor'), before, server);
+      if (plan.kind !== 'update') throw new Error(plan.kind);
+      // Only the line that gains a comma changes; the compact `other` is not shown as removed.
+      expect(plan.diff.filter((l) => l.op === '-').map((l) => l.text)).toStrictEqual([
+        '    "second": {"command":"y"}',
+      ]);
+    });
+
+    await it('replaces a stale entry in place and leaves its neighbours alone', async () => {
+      const before =
+        '{\r\n  "mcpServers": {\r\n    "a": {"command":"a"},\r\n    "beifahrer": { "command": "/old" },\r\n    "z": {"command":"z"}\r\n  }\r\n}\r\n';
+      const text = after('cursor', before);
+      expect(text.includes('    "a": {"command":"a"},\r\n')).toBe(true);
+      expect(text.includes('    "z": {"command":"z"}\r\n  }\r\n}\r\n')).toBe(true);
+      expect(text.includes('\r\n') && !/[^\r]\n/.test(text)).toBe(true);
+      expect(JSON.parse(text).mcpServers.beifahrer.command).toBe('beifahrer');
+    });
+
+    await it('adds the whole container to a file that has none, below the other keys', async () => {
+      const before = '{\n  "theme": {"a": [1,2]}\n}\n';
+      const text = after('cursor', before);
+      expect(text.startsWith('{\n  "theme": {"a": [1,2]},\n  "mcpServers": {')).toBe(true);
+      expect(JSON.parse(text).mcpServers.beifahrer.command).toBe('beifahrer');
+    });
+
+    await it('falls back to a whole-document write for a one-line file', async () => {
+      const text = after('cursor', '{"mcpServers":{"other":{"command":"x"}}}');
+      expect(JSON.parse(text).mcpServers.other.command).toBe('x');
+      expect(JSON.parse(text).mcpServers.beifahrer.command).toBe('beifahrer');
+    });
+
     await it('changes only the stale entry and keeps what the person added to it', async () => {
       const before = JSON.stringify({
         mcpServers: { beifahrer: { command: '/old/path', args: ['mcp'], env: { A: '1' } } },
