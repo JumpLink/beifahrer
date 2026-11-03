@@ -1,6 +1,6 @@
 # 0023: Onboarding for beginners: one package, a window that can write the config
 
-- **Status:** accepted (decided by the person on 2026-11-01)
+- **Status:** accepted (decided by the person on 2026-11-01; § 5 on 2026-11-03)
 - **Implemented:** step 6a (one package, one binary with a dispatch in `app/src/dispatch.ts`) and 6b (the setup assistant, `app/src/window/setup-*.ts`, planner in `packages/core/src/config-edit.ts`).
 - **Date:** 2026-11-01
 - **Refines:** [0017](0017-native-desktop-app.md) (§ 2 and § 3 partly superseded, § 6 superseded)
@@ -65,6 +65,19 @@ and it cannot pause, resume, switch a feature or change a site's level; those st
 (ADR 0005). Writing an agent's config is the only addition. The token is still paired by hand
 (copy from the Browser page into the extension) until native messaging replaces it, which is a later
 phase.
+
+**5. The catalog is grouped, and filtered by system** (decided by the person on 2026-11-03). The
+agent list has three groups in this order: AI apps (desktop apps such as LM Studio, AnythingLLM, Jan,
+Goose, Cherry Studio, Claude Desktop), Coding agents, and a last entry, Other, for any app not listed.
+Only apps whose own docs confirm a LOCAL stdio server are in; remote-only apps are not. An app with a
+known user file is set up through the same diff, backup and confirm path as before. An app set up in
+its own screens (no file we may write) has a `guide`: the window shows the steps, the exact command
+and arguments from `serverSpec` (Flatpak form included) and, for JSON apps, a snippet with a copy
+button. It never writes a file for these. Other shows a plain guide, the `mcpServers` snippet and a
+note that a Flatpak or Snap app may need `flatpak-spawn --host`.
+An entry is **hidden** on a system where it has no user file, no project file and no guide (Claude
+Desktop on Linux). Hiding beats a "not on this system" row: a row the person cannot use is noise for
+a beginner, and the CLI `beifahrer config` still lists everything.
 
 ## Consequences
 

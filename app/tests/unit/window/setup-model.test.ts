@@ -8,12 +8,15 @@ import {
   back,
   canLeave,
   chooseAgent,
+  configView,
   detectAgents,
   extensionView,
   finishConfig,
   initialState,
   markPaired,
   next,
+  outcomeOfView,
+  setupSections,
   type SetupState,
 } from '../../../src/window/setup-model.ts';
 
@@ -73,6 +76,44 @@ export default async () => {
       expect(applyView({ status: 'unchanged' }, t).outcome).toBe('unchanged');
       expect(applyView({ status: 'written', backup: '/a.bak' }, t).message).toContain('/a.bak');
       expect(findAgent('cursor')).toBeDefined();
+    });
+  });
+
+  await describe('setup sections', async () => {
+    await it('groups AI apps, coding agents and Other, detected first inside a group', async () => {
+      const found = new Set(['zed', 'cursor']);
+      const sections = setupSections('linux', found);
+      expect(sections.map((s) => s.group).join()).toBe('apps,coding,other');
+      const coding = sections[1]!.agents.map((a) => a.id);
+      expect(coding.slice(0, 2).sort().join()).toBe('cursor,zed');
+      expect(sections[2]!.agents[0]!.id).toBe('other');
+    });
+
+    await it('hides Claude Desktop where it has no file and no guide', async () => {
+      const ids = (os: string) => setupSections(os, new Set()).flatMap((s) => s.agents.map((a) => a.id));
+      expect(ids('linux').includes('claude-desktop')).toBe(false);
+      expect(ids('darwin').includes('claude-desktop')).toBe(true);
+    });
+
+    await it('turns a guide entry into a manual view that never writes', async () => {
+      const install = { platform: 'linux' };
+      for (const id of ['jan', 'goose', 'cherry-studio', 'jetbrains', 'other']) {
+        const v = configView(
+          { agent: findAgent(id)!, allowWrite: false, platform: 'linux', install, file: null, text: null },
+          t,
+        );
+        expect(v.kind).toBe('guide');
+        expect(v.writable).toBe(false);
+        expect(v.steps.length).toBeGreaterThan(1);
+        expect(outcomeOfView(v)).toBe('manual');
+      }
+      const other = configView(
+        { agent: findAgent('other')!, allowWrite: false, platform: 'linux', install, file: null, text: null },
+        t,
+      );
+      expect(JSON.parse(other.snippet).mcpServers.beifahrer.command).toBe('beifahrer');
+      expect(other.title).toBe('Set up your app');
+      expect(other.title).not.toContain('Other');
     });
   });
 };

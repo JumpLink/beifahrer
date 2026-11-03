@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@gjsify/unit';
 import { findAgent } from '@beifahrer/core';
 
-import { agentView } from '../../../src/window/agents-model.ts';
+import { agentChoices, agentView } from '../../../src/window/agents-model.ts';
 import { createTranslate } from '../../../src/window/i18n.ts';
 
 const t = createTranslate('en');
@@ -56,6 +56,42 @@ export default async () => {
       });
       expect(flatpak.hint).toBe(null);
       expect(flatpak.snippet).toMatch(/"flatpak"/);
+    });
+  });
+
+  await describe('agent choices and guides', async () => {
+    await it('orders the drop-down by group and leaves out what the system cannot use', async () => {
+      const linux = agentChoices('linux').map((a) => a.id);
+      expect(linux[0]).toBe('lm-studio');
+      expect(linux.includes('claude-desktop')).toBe(false);
+      expect(linux[linux.length - 1]).toBe('other');
+      expect(
+        agentChoices('win32')
+          .map((a) => a.id)
+          .includes('claude-desktop'),
+      ).toBe(true);
+    });
+
+    await it('shows steps with the command and arguments for an app set up in its own screens', async () => {
+      const v = view('jan', false, 'linux');
+      expect(v.steps.length).toBeGreaterThan(3);
+      expect(v.steps.join('\n')).toContain('beifahrer');
+      expect(v.steps.join('\n')).toContain('mcp');
+      expect(v.userFile).toBe('');
+    });
+
+    await it('tells the Other entry about flatpak-spawn and shows the Flatpak command', async () => {
+      const v = agentView(findAgent('other')!, false, 'linux', t, { platform: 'linux', flatpak: true });
+      const text = v.steps.join('\n');
+      expect(text).toContain('flatpak-spawn --host');
+      expect(text).toContain('flatpak');
+      expect(text).toContain('outside its sandbox');
+      expect(text).toContain('eu.jumplink.beifahrer');
+      expect(v.snippet).toMatch(/"flatpak"/);
+    });
+
+    await it('has no steps for an agent set up through a file', async () => {
+      expect(view('cursor', false, 'linux').steps.length).toBe(0);
     });
   });
 };

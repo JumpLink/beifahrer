@@ -6,10 +6,9 @@
 import Adw from 'gi://Adw?version=1';
 import Gtk from 'gi://Gtk?version=4.0';
 
-import { AGENTS } from '@beifahrer/core';
-
-import { agentView } from './agents-model.ts';
+import { agentChoices, agentView } from './agents-model.ts';
 import { copyText } from './clipboard.ts';
+import { agentLabel } from './guide.ts';
 import type { Translate } from './i18n.ts';
 import { detectInstall } from '../frontends/cli/install.ts';
 import { clamped } from './window.ts';
@@ -19,9 +18,10 @@ export interface AgentsPage {
 }
 
 export function createAgentsPage(t: Translate, toast: (title: string) => void): AgentsPage {
+  const choices = agentChoices(process.platform);
   const pick = new Adw.ComboRow({
     title: t('agents.agent'),
-    model: Gtk.StringList.new(AGENTS.map((a) => a.name)),
+    model: Gtk.StringList.new(choices.map((a) => agentLabel(a, t))),
   });
   const write = new Adw.SwitchRow({
     title: t('agents.write.title'),
@@ -40,6 +40,7 @@ export function createAgentsPage(t: Translate, toast: (title: string) => void): 
   const docs = new Gtk.LinkButton({ label: t('agents.docs'), valign: Gtk.Align.CENTER });
   const where = new Adw.PreferencesGroup({ title: t('agents.snippet') });
   for (const row of [userFile, projectFile, command]) where.add(row);
+  const steps = new Gtk.Label({ wrap: true, xalign: 0, selectable: true });
   const docsRow = new Adw.ActionRow({ title: t('agents.docs') });
   docsRow.add_suffix(docs);
   where.add(docsRow);
@@ -72,13 +73,16 @@ export function createAgentsPage(t: Translate, toast: (title: string) => void): 
   const install = detectInstall();
 
   const column = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 24 });
-  for (const w of [choose, hint, where, card, copy, checked, note]) column.append(w);
+  for (const w of [choose, hint, steps, where, card, copy, checked, note]) column.append(w);
 
   const render = () => {
-    const agent = AGENTS[pick.get_selected()] ?? AGENTS[0]!;
+    const agent = choices[pick.get_selected()] ?? choices[0]!;
     const view = agentView(agent, write.get_active(), process.platform, t, install);
+    steps.set_label(view.steps.map((s, i) => `${i + 1}. ${s}`).join('\n'));
+    steps.set_visible(view.steps.length > 0);
     snippet.set_label(view.snippet);
     userFile.set_subtitle(view.userFile);
+    userFile.set_visible(view.userFile !== '');
     projectFile.set_subtitle(view.projectFile ?? '');
     projectFile.set_visible(view.projectFile !== null);
     command.set_subtitle(view.command ?? '');

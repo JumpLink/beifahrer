@@ -7,7 +7,9 @@
  */
 
 import {
+  AGENTS,
   CHECKED,
+  agentSections,
   serverSpec,
   snippetOf,
   userConfigPath,
@@ -15,9 +17,18 @@ import {
   type Install,
 } from '@beifahrer/core';
 
+import { guideSteps } from './guide.ts';
 import type { Translate } from './i18n.ts';
 
+/** The page's drop-down: AI apps, coding agents, other, only what `platform` can use. */
+export function agentChoices(platform: string): AgentEntry[] {
+  const all = agentSections(platform).flatMap((s) => s.agents);
+  return all.length > 0 ? all : [...AGENTS];
+}
+
 export interface AgentView {
+  /** Steps in the app's own screens, empty for an agent set up through a file. */
+  steps: string[];
   snippet: string;
   /** The user-level file, or a line saying the docs name none for this platform. */
   userFile: string;
@@ -40,8 +51,9 @@ export function agentView(
 ): AgentView {
   const server = serverSpec({ allowWrite, install });
   return {
+    steps: guideSteps(agent, server, install, t),
     snippet: snippetOf(agent, server),
-    userFile: userConfigPath(agent, platform) ?? t('agents.nofile'),
+    userFile: userConfigPath(agent, platform) ?? (agent.guide ? '' : t('agents.nofile')),
     projectFile: agent.project,
     command: agent.cli ? agent.cli(server) : null,
     docs: agent.docs,
