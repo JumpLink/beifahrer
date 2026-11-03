@@ -17,7 +17,8 @@ import {
   type ActivitySnapshot,
 } from '../../src/ui/features.ts';
 import { scriptQuietControl, type ScriptQuietControl } from '../../src/ui/script-quiet.ts';
-import { heroIcon, stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
+import { Diagram, type DiagramModel } from '../../src/ui/diagram.ts';
+import { linksOf, stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
 import { showToast } from '../../src/ui/toast.ts';
 import { renderSessions } from '../../src/ui/sessions.ts';
 
@@ -64,18 +65,48 @@ const LEVEL_TIPS: Record<Level, MessageKey> = {
 
 let state: UiState = 'unpaired';
 
-function renderState(
-  status: Status | undefined,
-  paused: boolean,
-  activity: ActivitySnapshot,
-  wide: boolean,
-): void {
+const diagram = new Diagram($('diagram-host'), (action) => {
+  if (action === 'resume') void saveSettings({ paused: false }).then(() => refresh());
+  else void openOptionsPage(browser);
+});
+
+/** What the extension can say about the chain from where it sits (ADR 0025 § 3, § 9). */
+function diagramOf(status: Status | undefined, paused: boolean): DiagramModel {
+  const connected = status && status.state !== 'unpaired' ? status : undefined;
+  const sessions = connected?.state === 'connected' ? connected.sessions : [];
+  const first = sessions[0];
+  const { l1, l2 } = linksOf(status?.state, first?.client);
+  const here = { name: browserName, connected: true };
+  const siblings = first?.browsers ?? [];
+  let fix: DiagramModel['fix'] = null;
+  if (l2 === 'fail')
+    fix = {
+      sentence: status?.state === 'unauthorized' || status?.state === 'protocol' ? status.state : 'unpaired',
+      action: status?.state === 'protocol' ? null : 'pair',
+    };
+  else if (paused) fix = { sentence: 'paused', action: 'resume' };
+  else if (l1 === 'wait') fix = { sentence: 'waiting', action: null };
+  return {
+    l1,
+    l2,
+    apps: sessions.flatMap((s) => (s.client ? [s.client] : [])),
+    browsers: [here, ...siblings],
+    sessions: sessions.length,
+    paused,
+    fix,
+  };
+}
+
+/** This browser's own name, read once in `main`. */
+let browserName = '';
+
+function renderState(status: Status | undefined, paused: boolean, activity: ActivitySnapshot): void {
   state = stateOf(status?.state, paused, activity);
   $('state').textContent = t(STATE_WORDS[state]);
   const icon = $<HTMLImageElement>('hero-icon');
-  const src = `/icons/${heroIcon(state, wide)}-48.png`;
-  if (icon.getAttribute('src') !== src) icon.setAttribute('src', src);
+  // Always the colour app icon (ADR 0025 § 9a): the diagram below says the state, not the hero.
   icon.classList.toggle('working', state === 'working');
+  diagram.set(diagramOf(status, paused));
 
   const pause = $<Gtk.Button>('pause');
   pause.setAttribute('icon-name', paused ? 'media-playback-start-symbolic' : 'media-playback-pause-symbolic');
@@ -181,7 +212,9 @@ async function main(): Promise<void> {
   // Safari grants host access per site, through its own prompt, and answers a request for every
   // site with `false` (measured on Safari 27.0.1, 2026-10-04). A button that can only fail is worse
   // than none, so "all sites" is not offered there.
-  if ((await browserInfo()).family === 'safari') $('wide').hidden = true;
+  const info = await browserInfo();
+  browserName = info.name;
+  if (info.family === 'safari') $('wide').hidden = true;
 
   const openOptions = (hash = '') => void openOptionsPage(browser, hash);
 
@@ -198,7 +231,7 @@ async function main(): Promise<void> {
       loadSettings(),
       browser.runtime.sendMessage({ type: GRANTS_MESSAGE, op: 'get' }) as Promise<WideView | null>,
     ]);
-    renderState(status, settings.paused, activity, wide !== null);
+    renderState(status, settings.paused, activity);
     renderWide(wide, status, settings.features.script === true);
     renderSessions($<Adw.PreferencesGroup>('agents'), status);
     const count = renderActivity($<Adw.PreferencesGroup>('activity'), activity.log, {

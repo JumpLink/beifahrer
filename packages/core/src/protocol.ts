@@ -12,6 +12,8 @@
  *   bridge → extension   session        { label } — the session's name changed (the MCP client
  *                                        introduced itself after the extension connected)
  *   bridge → extension   desktop        { desktop } — the desktop's accent colour changed (desktop.ts)
+ *   bridge → extension   browsers       { browsers } — the other browsers on this bridge changed
+ *                                        (ADR 0025 § 8a)
  *
  * Only methods named in `REQUIRED_LEVEL` (policy.ts) exist. There is deliberately no "evaluate
  * this JavaScript" method: it would make the per-origin levels meaningless.
@@ -97,6 +99,26 @@ export interface Welcome {
   session?: AgentSession;
   /** The person's desktop, as far as the bridge can read it. Optional: older bridges omit it. */
   desktop?: DesktopInfo;
+  /** Absent from bridges older than ADR 0025; `null` means "bound, nobody initialised yet". */
+  client?: McpClient | null;
+  /** Absent from bridges older than ADR 0025. Excludes the browser being welcomed. */
+  browsers?: SiblingBrowser[];
+}
+
+/** The MCP client on the other end of this bridge's stdio, as it named itself in the handshake. */
+export interface McpClient {
+  /** `clientInfo.name`, cleaned like a session label: "claude-code", "LM Studio". */
+  name: string;
+  /** `clientInfo.version`, if it sent one. */
+  version?: string;
+}
+
+/** The other browsers on this same bridge, as the bridge sees them. Names, nothing more. */
+export interface SiblingBrowser {
+  /** `hello.browser.name`, cleaned like a session label: "Firefox", "Chrome". */
+  name: string;
+  /** False once the bridge has seen it go (`BridgeStatus.disconnected`): the dashed card. */
+  connected: boolean;
 }
 
 export interface TabInfo {
@@ -456,8 +478,9 @@ export type BridgeFrame =
   | Welcome
   | Request
   | { type: 'pong' }
-  | { type: 'session'; label: string }
-  | { type: 'desktop'; desktop: DesktopInfo };
+  | { type: 'session'; label: string; client?: McpClient | null }
+  | { type: 'desktop'; desktop: DesktopInfo }
+  | { type: 'browsers'; browsers: SiblingBrowser[] };
 
 const FAMILIES: BrowserFamily[] = ['firefox', 'chromium', 'epiphany', 'safari', 'unknown'];
 
@@ -580,6 +603,34 @@ export function defaultSessionLabel(client: string, cwd: string): string {
   return cleanSessionLabel(`${client} · ${dir}`) ?? 'beifahrer';
 }
 
+/**
+ * The MCP client of a `session` or `welcome` frame. `undefined` stays `undefined` (an older bridge
+ * says nothing), `null` is "nobody initialised yet", anything unreadable is `undefined` too:
+ * cosmetic, never a reason to close the socket (ADR 0025 § 8).
+ */
+export function parseMcpClient(raw: unknown): McpClient | null | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === null) return null;
+  if (typeof raw !== 'object') return undefined;
+  const c = raw as Partial<McpClient>;
+  const name = cleanSessionLabel(c.name);
+  if (!name) return undefined;
+  const version = cleanSessionLabel(c.version);
+  return { name, ...(version ? { version } : {}) };
+}
+
+/** The sibling browsers of a frame; a bad entry costs a card, a non-array costs the field. */
+export function parseSiblingBrowsers(raw: unknown): SiblingBrowser[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: SiblingBrowser[] = [];
+  for (const entry of raw) {
+    const name = cleanSessionLabel((entry as Partial<SiblingBrowser> | null)?.name);
+    if (!name) continue;
+    out.push({ name, connected: (entry as SiblingBrowser).connected !== false });
+  }
+  return out;
+}
+
 function parseAgentSession(raw: unknown): AgentSession | null {
   const s = raw as Partial<AgentSession> | null;
   if (!s || typeof s !== 'object') return null;
@@ -601,6 +652,8 @@ export function parseWelcome(raw: unknown): Welcome | null {
   if (session === null) return null;
   // Cosmetic: a desktop the extension cannot read is dropped, never a reason to refuse the bridge.
   const desktop = parseDesktop(w.desktop);
+  const client = parseMcpClient(w.client);
+  const browsers = parseSiblingBrowsers(w.browsers);
   return {
     type: 'welcome',
     protocol: typeof w.protocol === 'number' ? w.protocol : PROTOCOL_VERSION,
@@ -608,6 +661,8 @@ export function parseWelcome(raw: unknown): Welcome | null {
     connectionId: w.connectionId,
     ...(session ? { session } : {}),
     ...(desktop.accent ? { desktop } : {}),
+    ...(client !== undefined ? { client } : {}),
+    ...(browsers ? { browsers } : {}),
   };
 }
 

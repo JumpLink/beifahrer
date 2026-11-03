@@ -10,7 +10,7 @@
  * a pure function the suite can walk.
  */
 
-import { isActive, type Overall, type ToolbarIcon } from '@beifahrer/core';
+import { isActive, type McpClient, type Overall, type ToolbarIcon } from '@beifahrer/core';
 import type { MessageKey } from '../i18n.ts';
 
 export type UiState = 'ready' | 'working' | 'paused' | 'offline' | 'unpaired' | 'unauthorized' | 'protocol';
@@ -92,3 +92,21 @@ export const BANNERS: Partial<Record<UiState, { title: MessageKey; fix: Fix; sev
   unauthorized: { title: 'banner_unauthorized', fix: 'settings', severity: 'error' },
   protocol: { title: 'banner_protocol', fix: 'settings', severity: 'error' },
 };
+
+/** The four link states the shared diagram draws (ADR 0025 § 3). */
+export type LinkState = 'ok' | 'wait' | 'fail' | 'unknown';
+
+/**
+ * The diagram's two links, from the extension's end (ADR 0025 § 3). It observes one socket, link 2,
+ * and learns about link 1 only through it, so link 1 is never `fail`: no socket is no evidence,
+ * which is `unknown`. `client` is the welcomed session's MCP client: undefined for an older bridge,
+ * null for a bound bridge nobody has initialised yet.
+ */
+export function linksOf(
+  connection: Overall | 'unpaired' | undefined,
+  client: McpClient | null | undefined,
+): { l1: LinkState; l2: LinkState } {
+  if (connection !== 'connected') return { l1: 'unknown', l2: 'fail' };
+  if (client === undefined) return { l1: 'unknown', l2: 'ok' };
+  return { l1: client === null ? 'wait' : 'ok', l2: 'ok' };
+}

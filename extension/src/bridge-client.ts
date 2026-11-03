@@ -33,6 +33,8 @@ import {
   PROTOCOL_VERSION,
   cleanSessionLabel,
   isMethod,
+  parseMcpClient,
+  parseSiblingBrowsers,
   parseWelcome,
   splitFrame,
   type BridgeFrame,
@@ -252,8 +254,15 @@ function probe(port: number): void {
       void serve(ws, port, frame.id, frame.method, frame.params);
     } else if (frame.type === 'session') {
       const label = cleanSessionLabel(frame.label);
-      if (label) {
-        table.relabelled(port, label);
+      const client = parseMcpClient(frame.client);
+      if (label || client !== undefined) {
+        table.relabelled(port, label ?? undefined, client);
+        changed();
+      }
+    } else if (frame.type === 'browsers') {
+      const browsers = parseSiblingBrowsers(frame.browsers);
+      if (browsers) {
+        table.browsersChanged(port, browsers);
         changed();
       }
     } else if (frame.type === 'desktop') {

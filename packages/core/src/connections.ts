@@ -29,7 +29,7 @@
  * after a ping, because an MV3 worker that slept makes a healthy socket look dead.
  */
 
-import { CLOSE, type AgentSession, type Welcome } from './protocol.ts';
+import { CLOSE, type AgentSession, type McpClient, type SiblingBrowser, type Welcome } from './protocol.ts';
 import { portsOf, type PortRange } from './ports.ts';
 
 export const PROBE_STEPS_MS = [1_000, 2_000, 3_000, 4_000, 5_000] as const;
@@ -52,6 +52,10 @@ export type PortEntry =
       bridgeVersion: string;
       /** Null for a bridge older than ADR 0007, which does not say. */
       session: AgentSession | null;
+      /** The MCP client; null until it introduced itself, undefined from an older bridge (ADR 0025). */
+      client: McpClient | null | undefined;
+      /** The other browsers on this bridge; empty from an older bridge (ADR 0025). */
+      browsers: SiblingBrowser[];
       /** ms since the epoch. */
       since: number;
       /** When the bridge last sent anything (ms since the epoch). */
@@ -68,6 +72,9 @@ export interface SessionView {
   since: number;
   bridgeVersion: string;
   pid: number | null;
+  /** Null: bound, nobody initialised yet. Undefined: an older bridge that does not say. */
+  client: McpClient | null | undefined;
+  browsers: SiblingBrowser[];
 }
 
 export type Overall = 'connected' | 'offline' | 'unauthorized' | 'protocol';
@@ -211,6 +218,8 @@ export class ConnectionTable {
       connectionId: welcome.connectionId,
       bridgeVersion: welcome.bridge.version,
       session: welcome.session ?? null,
+      client: welcome.client,
+      browsers: welcome.browsers ?? [],
       since: now,
       heardAt: now,
       askedAt: null,
@@ -221,9 +230,17 @@ export class ConnectionTable {
   }
 
   /** The bridge renamed its session (the MCP client introduced itself). */
-  relabelled(port: number, label: string): void {
+  relabelled(port: number, label: string | undefined, client?: McpClient | null): void {
     const e = this.#ports.get(port);
-    if (e?.state === 'connected' && e.session) e.session = { ...e.session, label };
+    if (e?.state !== 'connected') return;
+    if (label && e.session) e.session = { ...e.session, label };
+    if (client !== undefined) e.client = client;
+  }
+
+  /** The bridge's other browsers changed (ADR 0025 § 8a). */
+  browsersChanged(port: number, browsers: SiblingBrowser[]): void {
+    const e = this.#ports.get(port);
+    if (e?.state === 'connected') e.browsers = browsers;
   }
 
   closed(port: number, info: CloseInfo, now: number): void {
@@ -268,6 +285,8 @@ export class ConnectionTable {
         since: e.since,
         bridgeVersion: e.bridgeVersion,
         pid: e.session?.pid ?? null,
+        client: e.client,
+        browsers: e.browsers,
       });
     }
     return out.sort((a, b) => a.port - b.port);
