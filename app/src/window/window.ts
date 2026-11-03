@@ -1,7 +1,7 @@
 /**
- * The window: four pages under a view switcher. Setup is the assistant for a first run (ADR 0023);
- * Status says what is running; Browser holds the pairing token; Agent holds the snippet that connects a
- * coding agent. The only thing the window writes is an agent's MCP config, from Setup, after a
+ * The window: until setup is finished the assistant alone (ADR 0023 § 6), then three pages under a view
+ * switcher. Status says what is running; Browser holds the pairing token; Agent holds the snippet that
+ * connects a coding agent. The menu runs the assistant again, full window, with Cancel back to the tabs. The only thing the window writes is an agent's MCP config, from Setup, after a
  * confirmation. There is no button here that touches the browser's policy (ADR 0005, ADR 0017).
  *
  * Plain Adw/Gtk widgets from the GNOME HIG: `Adw.ViewStack` with an `Adw.ViewSwitcher` in the header,
@@ -19,12 +19,15 @@ import type { Translate } from './i18n.ts';
 import { createPairingPage } from './pairing-page.ts';
 import type { PairingView } from './pairing-model.ts';
 import { createSetupPage } from './setup-page.ts';
+import { startView } from './setup-state-model.ts';
 import type { StatusView } from './status-model.ts';
 
 export interface DesktopWindow {
   window: Adw.ApplicationWindow;
   showStatus(view: StatusView): void;
   showPairing(view: PairingView): void;
+  /** Setup is finished: remember it (once) and show the tabs. */
+  onSetupFinished(): void;
   /** A message in the window's toast overlay. */
   toast(title: string): void;
   copyToken(): boolean;
@@ -85,7 +88,14 @@ function createStatusPage(t: Translate) {
 }
 
 /** `preferences`: the menu offers Preferences; only where there is a setting in them (autostart). */
-export function createWindow(app: Adw.Application, t: Translate, preferences = false): DesktopWindow {
+export function createWindow(
+  app: Adw.Application,
+  t: Translate,
+  preferences = false,
+  /** The stored flag; `markDone` stores it. */
+  setupDone = false,
+  markDone: () => void = () => {},
+): DesktopWindow {
   const overlay = new Adw.ToastOverlay();
   const statusPage = createStatusPage(t);
   const toast = (title: string) => overlay.add_toast(new Adw.Toast({ title, timeout: 2 }));
@@ -93,8 +103,6 @@ export function createWindow(app: Adw.Application, t: Translate, preferences = f
   const agentsPage = createAgentsPage(t, toast);
 
   const stack = new Adw.ViewStack();
-  const setupPage = createSetupPage(t, toast, () => stack.set_visible_child_name('status'));
-  stack.add_titled_with_icon(setupPage.widget, 'setup', t('page.setup'), 'emblem-system-symbolic');
   // A page without an icon name is drawn with `image-missing` in the switcher, so each one names one.
   stack.add_titled_with_icon(
     statusPage.widget,
@@ -104,27 +112,64 @@ export function createWindow(app: Adw.Application, t: Translate, preferences = f
   );
   stack.add_titled_with_icon(pairingPage.widget, 'browser', t('page.browser'), 'web-browser-symbolic');
   stack.add_titled_with_icon(agentsPage.widget, 'agent', t('page.agent'), 'utilities-terminal-symbolic');
-  // A first run starts on the assistant; once an agent's config names Beifahrer, on the status.
-  let configured = false;
-  try {
-    configured = agentCommands().length > 0;
-  } catch {
-    configured = false;
-  }
-  stack.set_visible_child_name(configured ? 'status' : 'setup');
+  stack.set_visible_child_name('status');
 
-  const header = new Adw.HeaderBar({
-    titleWidget: new Adw.ViewSwitcher({ stack, policy: Adw.ViewSwitcherPolicy.WIDE }),
+  // The assistant takes the whole window while setup is open: no tabs, only title and menu. The stored
+  // flag is the signal; an agent's config naming Beifahrer is a hint where those files are readable.
+  let agentConfigured = false;
+  try {
+    agentConfigured = agentCommands().length > 0;
+  } catch {
+    agentConfigured = false;
+  }
+  let finished = startView(setupDone, agentConfigured) === 'tabs';
+
+  const root = new Gtk.Stack();
+  const switcher = new Adw.ViewSwitcher({ stack, policy: Adw.ViewSwitcherPolicy.WIDE });
+  const plainTitle = new Adw.WindowTitle({ title: t('app.title'), subtitle: '' });
+  const header = new Adw.HeaderBar();
+  const cancel = Gtk.Button.new_with_label(t('setup.cancel'));
+  header.pack_start(cancel);
+
+  const showTabs = () => {
+    root.set_visible_child_name('tabs');
+    header.set_title_widget(switcher);
+    cancel.set_visible(false);
+  };
+  const showSetup = () => {
+    root.set_visible_child_name('setup');
+    header.set_title_widget(plainTitle);
+    // Cancel only where there is something to go back to.
+    cancel.set_visible(finished);
+  };
+  const setupPage = createSetupPage(t, toast, () => {
+    finished = true;
+    markDone();
+    stack.set_visible_child_name('status');
+    showTabs();
   });
+  root.add_named(setupPage.widget, 'setup');
+  root.add_named(stack, 'tabs');
+  cancel.connect('clicked', showTabs);
+  if (finished) showTabs();
+  else showSetup();
+
   const menu = new Gio.Menu();
+  menu.append(t('menu.setup'), 'app.setup');
   if (preferences) menu.append(t('menu.preferences'), 'app.preferences');
   menu.append(t('menu.about'), 'app.about');
   menu.append(t('menu.quit'), 'app.quit');
   header.pack_end(new Gtk.MenuButton({ iconName: 'open-menu-symbolic', menuModel: menu, primary: true }));
+  const setupAction = new Gio.SimpleAction({ name: 'setup' });
+  setupAction.connect('activate', () => {
+    setupPage.reset();
+    showSetup();
+  });
+  app.add_action(setupAction);
 
   const toolbar = new Adw.ToolbarView();
   toolbar.add_top_bar(header);
-  toolbar.set_content(stack);
+  toolbar.set_content(root);
   overlay.set_child(toolbar);
 
   const window = new Adw.ApplicationWindow({
@@ -141,6 +186,12 @@ export function createWindow(app: Adw.Application, t: Translate, preferences = f
     showPairing(view) {
       pairingPage.show(view);
       setupPage.showPairing(view);
+    },
+    onSetupFinished() {
+      if (finished) return;
+      finished = true;
+      markDone();
+      showTabs();
     },
     toast,
     copyToken: pairingPage.copyToken,

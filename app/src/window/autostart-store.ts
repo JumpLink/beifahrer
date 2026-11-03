@@ -1,34 +1,17 @@
 /**
- * The window's own small settings file, `window.json` in the app's config directory (the one that
- * holds the pairing token). It stores whether the person turned autostart on and whether they were
- * asked; losing it costs one more question, so it needs no backup.
+ * The autostart section of `window.json` (see `window-file.ts`). It stores whether the person turned
+ * autostart on and whether they were asked; losing it costs one more question, so it needs no backup.
  */
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { configDir } from '@beifahrer/local';
-
-import { type AutostartState, OFF, parseState, serializeState } from './autostart-model.ts';
-
-const file = () => join(configDir(), 'window.json');
+import { type AutostartState, OFF, parseState } from './autostart-model.ts';
+import { readWindowFile, writeSection } from './window-file.ts';
 
 export function loadAutostart(): AutostartState {
-  try {
-    return parseState(readFileSync(file(), 'utf8'));
-  } catch {
-    return OFF;
-  }
+  const text = readWindowFile();
+  return text === null ? OFF : parseState(text);
 }
 
 /** False when it could not be written; the caller keeps the state for the session anyway. */
 export function saveAutostart(state: AutostartState): boolean {
-  try {
-    mkdirSync(configDir(), { recursive: true });
-    const tmp = `${file()}.tmp`;
-    writeFileSync(tmp, serializeState(state), { mode: 0o600 });
-    renameSync(tmp, file());
-    return true;
-  } catch {
-    return false;
-  }
+  return writeSection('autostart', { enabled: state.enabled, asked: state.asked });
 }

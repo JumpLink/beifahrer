@@ -20,6 +20,8 @@ import {
 } from './autostart-model.ts';
 import { askAutostart, showPreferences } from './autostart-page.ts';
 import { loadAutostart, saveAutostart } from './autostart-store.ts';
+import { loadSetupDone, saveSetupDone } from './setup-store.ts';
+import { shouldMarkDone } from './setup-state-model.ts';
 import { createBackgroundPortal } from './background-portal.ts';
 import { installAboutAction } from './about.ts';
 import { createWindow } from './window.ts';
@@ -36,13 +38,18 @@ const backend = autostartBackend(
   process.platform,
 );
 let autostart = loadAutostart();
+let setupDone = loadSetupDone();
+const markSetupDone = () => {
+  setupDone = true;
+  saveSetupDone(true);
+};
 const hiddenStart = startsHidden(hiddenRequested, backend, autostart);
 
 const application = new AdwaitaApp({
   applicationId: 'eu.jumplink.beifahrer',
   createWindow: (app) => {
     installAboutAction(app, t, locale);
-    const ui = createWindow(app, t, showSwitch(backend));
+    const ui = createWindow(app, t, showSwitch(backend), setupDone, markSetupDone);
     // What the last probe found that no session announced. It is kept as ports and not as "listening",
     // so a bridge that stops between two probes does not show up as a stranger.
     let unregistered: number[] = [];
@@ -115,6 +122,8 @@ const application = new AdwaitaApp({
       );
       ui.showStatus(view);
       // A browser that really connected is the proof the pairing worked, whichever way it was done.
+      // The first connected browser is the real end of setup: the assistant gives way to the tabs.
+      if (shouldMarkDone(setupDone, view.presence === 'ready')) ui.onSetupFinished();
       askOnce(view.presence === 'ready');
       // Only while hidden, and only when the words changed: the portal is a D-Bus round trip.
       if (held && !ui.window.get_visible()) {

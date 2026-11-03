@@ -1,6 +1,6 @@
 # 0023: Onboarding for beginners: one package, a window that can write the config
 
-- **Status:** accepted (decided by the person on 2026-11-01; § 5 on 2026-11-03)
+- **Status:** accepted (decided by the person on 2026-11-01; § 5 and § 6 on 2026-11-03)
 - **Implemented:** step 6a (one package, one binary with a dispatch in `app/src/dispatch.ts`) and 6b (the setup assistant, `app/src/window/setup-*.ts`, planner in `packages/core/src/config-edit.ts`).
 - **Date:** 2026-11-01
 - **Refines:** [0017](0017-native-desktop-app.md) (§ 2 and § 3 partly superseded, § 6 superseded)
@@ -78,6 +78,19 @@ note that a Flatpak or Snap app may need `flatpak-spawn --host`.
 An entry is **hidden** on a system where it has no user file, no project file and no guide (Claude
 Desktop on Linux). Hiding beats a "not on this system" row: a row the person cannot use is noise for
 a beginner, and the CLI `beifahrer config` still lists everything.
+
+**6. Setup is the whole window, not a tab** (decided by Pascal 2026-11-03, after testing the Flatpak).
+Until setup is finished the window content is the assistant alone: no view switcher, the header shows
+the title and the menu. When it is finished the window shows the tabs Status, Browser and Agent, opened
+on Status; there is no "Setup" tab. Not a separate window. The menu entry "Run setup again" shows the
+full-window assistant again from step 1, with Cancel back to the tabs.
+"Finished" is a flag in the `setup` section of Beifahrer's own `window.json` (config directory, shared
+with the autostart section, sections merged on write). It is set when the person presses Finish on the
+last step AND when the first browser pairing succeeds (the real end of setup; the autostart question
+of ADR 0024 § 4 still follows at that moment). An agent config that names Beifahrer counts as finished
+too, but only as a hint: inside the Flatpak the host agents' configs are unreadable, and deciding the
+start view by them alone sent a finished setup back to the assistant on every start.
+Step 2 is titled "Connect your app" ("App verbinden"), matching step 1.
 
 ## Consequences
 
