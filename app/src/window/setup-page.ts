@@ -53,6 +53,8 @@ import { clamped } from './window.ts';
 export interface SetupPage {
   widget: Gtk.Widget;
   showPairing(view: PairingView): void;
+  /** Back to the first step, for "run setup again". */
+  reset(): void;
 }
 
 function label(text: string, css?: string): Gtk.Label {
@@ -86,10 +88,12 @@ export function createSetupPage(
   const sections = setupSections(platform, detected);
   const browsers = detectBrowsers(platform, expandPath, probe);
 
-  let state: SetupState = initialState(
-    defaultBrowser(browsers),
-    sections.flatMap((x) => x.agents).find((a) => detected.has(a.id))?.id ?? null,
-  );
+  const fresh = (): SetupState =>
+    initialState(
+      defaultBrowser(browsers),
+      sections.flatMap((x) => x.agents).find((a) => detected.has(a.id))?.id ?? null,
+    );
+  let state: SetupState = fresh();
   let view: ConfigView | null = null;
   let token: string | null = null;
 
@@ -410,6 +414,12 @@ export function createSetupPage(
 
   return {
     widget: page,
+    reset() {
+      shown = null;
+      state = fresh();
+      render();
+      scroller.get_vadjustment().set_value(0);
+    },
     showPairing(pairing) {
       token = pairing.token;
       // Only when it changed: setting the text of a row the person is looking at resets its reveal state.

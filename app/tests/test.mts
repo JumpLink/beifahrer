@@ -56,6 +56,7 @@ import windowAgentsModel from './unit/window/agents-model.test.ts';
 import windowPairingModel from './unit/window/pairing-model.test.ts';
 import windowStatusModel from './unit/window/status-model.test.ts';
 import windowAutostartModel from './unit/window/autostart-model.test.ts';
+import windowSetupStateModel from './unit/window/setup-state-model.test.ts';
 import windowBackgroundModel from './unit/window/background-model.test.ts';
 import configEdit from './unit/core/config-edit.test.ts';
 import windowSetupApply from './unit/window/setup-apply.test.ts';
@@ -118,6 +119,7 @@ run({
   windowPairingModel,
   windowStatusModel,
   windowAutostartModel,
+  windowSetupStateModel,
   windowBackgroundModel,
   configEdit,
   windowSetupApply,
