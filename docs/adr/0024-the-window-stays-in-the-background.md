@@ -4,7 +4,7 @@
   gjsify code; the status icon waits for
   [gjsify ADR 0129](https://github.com/gjsify/gjsify/blob/main/docs/adr/0129-a-status-icon-on-every-desktop.md).
 - **Date:** 2026-11-02
-- **Implemented:** § 5 Flatpak step (`app/src/window/background-model.ts`, `background-portal.ts`, `main.ts`); the status icon and autostart (§ 4) are not. It needs GNOME runtime 51: runtime 50 ships no libportal typelib, so there every close quits.
+- **Implemented:** § 5 Flatpak step (`app/src/window/background-model.ts`, `background-portal.ts`, `main.ts`); § 4 autostart in the Flatpak (2026-11-03: `autostart-model.ts`, `autostart-store.ts`, `autostart-page.ts`); the status icon and autostart outside the Flatpak are not. It needs GNOME runtime 51: runtime 50 ships no libportal typelib, so there every close quits.
 - **Refines:** [0017](0017-native-desktop-app.md) (the window's lifetime; § 2 and § 3 still hold)
 - **Relates to:** [0007](0007-one-connection-per-agent-session.md) (one bridge per agent session, no
   daemon), [0015](0015-session-registry.md) (what the window reads),
@@ -50,9 +50,19 @@ example "Ready: Firefox connected, 2 agent sessions". The two alarm rungs (no se
 switch the icon to a second themed icon, because gjsify ADR 0129 refuses badges. The icon's menu
 holds two entries: "Show window" and "Quit". Every string is translated (ADR 0017 § 5).
 
-**4. Autostart is off until the person turns it on.** A switch in the window, off by default.
-Turning it off removes the autostart entry completely. On Linux it is the `autostart` flag of the
-Background portal; on macOS and Windows it waits for gjsify's Background drivers.
+**4. Autostart is off until the person turns it on.** A switch in the window's Preferences, off by
+default, and one question: after the first pairing that worked (a browser really connected) the
+window asks, in plain words, whether Beifahrer should start at login. It asks once, never again;
+a "No" is remembered, and the switch stays for anyone who changes their mind. Turning it off
+removes the autostart entry completely. On Linux it is the `autostart` flag of the Background
+portal; on macOS and Windows it waits for gjsify's Background drivers. Where there is no backend
+(deb/rpm, macOS, Windows today) the switch is not shown and the question is not asked.
+
+The entry runs `beifahrer --background`: the window starts hidden and holds the application, and
+only if the portal-backed switch is on (a flag typed by hand shows the window). The portal reads
+every request as the whole wish, so each later request, the one at the first close included, repeats
+`autostart` while the switch is on. The switch and "asked" live in `window.json` in the app's config
+directory.
 
 **5. Order.** The Flatpak first: `hold()` plus `request_background` work on GJS today through
 libportal, with no new gjsify package. Then deb/rpm on desktops with a StatusNotifierItem host,
@@ -73,5 +83,7 @@ rule 2 makes closing quit there.
 
 1. What the ✕ in GNOME's Background Apps list does to the process (unverified). Beifahrer must treat
    it as Quit.
-2. Whether the window should offer to turn on autostart after the first successful pairing, or
-   only in its settings.
+2. ~~Whether the window should offer to turn on autostart after the first successful pairing, or
+   only in its settings.~~ **Decided by Pascal, 2026-11-03: both.** The window asks once after the
+   first successful pairing, a "No" is remembered, and the switch in Preferences stays, off by
+   default (§ 4).

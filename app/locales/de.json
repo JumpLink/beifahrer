@@ -115,5 +115,15 @@
   "setup.extension.chromium.step4": "Lösche den Ordner nicht: Der Browser liest die Erweiterung daraus.",
   "setup.pairing.description": "Die Erweiterung braucht das Token unten einmal. Klicke in deinem Browser in der Werkzeugleiste auf das Beifahrer-Symbol und wähle Einstellungen (Chrome, Edge und Brave: erst das Puzzle-Symbol, dann Beifahrer). Füge das Token dort ein und komm zurück.",
   "setup.pairing.done": "Ich habe es eingefügt",
-  "setup.pairing.donetoast": "Gekoppelt. Auf Status siehst du die Verbindung."
+  "setup.pairing.donetoast": "Gekoppelt. Auf Status siehst du die Verbindung.",
+  "menu.preferences": "Einstellungen",
+  "autostart.title": "Beifahrer beim Anmelden starten?",
+  "autostart.body": "Beifahrer wartet dann unauffällig im Hintergrund und zeigt, ob dein Agent und dein Browser verbunden sind. Das kannst du später unter Einstellungen ändern.",
+  "autostart.yes": "Beim Anmelden starten",
+  "autostart.no": "Nein, danke",
+  "autostart.reason": "Beifahrer beim Anmelden im Hintergrund starten.",
+  "autostart.group": "Hintergrund",
+  "autostart.row.title": "Beim Anmelden starten",
+  "autostart.row.subtitle": "Beifahrer wartet im Hintergrund und zeigt, ob dein Agent und dein Browser verbunden sind.",
+  "autostart.failed": "Das ließ sich nicht ändern. Dein System hat es nicht erlaubt."
 }
