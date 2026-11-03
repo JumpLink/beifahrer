@@ -62,6 +62,15 @@ export function afterAnswer(wantOn: boolean, granted: boolean): AutostartState {
   return { asked: true, enabled: wantOn && granted };
 }
 
+/** After the question: the stored state, and whether a "yes" met a refusal the person must be told about. */
+export function afterQuestion(
+  yes: boolean,
+  answer: 'granted' | 'denied' | 'unavailable',
+): { state: AutostartState; refused: boolean } {
+  const state = afterAnswer(yes, answer === 'granted');
+  return { state, refused: yes && !state.enabled };
+}
+
 /** The flag, and the arguments without it (GApplication rejects an option it does not know). */
 export function withoutFlag(args: readonly string[]): { requested: boolean; rest: string[] } {
   return { requested: args.includes(BACKGROUND_FLAG), rest: args.filter((a) => a !== BACKGROUND_FLAG) };

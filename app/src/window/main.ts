@@ -12,6 +12,7 @@ import { pairingView } from './pairing-model.ts';
 import { backgroundLine, inFlatpak, onClose } from './background-model.ts';
 import {
   afterAnswer,
+  afterQuestion,
   autostartBackend,
   shouldAsk,
   showSwitch,
@@ -92,11 +93,13 @@ const application = new AdwaitaApp({
       questioning = true;
       askAutostart(ui.window, t)
         .then(async (yes) => {
-          const state = yes ? await setAutostart(true) : afterAnswer(false, false);
+          const answer = yes ? await portal.setAutostart(ui.window, t('autostart.reason'), true) : 'denied';
+          const { state, refused } = afterQuestion(yes, answer);
           // Asked is stored either way: a refusal by the system is not a reason to ask again.
           autostart = state;
           saveAutostart(state);
-          if (yes && !state.enabled) ui.toast(t('autostart.failed'));
+          // Until dismissed: a two-second toast is gone before anyone reads it, and the window may be closing.
+          if (refused) ui.toast(t('autostart.failed'), 0);
         })
         .catch(() => {})
         .finally(() => {
