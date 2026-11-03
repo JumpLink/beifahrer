@@ -114,6 +114,14 @@ jobs:
       - name: Unit tests (gjs + node)
         run: gjsify workspace beifahrer-app test
 
+      # The unit suites import the SOURCES; this one spawns the BUNDLE built above and talks to it
+      # over pipes. That difference is the whole point: the CLI hung because of how the bundler
+      # lowers `index.ts`'s dynamic import of `cli.ts`, so every suite stayed green while the
+      # shipped binary answered nothing. Everything it waits for has a timeout.
+      - name: CLI + MCP over stdio on GJS (the built bundle)
+        working-directory: app
+        run: npm run test:mcp
+
       # The builds a person would install. Not a release — just proof they package.
       - name: Package the extension
         run: gjsify workspace beifahrer-extension zip
