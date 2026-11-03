@@ -24,6 +24,10 @@ const MAX_CARDS = 3;
 /** The vertical arrangement's cells (rows of `VERTICAL_UNIT` px): app, link 1, Beifahrer, link 2, browser. */
 export const VERTICAL_CELLS = [11, 8, 11, 9, 10] as const;
 export const VERTICAL_UNIT = 10;
+/** The phone layout draws the artwork at this fraction of its size, so the words under it stay on screen. */
+export const VERTICAL_SCALE = 0.65;
+/** A cell's height in px at that scale. */
+export const verticalPx = (units: number) => Math.round(units * VERTICAL_UNIT * VERTICAL_SCALE);
 
 /** "claude-code · werkstatt" as the bold part and the dim rest; a name without " · " has no rest. */
 export function splitName(name: string): { main: string; rest: string | null } {

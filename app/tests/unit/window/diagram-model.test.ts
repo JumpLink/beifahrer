@@ -14,6 +14,8 @@ import {
   splitName,
   VERTICAL_CELLS,
   VERTICAL_UNIT,
+  VERTICAL_SCALE,
+  verticalPx,
   trackBrowsers,
 } from '../../../src/window/diagram-model.ts';
 import assets from '../../../src/window/diagram-assets.json' with { type: 'json' };
@@ -157,6 +159,10 @@ export default async () => {
     await it('has a cell for all five parts, summing to the drawing height', async () => {
       expect(VERTICAL_CELLS.length).toBe(5);
       expect(VERTICAL_CELLS.reduce((a, b) => a + b, 0) * VERTICAL_UNIT).toBe(490);
+    });
+    await it('draws the phone column at 65 % of the artwork', async () => {
+      expect(VERTICAL_SCALE).toBe(0.65);
+      expect(VERTICAL_CELLS.map(verticalPx).join(',')).toBe('72,52,72,59,65');
     });
     await it('splits a session name at the dot', async () => {
       expect(splitName('claude-code · werkstatt').main).toBe('claude-code');

@@ -20,7 +20,8 @@ import {
   prepareSvg,
   splitName,
   VERTICAL_CELLS,
-  VERTICAL_UNIT,
+  VERTICAL_SCALE,
+  verticalPx,
   type DiagramAction,
   type DiagramView,
   type LinkState,
@@ -97,7 +98,7 @@ interface Arrangement {
 function cell(content: Gtk.Widget, units: number): Gtk.Widget {
   content.set_valign(Gtk.Align.CENTER);
   const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, hexpand: true });
-  box.set_size_request(-1, units * VERTICAL_UNIT);
+  box.set_size_request(-1, verticalPx(units));
   box.append(content);
   return box;
 }
@@ -117,7 +118,10 @@ function arrange(vertical: boolean): Arrangement {
 
   let widget: Gtk.Widget;
   if (vertical) {
-    picture.set_size_request(140, VERTICAL_CELLS.reduce((a, b) => a + b, 0) * VERTICAL_UNIT);
+    picture.set_size_request(
+      Math.round(140 * VERTICAL_SCALE),
+      VERTICAL_CELLS.reduce((a, b) => a + verticalPx(b), 0),
+    );
     picture.set_halign(Gtk.Align.START);
     picture.set_valign(Gtk.Align.START);
     const column = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, hexpand: true });
@@ -126,7 +130,11 @@ function arrange(vertical: boolean): Arrangement {
     );
     const row = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 12 });
     // A picture's natural width is its texture's (2x); the clamp keeps the row from handing it that.
-    const clamp = new Adw.Clamp({ maximumSize: 140, tighteningThreshold: 140, halign: Gtk.Align.START });
+    const clamp = new Adw.Clamp({
+      maximumSize: Math.round(140 * VERTICAL_SCALE),
+      tighteningThreshold: Math.round(140 * VERTICAL_SCALE),
+      halign: Gtk.Align.START,
+    });
     clamp.set_child(picture);
     row.append(clamp);
     row.append(column);
