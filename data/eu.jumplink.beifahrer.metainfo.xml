@@ -63,6 +63,15 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.18" date="2026-11-03">
+      <description>
+        <ul>
+          <li>Connection diagram on the status page: shows the agent, Beifahrer and the browser, with link states and fix hints</li>
+          <li>Popup diagram for the extension, with a coloured app icon in the header</li>
+          <li>Autostart refusal is now reported instead of being saved silently</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.17" date="2026-11-02">
       <description>
         <ul>
