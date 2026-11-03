@@ -3,13 +3,15 @@
  * while an agent is at work, a yellow dot while paused, a red one without a bridge connection.
  * What to show is `toolbarLook` in core, in the ladder `alarmOf` there names; this file only
  * paints it, on whichever button API the browser has (`action` in MV3, `browserAction` in MV2).
- * The badge text is the fallback for a browser that cannot set the icon.
+ * The badge carries the link state beside it: green, yellow or red, with a text that says it
+ * without the colour (Safari ignores the colour).
  */
 
 import { browser } from '@wxt-dev/browser';
 import {
   ACTIVE_MS,
-  LOOK_COLOUR,
+  BADGE_STATUS,
+  badgeStatusOf,
   toolbarLook,
   wildcardGrant,
   type Connection,
@@ -65,14 +67,11 @@ export async function refreshToolbar(): Promise<void> {
   const key = JSON.stringify(look);
   if (key === painted) return;
   painted = key;
-  if (api.setIcon) {
-    await api.setIcon({ path: iconPath(look.icon) });
-  } else if (api.setBadgeText) {
-    await api.setBadgeText({ text: look.badge });
-    // The badge paints the button in the look's own colour from core, the one the icon's dot is
-    // drawn with: a fallback that showed another colour would say a different state than the icon.
-    await api.setBadgeBackgroundColor?.({ color: LOOK_COLOUR[look.icon] });
-  }
+  await api.setIcon?.({ path: iconPath(look.icon) });
+  // The status badge is on every browser, beside the icon (ADR 0025 § 11).
+  const status = BADGE_STATUS[badgeStatusOf(look.icon)];
+  await api.setBadgeText?.({ text: status.text });
+  await api.setBadgeBackgroundColor?.({ color: status.colour });
   await api.setTitle?.({ title: titleFor(look.icon, currentStatus().state as Connection) });
 }
 

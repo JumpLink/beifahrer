@@ -2,6 +2,8 @@ import { describe, expect, it } from '@gjsify/unit';
 
 import {
   alarmOf,
+  BADGE_STATUS,
+  badgeStatusOf,
   LOOK_COLOUR,
   MONOCHROME,
   toolbarLook,
@@ -99,6 +101,20 @@ export default async () => {
     });
     await it('keeps the quiet looks the mid grey a light and a dark toolbar both read', async () => {
       expect(LOOK_COLOUR.idle).toBe(MONOCHROME);
+    });
+  });
+
+  await describe('BADGE_STATUS: the link state on every browser (ADR 0025)', async () => {
+    await it('maps each look to green, yellow or red, with a text that needs no colour', async () => {
+      expect(badgeStatusOf('offline')).toBe('offline');
+      expect(badgeStatusOf('paused')).toBe('paused');
+      for (const icon of ['idle', 'active', 'wide', 'wide-active'] as const)
+        expect(badgeStatusOf(icon)).toBe('connected');
+      expect(BADGE_STATUS.connected.colour).toBe('#26a269');
+      expect(BADGE_STATUS.paused.colour).toBe(LOOK_COLOUR.paused);
+      expect(BADGE_STATUS.offline.colour).toBe(LOOK_COLOUR.offline);
+      const texts = Object.values(BADGE_STATUS).map((b) => b.text);
+      expect(new Set(texts).size).toBe(3);
     });
   });
 };

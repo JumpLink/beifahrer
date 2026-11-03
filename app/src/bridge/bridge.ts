@@ -42,10 +42,12 @@ import {
   type ConnectedBrowser,
   type DesktopInfo,
   type Hello,
+  type McpClient,
   type Method,
   type Params,
   type PortRange,
   type Result,
+  type SiblingBrowser,
   type Welcome,
   type WireError,
 } from '@beifahrer/core';
@@ -148,6 +150,10 @@ export class Bridge extends EventEmitter implements BrowserAccess {
    * evidence (issue #28). Cleared as soon as a browser is connected again.
    */
   #disconnected: BrowserGone | null = null;
+  /** The browser's own name for `#disconnected`, for the diagram's dashed card (ADR 0025 § 8a). */
+  #goneName: string | null = null;
+  /** The MCP client of this bridge's stdio; null until it has introduced itself (ADR 0025 § 8). */
+  #client: McpClient | null = null;
 
   constructor(readonly options: BridgeOptions) {
     super();
@@ -217,6 +223,52 @@ export class Bridge extends EventEmitter implements BrowserAccess {
         conn.socket.send(JSON.stringify({ type: 'session', label: clean }));
     }
     this.emit('session');
+  }
+
+  /**
+   * The MCP client introduced itself (or went away: null). Connected browsers hear it at once, so
+   * the popup can tell "bound, nobody there" from "an AI app is attached" (ADR 0025 § 8).
+   */
+  setClient(client: McpClient | null): void {
+    const name = client ? cleanSessionLabel(client.name) : null;
+    const version = client ? cleanSessionLabel(client.version) : null;
+    const next: McpClient | null = name ? { name, ...(version ? { version } : {}) } : null;
+    if (JSON.stringify(next) === JSON.stringify(this.#client)) return;
+    this.#client = next;
+    this.#broadcastSession();
+  }
+
+  get client(): McpClient | null {
+    return this.#client;
+  }
+
+  #broadcastSession(): void {
+    for (const conn of this.#live.values()) {
+      if (conn.socket.readyState === conn.socket.OPEN)
+        conn.socket.send(
+          JSON.stringify({ type: 'session', label: this.#session.label, client: this.#client }),
+        );
+    }
+  }
+
+  /** The browsers other than `except`, by name only — what a popup draws as stacked cards. */
+  siblingsOf(except: string): SiblingBrowser[] {
+    const out: SiblingBrowser[] = [];
+    for (const conn of this.#live.values()) {
+      if (conn.id === except) continue;
+      const name = cleanSessionLabel(conn.hello.browser.name);
+      if (name) out.push({ name, connected: true });
+    }
+    const gone = this.#goneName ? cleanSessionLabel(this.#goneName) : null;
+    if (gone) out.push({ name: gone, connected: false });
+    return out;
+  }
+
+  #broadcastBrowsers(): void {
+    for (const conn of this.#live.values()) {
+      if (conn.socket.readyState === conn.socket.OPEN)
+        conn.socket.send(JSON.stringify({ type: 'browsers', browsers: this.siblingsOf(conn.id) }));
+    }
   }
 
   /** The desktop's accent changed (or was read first): connected browsers hear it at once. */
@@ -340,6 +392,7 @@ export class Bridge extends EventEmitter implements BrowserAccess {
     this.#live.set(conn.id, conn);
     // A browser is here, so whatever ended the last one no longer describes this session.
     this.#disconnected = null;
+    this.#goneName = null;
     const welcome: Welcome = {
       type: 'welcome',
       protocol: PROTOCOL_VERSION,
@@ -347,8 +400,11 @@ export class Bridge extends EventEmitter implements BrowserAccess {
       connectionId: conn.id,
       session: this.#session,
       ...(this.#desktop.accent ? { desktop: this.#desktop } : {}),
+      client: this.#client,
+      browsers: this.siblingsOf(conn.id),
     };
     socket.send(JSON.stringify(welcome));
+    this.#broadcastBrowsers();
     socket.on('message', (frame) => this.#onFrame(conn, frame));
     socket.on('close', (code) => this.#drop(conn, code));
     this.emit('connected', { id: conn.id, hello, connectedAt: conn.connectedAt });
@@ -389,6 +445,8 @@ export class Bridge extends EventEmitter implements BrowserAccess {
       browser: label(conn),
       at: new Date().toISOString(),
     };
+    this.#goneName = conn.hello.browser.name;
+    this.#broadcastBrowsers();
     conn.pending.rejectAll(() => new BridgeError({ code: 'failed', message: goneMessage(conn, code) }));
     this.emit('disconnected', conn.id);
   }

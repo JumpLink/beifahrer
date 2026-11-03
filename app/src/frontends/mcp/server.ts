@@ -72,6 +72,7 @@ export async function startBridge(
       handle.relabel = (name) => {
         if (!labelOverride()) started?.setLabel(sessionLabel(name));
       };
+      handle.setClient = (client) => started?.setClient(client);
       log(
         `session "${started.session.label}": bridge on 127.0.0.1:${started.port} (range ${describeRange(range)})`,
       );
@@ -99,8 +100,13 @@ export async function startMcpServer(opts: {
   const server = createMcpServer(handle, allowWrite, opts.saveRoot);
   // The client says who it is only in the MCP handshake, after the bridge is up: rename then.
   server.server.oninitialized = () => {
-    const name = server.server.getClientVersion()?.name;
-    if (name) handle.relabel?.(name);
+    const info = server.server.getClientVersion();
+    if (info?.name) {
+      handle.relabel?.(info.name);
+      handle.setClient?.({ name: info.name, ...(info.version ? { version: info.version } : {}) });
+    }
   };
+  // The AI app went away: the diagram falls back to "waiting" instead of showing it connected.
+  server.server.onclose = () => handle.setClient?.(null);
   await serveStdio(server, SERVER_NAME);
 }

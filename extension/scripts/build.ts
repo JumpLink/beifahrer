@@ -169,6 +169,7 @@ for (const target of TARGETS) {
   copyIcons(ICON_STAGE, dir, target);
   cpSync(join(ROOT, 'src/ui/style.css'), join(dir, 'style.css'));
   cpSync(join(ROOT, '_locales'), join(dir, '_locales'), { recursive: true });
+  cpSync(join(ROOT, '../data/diagram'), join(dir, 'diagram'), { recursive: true });
   for (const [name, source] of Object.entries(PAGES))
     writeFileSync(join(dir, `${name}.html`), page(name, source));
   const manifest = manifestFor(target, {

@@ -312,3 +312,92 @@ ul.preview {
 pre.preview.code {
   max-height: 260px;
 }
+
+/* ---- connection diagram (ADR 0025) ---------------------------------------------------- */
+
+.diagram {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-s);
+}
+
+.diagram-body {
+  display: flex;
+  align-items: stretch;
+  gap: var(--spacing-m);
+  justify-content: center;
+}
+
+.diagram-art {
+  flex: none;
+}
+
+.diagram-art svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.diagram-words {
+  display: grid;
+  align-content: space-between;
+  min-width: 0;
+  font-size: 0.9em;
+}
+
+.dg-label {
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+
+.dg-link {
+  color: var(--dim-label-color, inherit);
+  font-size: 0.85em;
+}
+
+.here-pill {
+  display: inline-block;
+  margin-inline-start: var(--spacing-xs);
+  padding: 0 var(--spacing-s);
+  border-radius: 999px;
+  background: var(--accent-bg-color);
+  color: var(--accent-fg-color);
+  font-size: 0.8em;
+  font-weight: normal;
+}
+
+.diagram-fix {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-s);
+  text-align: center;
+}
+
+.diagram-fix p {
+  margin: 0;
+}
+
+/* Narrow (the popup is 360 px): the vertical artwork, the words on the right, row by row. */
+.diagram-words {
+  height: 490px;
+  grid-template-rows: 1fr 1fr 1fr 1fr 1fr;
+  align-items: center;
+}
+
+/* Wide host: the horizontal artwork with the words under it. */
+@container (min-width: 420px) {
+  .diagram-body {
+    flex-direction: column;
+    align-items: center;
+  }
+  .diagram-words {
+    height: auto;
+    width: 600px;
+    max-width: 100%;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    grid-template-rows: auto;
+    text-align: center;
+  }
+}

@@ -59,10 +59,16 @@ function connect(
     hello?: unknown;
     onRequest?: (req: { id: number; method: string; params: unknown }, ws: WebSocket) => void;
     onSession?: (label: string) => void;
+    onFrame?: (frame: { type: string; [key: string]: unknown }) => void;
   } = {},
 ): Promise<{
   ws: WebSocket;
-  welcome?: { connectionId: string; session?: AgentSession };
+  welcome?: {
+    connectionId: string;
+    session?: AgentSession;
+    client?: { name: string; version?: string } | null;
+    browsers?: { name: string; connected: boolean }[];
+  };
   closed?: number;
 }> {
   return new Promise((resolve) => {
@@ -71,6 +77,7 @@ function connect(
     ws.on('open', () => ws.send(JSON.stringify(opts.hello ?? hello())));
     ws.on('message', (data) => {
       const frame = JSON.parse(String(data));
+      opts.onFrame?.(frame);
       if (frame.type === 'welcome') resolve({ ws, welcome: frame });
       else if (frame.type === 'session') opts.onSession?.(frame.label);
       else if (frame.type === 'request') opts.onRequest?.(frame, ws);
@@ -333,6 +340,65 @@ export default async () => {
       expect(viaChromium.tag).toBe('chromium');
       a.ws.close();
       b.ws.close();
+      await bridge.stop();
+    });
+  });
+
+  await describe('Bridge diagram frames (ADR 0025)', async () => {
+    const until = async (done: () => boolean) => {
+      for (let i = 0; i < 40 && !done(); i++) await new Promise((res) => setTimeout(res, 25));
+    };
+
+    await it('welcomes with the MCP client (null until it introduces itself) and no siblings', async () => {
+      const bridge = await startBridge();
+      const first = await connect(bridge);
+      expect(first.welcome?.client).toBeNull();
+      expect(first.welcome?.browsers?.length).toBe(0);
+      first.ws.close();
+      bridge.setClient({ name: 'claude-code', version: '2.1' });
+      const second = await connect(bridge);
+      expect(second.welcome?.client?.name).toBe('claude-code');
+      expect(second.welcome?.client?.version).toBe('2.1');
+      second.ws.close();
+      await bridge.stop();
+    });
+
+    await it('tells connected browsers when the MCP client arrives and leaves', async () => {
+      const bridge = await startBridge();
+      const seen: unknown[] = [];
+      const r = await connect(bridge, {
+        onFrame: (f) => {
+          if (f.type === 'session') seen.push(f.client);
+        },
+      });
+      bridge.setClient({ name: 'LM Studio' });
+      await until(() => seen.length >= 1);
+      bridge.setClient(null);
+      await until(() => seen.length >= 2);
+      expect((seen[0] as { name: string }).name).toBe('LM Studio');
+      expect(seen[1]).toBeNull();
+      r.ws.close();
+      await bridge.stop();
+    });
+
+    await it('names the sibling browsers on welcome, and sends a browsers frame on join and drop', async () => {
+      const bridge = await startBridge();
+      const lists: { name: string; connected: boolean }[][] = [];
+      const a = await connect(bridge, {
+        onFrame: (f) => {
+          if (f.type === 'browsers') lists.push(f.browsers as { name: string; connected: boolean }[]);
+        },
+      });
+      const b = await connect(bridge, {
+        hello: hello({ browser: { family: 'chromium', name: 'Chrome', version: '150' } }),
+      });
+      expect(b.welcome?.browsers?.map((x) => x.name).join()).toBe('Firefox');
+      await until(() => lists.some((l) => l.length === 1));
+      expect(lists.some((l) => l.length === 1 && l[0].name === 'Chrome' && l[0].connected)).toBe(true);
+      b.ws.close();
+      await until(() => lists.some((l) => l.length === 1 && !l[0].connected));
+      expect(lists.some((l) => l.length === 1 && l[0].name === 'Chrome' && !l[0].connected)).toBe(true);
+      a.ws.close();
       await bridge.stop();
     });
   });

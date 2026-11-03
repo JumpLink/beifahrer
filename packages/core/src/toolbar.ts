@@ -43,6 +43,25 @@ export const LOOK_COLOUR: Record<ToolbarIcon, string> = {
   'wide-active': '#3584e4',
 };
 
+/**
+ * The status badge on the button (ADR 0025 § 11): the diagram's link 2 in the toolbar. Text and
+ * colour together, because Safari accepts `setBadgeBackgroundColor` and paints nothing with it, so
+ * the text has to say the state alone. Green, yellow and red are the diagram's own greens,
+ * yellows and reds.
+ */
+export type BadgeStatus = 'connected' | 'paused' | 'offline';
+
+export const BADGE_STATUS: Record<BadgeStatus, { text: string; colour: string }> = {
+  connected: { text: '\u2713', colour: '#26a269' },
+  paused: { text: 'II', colour: '#e5a50a' },
+  offline: { text: '!', colour: '#e01b24' },
+};
+
+export function badgeStatusOf(icon: ToolbarIcon): BadgeStatus {
+  if (icon === 'offline') return 'offline';
+  return icon === 'paused' ? 'paused' : 'connected';
+}
+
 export interface ToolbarInput {
   connection: Connection;
   paused: boolean;

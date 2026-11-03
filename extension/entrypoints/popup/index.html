@@ -10,13 +10,15 @@
     <adw-banner id="banner"></adw-banner>
     <main class="page">
       <header class="hero">
-        <img id="hero-icon" class="hero-icon" src="/icons/offline-48.png" alt="" width="40" height="40" />
+        <img id="hero-icon" class="hero-icon" src="/icons/active-48.png" alt="" width="40" height="40" />
         <div class="hero-text">
           <h1 class="title-4" data-i18n="extName"></h1>
           <span id="state" class="caption dimmed" role="status"></span>
         </div>
         <gtk-button id="pause" circular icon-name="media-playback-pause-symbolic"></gtk-button>
       </header>
+
+      <section id="diagram-host" class="diagram"></section>
 
       <adw-status-page
         id="onboard"

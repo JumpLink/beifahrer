@@ -836,5 +836,52 @@
   },
   "legal_link": {
     "message": "Legal notice"
+  },
+  "diagram_node_app": {
+    "message": "Your AI app"
+  },
+  "diagram_node_beifahrer": {
+    "message": "Beifahrer"
+  },
+  "diagram_node_browser": {
+    "message": "Your browser"
+  },
+  "diagram_here_extension": {
+    "message": "This browser"
+  },
+  "diagram_link_ok": {
+    "message": "Connected"
+  },
+  "diagram_link_wait": {
+    "message": "Connecting…"
+  },
+  "diagram_link_fail": {
+    "message": "Not connected"
+  },
+  "diagram_link_unknown": {
+    "message": "Not visible"
+  },
+  "diagram_fix_unpaired": {
+    "message": "Enter the pairing token from the Beifahrer window."
+  },
+  "diagram_fix_unauthorized": {
+    "message": "Enter the current token from the Beifahrer window."
+  },
+  "diagram_fix_protocol": {
+    "message": "Update the extension and Beifahrer to the same version."
+  },
+  "diagram_fix_waiting": {
+    "message": "Start a session in your AI app, or restart it if it was already running."
+  },
+  "diagram_fix_paused": {
+    "message": "You stopped the agent. It cannot act here until you let it continue."
+  },
+  "diagram_more": {
+    "message": "+ $COUNT$ more",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

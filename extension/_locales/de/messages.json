@@ -835,5 +835,52 @@
   },
   "legal_link": {
     "message": "Impressum"
+  },
+  "diagram_node_app": {
+    "message": "Deine KI-App"
+  },
+  "diagram_node_beifahrer": {
+    "message": "Beifahrer"
+  },
+  "diagram_node_browser": {
+    "message": "Dein Browser"
+  },
+  "diagram_here_extension": {
+    "message": "Dieser Browser"
+  },
+  "diagram_link_ok": {
+    "message": "Verbunden"
+  },
+  "diagram_link_wait": {
+    "message": "Verbindet…"
+  },
+  "diagram_link_fail": {
+    "message": "Nicht verbunden"
+  },
+  "diagram_link_unknown": {
+    "message": "Nicht sichtbar"
+  },
+  "diagram_fix_unpaired": {
+    "message": "Gib das Kopplungs-Token aus dem Beifahrer-Fenster ein."
+  },
+  "diagram_fix_unauthorized": {
+    "message": "Gib das aktuelle Token aus dem Beifahrer-Fenster ein."
+  },
+  "diagram_fix_protocol": {
+    "message": "Bringe Erweiterung und Beifahrer auf dieselbe Version."
+  },
+  "diagram_fix_waiting": {
+    "message": "Starte eine Sitzung in deiner KI-App, oder starte sie neu, wenn sie schon lief."
+  },
+  "diagram_fix_paused": {
+    "message": "Du hast den Agenten gestoppt. Bis du ihn fortsetzen lässt, kann er hier nicht handeln."
+  },
+  "diagram_more": {
+    "message": "+ $COUNT$ weitere",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -6,6 +6,7 @@ import {
   DISCONNECTED,
   heroIcon,
   isDisconnected,
+  linksOf,
   STATE_WORDS,
   stateOf,
   type UiState,
@@ -109,6 +110,31 @@ export default async () => {
       // Never paired is the first run: the popup gives it its own page, not a strip above controls
       // that cannot do anything yet (ADR 0009).
       expect(BANNERS.unpaired).toBe(undefined);
+    });
+  });
+
+  await describe('linksOf: the diagram from the extension (ADR 0025 § 3)', async () => {
+    await it('never draws link 1 as a failure, whatever the socket says', async () => {
+      for (const c of [undefined, 'unpaired', 'offline', 'unauthorized', 'protocol', 'connected'] as const)
+        for (const client of [undefined, null, { name: 'x' }])
+          expect(linksOf(c, client).l1 === 'fail').toBe(false);
+    });
+    await it('is unknown without a socket and fails link 2 for every refusal', async () => {
+      expect(JSON.stringify(linksOf(undefined, undefined))).toBe(
+        JSON.stringify({ l1: 'unknown', l2: 'fail' }),
+      );
+      expect(linksOf('unpaired', null).l1).toBe('unknown');
+      expect(linksOf('unauthorized', undefined).l2).toBe('fail');
+      expect(linksOf('protocol', undefined).l2).toBe('fail');
+    });
+    await it('reads link 1 from the welcomed client', async () => {
+      expect(JSON.stringify(linksOf('connected', undefined))).toBe(
+        JSON.stringify({ l1: 'unknown', l2: 'ok' }),
+      );
+      expect(JSON.stringify(linksOf('connected', null))).toBe(JSON.stringify({ l1: 'wait', l2: 'ok' }));
+      expect(JSON.stringify(linksOf('connected', { name: 'claude-code' }))).toBe(
+        JSON.stringify({ l1: 'ok', l2: 'ok' }),
+      );
     });
   });
 };

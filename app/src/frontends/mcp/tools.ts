@@ -38,6 +38,8 @@ export interface BridgeHandle {
   retry?: () => Promise<void>;
   /** Rename the session after the MCP client's name (a no-op when the person set a label). */
   relabel?: (client: string) => void;
+  /** Tell the browsers which MCP client is attached; null once it is gone (ADR 0025 § 8). */
+  setClient?: (client: { name: string; version?: string } | null) => void;
 }
 
 async function bridgeOf(handle: BridgeHandle): Promise<BrowserAccess> {

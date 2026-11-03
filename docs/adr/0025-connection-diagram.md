@@ -1,7 +1,7 @@
 # 0025: One connection diagram for the window and the popup
 
 - **Status:** accepted — decided by the person, 2026-11-03: the pill, no ring (§ 2), and the three
-  defaults in § 13 as proposed. Design only; nothing in `app/` or `extension/` is changed by this PR.
+  defaults in § 13 as proposed. The extension and bridge side is implemented (protocol frames, popup diagram, hero icon, toolbar badge); the window side is a separate change.
 - **Date:** 2026-11-03
 - **Asked for by:** the person, 2026-11-03: a picture of "AI app ⟷ Beifahrer ⟷ browser" in both
   halves of the product, instead of one big symbolic icon on the Status page that says `ready` and
@@ -428,9 +428,9 @@ The `working` animation stays: that is activity, not state, and a breathing bus 
 is happening here" in a way no static variant does. `heroIcon()` keeps its remaining caller
 (`options/main.ts:79`) until that page gets the same treatment, which is not this ADR's call.
 
-**The toolbar button does not change.** It is the one surface with no room for a word, no diagram
-and no second signal, and ADR 0010's reason stands: the icon *is* the "an agent is in your browser"
-indicator, so it keeps all six variants and its badge.
+**The toolbar icon does not change; it gains a status badge (§ 11).** It has no room for a word or a
+diagram, and ADR 0010's reason stands: the icon *is* the "an agent is in your browser" indicator,
+so it keeps all six variants.
 
 ### 10. The strings
 
@@ -479,12 +479,13 @@ first two rows and the paused one. `diagram_fix_waiting` has no button by design
 
 ### 11. The toolbar badge
 
-The toolbar button keeps `alarmOf`'s order and its five looks (`packages/core/src/toolbar.ts`); it
-gains nothing new. What changes is only that the dot's colour and the diagram's link 2 are now
-visibly the same statement — `LOOK_COLOUR.offline` is `#e01b24`, the same red `l2-fail` draws. Green
-for a working connection is added to `LOOK_COLOUR` only if the idle bus ever stops being monochrome;
-this ADR does not propose that, because the monochrome idle bus is what tells the person *nothing is
-happening right now*, and that is worth more in a toolbar than a second green.
+The toolbar button keeps `alarmOf`'s order and its five looks (`packages/core/src/toolbar.ts`), and
+**gains a status badge on every supported browser**: green `#26a269` `✓` connected, amber `#e5a50a`
+`II` paused, red `#e01b24` `!` not connected (`BADGE_STATUS`, `badgeStatusOf`). Deviation from the
+first draft of this section, which added nothing and no green: the person asked for a status badge
+on the toolbar, and a badge is the one signal that fits there without a word. The icon's own look is
+unchanged, so the monochrome idle bus still says *nothing is happening right now*. Safari ignores
+the badge colour, so the badge text carries the state alone and never the colour only.
 
 ### 12. The style reference and its licence
 

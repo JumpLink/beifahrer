@@ -9,7 +9,9 @@ import {
   isExtensionOrigin,
   isLoopbackAddress,
   parseHello,
+  parseMcpClient,
   parseResponse,
+  parseSiblingBrowsers,
   parseWelcome,
   toTabInfo,
   tokensEqual,
@@ -164,6 +166,44 @@ export default async () => {
       expect(parseWelcome({ ...welcome, session: { ...session, label: '\u0000\u0007' } })).toBeNull();
       expect(parseWelcome({ ...welcome, type: 'hello' })).toBeNull();
       expect(parseWelcome(null)).toBeNull();
+    });
+
+    await it('parseWelcome carries the MCP client and the sibling browsers (ADR 0025)', async () => {
+      const parsed = parseWelcome({
+        ...welcome,
+        client: { name: 'claude-code', version: '2.1' },
+        browsers: [{ name: 'Chrome', connected: false }, { name: 'Brave' }],
+      });
+      expect(parsed?.client?.name).toBe('claude-code');
+      expect(parsed?.client?.version).toBe('2.1');
+      expect(parsed?.browsers?.length).toBe(2);
+      expect(parsed?.browsers?.[0].connected).toBe(false);
+      expect(parsed?.browsers?.[1].connected).toBe(true);
+    });
+
+    await it('parseWelcome tells an older bridge (no field) from a bound, silent one (null)', async () => {
+      const old = parseWelcome(welcome);
+      expect('client' in (old ?? {})).toBe(false);
+      expect('browsers' in (old ?? {})).toBe(false);
+      expect(parseWelcome({ ...welcome, client: null })?.client).toBeNull();
+    });
+
+    await it('parseWelcome never refuses a bridge over the cosmetic fields', async () => {
+      const parsed = parseWelcome({ ...welcome, client: 7, browsers: 'Chrome' });
+      expect(parsed?.connectionId).toBe('c1');
+      expect(parsed?.client).toBeUndefined();
+      expect(parsed?.browsers).toBeUndefined();
+    });
+
+    await it('parseMcpClient and parseSiblingBrowsers clean names and drop bad entries', async () => {
+      expect(parseMcpClient(undefined)).toBeUndefined();
+      expect(parseMcpClient(null)).toBeNull();
+      expect(parseMcpClient({ name: '' })).toBeUndefined();
+      expect(parseMcpClient({ name: 'evil\u202Eeman' })?.name).toBe('evil eman');
+      const list = parseSiblingBrowsers([null, { name: 3 }, { name: 'Firefox', connected: true }]);
+      expect(list?.length).toBe(1);
+      expect(list?.[0].name).toBe('Firefox');
+      expect(parseSiblingBrowsers(undefined)).toBeUndefined();
     });
 
     await it('cleanSessionLabel flattens, strips control and bidi characters, and caps', async () => {
