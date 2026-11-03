@@ -108,7 +108,6 @@ export function createSetupPage(
   for (const section of sections) {
     const group = new Adw.PreferencesGroup({
       title: groupTitles[section.group],
-      description: agentGroups.length === 0 ? t('setup.agent.description') : '',
     });
     agentGroups.push(group);
     for (const agent of section.agents) {
@@ -140,6 +139,7 @@ export function createSetupPage(
     render();
   });
   const agentStep = column();
+  agentStep.append(label(t('setup.agent.description'), 'dim-label'));
   for (const g of agentGroups) agentStep.append(g);
   agentStep.append(writeGroup);
   stack.add_named(agentStep, 'agent');

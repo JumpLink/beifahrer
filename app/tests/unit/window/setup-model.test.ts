@@ -112,6 +112,8 @@ export default async () => {
         t,
       );
       expect(JSON.parse(other.snippet).mcpServers.beifahrer.command).toBe('beifahrer');
+      expect(other.title).toBe('Set up your app');
+      expect(other.title).not.toContain('Other');
     });
   });
 };

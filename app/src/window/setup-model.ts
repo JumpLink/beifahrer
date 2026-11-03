@@ -291,7 +291,10 @@ export function configView(input: ConfigInput, t: Translate): ConfigView {
       file: null,
       snippet: agent.guide === 'json' ? snippet : '',
       steps: guideSteps(agent, server, input.install, t),
-      title: t('setup.config.guide.title', { name: agentLabel(agent, t) }),
+      title:
+        agent.id === 'other'
+          ? t('setup.config.guide.title.other')
+          : t('setup.config.guide.title', { name: agentLabel(agent, t) }),
       description: t('setup.config.guide.description'),
     };
   }

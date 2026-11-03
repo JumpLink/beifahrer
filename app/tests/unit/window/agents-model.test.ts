@@ -85,6 +85,7 @@ export default async () => {
       const text = v.steps.join('\n');
       expect(text).toContain('flatpak-spawn --host');
       expect(text).toContain('flatpak');
+      expect(text).toContain('outside its sandbox');
       expect(text).toContain('eu.jumplink.beifahrer');
       expect(v.snippet).toMatch(/"flatpak"/);
     });
