@@ -9,7 +9,7 @@
  * `docs` is the link a person follows when the snippet no longer works.
  */
 
-export const CHECKED = '2026-10-04';
+export const CHECKED = '2026-11-03';
 
 /** The Flatpak app id of the one package (`gjsify.ship.appId`): `flatpak run <id> mcp` is the bridge. */
 export const FLATPAK_ID = 'eu.jumplink.beifahrer';
@@ -87,10 +87,23 @@ type Shape =
   /** `{"context_servers": {name: {command, args}}}` */
   | 'zed';
 
+/** `apps`: desktop AI apps; `coding`: coding agents and editors; `other`: the one entry for any app not listed. */
+export type AgentGroup = 'apps' | 'coding' | 'other';
+
+/**
+ * How a person registers the server in an app with no file we may write: `fields` = type command and
+ * arguments into a form; `json` = paste the `mcpServers` JSON into a box.
+ */
+export type GuideKind = 'fields' | 'json';
+
 export interface AgentEntry {
   id: string;
   name: string;
+  /** For a `fields` guide the shape is not shown: only command and arguments are. */
   shape: Shape;
+  group: AgentGroup;
+  /** Set where the app is set up in its own settings screens, not by a file: the window shows steps. */
+  guide: GuideKind | null;
   /** The agent's own page about MCP servers. */
   docs: string;
   /** The user-level config file per platform; null where the docs did not name one. */
@@ -112,6 +125,8 @@ export const AGENTS: readonly AgentEntry[] = [
     id: 'claude-code',
     name: 'Claude Code',
     shape: 'mcpServers',
+    group: 'coding',
+    guide: null,
     docs: 'https://code.claude.com/docs/en/mcp',
     user: HOME_ALL('~/.claude.json'),
     project: '.mcp.json',
@@ -122,6 +137,8 @@ export const AGENTS: readonly AgentEntry[] = [
     id: 'opencode',
     name: 'opencode',
     shape: 'opencode',
+    group: 'coding',
+    guide: null,
     docs: 'https://opencode.ai/docs/mcp-servers/',
     user: {
       linux: '~/.config/opencode/opencode.json',
@@ -135,6 +152,8 @@ export const AGENTS: readonly AgentEntry[] = [
     id: 'codex',
     name: 'Codex CLI',
     shape: 'codex',
+    group: 'coding',
+    guide: null,
     docs: 'https://developers.openai.com/codex/mcp',
     user: HOME_ALL('~/.codex/config.toml'),
     project: '.codex/config.toml',
@@ -144,6 +163,8 @@ export const AGENTS: readonly AgentEntry[] = [
     id: 'gemini-cli',
     name: 'Gemini CLI',
     shape: 'mcpServers',
+    group: 'coding',
+    guide: null,
     docs: 'https://geminicli.com/docs/tools/mcp-server/',
     user: HOME_ALL('~/.gemini/settings.json'),
     project: '.gemini/settings.json',
@@ -153,6 +174,8 @@ export const AGENTS: readonly AgentEntry[] = [
     id: 'cursor',
     name: 'Cursor',
     shape: 'mcpServers',
+    group: 'coding',
+    guide: null,
     docs: 'https://cursor.com/docs/mcp',
     user: HOME_ALL('~/.cursor/mcp.json'),
     project: '.cursor/mcp.json',
@@ -162,6 +185,8 @@ export const AGENTS: readonly AgentEntry[] = [
     id: 'vscode',
     name: 'VS Code',
     shape: 'vscode',
+    group: 'coding',
+    guide: null,
     docs: 'https://code.visualstudio.com/docs/agent-customization/mcp-servers',
     // The user-level file is opened by the "MCP: Open User Configuration" command, not by a path the docs fix.
     user: { linux: null, darwin: null, win32: null },
@@ -172,6 +197,8 @@ export const AGENTS: readonly AgentEntry[] = [
     id: 'claude-desktop',
     name: 'Claude Desktop',
     shape: 'mcpServers',
+    group: 'apps',
+    guide: null,
     docs: 'https://modelcontextprotocol.io/docs/develop/connect-local-servers',
     user: {
       linux: null,
@@ -185,8 +212,98 @@ export const AGENTS: readonly AgentEntry[] = [
     id: 'zed',
     name: 'Zed',
     shape: 'zed',
+    group: 'coding',
+    guide: null,
     docs: 'https://zed.dev/docs/ai/mcp',
     user: { linux: '~/.config/zed/settings.json', darwin: '~/.config/zed/settings.json', win32: null },
+    project: null,
+    cli: null,
+  },
+  {
+    id: 'lm-studio',
+    name: 'LM Studio',
+    shape: 'mcpServers',
+    group: 'apps',
+    guide: null,
+    docs: 'https://lmstudio.ai/docs/app/mcp',
+    // The file's place is in LM Studio's 0.3.17 release notes; its docs only say "Edit mcp.json".
+    user: {
+      linux: '~/.lmstudio/mcp.json',
+      darwin: '~/.lmstudio/mcp.json',
+      win32: '%USERPROFILE%\\.lmstudio\\mcp.json',
+    },
+    project: null,
+    cli: null,
+  },
+  {
+    id: 'anythingllm',
+    name: 'AnythingLLM',
+    shape: 'mcpServers',
+    group: 'apps',
+    guide: null,
+    docs: 'https://docs.anythingllm.com/mcp-compatibility/desktop',
+    user: {
+      linux: '~/.config/anythingllm-desktop/storage/plugins/anythingllm_mcp_servers.json',
+      darwin:
+        '~/Library/Application Support/anythingllm-desktop/storage/plugins/anythingllm_mcp_servers.json',
+      win32: '%APPDATA%\\anythingllm-desktop\\storage\\plugins\\anythingllm_mcp_servers.json',
+    },
+    project: null,
+    cli: null,
+  },
+  {
+    id: 'jan',
+    name: 'Jan',
+    shape: 'mcpServers',
+    group: 'apps',
+    guide: 'fields',
+    docs: 'https://www.jan.ai/docs/desktop/mcp',
+    user: { linux: null, darwin: null, win32: null },
+    project: null,
+    cli: null,
+  },
+  {
+    id: 'goose',
+    name: 'Goose',
+    shape: 'mcpServers',
+    group: 'apps',
+    guide: 'fields',
+    // Goose keeps its extensions in a YAML file, which the window does not edit.
+    docs: 'https://goose-docs.ai/docs/getting-started/using-extensions',
+    user: { linux: null, darwin: null, win32: null },
+    project: null,
+    cli: null,
+  },
+  {
+    id: 'cherry-studio',
+    name: 'Cherry Studio',
+    shape: 'mcpServers',
+    group: 'apps',
+    guide: 'fields',
+    docs: 'https://docs.cherryai.com.cn/advanced-basic/extensions/mcp.md',
+    user: { linux: null, darwin: null, win32: null },
+    project: null,
+    cli: null,
+  },
+  {
+    id: 'jetbrains',
+    name: 'JetBrains AI Assistant',
+    shape: 'mcpServers',
+    group: 'coding',
+    guide: 'json',
+    docs: 'https://www.jetbrains.com/help/ai-assistant/mcp.html',
+    user: { linux: null, darwin: null, win32: null },
+    project: null,
+    cli: null,
+  },
+  {
+    id: 'other',
+    name: 'Other',
+    shape: 'mcpServers',
+    group: 'other',
+    guide: 'json',
+    docs: 'https://modelcontextprotocol.io/docs/develop/connect-local-servers',
+    user: { linux: null, darwin: null, win32: null },
     project: null,
     cli: null,
   },
@@ -266,4 +383,28 @@ export function commandInConfig(agent: AgentEntry, text: string): string | null 
   if (typeof command === 'string') return command;
   if (Array.isArray(command) && typeof command[0] === 'string') return command[0];
   return null;
+}
+
+export const GROUP_ORDER: readonly AgentGroup[] = ['apps', 'coding', 'other'];
+
+/**
+ * Whether the window has something to offer for `agent` on `platform`: a user file, a project file to
+ * point at, or steps in the app's own settings. An entry with none of the three would be an empty page
+ * ("see the docs"), so it is left out of the lists on that system instead of shown as a dead end.
+ */
+export function supportsPlatform(agent: AgentEntry, platform: string): boolean {
+  return userConfigPath(agent, platform) !== null || agent.project !== null || agent.guide !== null;
+}
+
+export interface AgentSection {
+  group: AgentGroup;
+  agents: AgentEntry[];
+}
+
+/** The entries `platform` can use, in the groups AI apps, coding agents, other, with empty groups left out. */
+export function agentSections(platform: string, agents: readonly AgentEntry[] = AGENTS): AgentSection[] {
+  return GROUP_ORDER.map((group) => ({
+    group,
+    agents: agents.filter((a) => a.group === group && supportsPlatform(a, platform)),
+  })).filter((s) => s.agents.length > 0);
 }

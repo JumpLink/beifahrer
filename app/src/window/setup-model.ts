@@ -10,17 +10,20 @@
 
 import {
   AGENTS,
+  agentSections,
   planConfigEdit,
   renderDiff,
   serverSpec,
   snippetOf,
   userConfigPath,
   type AgentEntry,
+  type AgentSection,
   type DiffLine,
   type EditPlan,
   type Install,
 } from '@beifahrer/core';
 
+import { agentLabel, guideSteps } from './guide.ts';
 import type { Translate } from './i18n.ts';
 import type { ApplyResult } from './setup-apply.ts';
 
@@ -113,6 +116,13 @@ const AGENT_COMMANDS: Record<string, string[]> = {
   vscode: ['code'],
   'claude-desktop': [],
   zed: ['zed', 'zeditor'],
+  'lm-studio': ['lms'],
+  anythingllm: [],
+  jan: [],
+  goose: ['goose'],
+  'cherry-studio': [],
+  jetbrains: [],
+  other: [],
 };
 
 export interface Expand {
@@ -133,6 +143,17 @@ export function detectAgents(platform: string, expand: Expand, probe: Probe): Se
 /** The table's order, with the detected agents first. */
 export function agentsDetectedFirst(detected: ReadonlySet<string>): AgentEntry[] {
   return [...AGENTS.filter((a) => detected.has(a.id)), ...AGENTS.filter((a) => !detected.has(a.id))];
+}
+
+/**
+ * The first step's list: AI apps, coding agents, other; only what `platform` can use; detected ones
+ * first inside each group. "Other" stays last because the groups keep their order.
+ */
+export function setupSections(platform: string, detected: ReadonlySet<string>): AgentSection[] {
+  return agentSections(platform).map((s) => ({
+    group: s.group,
+    agents: [...s.agents.filter((a) => detected.has(a.id)), ...s.agents.filter((a) => !detected.has(a.id))],
+  }));
 }
 
 interface BrowserSpec {
@@ -225,7 +246,7 @@ export function defaultBrowser(found: readonly BrowserFound[]): BrowserKind {
 
 // -- the config step -------------------------------------------------------------------------
 
-export type ConfigKind = 'create' | 'update' | 'unchanged' | 'unparseable' | 'sandbox' | 'nofile';
+export type ConfigKind = 'create' | 'update' | 'unchanged' | 'unparseable' | 'sandbox' | 'nofile' | 'guide';
 
 export interface ConfigView {
   kind: ConfigKind;
@@ -236,8 +257,10 @@ export interface ConfigView {
   diff: DiffLine[];
   /** The change as text, for a screen reader and for the tests. */
   diffText: string;
-  /** What to paste by hand when the window does not write. */
+  /** What to paste by hand when the window does not write. Empty for an app that takes fields, not JSON. */
   snippet: string;
+  /** For an app set up in its own screens: what to click and type, in order. */
+  steps: string[];
   /** The "Write" button exists only for a change the window may make. */
   writable: boolean;
   /** The text the diff was made from, which the writer checks is still the file's. */
@@ -259,7 +282,19 @@ export function configView(input: ConfigInput, t: Translate): ConfigView {
   const { agent, file } = input;
   const server = serverSpec({ allowWrite: input.allowWrite, install: input.install });
   const snippet = snippetOf(agent, server);
-  const base = { file, diff: [], diffText: '', snippet, writable: false, shown: null };
+  const base = { file, diff: [], diffText: '', snippet, steps: [], writable: false, shown: null };
+  if (agent.guide !== null) {
+    // Before the sandbox case: an app set up in its own screens needs no file access.
+    return {
+      ...base,
+      kind: 'guide',
+      file: null,
+      snippet: agent.guide === 'json' ? snippet : '',
+      steps: guideSteps(agent, server, input.install, t),
+      title: t('setup.config.guide.title', { name: agentLabel(agent, t) }),
+      description: t('setup.config.guide.description'),
+    };
+  }
   if (input.install.flatpak) {
     return {
       ...base,

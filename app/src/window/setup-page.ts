@@ -18,13 +18,14 @@ import { findAgent, serverSpec, userConfigPath, type AgentEntry } from '@beifahr
 import { detectInstall, expandPath, resolvesOnHost } from '../frontends/cli/install.ts';
 import { VERSION } from '../version.ts';
 import { copyText } from './clipboard.ts';
+import { agentLabel } from './guide.ts';
 import type { Translate } from './i18n.ts';
 import type { PairingView } from './pairing-model.ts';
 import { applyConfigEdit } from './setup-apply.ts';
 import { diskOps } from './setup-fs.ts';
 import {
   STEPS,
-  agentsDetectedFirst,
+  setupSections,
   applyView,
   back,
   canLeave,
@@ -82,12 +83,12 @@ export function createSetupPage(
   const install = detectInstall();
   const probe: Probe = { has: existsSync, onPath: (command) => resolvesOnHost(command) };
   const detected = detectAgents(platform, expandPath, probe);
-  const agents = agentsDetectedFirst(detected);
+  const sections = setupSections(platform, detected);
   const browsers = detectBrowsers(platform, expandPath, probe);
 
   let state: SetupState = initialState(
     defaultBrowser(browsers),
-    agents.find((a) => detected.has(a.id))?.id ?? null,
+    sections.flatMap((x) => x.agents).find((a) => detected.has(a.id))?.id ?? null,
   );
   let view: ConfigView | null = null;
   let token: string | null = null;
@@ -97,24 +98,36 @@ export function createSetupPage(
   const stack = new Gtk.Stack({ transitionType: Gtk.StackTransitionType.CROSSFADE });
 
   // -- step 1: the agent ---------------------------------------------------------------------
-  const agentGroup = new Adw.PreferencesGroup({ description: t('setup.agent.description') });
+  const groupTitles = {
+    apps: t('setup.group.apps'),
+    coding: t('setup.group.coding'),
+    other: t('setup.group.other'),
+  } as const;
+  const agentGroups: Adw.PreferencesGroup[] = [];
   let first: Gtk.CheckButton | null = null;
-  for (const agent of agents) {
-    const check = new Gtk.CheckButton({ active: agent.id === state.agentId });
-    if (first) check.set_group(first);
-    else first = check;
-    const row = new Adw.ActionRow({
-      title: agent.name,
-      subtitle: detected.has(agent.id) ? t('setup.agent.found') : t('setup.agent.notfound'),
+  for (const section of sections) {
+    const group = new Adw.PreferencesGroup({
+      title: groupTitles[section.group],
+      description: agentGroups.length === 0 ? t('setup.agent.description') : '',
     });
-    row.add_prefix(check);
-    row.set_activatable_widget(check);
-    agentGroup.add(row);
-    check.connect('toggled', () => {
-      if (!check.get_active()) return;
-      state = chooseAgent(state, agent.id);
-      render();
-    });
+    agentGroups.push(group);
+    for (const agent of section.agents) {
+      const check = new Gtk.CheckButton({ active: agent.id === state.agentId });
+      if (first) check.set_group(first);
+      else first = check;
+      const row = new Adw.ActionRow({
+        title: agentLabel(agent, t),
+        subtitle: detected.has(agent.id) ? t('setup.agent.found') : t('setup.agent.notfound'),
+      });
+      row.add_prefix(check);
+      row.set_activatable_widget(check);
+      group.add(row);
+      check.connect('toggled', () => {
+        if (!check.get_active()) return;
+        state = chooseAgent(state, agent.id);
+        render();
+      });
+    }
   }
   const writeSwitch = new Adw.SwitchRow({
     title: t('agents.write.title'),
@@ -127,7 +140,7 @@ export function createSetupPage(
     render();
   });
   const agentStep = column();
-  agentStep.append(agentGroup);
+  for (const g of agentGroups) agentStep.append(g);
   agentStep.append(writeGroup);
   stack.add_named(agentStep, 'agent');
 
@@ -137,6 +150,7 @@ export function createSetupPage(
   fileGroup.add(fileRow);
   const configTitle = label('', 'heading');
   const configText = label('');
+  const stepsBox = column(6);
   const diffBox = column(0);
   diffBox.add_css_class('card');
   const snippetLabel = new Gtk.Label({
@@ -160,7 +174,17 @@ export function createSetupPage(
   write.add_css_class('pill');
   const result = label('');
   const configStep = column();
-  for (const w of [fileGroup, configTitle, configText, diffBox, snippetBox, copy, backupNote, result])
+  for (const w of [
+    fileGroup,
+    configTitle,
+    configText,
+    stepsBox,
+    diffBox,
+    snippetBox,
+    copy,
+    backupNote,
+    result,
+  ])
     configStep.append(w);
   stack.add_named(configStep, 'config');
 
@@ -187,7 +211,14 @@ export function createSetupPage(
     view = configView({ agent, allowWrite: state.allowWrite, platform, install, file, text }, t);
     state = finishConfig(state, outcomeOfView(view));
     fileRow.set_subtitle(file ?? t('agents.nofile'));
-    fileRow.set_visible(true);
+    fileRow.set_visible(view.kind !== 'guide');
+    fileGroup.set_visible(view.kind !== 'guide');
+    clear(stepsBox);
+    view.steps.forEach((step, i) => {
+      const l = label(`${i + 1}. ${step}`);
+      l.set_selectable(true);
+      stepsBox.append(l);
+    });
     configTitle.set_label(view.title);
     configText.set_label(view.description);
     clear(diffBox);
@@ -208,8 +239,8 @@ export function createSetupPage(
     diffBox.set_visible(view.diff.length > 0);
     const manual = !view.writable && view.kind !== 'unchanged';
     snippetLabel.set_label(view.snippet);
-    snippetBox.set_visible(manual);
-    copy.set_visible(manual);
+    snippetBox.set_visible(manual && view.snippet !== '');
+    copy.set_visible(manual && view.snippet !== '');
     backupNote.set_visible(view.writable && view.kind === 'update');
     write.set_sensitive(true);
     result.set_label('');

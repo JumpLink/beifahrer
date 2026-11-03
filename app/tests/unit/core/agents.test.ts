@@ -2,12 +2,14 @@ import { describe, expect, it } from '@gjsify/unit';
 
 import {
   AGENTS,
+  agentSections,
   commandInConfig,
   findAgent,
   launcherOf,
   serverSpec,
   shellQuote,
   snippetOf,
+  supportsPlatform,
   userConfigPath,
 } from '@beifahrer/core';
 
@@ -156,6 +158,83 @@ export default async () => {
       expect(commandInConfig(agent('cursor'), '{"mcpServers":{}}')).toBe(null);
       expect(commandInConfig(agent('zed'), '{ // comment\n}')).toBe(null);
       expect(commandInConfig(agent('codex'), '[mcp_servers.other]\ncommand = "x"')).toBe(null);
+    });
+  });
+
+  await describe('desktop AI apps', async () => {
+    const platforms = ['linux', 'darwin', 'win32'];
+    const files: Record<string, Record<string, string | null>> = {
+      'lm-studio': {
+        linux: '~/.lmstudio/mcp.json',
+        darwin: '~/.lmstudio/mcp.json',
+        win32: '%USERPROFILE%\\.lmstudio\\mcp.json',
+      },
+      anythingllm: {
+        linux: '~/.config/anythingllm-desktop/storage/plugins/anythingllm_mcp_servers.json',
+        darwin:
+          '~/Library/Application Support/anythingllm-desktop/storage/plugins/anythingllm_mcp_servers.json',
+        win32: '%APPDATA%\\anythingllm-desktop\\storage\\plugins\\anythingllm_mcp_servers.json',
+      },
+      jan: { linux: null, darwin: null, win32: null },
+      goose: { linux: null, darwin: null, win32: null },
+      'cherry-studio': { linux: null, darwin: null, win32: null },
+      jetbrains: { linux: null, darwin: null, win32: null },
+      other: { linux: null, darwin: null, win32: null },
+    };
+
+    await it('names the file only where the app docs did, per platform', async () => {
+      for (const [id, byOs] of Object.entries(files))
+        for (const os of platforms) expect(userConfigPath(agent(id), os)).toBe(byOs[os]!);
+    });
+
+    await it('gives every new entry the mcpServers snippet on every platform', async () => {
+      for (const id of Object.keys(files)) {
+        for (const os of platforms) {
+          const s = serverSpec({ allowWrite: true, install: { platform: os } });
+          expect(JSON.parse(snippetOf(agent(id), s))).toStrictEqual({
+            mcpServers: { beifahrer: { command: 'beifahrer', args: ['mcp', '--allow-write'] } },
+          });
+        }
+      }
+    });
+
+    await it('puts the Flatpak form in the snippet of the Other entry', async () => {
+      const s = serverSpec({ allowWrite: false, install: { platform: 'linux', flatpak: true } });
+      expect(JSON.parse(snippetOf(agent('other'), s))).toStrictEqual({
+        mcpServers: { beifahrer: { command: 'flatpak', args: ['run', 'eu.jumplink.beifahrer', 'mcp'] } },
+      });
+    });
+
+    await it('lists AI apps, then coding agents, then Other, and drops what a system cannot use', async () => {
+      for (const os of platforms) {
+        const groups = agentSections(os).map((s) => s.group);
+        expect(groups.join()).toBe('apps,coding,other');
+      }
+      const linuxApps = agentSections('linux')[0]!.agents.map((a) => a.id);
+      expect(linuxApps.includes('claude-desktop')).toBe(false);
+      expect(linuxApps.includes('lm-studio')).toBe(true);
+      expect(
+        agentSections('darwin')[0]!
+          .agents.map((a) => a.id)
+          .includes('claude-desktop'),
+      ).toBe(true);
+      expect(
+        agentSections('freebsd')[0]!
+          .agents.map((a) => a.id)
+          .join(),
+      ).toBe('jan,goose,cherry-studio');
+      expect(
+        agentSections('linux')
+          .at(-1)!
+          .agents.map((a) => a.id)
+          .join(),
+      ).toBe('other');
+    });
+
+    await it('keeps an entry that has only a guide, and drops one with nothing at all', async () => {
+      expect(supportsPlatform(agent('jan'), 'linux')).toBe(true);
+      expect(supportsPlatform(agent('claude-desktop'), 'linux')).toBe(false);
+      expect(supportsPlatform(agent('vscode'), 'linux')).toBe(true);
     });
   });
 };
