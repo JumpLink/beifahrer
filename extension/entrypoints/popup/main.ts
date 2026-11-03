@@ -7,6 +7,7 @@ import { GRANTS_MESSAGE, type WideDuration, type WideView } from '../../src/gran
 import { browserInfo } from '../../src/browser-info.ts';
 import { t, type MessageKey } from '../../src/i18n.ts';
 import { WILDCARD_PATTERNS, loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
+import { openOptions as openOptionsPage } from '../../src/ui/open-options.ts';
 import { renderBanner } from '../../src/ui/banner.ts';
 import {
   loadActivity,
@@ -182,10 +183,7 @@ async function main(): Promise<void> {
   // than none, so "all sites" is not offered there.
   if ((await browserInfo()).family === 'safari') $('wide').hidden = true;
 
-  const openOptions = (hash = '') => {
-    if (!hash) return void browser.runtime.openOptionsPage();
-    void browser.tabs.create({ url: browser.runtime.getURL(`/options.html#${hash}`) });
-  };
+  const openOptions = (hash = '') => void openOptionsPage(browser, hash);
 
   wideLevel.model = GjsifyOptionList.new([
     { value: 'read', label: t('level_read') },

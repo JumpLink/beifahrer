@@ -36,6 +36,7 @@ import extensionManifest from './unit/extension/manifest.test.ts';
 import extensionQr from './unit/extension/qr.test.ts';
 import extensionStatus from './unit/extension/status.test.ts';
 import extensionGuardOnce from './unit/extension/guard-once.test.ts';
+import extensionOpenOptions from './unit/extension/open-options.test.ts';
 import updatesJson from './unit/extension/updates-json.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
 import mcpTools from './unit/mcp/tools.test.ts';
@@ -98,6 +99,7 @@ run({
   extensionQr,
   extensionStatus,
   extensionGuardOnce,
+  extensionOpenOptions,
   updatesJson,
   mcpGate,
   mcpTools,
