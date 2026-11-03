@@ -29,7 +29,7 @@ export interface DesktopWindow {
   /** Setup is finished: remember it (once) and show the tabs. */
   onSetupFinished(): void;
   /** A message in the window's toast overlay. */
-  toast(title: string): void;
+  toast(title: string, timeout?: number): void;
   copyToken(): boolean;
 }
 
@@ -98,7 +98,7 @@ export function createWindow(
 ): DesktopWindow {
   const overlay = new Adw.ToastOverlay();
   const statusPage = createStatusPage(t);
-  const toast = (title: string) => overlay.add_toast(new Adw.Toast({ title, timeout: 2 }));
+  const toast = (title: string, timeout = 2) => overlay.add_toast(new Adw.Toast({ title, timeout }));
   const pairingPage = createPairingPage(t, toast);
   const agentsPage = createAgentsPage(t, toast);
 

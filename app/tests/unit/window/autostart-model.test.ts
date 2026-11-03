@@ -2,6 +2,7 @@ import { describe, expect, it } from '@gjsify/unit';
 
 import {
   afterAnswer,
+  afterQuestion,
   autostartBackend,
   autostartCommandline,
   OFF,
@@ -46,6 +47,20 @@ export default async () => {
       expect(JSON.stringify(afterAnswer(true, true))).toBe(JSON.stringify({ asked: true, enabled: true }));
       expect(JSON.stringify(afterAnswer(true, false))).toBe(JSON.stringify({ asked: true, enabled: false }));
       expect(JSON.stringify(afterAnswer(false, true))).toBe(JSON.stringify({ asked: true, enabled: false }));
+    });
+  });
+
+  await describe('the question', async () => {
+    await it('tells the person when a yes was refused or the portal failed', async () => {
+      expect(afterQuestion(true, 'granted').refused).toBe(false);
+      expect(afterQuestion(true, 'denied').refused).toBe(true);
+      expect(afterQuestion(true, 'unavailable').refused).toBe(true);
+      expect(afterQuestion(true, 'denied').state.asked).toBe(true);
+    });
+
+    await it('says nothing to a no', async () => {
+      expect(afterQuestion(false, 'denied').refused).toBe(false);
+      expect(afterQuestion(false, 'denied').state.enabled).toBe(false);
     });
   });
 

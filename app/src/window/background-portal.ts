@@ -60,8 +60,11 @@ export function createBackgroundPortal(wantsAutostart: () => boolean = () => fal
           },
         );
       });
+      if (!granted) console.warn(`Background portal answered no (autostart=${autostart})`);
       return granted ? 'granted' : 'denied';
-    } catch {
+    } catch (err) {
+      // The one place the reason for a refused autostart can be seen: stderr of the Flatpak.
+      console.warn(`Background portal request failed (autostart=${autostart}):`, err);
       return 'unavailable';
     }
   };
