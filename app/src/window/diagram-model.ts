@@ -21,6 +21,16 @@ const MAX_NAMES = 2;
 /** The artwork draws at most this many cards in a stack. */
 const MAX_CARDS = 3;
 
+/** The vertical arrangement's cells (rows of `VERTICAL_UNIT` px): app, link 1, Beifahrer, link 2, browser. */
+export const VERTICAL_CELLS = [11, 8, 11, 9, 10] as const;
+export const VERTICAL_UNIT = 10;
+
+/** "claude-code · werkstatt" as the bold part and the dim rest; a name without " · " has no rest. */
+export function splitName(name: string): { main: string; rest: string | null } {
+  const at = name.indexOf(' · ');
+  return at < 0 ? { main: name, rest: null } : { main: name.slice(0, at), rest: name.slice(at + 3) };
+}
+
 /** What the button under a failing link does. */
 export type DiagramAction = 'setup' | 'token';
 
@@ -133,6 +143,11 @@ export function diagramOf(
   } else if (link2 === 'fail') {
     fix = {
       sentence: t('diagram.fix.nobrowser'),
+      action: { id: 'token', label: t('diagram.fix.nobrowser.action') },
+    };
+  } else if (gone !== null) {
+    fix = {
+      sentence: t('diagram.fix.partial', { name: gone }),
       action: { id: 'token', label: t('diagram.fix.nobrowser.action') },
     };
   }

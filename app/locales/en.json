@@ -161,6 +161,7 @@
   "diagram.fix.nobridge.action": "Set up your app",
   "diagram.fix.stalled": "Your AI app started Beifahrer but never answered. Restart it, or set Beifahrer up again.",
   "diagram.fix.nobrowser": "Open your browser and enter the pairing token.",
+  "diagram.fix.partial": "{name} is disconnected. Open it and pair it again.",
   "diagram.fix.nobrowser.action": "Show the token",
   "diagram.fix.unreadable": "A session file could not be read, so this may be out of date."
 }

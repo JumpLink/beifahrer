@@ -13,10 +13,14 @@ import Adw from 'gi://Adw?version=1';
 import Gdk from 'gi://Gdk?version=4.0';
 import GLib from 'gi://GLib?version=2.0';
 import Gtk from 'gi://Gtk?version=4.0';
+import Pango from 'gi://Pango?version=1.0';
 
 import assets from './diagram-assets.json' with { type: 'json' };
 import {
   prepareSvg,
+  splitName,
+  VERTICAL_CELLS,
+  VERTICAL_UNIT,
   type DiagramAction,
   type DiagramView,
   type LinkState,
@@ -47,9 +51,30 @@ const LINK_CLASS: Record<LinkState, string> = {
   unknown: 'dim-label',
 };
 
+/** A name or a word under a node: one line, ellipsized, the full text in the tooltip. */
 function label(text: string, classes: string[], align: Gtk.Align): Gtk.Label {
-  const l = new Gtk.Label({ label: text, wrap: true, maxWidthChars: 20, halign: align, xalign: 0.5 });
-  if (align === Gtk.Align.START) l.set_xalign(0);
+  const l = new Gtk.Label({
+    label: text,
+    ellipsize: Pango.EllipsizeMode.END,
+    maxWidthChars: 18,
+    halign: align,
+    xalign: align === Gtk.Align.START ? 0 : 0.5,
+    tooltipText: text,
+  });
+  for (const c of classes) l.add_css_class(c);
+  return l;
+}
+
+/** The word under a link: it may wrap, but never in the middle of "Nicht verbunden" when there is room. */
+function linkLabel(text: string, classes: string[], align: Gtk.Align): Gtk.Label {
+  const l = new Gtk.Label({
+    label: text,
+    wrap: true,
+    maxWidthChars: 24,
+    halign: align,
+    justify: align === Gtk.Align.START ? Gtk.Justification.LEFT : Gtk.Justification.CENTER,
+    xalign: align === Gtk.Align.START ? 0 : 0.5,
+  });
   for (const c of classes) l.add_css_class(c);
   return l;
 }
@@ -68,6 +93,15 @@ interface Arrangement {
   show(view: DiagramView, t: Translate): void;
 }
 
+/** A cell of the vertical column: a fixed height in the artwork's units, its content centred in it. */
+function cell(content: Gtk.Widget, units: number): Gtk.Widget {
+  content.set_valign(Gtk.Align.CENTER);
+  const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, hexpand: true });
+  box.set_size_request(-1, units * VERTICAL_UNIT);
+  box.append(content);
+  return box;
+}
+
 function arrange(vertical: boolean): Arrangement {
   const align = vertical ? Gtk.Align.START : Gtk.Align.CENTER;
   const picture = new Gtk.Picture({ canShrink: true });
@@ -75,40 +109,47 @@ function arrange(vertical: boolean): Arrangement {
     new Gtk.Box({
       orientation: Gtk.Orientation.VERTICAL,
       spacing: 2,
-      valign: Gtk.Align.CENTER,
+      valign: vertical ? Gtk.Align.CENTER : Gtk.Align.START,
       hexpand: true,
     });
   const nodes = { app: box(), beifahrer: box(), browser: box() };
   const links = { link1: box(), link2: box() };
 
-  const grid = new Gtk.Grid({
-    columnHomogeneous: !vertical,
-    rowHomogeneous: vertical,
-    rowSpacing: vertical ? 0 : 6,
-  });
+  let widget: Gtk.Widget;
   if (vertical) {
-    picture.set_size_request(140, 490);
+    picture.set_size_request(140, VERTICAL_CELLS.reduce((a, b) => a + b, 0) * VERTICAL_UNIT);
     picture.set_halign(Gtk.Align.START);
     picture.set_valign(Gtk.Align.START);
-    grid.set_column_spacing(12);
-    grid.attach(picture, 0, 0, 1, 49);
-    grid.attach(nodes.app, 1, 0, 1, 11);
-    grid.attach(links.link1, 1, 11, 1, 8);
-    grid.attach(nodes.beifahrer, 1, 19, 1, 11);
-    grid.attach(links.link2, 1, 30, 1, 9);
-    grid.attach(nodes.browser, 1, 39, 1, 10);
+    const column = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, hexpand: true });
+    [nodes.app, links.link1, nodes.beifahrer, links.link2, nodes.browser].forEach((content, i) =>
+      column.append(cell(content, VERTICAL_CELLS[i]!)),
+    );
+    const row = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 12 });
+    // A picture's natural width is its texture's (2x); the clamp keeps the row from handing it that.
+    const clamp = new Adw.Clamp({ maximumSize: 140, tighteningThreshold: 140, halign: Gtk.Align.START });
+    clamp.set_child(picture);
+    row.append(clamp);
+    row.append(column);
+    widget = row;
   } else {
+    // Link cells are wider than the gap between the nodes: their words are short and centred on the link.
+    const grid = new Gtk.Grid({ columnHomogeneous: true, rowSpacing: 6 });
     grid.attach(picture, 0, 0, 25, 1);
     grid.attach(nodes.app, 0, 1, 6, 1);
-    grid.attach(links.link1, 6, 1, 4, 1);
+    grid.attach(links.link1, 5, 1, 6, 1);
     grid.attach(nodes.beifahrer, 10, 1, 5, 1);
-    grid.attach(links.link2, 15, 1, 4, 1);
+    grid.attach(links.link2, 14, 1, 6, 1);
     grid.attach(nodes.browser, 19, 1, 6, 1);
+    widget = grid;
   }
 
   const fillNode = (target: Gtk.Box, name: string, n: NodeLabels, pill: string | null) => {
     clear(target);
-    for (const text of n.names.length > 0 ? n.names : [name]) target.append(label(text, ['heading'], align));
+    for (const text of n.names.length > 0 ? n.names : [name]) {
+      const { main, rest } = splitName(text);
+      target.append(label(main, ['heading'], align));
+      if (rest !== null) target.append(label(rest, ['dim-label', 'caption'], align));
+    }
     if (n.gone) target.append(label(n.gone, ['diagram-gone'], align));
     if (n.more) target.append(label(n.more, ['dim-label', 'caption'], align));
     if (n.caption) target.append(label(n.caption, ['dim-label', 'caption'], align));
@@ -116,11 +157,11 @@ function arrange(vertical: boolean): Arrangement {
   };
   const fillLink = (target: Gtk.Box, state: LinkState, text: string) => {
     clear(target);
-    target.append(label(text, ['caption', LINK_CLASS[state]], align));
+    target.append(linkLabel(text, ['caption', LINK_CLASS[state]], align));
   };
 
   return {
-    widget: grid,
+    widget,
     picture,
     show(view, t) {
       fillNode(nodes.app, t('diagram.node.app'), view.app, null);
@@ -138,7 +179,10 @@ function arrange(vertical: boolean): Arrangement {
 }
 
 export interface Diagram {
+  /** The picture and the words around it: goes where a status page has its icon. */
   widget: Gtk.Widget;
+  /** The sentence and the button under a failing link; goes below the page's title. */
+  fix: Gtk.Widget;
   show(view: DiagramView): void;
   /** The 420sp breakpoint: the vertical arrangement. */
   setVertical(vertical: boolean): void;
@@ -161,10 +205,9 @@ export function createDiagram(t: Translate, onAction: (id: DiagramAction) => voi
     if (action) onAction(action);
   });
 
-  const widget = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 });
-  widget.append(stack);
-  widget.append(sentence);
-  widget.append(button);
+  const fix = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12, visible: false });
+  fix.append(sentence);
+  fix.append(button);
 
   const style = Adw.StyleManager.get_default();
   let last: DiagramView | null = null;
@@ -187,7 +230,8 @@ export function createDiagram(t: Translate, onAction: (id: DiagramAction) => voi
   style.connect('notify::dark', draw);
 
   return {
-    widget,
+    widget: stack,
+    fix,
     show(view) {
       last = view;
       horizontal.show(view, t);
@@ -195,6 +239,7 @@ export function createDiagram(t: Translate, onAction: (id: DiagramAction) => voi
       draw();
       sentence.set_label(view.fix?.sentence ?? '');
       sentence.set_visible(view.fix !== null);
+      fix.set_visible(view.fix !== null);
       action = view.fix?.action?.id ?? null;
       button.set_label(view.fix?.action?.label ?? '');
       button.set_visible(action !== null);

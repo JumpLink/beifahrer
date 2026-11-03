@@ -11,6 +11,7 @@
 
 import Adw from 'gi://Adw?version=1';
 import Gio from 'gi://Gio?version=2.0';
+import GLib from 'gi://GLib?version=2.0';
 import Gtk from 'gi://Gtk?version=4.0';
 
 import { agentCommands } from '../frontends/cli/install.ts';
@@ -51,9 +52,13 @@ export function clamped(child: Gtk.Widget): Gtk.Widget {
 }
 
 function createStatusPage(t: Translate, onAction: (id: DiagramAction) => void) {
-  const status = new Adw.StatusPage({ vexpand: false });
   const diagram = createDiagram(t, onAction);
-  status.set_child(diagram.widget);
+  // A status page with the diagram where its icon would be: above the title, as in the mockups.
+  const heading = new Gtk.Label({ wrap: true, justify: Gtk.Justification.CENTER });
+  heading.add_css_class('title-1');
+  const body = new Gtk.Label({ wrap: true, justify: Gtk.Justification.CENTER });
+  const status = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 });
+  for (const w of [diagram.widget, heading, body, diagram.fix]) status.append(w);
   const group = new Adw.PreferencesGroup({ title: t('sessions.title') });
   const warnings = new Adw.PreferencesGroup({ visible: false });
   const note = new Gtk.Label({ wrap: true, xalign: 0, visible: false });
@@ -65,22 +70,34 @@ function createStatusPage(t: Translate, onAction: (id: DiagramAction) => void) {
   column.append(group);
   column.append(note);
 
+  const widget = clamped(column) as Gtk.ScrolledWindow;
   let rows: Adw.ActionRow[] = [];
   let warningRows: Adw.ActionRow[] = [];
   return {
-    widget: clamped(column),
-    setVertical: diagram.setVertical,
+    widget,
+    setVertical(vertical: boolean) {
+      diagram.setVertical(vertical);
+      // After the new arrangement is measured: the old scroll offset belongs to the other one.
+      GLib.idle_add(GLib.PRIORITY_LOW, () => {
+        widget.get_vadjustment().set_value(0);
+        return GLib.SOURCE_REMOVE;
+      });
+    },
     show(view: StatusView, picture: DiagramView) {
       diagram.show(picture);
-      status.set_title(view.title);
-      status.set_description(view.description);
+      heading.set_label(view.title);
+      // The fix sentence already says what to do; the page's own sentence would say it twice.
+      body.set_label(view.description);
+      body.set_visible(picture.fix === null);
       for (const row of rows) group.remove(row);
-      rows = view.sessions.map((s) => new Adw.ActionRow({ title: s.title, subtitle: s.subtitle }));
+      rows = view.sessions.map(
+        (s) => new Adw.ActionRow({ title: s.title, subtitle: s.subtitle, focusable: false }),
+      );
       for (const row of rows) group.add(row);
       group.set_visible(rows.length > 0);
       for (const row of warningRows) warnings.remove(row);
       warningRows = view.warnings.map((w) => {
-        const row = new Adw.ActionRow({ title: w.title, subtitle: w.description });
+        const row = new Adw.ActionRow({ title: w.title, subtitle: w.description, focusable: false });
         row.add_prefix(new Gtk.Image({ iconName: 'dialog-warning-symbolic' }));
         return row;
       });
@@ -132,6 +149,13 @@ export function createWindow(
 
   const root = new Gtk.Stack();
   const switcher = new Adw.ViewSwitcher({ stack, policy: Adw.ViewSwitcherPolicy.WIDE });
+  // Narrow: the tabs move from the header to a bar at the bottom, where three names fit (GNOME HIG).
+  const switcherBar = new Adw.ViewSwitcherBar({ stack, reveal: false });
+  let narrowNow = false;
+  const syncBar = () => {
+    switcher.set_visible(!narrowNow);
+    switcherBar.set_reveal(narrowNow && root.get_visible_child_name() === 'tabs');
+  };
   const plainTitle = new Adw.WindowTitle({ title: t('app.title'), subtitle: '' });
   const header = new Adw.HeaderBar();
   const cancel = Gtk.Button.new_with_label(t('setup.cancel'));
@@ -141,12 +165,14 @@ export function createWindow(
     root.set_visible_child_name('tabs');
     header.set_title_widget(switcher);
     cancel.set_visible(false);
+    syncBar();
   };
   const showSetup = () => {
     root.set_visible_child_name('setup');
     header.set_title_widget(plainTitle);
     // Cancel only where there is something to go back to.
     cancel.set_visible(finished);
+    syncBar();
   };
   const setupPage = createSetupPage(t, toast, () => {
     finished = true;
@@ -180,6 +206,7 @@ export function createWindow(
   const toolbar = new Adw.ToolbarView();
   toolbar.add_top_bar(header);
   toolbar.set_content(root);
+  toolbar.add_bottom_bar(switcherBar);
   overlay.set_child(toolbar);
 
   const window = new Adw.ApplicationWindow({
@@ -192,8 +219,16 @@ export function createWindow(
   window.set_content(overlay);
   // Below 420sp the three nodes no longer fit side by side with their words (ADR 0025 § 7a).
   const narrow = new Adw.Breakpoint({ condition: Adw.BreakpointCondition.parse('max-width: 420sp') });
-  narrow.connect('apply', () => statusPage.setVertical(true));
-  narrow.connect('unapply', () => statusPage.setVertical(false));
+  narrow.connect('apply', () => {
+    statusPage.setVertical(true);
+    narrowNow = true;
+    syncBar();
+  });
+  narrow.connect('unapply', () => {
+    statusPage.setVertical(false);
+    narrowNow = false;
+    syncBar();
+  });
   window.add_breakpoint(narrow);
 
   return {

@@ -11,6 +11,9 @@ import {
   linkOne,
   linkTwo,
   prepareSvg,
+  splitName,
+  VERTICAL_CELLS,
+  VERTICAL_UNIT,
   trackBrowsers,
 } from '../../../src/window/diagram-model.ts';
 import assets from '../../../src/window/diagram-assets.json' with { type: 'json' };
@@ -147,6 +150,26 @@ export default async () => {
     await it('speaks German', async () => {
       const v = diagramOf([], 0, [], NO_BROWSERS, NOW, createTranslate('de'));
       expect(v.fix?.action?.label).toBe('App einrichten');
+    });
+  });
+
+  await describe('vertical layout', async () => {
+    await it('has a cell for all five parts, summing to the drawing height', async () => {
+      expect(VERTICAL_CELLS.length).toBe(5);
+      expect(VERTICAL_CELLS.reduce((a, b) => a + b, 0) * VERTICAL_UNIT).toBe(490);
+    });
+    await it('splits a session name at the dot', async () => {
+      expect(splitName('claude-code · werkstatt').main).toBe('claude-code');
+      expect(splitName('claude-code · werkstatt').rest).toBe('werkstatt');
+      expect(splitName('mcp').main).toBe('mcp');
+      expect(splitName('mcp').rest).toBe(null);
+    });
+    await it('words the half-connected pair as its own sentence with the token button', async () => {
+      const first = trackBrowsers(NO_BROWSERS, connectedBrowsers([entry('a', ['Firefox', 'Chromium'])]));
+      const memory = trackBrowsers(first, connectedBrowsers([entry('a', ['Firefox'])]));
+      const v = diagramOf([entry('a', ['Firefox'])], 0, [], memory, NOW, t);
+      expect(v.fix?.sentence).toContain('Chromium is disconnected');
+      expect(v.fix?.action?.id).toBe('token');
     });
   });
 

@@ -161,6 +161,7 @@
   "diagram.fix.nobridge.action": "App einrichten",
   "diagram.fix.stalled": "Deine KI-App hat Beifahrer gestartet, aber nie geantwortet. Starte sie neu oder richte Beifahrer erneut ein.",
   "diagram.fix.nobrowser": "Öffne deinen Browser und gib das Kopplungs-Token ein.",
+  "diagram.fix.partial": "{name} ist getrennt. Öffne ihn und kopple ihn erneut.",
   "diagram.fix.nobrowser.action": "Token anzeigen",
   "diagram.fix.unreadable": "Eine Sitzungsdatei war nicht lesbar, das Bild kann veraltet sein."
 }
