@@ -23,8 +23,6 @@ export interface StatusView {
   /** The two states the person has to act on. `ready` is the quiet one. */
   alarm: boolean;
   presence: Presence;
-  /** An icon name the Adwaita theme has (S6 in docs/desktop-app-spikes.md): `emblem-ok-symbolic` is NOT one. */
-  icon: string;
   title: string;
   description: string;
   sessions: SessionRow[];
@@ -33,12 +31,6 @@ export interface StatusView {
   /** Zero or one: ports where something listens that no session announced. */
   warnings: { title: string; description: string }[];
 }
-
-const ICON: Record<Presence, string> = {
-  'no-bridge': 'dialog-warning-symbolic',
-  'no-browser': 'dialog-warning-symbolic',
-  ready: 'object-select-symbolic',
-};
 
 /** The catalog's name for each rung. */
 const KEY = { 'no-bridge': 'nobridge', 'no-browser': 'nobrowser', ready: 'ready' } as const;
@@ -53,7 +45,6 @@ export function viewOf(
   return {
     alarm: presence !== 'ready',
     presence,
-    icon: ICON[presence],
     title: t(`status.${KEY[presence]}.title`),
     description: t(`status.${KEY[presence]}.description`),
     sessions: status.sessions.map((s) => ({

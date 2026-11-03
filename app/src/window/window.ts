@@ -15,6 +15,8 @@ import Gtk from 'gi://Gtk?version=4.0';
 
 import { agentCommands } from '../frontends/cli/install.ts';
 import { createAgentsPage } from './agents-page.ts';
+import { createDiagram } from './diagram-widget.ts';
+import type { DiagramAction, DiagramView } from './diagram-model.ts';
 import type { Translate } from './i18n.ts';
 import { createPairingPage } from './pairing-page.ts';
 import type { PairingView } from './pairing-model.ts';
@@ -24,7 +26,7 @@ import type { StatusView } from './status-model.ts';
 
 export interface DesktopWindow {
   window: Adw.ApplicationWindow;
-  showStatus(view: StatusView): void;
+  showStatus(view: StatusView, diagram: DiagramView): void;
   showPairing(view: PairingView): void;
   /** Setup is finished: remember it (once) and show the tabs. */
   onSetupFinished(): void;
@@ -48,8 +50,10 @@ export function clamped(child: Gtk.Widget): Gtk.Widget {
   return scroller;
 }
 
-function createStatusPage(t: Translate) {
+function createStatusPage(t: Translate, onAction: (id: DiagramAction) => void) {
   const status = new Adw.StatusPage({ vexpand: false });
+  const diagram = createDiagram(t, onAction);
+  status.set_child(diagram.widget);
   const group = new Adw.PreferencesGroup({ title: t('sessions.title') });
   const warnings = new Adw.PreferencesGroup({ visible: false });
   const note = new Gtk.Label({ wrap: true, xalign: 0, visible: false });
@@ -65,8 +69,9 @@ function createStatusPage(t: Translate) {
   let warningRows: Adw.ActionRow[] = [];
   return {
     widget: clamped(column),
-    show(view: StatusView) {
-      status.set_icon_name(view.icon);
+    setVertical: diagram.setVertical,
+    show(view: StatusView, picture: DiagramView) {
+      diagram.show(picture);
       status.set_title(view.title);
       status.set_description(view.description);
       for (const row of rows) group.remove(row);
@@ -97,7 +102,8 @@ export function createWindow(
   markDone: () => void = () => {},
 ): DesktopWindow {
   const overlay = new Adw.ToastOverlay();
-  const statusPage = createStatusPage(t);
+  let onDiagramAction: (id: DiagramAction) => void = () => {};
+  const statusPage = createStatusPage(t, (id) => onDiagramAction(id));
   const toast = (title: string, timeout = 2) => overlay.add_toast(new Adw.Toast({ title, timeout }));
   const pairingPage = createPairingPage(t, toast);
   const agentsPage = createAgentsPage(t, toast);
@@ -166,6 +172,10 @@ export function createWindow(
     showSetup();
   });
   app.add_action(setupAction);
+  onDiagramAction = (id) => {
+    if (id === 'setup') setupAction.activate(null);
+    else stack.set_visible_child_name('browser');
+  };
 
   const toolbar = new Adw.ToolbarView();
   toolbar.add_top_bar(header);
@@ -177,8 +187,14 @@ export function createWindow(
     title: t('app.title'),
     defaultWidth: 680,
     defaultHeight: 640,
+    widthRequest: 360,
   });
   window.set_content(overlay);
+  // Below 420sp the three nodes no longer fit side by side with their words (ADR 0025 § 7a).
+  const narrow = new Adw.Breakpoint({ condition: Adw.BreakpointCondition.parse('max-width: 420sp') });
+  narrow.connect('apply', () => statusPage.setVertical(true));
+  narrow.connect('unapply', () => statusPage.setVertical(false));
+  window.add_breakpoint(narrow);
 
   return {
     window,

@@ -146,5 +146,21 @@
   "guide.json": "Wenn die App stattdessen JSON möchte, füge den Ausschnitt unten ein.",
   "guide.json.paste": "Füge den Ausschnitt unten ein. Der Name ist beifahrer.",
   "guide.flatpak": "Beifahrer läuft hier als Flatpak, deshalb startet der Befehl es über flatpak run. Deine App muss das ausführen dürfen.",
-  "guide.sandbox": "Ist deine App selbst ein Flatpak oder Snap, kann sie Programme außerhalb ihrer Sandbox vielleicht nicht starten. Setze dann flatpak-spawn --host vor den Befehl."
+  "guide.sandbox": "Ist deine App selbst ein Flatpak oder Snap, kann sie Programme außerhalb ihrer Sandbox vielleicht nicht starten. Setze dann flatpak-spawn --host vor den Befehl.",
+  "diagram.node.app": "Deine KI-App",
+  "diagram.node.beifahrer": "Beifahrer",
+  "diagram.node.browser": "Dein Browser",
+  "diagram.here.window": "Diese App",
+  "diagram.link.ok": "Verbunden",
+  "diagram.link.wait": "Verbindet…",
+  "diagram.link.fail": "Nicht verbunden",
+  "diagram.link.unknown": "Nicht sichtbar",
+  "diagram.more": "+ {count} weitere",
+  "diagram.partial": "{connected} von {total} verbunden",
+  "diagram.fix.nobridge": "Richte Beifahrer in deiner KI-App ein und starte sie.",
+  "diagram.fix.nobridge.action": "App einrichten",
+  "diagram.fix.stalled": "Deine KI-App hat Beifahrer gestartet, aber nie geantwortet. Starte sie neu oder richte Beifahrer erneut ein.",
+  "diagram.fix.nobrowser": "Öffne deinen Browser und gib das Kopplungs-Token ein.",
+  "diagram.fix.nobrowser.action": "Token anzeigen",
+  "diagram.fix.unreadable": "Eine Sitzungsdatei war nicht lesbar, das Bild kann veraltet sein."
 }
