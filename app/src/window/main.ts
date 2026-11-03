@@ -7,6 +7,7 @@ import { pairingInfo, probePorts, readEntries, registryDir } from '@beifahrer/lo
 
 import { createTranslate, pickLocale } from './i18n.ts';
 import { viewOf } from './status-model.ts';
+import { connectedBrowsers, diagramOf, NO_BROWSERS, trackBrowsers } from './diagram-model.ts';
 import { watchRegistry } from './watch.ts';
 import { pairingView } from './pairing-model.ts';
 import { backgroundLine, inFlatpak, onClose } from './background-model.ts';
@@ -112,18 +113,17 @@ const application = new AdwaitaApp({
       return afterAnswer(on, answer === 'granted');
     };
     let lastLine = '';
+    let browsers = NO_BROWSERS;
     const refresh = (probeAgain = true) => {
       const { entries, skipped } = readEntries(dir);
-      const view = viewOf(
-        statusOf(
-          entries.map((e) => e.entry),
-          new Date(),
-        ),
-        skipped,
-        t,
-        unregistered,
+      const now = new Date();
+      const status = statusOf(
+        entries.map((e) => e.entry),
+        now,
       );
-      ui.showStatus(view);
+      const view = viewOf(status, skipped, t, unregistered);
+      browsers = trackBrowsers(browsers, connectedBrowsers(status.sessions));
+      ui.showStatus(view, diagramOf(status.sessions, skipped, unregistered, browsers, now, t));
       // A browser that really connected is the proof the pairing worked, whichever way it was done.
       // The first connected browser is the real end of setup: the assistant gives way to the tabs.
       if (shouldMarkDone(setupDone, view.presence === 'ready')) ui.onSetupFinished();

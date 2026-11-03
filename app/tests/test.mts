@@ -56,6 +56,7 @@ import i18n from './unit/window/i18n.test.ts';
 import windowAgentsModel from './unit/window/agents-model.test.ts';
 import windowPairingModel from './unit/window/pairing-model.test.ts';
 import windowStatusModel from './unit/window/status-model.test.ts';
+import windowDiagramModel from './unit/window/diagram-model.test.ts';
 import windowAutostartModel from './unit/window/autostart-model.test.ts';
 import windowSetupStateModel from './unit/window/setup-state-model.test.ts';
 import windowBackgroundModel from './unit/window/background-model.test.ts';
@@ -120,6 +121,7 @@ run({
   windowAgentsModel,
   windowPairingModel,
   windowStatusModel,
+  windowDiagramModel,
   windowAutostartModel,
   windowSetupStateModel,
   windowBackgroundModel,

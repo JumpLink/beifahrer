@@ -92,7 +92,7 @@ export default async () => {
         Object.keys(view([bridge('a', ['Firefox'])]))
           .sort()
           .join(),
-      ).toBe('alarm,description,icon,note,presence,sessions,title,warnings');
+      ).toBe('alarm,description,note,presence,sessions,title,warnings');
     });
   });
 };
