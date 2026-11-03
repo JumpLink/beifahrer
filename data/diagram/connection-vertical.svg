@@ -1,0 +1,536 @@
+<!--
+Beifahrer connection diagram — ADR 0025, the vertical arrangement (140×496).
+ONE drawing for the GNOME window and the browser extension popup:
+AI app / MCP client <-> Beifahrer <-> browser.
+
+Generated. Both arrangements come from one script, so palette, class names and the state set
+cannot drift between them; only the positions differ. The companion file is
+connection.svg, used below / above the 420 px breakpoint.
+
+No text lives here. Every word is drawn by the host beside the artwork, out of its own catalogue
+(app/locales/*.json, extension/_locales/*/messages.json) — the same rule data/achievements/*.svg
+follows, and the reason one drawing serves a 680 px window and a 360 px popup without a second
+layout engine.
+
+State is a CLASS LIST on the root element; nothing in here reads the system:
+
+  l1-ok | l1-wait | l1-fail | l1-unknown      AI app <-> Beifahrer
+  l2-ok | l2-wait | l2-fail | l2-unknown      Beifahrer <-> browser
+  here-window | here-extension                which node the reader is looking out of
+  mark-ring                                   variant A: draw the accent ring around that node
+  paused                                      the person's own stop; NOT a link state
+  stacked-2 | stacked-3                       more than one agent session
+  dark                                        the dark palette
+
+Every link ends a visible gap short of the node AND of the ring space reserved around it, so a
+line never runs into a node or across a label, in either variant and either arrangement.
+
+Two rules the rasteriser forced, both measured on librsvg 2.62 / glycin (2026-11-03):
+
+  * NO CSS custom properties. librsvg does not implement them, so every var(--x) resolved to the
+    initial value and the whole diagram rendered black on the first run. Literal hex only, with
+    the dark palette as a second rule under #diagram.dark.
+  * dark is a CLASS and not prefers-color-scheme: librsvg resolves no media query either, so the
+    window would have stayed light forever while the popup switched. One mechanism for both
+    halves — set from Adw.StyleManager in the app, from matchMedia in the extension.
+
+Class selectors and display DO work, which is what the state switching is built on.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" id="diagram" width="140" height="496"
+     viewBox="0 0 140 496" class="l1-ok l2-ok">
+  <style>
+    /* --- the quiet furniture ------------------------------------------------------------- */
+    .card { fill: #ffffff; stroke: #c0bfbc; stroke-width: 2; }
+    .seam { fill: none; stroke: #c0bfbc; stroke-width: 2; }
+    .dim { fill: #deddda; }
+    .spark { fill: #613583; }
+    .badge { fill: #ffffff; stroke-width: 2; }
+    #diagram.dark .card { fill: #383838; stroke: #5e5c64; }
+    #diagram.dark .seam { stroke: #5e5c64; }
+    #diagram.dark .dim { fill: #5e5c64; }
+    #diagram.dark .spark { fill: #d9c2f0; }
+    #diagram.dark .badge { fill: #303030; }
+
+    .link { fill: none; stroke-width: 4; stroke-linecap: round; }
+    .glyph { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+    .glyph-fill { stroke: none; }
+
+    /* --- the four link states ------------------------------------------------------------
+       Each one draws its own line, badge ring and mark, so colour is never the only difference
+       between two of them: a broken line and an X differ from a solid line and a tick with the
+       screen in greyscale (ADR 0025 § 4). Adwaita green 5 / yellow 5 / red 3 / dark 2 on light,
+       and the lighter rungs of the same columns on dark. */
+    .st { display: none; }
+    .ok .link, .ok .badge, .ok .glyph { stroke: #26a269; }
+    .wait .link, .wait .badge { stroke: #e5a50a; }
+    .wait .glyph-fill { fill: #e5a50a; }
+    .fail .link, .fail .badge, .fail .glyph { stroke: #e01b24; }
+    .unknown .link, .unknown .badge, .unknown .glyph { stroke: #77767b; }
+    .unknown .glyph-fill { fill: #77767b; }
+    #diagram.dark .ok .link, #diagram.dark .ok .badge, #diagram.dark .ok .glyph { stroke: #33d17a; }
+    #diagram.dark .wait .link, #diagram.dark .wait .badge { stroke: #f6d32d; }
+    #diagram.dark .wait .glyph-fill { fill: #f6d32d; }
+    #diagram.dark .fail .link, #diagram.dark .fail .badge, #diagram.dark .fail .glyph { stroke: #f66151; }
+    #diagram.dark .unknown .link, #diagram.dark .unknown .badge, #diagram.dark .unknown .glyph { stroke: #9a9996; }
+    #diagram.dark .unknown .glyph-fill { fill: #9a9996; }
+
+    #diagram.l1-ok      #link1 .ok      { display: inline; }
+    #diagram.l1-wait    #link1 .wait    { display: inline; }
+    #diagram.l1-fail    #link1 .fail    { display: inline; }
+    #diagram.l1-unknown #link1 .unknown { display: inline; }
+    #diagram.l2-ok      #link2 .ok      { display: inline; }
+    #diagram.l2-wait    #link2 .wait    { display: inline; }
+    #diagram.l2-fail    #link2 .fail    { display: inline; }
+    #diagram.l2-unknown #link2 .unknown { display: inline; }
+
+    /* "You are here", variant A: an outline in the app accent, never a fill — the own node is
+       marked, not praised, so green keeps meaning "this link works" and nothing else. Variant B
+       (the default) draws no ring at all and lets the host's accent pill under the name say it.
+       The ring's footprint is reserved in the geometry either way, which is why switching the
+       variant moves nothing: every link already ends a gap short of it (ADR 0025 § 2). */
+    #ring-beifahrer, #ring-browser { fill: none; stroke: #613583; stroke-width: 3; display: none; }
+    #diagram.dark #ring-beifahrer, #diagram.dark #ring-browser { stroke: #d9c2f0; }
+    #diagram.mark-ring.here-window #ring-beifahrer { display: inline; }
+    #diagram.mark-ring.here-extension #ring-browser { display: inline; }
+
+    /* The pause is the person's own stop and no link state, so it sits ON the browser as a badge
+       (ADR 0005). Only the extension ever sets it: the bridge is never told (ADR 0015 § 5). */
+    #pause-dot { fill: #e5a50a; stroke: #ffffff; stroke-width: 3; }
+    #pause-bars { fill: #241f31; }
+    #diagram.dark #pause-dot { fill: #f6d32d; stroke: #383838; }
+
+    #stack-2, #stack-3, #pause { display: none; }
+    #diagram.stacked-2 #stack-2, #diagram.stacked-3 #stack-2 { display: inline; }
+    #diagram.stacked-3 #stack-3 { display: inline; }
+    #diagram.paused #pause { display: inline; }
+  </style>
+
+  <!-- more agent sessions than one: cards stacked behind the front one -->
+  <g id="stack-3"><rect class="card" x="10" y="8" width="96" height="72" rx="8"/></g>
+  <g id="stack-2"><rect class="card" x="15" y="13" width="96" height="72" rx="8"/></g>
+
+  <g id="node-app">
+    <rect class="card" x="20" y="18" width="96" height="72" rx="8"/>
+    <path class="seam" d="M21 36 H115"/>
+    <circle class="dim" cx="30" cy="27" r="2.6"/>
+    <circle class="dim" cx="38" cy="27" r="2.6"/>
+    <circle class="dim" cx="46" cy="27" r="2.6"/>
+    <rect class="dim" x="30" y="46" width="56" height="6" rx="3"/>
+    <rect class="dim" x="30" y="58" width="40" height="6" rx="3"/>
+    <rect class="dim" x="30" y="70" width="48" height="6" rx="3"/>
+    <path class="spark" d="M100 67 C101 71.5 102.5 73 107 74 C102.5 75 101 76.5 100 81 C99 76.5 97.5 75 93 74 C97.5 73 99 71.5 100 67 Z"/>
+  </g>
+
+  <g id="node-beifahrer">
+    <svg id="beifahrer-icon" x="30" y="208" width="76" height="76" viewBox="0 0 128 128">
+      <defs
+      id="defs4">
+      <!-- side face: square shoulders where it meets the roof, round only at the bottom -->
+      <clipPath
+      id="body-clip">
+      <path
+      d="M10 34 H118 V96 A12 12 0 0 1 106 108 H22 A12 12 0 0 1 10 96 Z"
+      id="path1" />
+      </clipPath>
+      <linearGradient
+      id="glass"
+      x1="0"
+      y1="42"
+      x2="0"
+      y2="66"
+      gradientUnits="userSpaceOnUse">
+      <stop
+      offset="0"
+      stop-color="#b8d4f6"
+      id="stop1" />
+      <stop
+      offset="1"
+      stop-color="#7fb0ec"
+      id="stop2" />
+      </linearGradient>
+      <!-- the far edge of the roof turns away from the light, the near edge catches it -->
+      <linearGradient
+      id="roof-top"
+      x1="0"
+      y1="18"
+      x2="0"
+      y2="34"
+      gradientUnits="userSpaceOnUse">
+      <stop
+      offset="0"
+      stop-color="#deddda"
+      id="stop3" />
+      <stop
+      offset="1"
+      stop-color="#ffffff"
+      id="stop4" />
+      </linearGradient>
+      <clipPath
+      id="door-clip">
+      <rect
+      x="70"
+      y="42"
+      width="26"
+      height="24"
+      rx="4"
+      id="rect4" />
+      </clipPath>
+      <!-- light from straight above: the roof's top face is lit almost evenly, only its rounded
+      ends turn away; the board's deck is lit, its rail is in its own shadow -->
+      <linearGradient id="roof-lit" x1="0" y1="18" x2="0" y2="34" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e8e7e4"/>
+      <stop offset="0.35" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f6f5f4"/>
+      </linearGradient>
+      <linearGradient id="roof-ends" x1="10" y1="0" x2="118" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.14"/>
+      <stop offset="0.16" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="0.84" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.14"/>
+      </linearGradient>
+      <radialGradient id="board-shadow" cx="64" cy="30" r="40" gradientTransform="matrix(1 0 0 0.09 0 27.3)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="deck" x1="0" y1="14" x2="0" y2="25" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#99c1f1"/>
+      <stop offset="1" stop-color="#62a0ea"/>
+      </linearGradient>
+      <linearGradient id="deck-ends" x1="24" y1="0" x2="106" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1a5fb4" stop-opacity="0.35"/>
+      <stop offset="0.2" stop-color="#1a5fb4" stop-opacity="0"/>
+      <stop offset="0.8" stop-color="#1a5fb4" stop-opacity="0"/>
+      <stop offset="1" stop-color="#1a5fb4" stop-opacity="0.35"/>
+      </linearGradient>
+      <linearGradient id="rail" x1="24" y1="0" x2="106" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1a5fb4"/>
+      <stop offset="0.5" stop-color="#1c71d8"/>
+      <stop offset="1" stop-color="#1a5fb4"/>
+      </linearGradient>
+      </defs>
+      <!-- roof, top face: lit from above, darker only where its ends round away -->
+      <path id="roof" d="M10 34 V30 A14 12 0 0 1 24 18 H104 A14 12 0 0 1 118 30 V34 Z" fill="url(#roof-lit)"/>
+      <path id="roof-shade" d="M10 34 V30 A14 12 0 0 1 24 18 H104 A14 12 0 0 1 118 30 V34 Z" fill="url(#roof-ends)"/>
+      <!-- the board's shadow falls straight down onto the roof, nearer to us than the board -->
+      <rect id="board-shadow" x="20" y="25" width="88" height="8" fill="url(#board-shadow)"/>
+      <!-- rack: feet on the roof, bars rising under the board -->
+      <rect id="rack-rear-foot" x="32" y="28" width="7" height="3" rx="1.5" fill="#77767b"/>
+      <rect id="rack-front-foot" x="89" y="28" width="7" height="3" rx="1.5" fill="#77767b"/>
+      <rect id="rack-rear" x="34" y="16" width="3" height="13" rx="1.5" fill="#9a9996"/>
+      <rect id="rack-front" x="91" y="16" width="3" height="13" rx="1.5" fill="#9a9996"/>
+      <!-- surfboard lying flat, nose forward: the rail is its thickness and sits in its own shadow -->
+      <path id="board-rail" d="M30 17 H88 C97 17 104 19.5 104 22 C104 24.5 97 27 88 27 H30 A5 5 0 0 1 30 17 Z" fill="url(#rail)"/>
+      <path id="board" d="M30 15 H88 C97 15 104 17.5 104 20 C104 22.5 97 25 88 25 H30 A5 5 0 0 1 30 15 Z" fill="url(#deck)"/>
+      <path id="board-ends" d="M30 15 H88 C97 15 104 17.5 104 20 C104 22.5 97 25 88 25 H30 A5 5 0 0 1 30 15 Z" fill="url(#deck-ends)"/>
+      <rect id="stringer" x="31" y="19.5" width="66" height="1" rx="0.5" fill="#ffffff" opacity="0.45"/>
+      <path id="board-glint" d="M33 16.8 H62" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.75"/>
+      <path id="board-glint-2" d="M66 16.8 H70" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+      <!-- side face: lower body, orange upper half, light along the shoulder -->
+      <path
+      id="body"
+      d="M10 34 H118 V96 A12 12 0 0 1 106 108 H22 A12 12 0 0 1 10 96 Z"
+      fill="#f6d32d" />
+      <rect
+      id="belt-light"
+      x="10"
+      y="72"
+      width="108"
+      height="2"
+      clip-path="url(#body-clip)"
+      fill="#f9f06b" />
+      <rect
+      id="upper"
+      x="10"
+      y="34"
+      width="108"
+      height="38"
+      clip-path="url(#body-clip)"
+      fill="#ffbe6f" />
+      <rect
+      id="shoulder"
+      x="10"
+      y="34"
+      width="108"
+      height="2"
+      clip-path="url(#body-clip)"
+      fill="#ffa348" />
+      <rect
+      id="belt"
+      x="10"
+      y="68"
+      width="108"
+      height="4"
+      clip-path="url(#body-clip)"
+      fill="#ffa348" />
+      <!-- windows -->
+      <rect
+      id="window-1"
+      x="18"
+      y="42"
+      width="22"
+      height="24"
+      rx="4"
+      fill="url(#glass)" />
+      <rect
+      id="window-2"
+      x="44"
+      y="42"
+      width="22"
+      height="24"
+      rx="4"
+      fill="url(#glass)" />
+      <path
+      d="M22 66 L30 42 H34 L26 66 Z M48 66 L56 42 H60 L52 66 Z"
+      fill="#ffffff"
+      opacity="0.35"
+      id="path5" />
+      <rect
+      id="window-door"
+      x="70"
+      y="42"
+      width="26"
+      height="24"
+      rx="4"
+      fill="url(#glass)" />
+      <path
+      id="windscreen"
+      d="M100 42 H108 A4 4 0 0 1 112 46 V62 A4 4 0 0 1 108 66 H100 Z"
+      fill="url(#glass)" />
+      <!-- passenger: shirt, head looking ahead, sunglasses, hair -->
+      <rect
+      id="shirt"
+      x="72"
+      y="58"
+      width="16"
+      height="8"
+      fill="#3584e4"
+      clip-path="url(#door-clip)" />
+      <circle
+      id="head"
+      cx="84"
+      cy="54"
+      r="8"
+      fill="#ffbe6f" />
+      <circle
+      id="nose"
+      cx="92"
+      cy="56"
+      r="2"
+      fill="#ffbe6f" />
+      <path
+      id="hair"
+      d="M76 54 A8 8 0 0 1 92 54 H88 A4 4 0 0 0 80 54 Z"
+      fill="#63452c" />
+      <rect
+      id="sunglasses"
+      x="85"
+      y="52"
+      width="9"
+      height="3"
+      rx="1.5"
+      fill="#241f31" />
+      <!-- the arm, resting on the sill and out into the wind -->
+      <rect
+      id="sleeve"
+      x="70"
+      y="62"
+      width="12"
+      height="12"
+      rx="4"
+      fill="#1a5fb4" />
+      <rect
+      id="forearm"
+      x="78"
+      y="64"
+      width="26"
+      height="7"
+      rx="3.5"
+      fill="#ffbe6f" />
+      <rect
+      x="80"
+      y="64"
+      width="22"
+      height="2"
+      rx="1"
+      fill="#ffd9a0"
+      id="rect5" />
+      <circle
+      id="hand"
+      cx="104"
+      cy="69"
+      r="4"
+      fill="#ffbe6f" />
+      <!-- details -->
+      <rect
+      id="door-seam"
+      x="66"
+      y="74"
+      width="2"
+      height="30"
+      fill="#000000"
+      opacity="0.18" />
+      <rect
+      id="door-handle"
+      x="72"
+      y="80"
+      width="8"
+      height="3"
+      rx="1.5"
+      fill="#deddda" />
+      <rect
+      id="tail-light"
+      x="10"
+      y="84"
+      width="4"
+      height="8"
+      rx="2"
+      fill="#e01b24" />
+      <circle
+      id="headlight-rim"
+      cx="114"
+      cy="86"
+      r="6"
+      fill="#deddda" />
+      <circle
+      id="headlight"
+      cx="114"
+      cy="86"
+      r="4"
+      fill="#f9f06b" />
+      <rect
+      id="bumper"
+      x="106"
+      y="96"
+      width="14"
+      height="4"
+      rx="2"
+      fill="#deddda" />
+      <!-- wheels -->
+      <circle
+      id="arch-rear"
+      cx="36"
+      cy="108"
+      r="15"
+      fill="#3d3846"
+      clip-path="url(#body-clip)" />
+      <circle
+      id="arch-front"
+      cx="92"
+      cy="108"
+      r="15"
+      fill="#3d3846"
+      clip-path="url(#body-clip)" />
+      <circle
+      id="tyre-rear"
+      cx="36"
+      cy="105"
+      r="11"
+      fill="#241f31" />
+      <circle
+      id="tyre-front"
+      cx="92"
+      cy="105"
+      r="11"
+      fill="#241f31" />
+      <circle
+      id="hub-rear"
+      cx="36"
+      cy="105"
+      r="6"
+      fill="#deddda" />
+      <circle
+      id="hub-front"
+      cx="92"
+      cy="105"
+      r="6"
+      fill="#deddda" />
+      <circle
+      cx="36"
+      cy="105"
+      r="2"
+      fill="#9a9996"
+      id="circle5" />
+      <circle
+      cx="92"
+      cy="105"
+      r="2"
+      fill="#9a9996"
+      id="circle6" />
+    </svg>
+  </g>
+  <rect id="ring-beifahrer" x="20" y="198" width="96" height="96" rx="20"/>
+
+  <g id="node-browser">
+    <rect class="card" x="20" y="402" width="96" height="72" rx="8"/>
+    <rect class="dim" x="26" y="407" width="30" height="9" rx="3"/>
+    <rect class="dim" x="60" y="409" width="22" height="7" rx="3" opacity="0.6"/>
+    <rect class="dim" x="26" y="422" width="84" height="8" rx="4"/>
+    <rect class="dim" x="26" y="440" width="60" height="5" rx="2.5"/>
+    <rect class="dim" x="26" y="450" width="72" height="5" rx="2.5"/>
+    <rect class="dim" x="26" y="460" width="44" height="5" rx="2.5"/>
+  </g>
+  <g id="pause">
+    <circle id="pause-dot" cx="112" cy="470" r="13"/>
+    <g id="pause-bars">
+      <rect x="107.5" y="465" width="3.5" height="10" rx="1.75"/>
+      <rect x="113" y="465" width="3.5" height="10" rx="1.75"/>
+    </g>
+  </g>
+  <rect id="ring-browser" x="10" y="392" width="120" height="98" rx="20"/>
+
+  <!-- link 1: the AI app's MCP client <-> this session's bridge (stdio, and the port it bound) -->
+  <g id="link1">
+    <g class="st ok">
+      <path class="link" d="M68 112 V188"/>
+      <circle class="badge" cx="68" cy="150" r="12"/>
+      <path class="glyph" d="M62.8 150.2 L66.4 153.8 L73.4 146.4"/>
+    </g>
+    <g class="st wait">
+      <path class="link" d="M68 112 V188" stroke-dasharray="2 8"/>
+      <circle class="badge" cx="68" cy="150" r="12"/>
+      <g class="glyph-fill">
+        <circle cx="63" cy="150" r="1.9"/><circle cx="68" cy="150" r="1.9"/><circle cx="73" cy="150" r="1.9"/>
+      </g>
+    </g>
+    <g class="st fail">
+      <path class="link" d="M68 112 V124"/>
+      <path class="link" d="M68 176 V188"/>
+      <circle class="badge" cx="68" cy="150" r="12"/>
+      <path class="glyph" d="M63.8 145.8 L72.2 154.2 M72.2 145.8 L63.8 154.2"/>
+    </g>
+    <g class="st unknown">
+      <path class="link" d="M68 112 V188" stroke-dasharray="1 7"/>
+      <circle class="badge" cx="68" cy="150" r="12"/>
+      <path class="glyph" d="M64.6 146.8 A3.4 3.4 0 0 1 70.8 148.6 C70.8 150.8 68 151.2 68 153.4"/>
+      <circle class="glyph-fill" cx="68" cy="156.2" r="1.4"/>
+    </g>
+  </g>
+
+  <!-- link 2: that bridge <-> the extension, over the loopback socket (ADR 0007) -->
+  <g id="link2">
+    <g class="st ok">
+      <path class="link" d="M68 306 V382"/>
+      <circle class="badge" cx="68" cy="344" r="12"/>
+      <path class="glyph" d="M62.8 344.2 L66.4 347.8 L73.4 340.4"/>
+    </g>
+    <g class="st wait">
+      <path class="link" d="M68 306 V382" stroke-dasharray="2 8"/>
+      <circle class="badge" cx="68" cy="344" r="12"/>
+      <g class="glyph-fill">
+        <circle cx="63" cy="344" r="1.9"/><circle cx="68" cy="344" r="1.9"/><circle cx="73" cy="344" r="1.9"/>
+      </g>
+    </g>
+    <g class="st fail">
+      <path class="link" d="M68 306 V318"/>
+      <path class="link" d="M68 370 V382"/>
+      <circle class="badge" cx="68" cy="344" r="12"/>
+      <path class="glyph" d="M63.8 339.8 L72.2 348.2 M72.2 339.8 L63.8 348.2"/>
+    </g>
+    <g class="st unknown">
+      <path class="link" d="M68 306 V382" stroke-dasharray="1 7"/>
+      <circle class="badge" cx="68" cy="344" r="12"/>
+      <path class="glyph" d="M64.6 340.8 A3.4 3.4 0 0 1 70.8 342.6 C70.8 344.8 68 345.2 68 347.4"/>
+      <circle class="glyph-fill" cx="68" cy="350.2" r="1.4"/>
+    </g>
+  </g>
+</svg>
