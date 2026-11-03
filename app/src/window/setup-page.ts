@@ -354,6 +354,7 @@ export function createSetupPage(
   nav.append(write);
   nav.append(nextButton);
 
+  let scroller: Gtk.ScrolledWindow;
   let shown: StepId | null = null;
   const render = () => {
     if (shown !== state.step) {
@@ -374,6 +375,8 @@ export function createSetupPage(
     if (to === state) return;
     state = to;
     render();
+    // A new step starts at its top, not where the previous one was scrolled to.
+    scroller.get_vadjustment().set_value(0);
   };
   backButton.connect('clicked', () => {
     shown = null;
@@ -399,7 +402,8 @@ export function createSetupPage(
   });
   navClamp.set_child(nav);
   const page = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, vexpand: true });
-  page.append(clamped(body));
+  scroller = clamped(body) as Gtk.ScrolledWindow;
+  page.append(scroller);
   page.append(new Gtk.Separator());
   page.append(navClamp);
   render();
