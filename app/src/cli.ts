@@ -1,3 +1,4 @@
+import { holdMainLoop } from '@gjsify/utils/main-loop';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
@@ -48,12 +49,17 @@ if (runningOnGjs) {
   // GJS has no always-on event loop: a GLib main loop keeps the bridge's sockets and the MCP stdio
   // server alive. Commands end themselves with process.exit(); this only steps in where nothing
   // else will — parse errors and yargs' own --help / --version.
-  const GLib = (
-    globalThis as unknown as {
-      imports: { gi: { GLib: { MainLoop: new (ctx: unknown, running: boolean) => { run(): void } } } };
-    }
-  ).imports.gi.GLib;
-  const loop = new GLib.MainLoop(null, false);
+  //
+  // holdMainLoop(), NOT a hand-rolled `new GLib.MainLoop(null, false).run()` like curlew's and
+  // steuererklaerung's entry points: theirs run in the SYNCHRONOUS module body, this one does not.
+  // index.ts reaches this module through `await import('./cli.ts')` (ADR 0023 — the window bundle
+  // must stay unloaded), so this body executes inside a promise job, and a BLOCKING `loop.run()`
+  // there never yields the job queue back. Measured on gjs 1.88.1: GLib sources still dispatch,
+  // but every promise continuation is starved — so `--version` printed its line and hung, and
+  // `doctor` and `mcp` answered nothing at all, because the handler's own process.exit() was a
+  // continuation too. holdMainLoop() arms GJS's main-loop hook with the non-blocking runAsync()
+  // regardless of main_depth(), which is the case it exists for.
+  holdMainLoop();
   parsed.then(
     (argv) => {
       const a = argv as Record<string, unknown> | undefined;
@@ -64,7 +70,6 @@ if (runningOnGjs) {
       process.exit(typeof process.exitCode === 'number' ? process.exitCode : 1);
     },
   );
-  loop.run();
 } else {
   parsed.catch(reportError);
 }
