@@ -25,6 +25,8 @@ export interface DesktopWindow {
   window: Adw.ApplicationWindow;
   showStatus(view: StatusView): void;
   showPairing(view: PairingView): void;
+  /** A message in the window's toast overlay. */
+  toast(title: string): void;
   copyToken(): boolean;
 }
 
@@ -82,7 +84,8 @@ function createStatusPage(t: Translate) {
   };
 }
 
-export function createWindow(app: Adw.Application, t: Translate): DesktopWindow {
+/** `preferences`: the menu offers Preferences; only where there is a setting in them (autostart). */
+export function createWindow(app: Adw.Application, t: Translate, preferences = false): DesktopWindow {
   const overlay = new Adw.ToastOverlay();
   const statusPage = createStatusPage(t);
   const toast = (title: string) => overlay.add_toast(new Adw.Toast({ title, timeout: 2 }));
@@ -114,6 +117,7 @@ export function createWindow(app: Adw.Application, t: Translate): DesktopWindow 
     titleWidget: new Adw.ViewSwitcher({ stack, policy: Adw.ViewSwitcherPolicy.WIDE }),
   });
   const menu = new Gio.Menu();
+  if (preferences) menu.append(t('menu.preferences'), 'app.preferences');
   menu.append(t('menu.about'), 'app.about');
   menu.append(t('menu.quit'), 'app.quit');
   header.pack_end(new Gtk.MenuButton({ iconName: 'open-menu-symbolic', menuModel: menu, primary: true }));
@@ -138,6 +142,7 @@ export function createWindow(app: Adw.Application, t: Translate): DesktopWindow 
       pairingPage.show(view);
       setupPage.showPairing(view);
     },
+    toast,
     copyToken: pairingPage.copyToken,
   };
 }

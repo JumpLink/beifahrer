@@ -2,7 +2,7 @@
   "version": 1,
   "name": "beifahrer",
   "description": "Browser bridge for agents: WebExtension + MCP server. The repository itself holds no state \u2014 everything local lives outside it.",
-  "//nichts-im-repo": "The pairing token is $XDG_CONFIG_HOME/beifahrer/token (outside the repo, regenerable with `beifahrer token --rotate`). The per-site policy lives in each browser profile's extension storage, backed up with that profile.",
+  "//nichts-im-repo": "The pairing token is $XDG_CONFIG_HOME/beifahrer/token (outside the repo, regenerable with `beifahrer token --rotate`). The window's autostart switch and its \"asked\" flag are $XDG_CONFIG_HOME/beifahrer/window.json (outside the repo; losing it costs one more question). The per-site policy lives in each browser profile's extension storage, backed up with that profile.",
   "entries": [
     {
       "path": "node_modules",

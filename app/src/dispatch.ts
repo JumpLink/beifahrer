@@ -5,6 +5,8 @@
  * without a display: the window pulls in GTK, which the bridge must never load.
  */
 
+import { BACKGROUND_FLAG } from './window/autostart-model.ts';
+
 export type Mode = 'window' | 'cli';
 
 /** `args` without the interpreter and the script, as yargs' `hideBin` returns them. */
@@ -12,6 +14,8 @@ export function pickMode(args: readonly string[]): Mode {
   if (args.length === 0) return 'window';
   // An explicit spelling for a terminal, for a person who wants the window from the command line.
   if (args.length === 1 && args[0] === 'window') return 'window';
+  // What the autostart entry runs (ADR 0024 § 4): the window, started hidden.
+  if (args.length === 1 && args[0] === BACKGROUND_FLAG) return 'window';
   return 'cli';
 }
 

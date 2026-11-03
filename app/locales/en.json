@@ -115,5 +115,15 @@
   "setup.extension.chromium.step4": "Do not delete the folder: the browser reads the extension from it.",
   "setup.pairing.description": "The extension needs the token below once. In your browser, click the Beifahrer icon in the toolbar and choose Settings (Chrome, Edge and Brave: first the puzzle icon, then Beifahrer). Paste the token there and come back.",
   "setup.pairing.done": "I pasted it",
-  "setup.pairing.donetoast": "Paired. Open Status to see the connection."
+  "setup.pairing.donetoast": "Paired. Open Status to see the connection.",
+  "menu.preferences": "Preferences",
+  "autostart.title": "Start Beifahrer when you log in?",
+  "autostart.body": "Beifahrer then waits quietly in the background and shows whether your agent and browser are connected. You can change this later under Preferences.",
+  "autostart.yes": "Start at login",
+  "autostart.no": "No, thanks",
+  "autostart.reason": "Start Beifahrer in the background when you log in.",
+  "autostart.group": "Background",
+  "autostart.row.title": "Start at login",
+  "autostart.row.subtitle": "Beifahrer waits in the background and shows whether your agent and browser are connected.",
+  "autostart.failed": "This could not be changed. Your system did not allow it."
 }
