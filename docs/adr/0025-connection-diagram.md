@@ -1,12 +1,15 @@
 # 0025: One connection diagram for the window and the popup
 
-- **Status:** proposed (design only — nothing in `app/` or `extension/` is changed by this PR)
+- **Status:** accepted — decided by the person, 2026-11-03: the pill, no ring (§ 2), and the three
+  defaults in § 13 as proposed. Design only; nothing in `app/` or `extension/` is changed by this PR.
 - **Date:** 2026-11-03
 - **Asked for by:** the person, 2026-11-03: a picture of "AI app ⟷ Beifahrer ⟷ browser" in both
   halves of the product, instead of one big symbolic icon on the Status page that says `ready` and
-  nothing about which of the two connections is the broken one. Revised the same day after the
-  first round of renders: § 2 is now an A/B choice, § 7a adds the phone arrangement, and three
-  placements that were open questions are proposed defaults in § 13.
+  nothing about which of the two connections is the broken one. Revised twice the same day against
+  rendered mocks: round two added the phone arrangement (§ 7a) and turned three open placements into
+  defaults (§ 13); round three settled the own-node mark and the label spacing (§ 2), drew several
+  connected browsers including the mixed case (§ 6, § 8a), and took the state icon off the popup's
+  hero (§ 9a).
 - **Relates to:** [0007](0007-one-connection-per-agent-session.md) (one bridge per agent session,
   started by the agent), [0014](0014-not-connected-speaks-first.md) (the ladder both halves walk),
   [0015](0015-session-registry.md) (what the window may read), [0023](0023-onboarding-for-beginners.md)
@@ -47,32 +50,37 @@ what keeps green meaning "this connection works" and nothing else.
 Beifahrer's node is the **bridge of this agent session**, not the window — § 7 says how the artwork
 makes that one thing, and § 3 says what each viewpoint may claim about it.
 
-### 2. Which node is "you" — two variants, B proposed
+### 2. Which node is "you" — the pill, and no ring
 
 Whatever marks the reader's own node, it is never a green fill: being the app you are looking at is
 not a health state. The own node is *marked*, not *praised*. `here-window` selects Beifahrer's node,
-`here-extension` the browser's. Two ways to draw that mark were rendered side by side:
+`here-extension` the browser's. The mark is **the label alone**: the own node's name in bold, and
+under it the word "This app" / "This browser" as a filled accent pill. The other two names are
+medium weight. The artwork draws nothing.
 
-| | variant A — the ring | variant B — the pill *(proposed)* |
-|---|---|---|
-| artwork | an accent outline around the node, class `mark-ring` | nothing; the artwork is identical minus that one rect |
-| label row 1 | all three node names bold | the own node's name bold, the other two at medium |
-| label row 2 | the "This app" / "This browser" word in accent text | the same word as a filled accent pill |
+The alternative — an accent outline around the node — was rendered beside it twice and dropped. The
+first round's three reported collisions (the ring cutting through the "Firefox" caption, the links
+running into the box, the whole chain looking cramped) were all geometry the ring caused, and it
+buys nothing the words do not already say: the pill *reads* "This browser" where an outline only
+implies it. It is also the one element that scales badly, because an outline that must clear a label
+at 680 px is enormous at 360 px.
 
-**B is the recommendation.** The first round's three reported collisions — the ring cutting through
-the "Firefox" caption, the links running into the box, the whole chain looking cramped — were all
-geometry caused by the ring, and the ring buys nothing the words do not already say: the pill
-*reads* "This browser" where the outline only implies it. Dropping it also removes the one element
-that scales badly, because an outline that must clear a label at 680 px is enormous at 360 px.
+The ring's footprint is **reserved in the geometry anyway** — 10 units around every node, with every
+link stopping a further 12 units short of it. So each link ends an even 22 units clear of the node it
+points at, on all four sides, and a link never touches a node or a label. Because the ring is then
+one `<rect>` switched by one class, keeping it costs nothing and it stays in the file as `mark-ring`:
+if an outline is ever wanted, that class turns it back on and reflows nothing.
 
-Both variants are drawn against the **same geometry**: the ring's footprint — 10 units around every
-node — is reserved whether or not it is drawn, and every link stops a further 12 units short of it.
-So in variant B each link ends an even 22 units clear of the node it points at, on all four sides,
-and choosing the other variant reflows nothing. A link never touches a node, a ring or a label in
-either one.
-
-Because the ring is one `<rect>` switched by one class, keeping A as well costs nothing: if the ring
-turns out to be wanted later, `mark-ring` turns it back on without a second asset.
+**The labels sit close.** Round one hung the names ~95 px below the drawings, which read as a caption
+belonging to nothing. The cause was not the label geometry but the artwork: 32 units of empty canvas
+under the nodes, reserved for a pause badge at the bottom right. Moving that badge to the card's
+**top** right — where a browser puts the extension's own toolbar button — let the canvas shrink to
+its real footprint (600×100 instead of 600×132), and the names now sit 15 px under the drawing. The
+link captions share **that same baseline**, centred on their own link; only the accent pill takes a
+second row, under the own node's name alone. One baseline is what round two got wrong: captions a row
+lower read as a second, unrelated list. They fit because the gutters are wide — at 680 px the widest
+name ("opencode · werkstatt", ~125 px around x=72) still clears the link-1 caption (~60 px around
+x=191) by ~27 px, which is the 420 px breakpoint of § 7a seen from the other side.
 
 ### 3. The states, from both ends
 
@@ -156,13 +164,43 @@ button that lies is worse than a sentence that does not. It is also the only lin
 popup ever shows, because the popup's other link-1 state is `unknown` — and `unknown` means the
 link-2 sentence is the one with something to say.
 
-### 6. More than one session
+### 6. More than one session, and more than one browser
 
-Several agent sessions are several bridges (ADR 0007), so the AI-app node **stacks**: `stacked-2`
-and `stacked-3` draw one and two cards behind the front one, and the host writes the names it knows
-beside it — "opencode, LM Studio ⟷ Beifahrer ⟷ Firefox". Beyond three the host writes "+ n more";
-the artwork does not grow. Several browsers do the same on the right in the window's view, from
-`BridgeStatus.browsers`.
+Both ends of the chain can be plural, and both say so the same way: a card peeking out behind the
+front one, and the names written as one phrase beside it.
+
+- **Several agent sessions** are several bridges (ADR 0007). `stacked-2` and `stacked-3` draw one
+  and two cards behind the AI-app node — "opencode, LM Studio ⟷ Beifahrer ⟷ Firefox".
+- **Several browsers** on one bridge: `browsers-2` and `browsers-3` do the same behind the browser
+  node. The window needs nothing new to draw this. `BridgeStatus.browsers` is already a
+  `ConnectedBrowser[]` carrying family, name and version per browser, and `entryOf` copies each into
+  a `RegistryBrowser` — the window has had every browser by name all along and only ever drew one.
+
+Beyond three the host writes "+ n more"; the artwork never grows. The stacks are offset **away from
+the chain** — left of the app node, right of (below, in the vertical arrangement) the browser node —
+so a card never peeks out on the side its link leaves from, where it would read as a second line
+rather than a second card.
+
+**One of several browsers gone.** `browser-gone` turns the rear card of the browser stack into a
+dashed, unfilled outline; the host sets it together with `browsers-(n + 1)`, so the count a person
+sees is the total and the ghost is always the rear card. Three things then say what happened and none
+of them is a second link:
+
+| | says |
+|---|---|
+| the dashed empty card | one of these is not there |
+| the lost browser's name in the dim colour | *which* one |
+| the link-2 caption, "1 of 2 connected" | how many are |
+
+**Link 2 stays `ok`.** It is still true: an agent can act, in the browser that *is* there. A red line
+to a node that is half present would be a lie about the half that works, and § 5's rule — a failing
+link offers the one action that fixes it — has no action to offer when nothing is broken. The lost
+browser is a sentence under the diagram ("Chrome disconnected. Open it and pair it again to use it
+too.") with an optional, non-suggested button, not a state on the chain.
+
+One ghost is enough because the bridge has exactly one to report: `BridgeStatus.disconnected` is a
+single `BrowserGone`, not a list. If that ever becomes a list, `browsers-3 browser-gone` already
+dashes only the outermost card and the rule generalises without new classes.
 
 ### 7. The shared asset: `data/diagram/`
 
@@ -179,7 +217,7 @@ Two properties make the sharing work:
   needed inside the SVG.
 - **State is a class list on the root**, never a second file:
   `l1-ok|l1-wait|l1-fail|l1-unknown`, `l2-…`, `here-window|here-extension`, `mark-ring`, `paused`,
-  `stacked-2|stacked-3`, `dark`.
+  `stacked-2|stacked-3`, `browsers-2|browsers-3`, `browser-gone`, `dark`.
 
 ### 7a. Two arrangements, one source, one breakpoint at 420 px
 
@@ -203,7 +241,7 @@ screen's; `Adw.Breakpoint` rather than a width signal, because that is what the 
 elsewhere and it is measured in `sp`, so it follows text scaling — which is right here, since the
 minimum came from text in the first place.
 
-**Two files, one generator.** `connection.svg` (600×132) and `connection-vertical.svg` (140×496).
+**Two files, one generator.** `connection.svg` (600×100) and `connection-vertical.svg` (140×490).
 One file cannot hold both: the arrangement lives in `viewBox`, which is an attribute and not a CSS
 property, so no class can switch it — and the GTK side cannot rewrite it on a compiled-in GResource
 without re-parsing the asset on every breakpoint change. Two files cost a few KB and switch for
@@ -232,7 +270,7 @@ Two constraints came out of rasterising it, both measured on librsvg 2.62 / glyc
 
 Class selectors and `display` do work, which is what the switching is built on.
 
-### 8. The protocol addition: the bridge names its MCP client
+### 8. The protocol addition: the bridge names its MCP client and the other browsers
 
 The extension already learns a session's label after the fact: the MCP client introduces itself in
 the handshake, `oninitialized` calls `handle.relabel(name)` (`app/src/frontends/mcp/server.ts`), the
@@ -296,6 +334,64 @@ The bridge sends `{ type: 'session', … }` with `client` on `oninitialized` (th
 does) and with `client: null` on a client that disconnects, so the picture falls back to `wait`
 rather than lying `ok` forever.
 
+#### 8a. And the browsers beside this one
+
+§ 6 costs the window nothing, because the window reads `BridgeStatus.browsers`. The extension is the
+other case: **a popup in Chrome cannot know Firefox is connected.** `Welcome` carries `protocol`,
+`bridge.version`, `connectionId`, an optional `session` and an optional `desktop` — nothing about
+other browsers — and the only broadcasts are `{ type: 'session', label }` and
+`{ type: 'desktop', desktop }`. So `browsers-2` is unreachable from the extension without one more
+field, and the ADR either extends the protocol or admits the popup draws a single browser forever.
+
+It extends it, in the same shape and for the same reason as `client` above — one optional field on
+frames that already exist, carrying **names only**:
+
+```ts
+/** The other browsers on this same bridge, as the bridge sees them. Names, nothing more. */
+export interface SiblingBrowser {
+  /** `hello.browser.name`, cleaned like a session label: "Firefox", "Chrome". */
+  name: string;
+  /** False once the bridge has seen it go (`BridgeStatus.disconnected`): the dashed card. */
+  connected: boolean;
+}
+
+export interface Welcome {
+  …
+  client?: McpClient | null;
+  /** Absent from bridges older than ADR 0025. Excludes the browser being welcomed. */
+  browsers?: SiblingBrowser[];
+}
+
+export type BridgeFrame =
+  | …
+  | { type: 'browsers'; browsers: SiblingBrowser[] };
+```
+
+**Names only, and only the siblings.** Not the family, not the version, not the extension build, not
+`connectedAt`, not a connection id — the popup draws a card and a word, so anything beyond the word
+is a second browser's fingerprint sent to the first for no reason. The browser being welcomed is
+excluded, because it already knows what it is and including it would make the popup's own count
+depend on whether it recognised itself.
+
+The bridge has all of this in `#live` already and broadcasts on the two moments it already tracks:
+`#welcome` (a browser joined) and `#drop` (one left) — the same places that recompute `status()`.
+
+**Backwards compatibility, both directions**, by the same three rules as above:
+
+- *Old bridge, new extension.* `browsers` is `undefined` and no `{ type: 'browsers' }` ever arrives.
+  The popup draws one browser — today's picture, which was never wrong, only incomplete. There is no
+  "unknown" state to invent, because "I am connected" is a fact the extension has first-hand.
+- *New bridge, old extension.* `bridge-client.ts` dispatches on `frame.type` through an if-chain
+  (ll. 231–260) with no `else`: an unknown frame type falls off the end and is ignored, and an extra
+  key on `Welcome` never reaches `parseWelcome`'s copy of known fields. Neither closes the socket.
+- *Bad value.* Not an array → the field is dropped. Per entry: `name` through the same
+  `cleanSessionLabel` and `SESSION_LABEL_MAX` as every other name, `connected` coerced to a boolean,
+  anything failing dropped. A dropped entry costs a card, never the connection.
+- *Protocol version.* Still 1, for the reason given above.
+
+This is the one piece of § 6 that needs new wire format; everything else in this ADR reads data both
+halves already have.
+
 ### 9. What each half has to compute
 
 Nothing in this PR implements any of it. For the record, the mapping each host needs:
@@ -309,8 +405,32 @@ Nothing in this PR implements any of it. For the record, the mapping each host n
   diagram needs a second, smaller function over the same input, `linksOf(connection, client,
   paused)`, which never returns `fail` for link 1 (§ 3). The one behaviour change it would want is
   to stop collapsing "background has not answered yet" (`connection === undefined`) into
-  `unpaired`, so link 1 can be `unknown` instead of red on the first paint. The arrangement is a
-  container query on the popup body; no script decides it.
+  `unpaired`, so link 1 can be `unknown` instead of red on the first paint. The sibling browsers of
+  § 8a arrive as state, not as a computation: whatever the last `Welcome` or `{ type: 'browsers' }`
+  said, mapped to `browsers-n` plus `browser-gone`. The arrangement is a container query on the
+  popup body; no script decides it.
+
+#### 9a. The popup's hero icon stops being a state icon
+
+`extension/entrypoints/popup/index.html:13` starts at `/icons/offline-48.png` and `renderState`
+(`popup/main.ts:75`) swaps it per state through `heroIcon` — so the first thing the popup shows is
+the red-dotted bus, and in three of six states the hero is monochrome. Once the diagram is on the
+page that is **two state displays arguing**, and the duller one is the app's own face.
+
+So the hero becomes the **colour app icon, always**: `active` in `extension/scripts/icons.ts`, the
+bus with no dot, which is the same drawing the diagram splices for its middle node and the same one
+on the launcher. State is said three times over without it — the status dot, the state word beside
+it, and the diagram underneath, which says more than a dot ever could because it says *which half*.
+The markup's initial `src` changes with it, so the popup no longer opens on a red dot before the
+background has answered.
+
+The `working` animation stays: that is activity, not state, and a breathing bus reads as "something
+is happening here" in a way no static variant does. `heroIcon()` keeps its remaining caller
+(`options/main.ts:79`) until that page gets the same treatment, which is not this ADR's call.
+
+**The toolbar button does not change.** It is the one surface with no room for a word, no diagram
+and no second signal, and ADR 0010's reason stands: the icon *is* the "an agent is in your browser"
+indicator, so it keeps all six variants and its badge.
 
 ### 10. The strings
 
@@ -377,8 +497,8 @@ from it is copied, and none is in this repo.** Stating the licence honestly: the
 
 ### 13. Three defaults that were open questions
 
-Round one left three placements undecided. They are decided here, as proposals — each is a default
-that can be changed later without touching the artwork or the protocol:
+Round one left three placements undecided; the person accepted all three as proposed on 2026-11-03.
+Each is a default that can be changed later without touching the artwork or the protocol:
 
 1. **The diagram replaces the `Adw.StatusPage` icon, and nothing else.** The title and the sentence
    stay exactly where they are. The icon is the element that says the least per pixel; the title is
@@ -408,8 +528,11 @@ that can be changed later without touching the artwork or the protocol:
 - Two more files the extension build has to copy, one splice step in the app build, and one
   breakpoint in each host; in exchange, the bus in the diagram cannot drift from the bus on the
   launcher, and the Status page survives a 360 px phone instead of being clipped by it.
-- `client` on the session frame is the first field whose only consumer is a picture. It is optional
-  in both directions, so an old half of the product keeps working against a new one.
+- `client` and `browsers` are the first protocol fields whose only consumer is a picture. Both are
+  optional in both directions, so an old half of the product keeps working against a new one, and
+  both carry names rather than identity.
+- The popup's hero icon stops reporting state (§ 9a). A person used to reading the bus for red loses
+  that habit's object — in exchange for a dot, a word and a diagram that say which half is wrong.
 
 ## Out of scope
 
@@ -417,14 +540,14 @@ that can be changed later without touching the artwork or the protocol:
 - Animation: no pulse on an in-flight request, no transition between states. A diagram that moves
   while an agent types is a separate decision, and a bad default for anyone who turned animations
   off.
-- Per-browser detail in the window (which Firefox, which profile). The session rows already carry
-  that; the diagram stays at one browser node, stacked when there are several.
+- Per-browser detail beyond the name (which version, which profile, when it connected). The session
+  rows already carry that; the diagram stacks cards and writes names, and § 8a sends the extension
+  nothing else.
 - The MCP client's *icon*. Names only: shipping a logo per AI app is a trademark question and a
   maintenance burden, and it would be the one thing in the picture that needs updating when a new
   client appears.
 
 ## Open questions
 
-1. **Variant A or B** (§ 2). B is proposed and the mocks show both; the artwork supports either
-   from the same file.
-2. The three defaults in § 13, if any of them reads wrong against how the pages are actually used.
+None. The own-node mark (§ 2) and the three defaults (§ 13) were the last two, and both were decided
+on 2026-11-03 against the rendered mocks.

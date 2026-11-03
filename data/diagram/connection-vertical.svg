@@ -1,5 +1,5 @@
 <!--
-Beifahrer connection diagram — ADR 0025, the vertical arrangement (140×496).
+Beifahrer connection diagram — ADR 0025, the vertical arrangement (140×490).
 ONE drawing for the GNOME window and the browser extension popup:
 AI app / MCP client <-> Beifahrer <-> browser.
 
@@ -20,6 +20,9 @@ State is a CLASS LIST on the root element; nothing in here reads the system:
   mark-ring                                   variant A: draw the accent ring around that node
   paused                                      the person's own stop; NOT a link state
   stacked-2 | stacked-3                       more than one agent session
+  browsers-2 | browsers-3                     more than one connected browser
+  browser-gone                                the rear browser card as a dashed empty outline:
+                                              one of the browsers in the count is not connected
   dark                                        the dark palette
 
 Every link ends a visible gap short of the node AND of the ring space reserved around it, so a
@@ -36,8 +39,8 @@ Two rules the rasteriser forced, both measured on librsvg 2.62 / glycin (2026-11
 
 Class selectors and display DO work, which is what the state switching is built on.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" id="diagram" width="140" height="496"
-     viewBox="0 0 140 496" class="l1-ok l2-ok">
+<svg xmlns="http://www.w3.org/2000/svg" id="diagram" width="140" height="490"
+     viewBox="0 0 140 490" class="l1-ok l2-ok">
   <style>
     /* --- the quiet furniture ------------------------------------------------------------- */
     .card { fill: #ffffff; stroke: #c0bfbc; stroke-width: 2; }
@@ -99,15 +102,33 @@ Class selectors and display DO work, which is what the state switching is built 
     #pause-bars { fill: #241f31; }
     #diagram.dark #pause-dot { fill: #f6d32d; stroke: #383838; }
 
-    #stack-2, #stack-3, #pause { display: none; }
+    /* Two counts, two stacks: agent sessions on the left (ADR 0007), connected browsers on the
+       right. Both are the same drawing offset behind the front card, and neither changes the
+       artwork's size — "+ n more" is a word the host writes, not a card. */
+    #stack-2, #stack-3, #bstack-2, #bstack-3, #pause { display: none; }
     #diagram.stacked-2 #stack-2, #diagram.stacked-3 #stack-2 { display: inline; }
     #diagram.stacked-3 #stack-3 { display: inline; }
+    #diagram.browsers-2 #bstack-2, #diagram.browsers-3 #bstack-2 { display: inline; }
+    #diagram.browsers-3 #bstack-3 { display: inline; }
+
+    /* One browser connected, another gone: the OUTERMOST card of the browser stack turns into a
+       dashed empty outline. The host sets browsers-(connected + 1) together with browser-gone,
+       so the count a person sees is the total and the ghost is always the rear one. Dashed and
+       unfilled rather than a colour, so it tells apart in greyscale like every link state does
+       (ADR 0025 § 4). The bridge has exactly one of these to report — BridgeStatus.disconnected
+       is a single BrowserGone — which is why one ghost is enough and link 2 stays ok: an agent
+       can still act in the browser that IS there. */
+    #diagram.browser-gone #bstack-2 .card { fill: none; stroke-dasharray: 6 5; }
+    #diagram.browsers-3.browser-gone #bstack-2 .card { fill: #ffffff; stroke-dasharray: none; }
+    #diagram.browsers-3.browser-gone #bstack-3 .card { fill: none; stroke-dasharray: 6 5; }
+    #diagram.dark.browsers-3.browser-gone #bstack-2 .card { fill: #383838; }
+
     #diagram.paused #pause { display: inline; }
   </style>
 
-  <!-- more agent sessions than one: cards stacked behind the front one -->
-  <g id="stack-3"><rect class="card" x="10" y="8" width="96" height="72" rx="8"/></g>
-  <g id="stack-2"><rect class="card" x="15" y="13" width="96" height="72" rx="8"/></g>
+  <!-- more agent sessions than one: cards stacked behind the front one, growing away from the chain -->
+  <g id="stack-3"><rect class="card" x="32" y="6" width="96" height="72" rx="8"/></g>
+  <g id="stack-2"><rect class="card" x="26" y="12" width="96" height="72" rx="8"/></g>
 
   <g id="node-app">
     <rect class="card" x="20" y="18" width="96" height="72" rx="8"/>
@@ -460,6 +481,10 @@ Class selectors and display DO work, which is what the state switching is built 
   </g>
   <rect id="ring-beifahrer" x="20" y="198" width="96" height="96" rx="20"/>
 
+  <!-- more browsers than one, same drawing mirrored: the stack grows down, away from link 2 -->
+  <g id="bstack-3"><rect class="card" x="32" y="414" width="96" height="72" rx="8"/></g>
+  <g id="bstack-2"><rect class="card" x="26" y="408" width="96" height="72" rx="8"/></g>
+
   <g id="node-browser">
     <rect class="card" x="20" y="402" width="96" height="72" rx="8"/>
     <rect class="dim" x="26" y="407" width="30" height="9" rx="3"/>
@@ -470,13 +495,13 @@ Class selectors and display DO work, which is what the state switching is built 
     <rect class="dim" x="26" y="460" width="44" height="5" rx="2.5"/>
   </g>
   <g id="pause">
-    <circle id="pause-dot" cx="112" cy="470" r="13"/>
+    <circle id="pause-dot" cx="112" cy="406" r="13"/>
     <g id="pause-bars">
-      <rect x="107.5" y="465" width="3.5" height="10" rx="1.75"/>
-      <rect x="113" y="465" width="3.5" height="10" rx="1.75"/>
+      <rect x="107.5" y="401" width="3.5" height="10" rx="1.75"/>
+      <rect x="113" y="401" width="3.5" height="10" rx="1.75"/>
     </g>
   </g>
-  <rect id="ring-browser" x="10" y="392" width="120" height="98" rx="20"/>
+  <rect id="ring-browser" x="10" y="392" width="116" height="92" rx="20"/>
 
   <!-- link 1: the AI app's MCP client <-> this session's bridge (stdio, and the port it bound) -->
   <g id="link1">

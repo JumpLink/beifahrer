@@ -1,5 +1,5 @@
 <!--
-Beifahrer connection diagram — ADR 0025, the horizontal arrangement (600×132).
+Beifahrer connection diagram — ADR 0025, the horizontal arrangement (600×100).
 ONE drawing for the GNOME window and the browser extension popup:
 AI app / MCP client <-> Beifahrer <-> browser.
 
@@ -20,6 +20,9 @@ State is a CLASS LIST on the root element; nothing in here reads the system:
   mark-ring                                   variant A: draw the accent ring around that node
   paused                                      the person's own stop; NOT a link state
   stacked-2 | stacked-3                       more than one agent session
+  browsers-2 | browsers-3                     more than one connected browser
+  browser-gone                                the rear browser card as a dashed empty outline:
+                                              one of the browsers in the count is not connected
   dark                                        the dark palette
 
 Every link ends a visible gap short of the node AND of the ring space reserved around it, so a
@@ -36,8 +39,8 @@ Two rules the rasteriser forced, both measured on librsvg 2.62 / glycin (2026-11
 
 Class selectors and display DO work, which is what the state switching is built on.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" id="diagram" width="600" height="132"
-     viewBox="0 0 600 132" class="l1-ok l2-ok">
+<svg xmlns="http://www.w3.org/2000/svg" id="diagram" width="600" height="100"
+     viewBox="0 0 600 100" class="l1-ok l2-ok">
   <style>
     /* --- the quiet furniture ------------------------------------------------------------- */
     .card { fill: #ffffff; stroke: #c0bfbc; stroke-width: 2; }
@@ -99,30 +102,48 @@ Class selectors and display DO work, which is what the state switching is built 
     #pause-bars { fill: #241f31; }
     #diagram.dark #pause-dot { fill: #f6d32d; stroke: #383838; }
 
-    #stack-2, #stack-3, #pause { display: none; }
+    /* Two counts, two stacks: agent sessions on the left (ADR 0007), connected browsers on the
+       right. Both are the same drawing offset behind the front card, and neither changes the
+       artwork's size — "+ n more" is a word the host writes, not a card. */
+    #stack-2, #stack-3, #bstack-2, #bstack-3, #pause { display: none; }
     #diagram.stacked-2 #stack-2, #diagram.stacked-3 #stack-2 { display: inline; }
     #diagram.stacked-3 #stack-3 { display: inline; }
+    #diagram.browsers-2 #bstack-2, #diagram.browsers-3 #bstack-2 { display: inline; }
+    #diagram.browsers-3 #bstack-3 { display: inline; }
+
+    /* One browser connected, another gone: the OUTERMOST card of the browser stack turns into a
+       dashed empty outline. The host sets browsers-(connected + 1) together with browser-gone,
+       so the count a person sees is the total and the ghost is always the rear one. Dashed and
+       unfilled rather than a colour, so it tells apart in greyscale like every link state does
+       (ADR 0025 § 4). The bridge has exactly one of these to report — BridgeStatus.disconnected
+       is a single BrowserGone — which is why one ghost is enough and link 2 stays ok: an agent
+       can still act in the browser that IS there. */
+    #diagram.browser-gone #bstack-2 .card { fill: none; stroke-dasharray: 6 5; }
+    #diagram.browsers-3.browser-gone #bstack-2 .card { fill: #ffffff; stroke-dasharray: none; }
+    #diagram.browsers-3.browser-gone #bstack-3 .card { fill: none; stroke-dasharray: 6 5; }
+    #diagram.dark.browsers-3.browser-gone #bstack-2 .card { fill: #383838; }
+
     #diagram.paused #pause { display: inline; }
   </style>
 
-  <!-- more agent sessions than one: cards stacked behind the front one -->
-  <g id="stack-3"><rect class="card" x="12" y="18" width="96" height="72" rx="8"/></g>
-  <g id="stack-2"><rect class="card" x="18" y="24" width="96" height="72" rx="8"/></g>
+  <!-- more agent sessions than one: cards stacked behind the front one, growing away from the chain -->
+  <g id="stack-3"><rect class="card" x="12" y="2" width="96" height="72" rx="8"/></g>
+  <g id="stack-2"><rect class="card" x="18" y="8" width="96" height="72" rx="8"/></g>
 
   <g id="node-app">
-    <rect class="card" x="24" y="30" width="96" height="72" rx="8"/>
-    <path class="seam" d="M25 48 H119"/>
-    <circle class="dim" cx="34" cy="39" r="2.6"/>
-    <circle class="dim" cx="42" cy="39" r="2.6"/>
-    <circle class="dim" cx="50" cy="39" r="2.6"/>
-    <rect class="dim" x="34" y="58" width="56" height="6" rx="3"/>
-    <rect class="dim" x="34" y="70" width="40" height="6" rx="3"/>
-    <rect class="dim" x="34" y="82" width="48" height="6" rx="3"/>
-    <path class="spark" d="M104 79 C105 83.5 106.5 85 111 86 C106.5 87 105 88.5 104 93 C103 88.5 101.5 87 97 86 C101.5 85 103 83.5 104 79 Z"/>
+    <rect class="card" x="24" y="14" width="96" height="72" rx="8"/>
+    <path class="seam" d="M25 32 H119"/>
+    <circle class="dim" cx="34" cy="23" r="2.6"/>
+    <circle class="dim" cx="42" cy="23" r="2.6"/>
+    <circle class="dim" cx="50" cy="23" r="2.6"/>
+    <rect class="dim" x="34" y="42" width="56" height="6" rx="3"/>
+    <rect class="dim" x="34" y="54" width="40" height="6" rx="3"/>
+    <rect class="dim" x="34" y="66" width="48" height="6" rx="3"/>
+    <path class="spark" d="M104 63 C105 67.5 106.5 69 111 70 C106.5 71 105 72.5 104 77 C103 72.5 101.5 71 97 70 C101.5 69 103 67.5 104 63 Z"/>
   </g>
 
   <g id="node-beifahrer">
-    <svg id="beifahrer-icon" x="262" y="28" width="76" height="76" viewBox="0 0 128 128">
+    <svg id="beifahrer-icon" x="262" y="12" width="76" height="76" viewBox="0 0 128 128">
       <defs
       id="defs4">
       <!-- side face: square shoulders where it meets the roof, round only at the bottom -->
@@ -458,79 +479,83 @@ Class selectors and display DO work, which is what the state switching is built 
       id="circle6" />
     </svg>
   </g>
-  <rect id="ring-beifahrer" x="252" y="18" width="96" height="96" rx="20"/>
+  <rect id="ring-beifahrer" x="252" y="2" width="96" height="96" rx="20"/>
+
+  <!-- more browsers than one, same drawing mirrored: the stack grows right, away from link 2 -->
+  <g id="bstack-3"><rect class="card" x="492" y="2" width="96" height="72" rx="8"/></g>
+  <g id="bstack-2"><rect class="card" x="486" y="8" width="96" height="72" rx="8"/></g>
 
   <g id="node-browser">
-    <rect class="card" x="480" y="30" width="96" height="72" rx="8"/>
-    <rect class="dim" x="486" y="35" width="30" height="9" rx="3"/>
-    <rect class="dim" x="520" y="37" width="22" height="7" rx="3" opacity="0.6"/>
-    <rect class="dim" x="486" y="50" width="84" height="8" rx="4"/>
-    <rect class="dim" x="486" y="68" width="60" height="5" rx="2.5"/>
-    <rect class="dim" x="486" y="78" width="72" height="5" rx="2.5"/>
-    <rect class="dim" x="486" y="88" width="44" height="5" rx="2.5"/>
+    <rect class="card" x="480" y="14" width="96" height="72" rx="8"/>
+    <rect class="dim" x="486" y="19" width="30" height="9" rx="3"/>
+    <rect class="dim" x="520" y="21" width="22" height="7" rx="3" opacity="0.6"/>
+    <rect class="dim" x="486" y="34" width="84" height="8" rx="4"/>
+    <rect class="dim" x="486" y="52" width="60" height="5" rx="2.5"/>
+    <rect class="dim" x="486" y="62" width="72" height="5" rx="2.5"/>
+    <rect class="dim" x="486" y="72" width="44" height="5" rx="2.5"/>
   </g>
   <g id="pause">
-    <circle id="pause-dot" cx="572" cy="98" r="13"/>
+    <circle id="pause-dot" cx="572" cy="18" r="13"/>
     <g id="pause-bars">
-      <rect x="567.5" y="93" width="3.5" height="10" rx="1.75"/>
-      <rect x="573" y="93" width="3.5" height="10" rx="1.75"/>
+      <rect x="567.5" y="13" width="3.5" height="10" rx="1.75"/>
+      <rect x="573" y="13" width="3.5" height="10" rx="1.75"/>
     </g>
   </g>
-  <rect id="ring-browser" x="470" y="20" width="120" height="98" rx="20"/>
+  <rect id="ring-browser" x="470" y="4" width="116" height="92" rx="20"/>
 
   <!-- link 1: the AI app's MCP client <-> this session's bridge (stdio, and the port it bound) -->
   <g id="link1">
     <g class="st ok">
-      <path class="link" d="M142 66 H240"/>
-      <circle class="badge" cx="191" cy="66" r="12"/>
-      <path class="glyph" d="M185.8 66.2 L189.4 69.8 L196.4 62.4"/>
+      <path class="link" d="M142 50 H240"/>
+      <circle class="badge" cx="191" cy="50" r="12"/>
+      <path class="glyph" d="M185.8 50.2 L189.4 53.8 L196.4 46.4"/>
     </g>
     <g class="st wait">
-      <path class="link" d="M142 66 H240" stroke-dasharray="2 8"/>
-      <circle class="badge" cx="191" cy="66" r="12"/>
+      <path class="link" d="M142 50 H240" stroke-dasharray="2 8"/>
+      <circle class="badge" cx="191" cy="50" r="12"/>
       <g class="glyph-fill">
-        <circle cx="186" cy="66" r="1.9"/><circle cx="191" cy="66" r="1.9"/><circle cx="196" cy="66" r="1.9"/>
+        <circle cx="186" cy="50" r="1.9"/><circle cx="191" cy="50" r="1.9"/><circle cx="196" cy="50" r="1.9"/>
       </g>
     </g>
     <g class="st fail">
-      <path class="link" d="M142 66 H154"/>
-      <path class="link" d="M228 66 H240"/>
-      <circle class="badge" cx="191" cy="66" r="12"/>
-      <path class="glyph" d="M186.8 61.8 L195.2 70.2 M195.2 61.8 L186.8 70.2"/>
+      <path class="link" d="M142 50 H154"/>
+      <path class="link" d="M228 50 H240"/>
+      <circle class="badge" cx="191" cy="50" r="12"/>
+      <path class="glyph" d="M186.8 45.8 L195.2 54.2 M195.2 45.8 L186.8 54.2"/>
     </g>
     <g class="st unknown">
-      <path class="link" d="M142 66 H240" stroke-dasharray="1 7"/>
-      <circle class="badge" cx="191" cy="66" r="12"/>
-      <path class="glyph" d="M187.6 62.8 A3.4 3.4 0 0 1 193.8 64.6 C193.8 66.8 191 67.2 191 69.4"/>
-      <circle class="glyph-fill" cx="191" cy="72.2" r="1.4"/>
+      <path class="link" d="M142 50 H240" stroke-dasharray="1 7"/>
+      <circle class="badge" cx="191" cy="50" r="12"/>
+      <path class="glyph" d="M187.6 46.8 A3.4 3.4 0 0 1 193.8 48.6 C193.8 50.8 191 51.2 191 53.4"/>
+      <circle class="glyph-fill" cx="191" cy="56.2" r="1.4"/>
     </g>
   </g>
 
   <!-- link 2: that bridge <-> the extension, over the loopback socket (ADR 0007) -->
   <g id="link2">
     <g class="st ok">
-      <path class="link" d="M360 66 H458"/>
-      <circle class="badge" cx="409" cy="66" r="12"/>
-      <path class="glyph" d="M403.8 66.2 L407.4 69.8 L414.4 62.4"/>
+      <path class="link" d="M360 50 H458"/>
+      <circle class="badge" cx="409" cy="50" r="12"/>
+      <path class="glyph" d="M403.8 50.2 L407.4 53.8 L414.4 46.4"/>
     </g>
     <g class="st wait">
-      <path class="link" d="M360 66 H458" stroke-dasharray="2 8"/>
-      <circle class="badge" cx="409" cy="66" r="12"/>
+      <path class="link" d="M360 50 H458" stroke-dasharray="2 8"/>
+      <circle class="badge" cx="409" cy="50" r="12"/>
       <g class="glyph-fill">
-        <circle cx="404" cy="66" r="1.9"/><circle cx="409" cy="66" r="1.9"/><circle cx="414" cy="66" r="1.9"/>
+        <circle cx="404" cy="50" r="1.9"/><circle cx="409" cy="50" r="1.9"/><circle cx="414" cy="50" r="1.9"/>
       </g>
     </g>
     <g class="st fail">
-      <path class="link" d="M360 66 H372"/>
-      <path class="link" d="M446 66 H458"/>
-      <circle class="badge" cx="409" cy="66" r="12"/>
-      <path class="glyph" d="M404.8 61.8 L413.2 70.2 M413.2 61.8 L404.8 70.2"/>
+      <path class="link" d="M360 50 H372"/>
+      <path class="link" d="M446 50 H458"/>
+      <circle class="badge" cx="409" cy="50" r="12"/>
+      <path class="glyph" d="M404.8 45.8 L413.2 54.2 M413.2 45.8 L404.8 54.2"/>
     </g>
     <g class="st unknown">
-      <path class="link" d="M360 66 H458" stroke-dasharray="1 7"/>
-      <circle class="badge" cx="409" cy="66" r="12"/>
-      <path class="glyph" d="M405.6 62.8 A3.4 3.4 0 0 1 411.8 64.6 C411.8 66.8 409 67.2 409 69.4"/>
-      <circle class="glyph-fill" cx="409" cy="72.2" r="1.4"/>
+      <path class="link" d="M360 50 H458" stroke-dasharray="1 7"/>
+      <circle class="badge" cx="409" cy="50" r="12"/>
+      <path class="glyph" d="M405.6 46.8 A3.4 3.4 0 0 1 411.8 48.6 C411.8 50.8 409 51.2 409 53.4"/>
+      <circle class="glyph-fill" cx="409" cy="56.2" r="1.4"/>
     </g>
   </g>
 </svg>
