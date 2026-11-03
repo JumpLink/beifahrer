@@ -518,6 +518,24 @@ Each is a default that can be changed later without touching the artwork or the 
    staleness. The sentence is § 5's link-1 row; in the window it keeps the **Set up your app**
    button, in the popup it stays buttonless.
 
+### 14. Where the window implementation differs (2026-11-03)
+
+The registry is narrower than § 3 assumed, so the window derives two things itself:
+
+- **Link 1 `wait`** is read from the label: a bridge whose client part is still the default `mcp` has
+  not run the handshake. The registry carries no "client introduced" flag. A label set by the
+  person hides this, so the window then reads it as introduced. After `WAIT_MS` (10 s) since
+  `startedAt` it is `fail`, with the new `diagram.fix.stalled` sentence and the setup button.
+- **`browser-gone`** is the window's own memory: the registry lists only connected browsers, so a
+  browser that was there at the last look and is not now is the dashed card. The memory is dropped
+  when no browser is left. A browser that was already gone when the window opened is not shown.
+- New strings beyond § 10: `diagram.partial` ("{connected} of {total} connected") and
+  `diagram.fix.stalled`.
+- The artwork reaches the bundle through `app/scripts/embed-diagram.mjs`, which writes
+  `app/src/window/diagram-assets.json` (leading comment stripped, because the image loader refuses a
+  file that does not start with the root). A unit test compares it with `data/diagram/`. This is a
+  JSON embed and not a GResource, so it works unchanged in the Flatpak, which ships only the bundle.
+
 ## Consequences
 
 - The Status page stops saying "something is wrong" and starts saying **which half** is wrong and
