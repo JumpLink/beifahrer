@@ -494,6 +494,16 @@ left. The state lives in the icon alone: every variant now carries a dot, green 
 and active (`CONNECTED`), yellow paused, red not connected, blue all sites. The text state stays in
 the tooltip and the popup. This replaces the first paragraph of § 9a ("gains a status badge").
 
+**Amendment 2026-11-04: the monochrome bus follows the toolbar's icon colour.** The fixed mid-grey
+(`MONOCHROME`) did not match Firefox's other toolbar icons (user feedback, Firefox 0.1.20 on
+GNOME), which measure `#ffffff` on a dark toolbar and `#333338` on a light one. Every monochrome
+look is now rendered in both inks (`TOOLBAR_INK`, core): `dark` `#333338` under the plain file name
+(also the manifest's default icon) and `light` `#ffffff` as `<variant>-light-<size>.png`. The
+coloured looks and the status dot are unchanged. `src/toolbar.ts` picks the ink at runtime: Firefox's
+`browser.theme.getCurrent()` icon or text colour by luminance (light text means a dark toolbar),
+else `prefers-color-scheme`; it repaints on `theme.onUpdated` and on the media query's `change`.
+A Chromium service worker has no `matchMedia` and keeps the dark ink.
+
 ### 12. The style reference and its licence
 
 GNOME's [app-illustrations](https://gitlab.gnome.org/Teams/Design/app-illustrations) was read as a
