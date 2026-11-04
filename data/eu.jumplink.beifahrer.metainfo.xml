@@ -63,6 +63,14 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.20" date="2026-11-04">
+      <description>
+        <ul>
+          <li>Connection diagram moved from the extension popup to its settings page; the popup is compact again</li>
+          <li>Toolbar button without a badge: the bus stays fully visible, a coloured dot shows the state</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.19" date="2026-11-04">
       <description>
         <ul>
