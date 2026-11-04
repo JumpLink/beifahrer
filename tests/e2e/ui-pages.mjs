@@ -52,7 +52,10 @@ const PROBE = `JSON.stringify({
   // script threw at load and left every one of these empty).
   hero: document.getElementById('hero-icon')?.getAttribute('src') ?? null,
   legal: [...document.querySelectorAll('.legal-links a')].map((a) => a.getAttribute('href')),
-  diagram: document.getElementById('diagram-host')?.querySelector('svg') !== null && !!document.getElementById('diagram-host'),
+  // The diagram is on the options page only (ADR 0025 § 16): drawn there, absent from the popup.
+  diagram: !!document.getElementById('diagram-host')?.querySelector('svg'),
+  pauseRow: !!document.getElementById('pause-row')?.querySelector('.adw-row-text'),
+  diagramHost: document.getElementById('diagram-host') !== null,
   groups: ['features', 'activity'].map((id) => document.getElementById(id)?.querySelectorAll('adw-switch-row, adw-action-row, .adw-row-text').length ?? null),
   words: document.body.innerText.split(/\\s+/).filter(Boolean).length,
 })`;
@@ -113,8 +116,11 @@ function judge(check, browser, page, raw) {
       raw,
     );
   }
-  if (page === 'popup')
-    check(browser, 'popup.html: the connection diagram is drawn', r.diagram === true, raw);
+  if (page === 'options') {
+    check(browser, 'options.html: the connection diagram is drawn', r.diagram === true, raw);
+    check(browser, 'options.html: the pause row is drawn beside the diagram', r.pauseRow === true, raw);
+  }
+  if (page === 'popup') check(browser, 'popup.html: has no connection diagram', r.diagramHost === false, raw);
   check(
     browser,
     `${page}.html: no dash, "!" or curly quote in the visible text (${r.words} words)`,
@@ -312,7 +318,7 @@ async function screenshots(c, page, dir) {
   }
 }
 
-const FIREFOX_WIDTHS = { popup: [360], options: [1280, 480], confirm: [520] };
+const FIREFOX_WIDTHS = { popup: [360], options: [1280, 400], confirm: [520] };
 
 /**
  * BiDi's captureScreenshot refuses an extension page ("browsing contexts in privileged scope"), so

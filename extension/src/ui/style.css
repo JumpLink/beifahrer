@@ -379,7 +379,7 @@ pre.preview.code {
   margin: 0;
 }
 
-/* Narrow (the popup is 360 px): the vertical artwork, the words on the right, row by row. */
+/* Narrow (below 420 px, e.g. a phone): the vertical artwork, the words on the right, row by row. */
 .diagram-words {
   height: 490px;
   grid-template-rows: 1fr 1fr 1fr 1fr 1fr;

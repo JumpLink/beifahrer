@@ -1,5 +1,5 @@
 /**
- * The popup's connection diagram (ADR 0025): the shared artwork in data/diagram/, spliced inline so
+ * The extension's connection diagram, on the options page (ADR 0025 § 16): the shared artwork in data/diagram/, spliced inline so
  * the classes on its root can switch the states, and every word drawn here, beside it, out of the
  * extension's own catalogue. The artwork has no text and no colour variables (librsvg cannot read
  * either), so state is classes on `#diagram` and dark is one of them.
@@ -11,8 +11,9 @@
 
 import { browser } from '@wxt-dev/browser';
 import { type McpClient, type SiblingBrowser } from '@beifahrer/core';
+import type { Status } from '../bridge-client.ts';
 import { t } from '../i18n.ts';
-import type { LinkState } from './status.ts';
+import { linksOf, type LinkState } from './status.ts';
 
 export const WIDE_AT = 420;
 /** Beyond this many names the host writes "+ n more"; the artwork never grows. */
@@ -31,6 +32,33 @@ export interface DiagramModel {
   paused: boolean;
   /** The one sentence under the diagram, and the button that goes with it. */
   fix: { sentence: 'unpaired' | 'unauthorized' | 'protocol' | 'waiting' | 'paused'; action: Fix } | null;
+}
+
+/** What the extension can say about the chain from where it sits (ADR 0025 § 3, § 9). */
+export function diagramOf(status: Status | undefined, paused: boolean, browserName: string): DiagramModel {
+  const connected = status && status.state !== 'unpaired' ? status : undefined;
+  const sessions = connected?.state === 'connected' ? connected.sessions : [];
+  const first = sessions[0];
+  const { l1, l2 } = linksOf(status?.state, first?.client);
+  const here = { name: browserName, connected: true };
+  const siblings = first?.browsers ?? [];
+  let fix: DiagramModel['fix'] = null;
+  if (l2 === 'fail')
+    fix = {
+      sentence: status?.state === 'unauthorized' || status?.state === 'protocol' ? status.state : 'unpaired',
+      action: status?.state === 'protocol' ? null : 'pair',
+    };
+  else if (paused) fix = { sentence: 'paused', action: 'resume' };
+  else if (l1 === 'wait') fix = { sentence: 'waiting', action: null };
+  return {
+    l1,
+    l2,
+    apps: sessions.flatMap((s) => (s.client ? [s.client] : [])),
+    browsers: [here, ...siblings],
+    sessions: sessions.length,
+    paused,
+    fix,
+  };
 }
 
 const LINK_WORDS = {
