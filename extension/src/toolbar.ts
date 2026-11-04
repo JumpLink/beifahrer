@@ -8,6 +8,7 @@
 import { browser } from '@wxt-dev/browser';
 import {
   ACTIVE_MS,
+  inkForScheme,
   inkForThemeColour,
   toolbarLook,
   wildcardGrant,
@@ -19,6 +20,7 @@ import { activityState, onActivityChange } from './activity.ts';
 import { currentStatus, onStatusChange } from './bridge-client.ts';
 import { loadGrants, onGrantsChange } from './grants.ts';
 import { t } from './i18n.ts';
+import { installScheme, reportedDark } from './scheme.ts';
 import { loadSettings } from './settings.ts';
 import { iconFile, ICON_SIZES } from '../manifest.ts';
 
@@ -43,8 +45,9 @@ const darkQuery = (): MediaQueryList | null =>
 
 /**
  * The ink of the toolbar's own icons (ADR 0025 § 11): Firefox tells us through the theme's icon or
- * text colour (light text means a dark toolbar), else the colour scheme; a Chromium service worker
- * has neither, so it keeps the dark ink.
+ * text colour (light text means a dark toolbar), else the colour scheme: `matchMedia` where the
+ * background is a page, the offscreen document's report (src/scheme.ts) in a Chromium service
+ * worker, which has neither; until that answers, the dark ink.
  */
 async function currentInk(): Promise<ToolbarInk> {
   try {
@@ -57,7 +60,8 @@ async function currentInk(): Promise<ToolbarInk> {
   } catch {
     // no theme API here: fall through to the colour scheme
   }
-  return darkQuery()?.matches ? 'light' : 'dark';
+  const query = darkQuery();
+  return inkForScheme(query ? query.matches : reportedDark());
 }
 
 function iconPath(variant: ToolbarIcon, ink: ToolbarInk): Record<string, string> {
@@ -122,5 +126,6 @@ export function installToolbar(): void {
   // The toolbar's icon colour moves with the theme and the system's colour scheme.
   (browser as unknown as { theme?: ThemeApi }).theme?.onUpdated?.addListener(() => void refreshToolbar());
   darkQuery()?.addEventListener('change', () => void refreshToolbar());
+  installScheme(() => void refreshToolbar());
   void refreshToolbar();
 }

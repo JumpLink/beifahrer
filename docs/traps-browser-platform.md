@@ -26,6 +26,10 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
 
 - **Chrome ≥ 137 ignores `--load-extension`.** The e2e needs Chrome for Testing / Playwright's
   Chromium, not the branded browser.
+- **An offscreen document gets no `change` event for `prefers-color-scheme`, at least under a DevTools
+  media override** (Chromium 149, 2026-11-04: `matchMedia(...).matches` flipped, the listener never
+  ran). `entrypoints/offscreen/main.ts` therefore also re-reads the answer every 3 s and reports only
+  a change. A real OS scheme change was not measured; the poll covers both.
 - **Safari's extension service worker hangs on `new WebSocket('ws://127.0.0.1:…')`.** No error, no
   CPU, no later event: every page waiting on the worker stays white, and even the Web Inspector
   console attached to it evaluates nothing. It only bites once a token is set, because only then

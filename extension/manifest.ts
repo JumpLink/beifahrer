@@ -132,7 +132,18 @@ export function manifestFor(
   // `tabGroups`: naming and colouring tab groups (Chromium; Firefox ≥ 139). Both are used only
   // behind the person's "Let the agent manage tabs and windows" switch, and for the person's own
   // restore buttons in the options page.
-  const permissions = ['tabs', 'storage', 'alarms', 'sessions', 'tabGroups', ...(mv3 ? ['scripting'] : [])];
+  const permissions: string[] = [
+    'tabs',
+    'storage',
+    'alarms',
+    'sessions',
+    'tabGroups',
+    ...(mv3 ? ['scripting'] : []),
+  ];
+  // `offscreen` (Chromium only, no install warning: developer.chrome.com/docs/extensions/reference/permissions-list):
+  // the service worker has no `matchMedia`, so a tiny offscreen document reports the colour scheme
+  // for the toolbar's ink (src/scheme.ts).
+  if (target === 'chrome-mv3' || target === 'edge-mv3') permissions.push('offscreen');
   const action = {
     default_title: '__MSG_extName__',
     default_popup: 'popup.html',

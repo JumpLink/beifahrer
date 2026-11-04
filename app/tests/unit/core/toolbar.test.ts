@@ -2,7 +2,10 @@ import { describe, expect, it } from '@gjsify/unit';
 
 import {
   alarmOf,
+  inkForScheme,
   inkForThemeColour,
+  isSchemeMessage,
+  SCHEME_MESSAGE,
   LOOK_COLOUR,
   parseThemeColour,
   toolbarLook,
@@ -115,6 +118,17 @@ export default async () => {
       expect(inkForThemeColour('#333338')).toBe('dark');
       expect(inkForThemeColour('rgba(0,0,6,.8)')).toBe('dark');
       expect(inkForThemeColour('currentcolor')).toBe(null);
+    });
+    await it('maps the colour scheme to an ink, the dark one until it is known', async () => {
+      expect(inkForScheme(true)).toBe('light');
+      expect(inkForScheme(false)).toBe('dark');
+      expect(inkForScheme(null)).toBe('dark');
+    });
+    await it('accepts only a well-formed scheme report', async () => {
+      expect(isSchemeMessage({ type: SCHEME_MESSAGE, dark: true })).toBe(true);
+      expect(isSchemeMessage({ type: SCHEME_MESSAGE, dark: 'yes' })).toBe(false);
+      expect(isSchemeMessage({ type: 'status', dark: true })).toBe(false);
+      expect(isSchemeMessage(null)).toBe(false);
     });
   });
 };
