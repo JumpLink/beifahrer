@@ -98,6 +98,11 @@ jobs:
       - name: One product version
         run: node tools/version.mjs check
 
+      # The store listings are derived from the metainfo and `gjsify.webext.listing`; a permission
+      # without a justification or a string without a German translation fails here, not at review.
+      - name: Store listing
+        run: gjsify webext listing --check
+
       - name: Build the app bundle
         run: gjsify workspace beifahrer-app build
 
