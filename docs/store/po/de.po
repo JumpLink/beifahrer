@@ -18,8 +18,8 @@ msgstr "Liest URL und Titel offener Tabs, um die Richtlinie pro Website auf den 
 msgid "Stores the person's per-site policy, feature switches, pairing token and pause state in the browser's local extension storage."
 msgstr "Speichert Richtlinie pro Website, Funktionsschalter, Kopplungs-Token und Pausenstatus der Person im lokalen Erweiterungsspeicher des Browsers."
 
-msgid "Wakes the background worker periodically to reconnect to the local bridge and keep the toolbar icon's state current."
-msgstr "Weckt den Hintergrundprozess regelmäßig, um die Verbindung zur lokalen Brücke wiederherzustellen und den Zustand des Symbolleistensymbols aktuell zu halten."
+msgid "Wakes the background worker to reconnect to the local bridge, save the automatic session snapshot, and end temporary site access when it expires."
+msgstr "Weckt den Hintergrundprozess, um die Verbindung zur lokalen Brücke wiederherzustellen, die automatische Sitzungssicherung zu speichern und befristeten Zugriff auf eine Website bei Ablauf zu beenden."
 
 msgid "Lists and restores recently closed tabs and windows, only when the person has switched tab management on."
 msgstr "Listet kürzlich geschlossene Tabs und Fenster auf und stellt sie wieder her, nur wenn die Person die Tabverwaltung eingeschaltet hat."

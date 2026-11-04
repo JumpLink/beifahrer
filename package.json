@@ -41,7 +41,7 @@
         "permissions": {
           "tabs": "Reads the URL and title of open tabs, to apply the per-site policy to the tab the agent addresses and to list tabs to the person.",
           "storage": "Stores the person's per-site policy, feature switches, pairing token and pause state in the browser's local extension storage.",
-          "alarms": "Wakes the background worker periodically to reconnect to the local bridge and keep the toolbar icon's state current.",
+          "alarms": "Wakes the background worker to reconnect to the local bridge, save the automatic session snapshot, and end temporary site access when it expires.",
           "sessions": "Lists and restores recently closed tabs and windows, only when the person has switched tab management on.",
           "tabGroups": "Names and colours tab groups, only when the person has switched tab management on.",
           "scripting": "Injects the page agent that reads and acts on a page, only after the policy allows that site's origin.",
