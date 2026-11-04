@@ -17,51 +17,12 @@
  */
 
 import GdkPixbuf from 'gi://GdkPixbuf?version=2.0';
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { LOOK_COLOUR, MONOCHROME } from '@beifahrer/core';
+import { MIN_OPAQUE_SHARE, SMALL_MAX, opaqueShare, iconSource, variantSvg } from './icon-looks.ts';
 
-import { ICON_SIZES, ICON_VARIANTS, type IconVariant, type Target } from '../manifest.ts';
-
-/** Whether the bus carries its colour, and whether the look leads with a dot. */
-const LOOK: Record<IconVariant, { colour: boolean; dot: boolean }> = {
-  idle: { colour: false, dot: false },
-  active: { colour: true, dot: false },
-  paused: { colour: false, dot: true },
-  offline: { colour: false, dot: true },
-  // GNOME's blue 3: not a warning colour, but not the quiet idle look either.
-  wide: { colour: false, dot: true },
-  'wide-active': { colour: true, dot: true },
-};
-
-/** The symbolic source draws everything in this one fill; the monochrome look swaps it. */
-const SYMBOLIC_INK = '#241f31';
-
-/**
- * The app icons open with a prolog and a long design comment: GdkPixbuf sniffs the first bytes for
- * `<svg` and gives up on the file otherwise, so the derived copy starts at the root element.
- */
-const iconSource = (root: string, ...path: string[]): string => {
-  const svg = readFileSync(join(root, '..', 'data', 'icons', 'hicolor', ...path), 'utf8');
-  return svg.slice(svg.indexOf('<svg'));
-};
-
-export function variantSvg(colourSource: string, symbolicSource: string, variant: IconVariant): string {
-  const { colour, dot } = LOOK[variant];
-  let svg = colour ? colourSource : symbolicSource.replaceAll(SYMBOLIC_INK, MONOCHROME);
-  if (!colour && svg === symbolicSource) throw new Error('the symbolic icon lost its fill ' + SYMBOLIC_INK);
-  // The dot sits at the bottom right in each source's own units (128 and 16), with a white ring
-  // to keep it apart from the bus at 16 px.
-  if (dot) {
-    const unit = colour ? 1 : 1 / 8;
-    svg = svg.replace(
-      '</svg>',
-      `  <circle cx="${102 * unit}" cy="${102 * unit}" r="${24 * unit}" fill="${LOOK_COLOUR[variant]}" stroke="#ffffff" stroke-width="${6 * unit}"/>\n</svg>`,
-    );
-  }
-  return svg;
-}
+import { ICON_SIZES, ICON_VARIANTS, type Target } from '../manifest.ts';
 
 /** Render every variant once into `stage`; `copyIcons` then places what each target needs. */
 export function renderIcons(root: string, stage: string): void {
@@ -69,10 +30,14 @@ export function renderIcons(root: string, stage: string): void {
   const symbolic = iconSource(root, 'symbolic', 'apps', 'eu.jumplink.beifahrer-symbolic.svg');
   mkdirSync(join(stage, 'icons'), { recursive: true });
   for (const variant of ICON_VARIANTS) {
-    const svg = join(stage, 'icons', `${variant}.svg`);
-    writeFileSync(svg, variantSvg(colour, symbolic, variant));
     for (const size of ICON_SIZES) {
+      const small = size <= SMALL_MAX;
+      const svg = join(stage, 'icons', `${variant}${small ? '-small' : ''}.svg`);
+      writeFileSync(svg, variantSvg(colour, symbolic, variant, small));
       const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(svg, size, size);
+      const share = opaqueShare(pixbuf.get_pixels(), pixbuf.get_n_channels());
+      if (share < MIN_OPAQUE_SHARE)
+        throw new Error(`${variant}-${size}.png is nearly empty (${share.toFixed(2)} opaque)`);
       pixbuf.savev(join(stage, 'icons', `${variant}-${size}.png`), 'png', [], []);
     }
   }
