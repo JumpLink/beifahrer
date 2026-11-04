@@ -11,13 +11,15 @@
 
 import GLib from 'gi://GLib?version=2.0';
 import type Gtk from 'gi://Gtk?version=4.0';
+import type XdpModule from 'gi://Xdp?version=1.0';
+import type XdpGtk4Module from 'gi://XdpGtk4?version=1.0';
 
 import { autostartCommandline } from './autostart-model.ts';
 import type { BackgroundAnswer } from './background-model.ts';
 import { inFlatpak } from './background-model.ts';
 
-type Xdp = typeof import('gi://Xdp?version=1.0').default;
-type XdpGtk4 = typeof import('gi://XdpGtk4?version=1.0').default;
+type Xdp = typeof XdpModule;
+type XdpGtk4 = typeof XdpGtk4Module;
 
 export interface BackgroundPortal {
   /** Asks once at the first close; the answer is kept for the process, so the second close does not ask. */
