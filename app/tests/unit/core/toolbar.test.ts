@@ -1,6 +1,14 @@
 import { describe, expect, it } from '@gjsify/unit';
 
-import { alarmOf, LOOK_COLOUR, toolbarLook, type Connection, type ToolbarInput } from '@beifahrer/core';
+import {
+  alarmOf,
+  inkForThemeColour,
+  LOOK_COLOUR,
+  parseThemeColour,
+  toolbarLook,
+  type Connection,
+  type ToolbarInput,
+} from '@beifahrer/core';
 
 /** Every connection the extension's status can be in; `unpaired` is what no token gives. */
 const CONNECTIONS: Connection[] = [
@@ -90,6 +98,23 @@ export default async () => {
     await it('paints the connected looks green, the only signal of a quiet bus', async () => {
       expect(LOOK_COLOUR.idle).toBe('#26a269');
       expect(LOOK_COLOUR.active).toBe(LOOK_COLOUR.idle);
+    });
+
+    await it('parses the colour forms a theme gives', async () => {
+      expect(JSON.stringify(parseThemeColour('#fff'))).toBe('[255, 255, 255]'.replaceAll(' ', ''));
+      expect(JSON.stringify(parseThemeColour('#333338'))).toBe('[51, 51, 56]'.replaceAll(' ', ''));
+      expect(JSON.stringify(parseThemeColour('rgba(0, 0, 6, 0.8)'))).toBe('[0, 0, 6]'.replaceAll(' ', ''));
+      expect(JSON.stringify(parseThemeColour([251, 251, 254]))).toBe('[251, 251, 254]'.replaceAll(' ', ''));
+      expect(parseThemeColour('red')).toBe(null);
+      expect(parseThemeColour('rgb(300, 0, 0)')).toBe(null);
+      expect(parseThemeColour(undefined)).toBe(null);
+    });
+    await it('picks the light ink for light text and the dark ink for dark text', async () => {
+      expect(inkForThemeColour('#ffffff')).toBe('light');
+      expect(inkForThemeColour([251, 251, 254])).toBe('light');
+      expect(inkForThemeColour('#333338')).toBe('dark');
+      expect(inkForThemeColour('rgba(0,0,6,.8)')).toBe('dark');
+      expect(inkForThemeColour('currentcolor')).toBe(null);
     });
   });
 };

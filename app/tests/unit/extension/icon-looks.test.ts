@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@gjsify/unit';
 
-import { CONNECTED, LOOK_COLOUR } from '@beifahrer/core';
+import { CONNECTED, LOOK_COLOUR, TOOLBAR_INK } from '@beifahrer/core';
 
 import { ICON_VARIANTS } from '../../../../extension/manifest.ts';
 import { MIN_OPAQUE_SHARE, opaqueShare, variantSvg } from '../../../../extension/scripts/icon-looks.ts';
@@ -27,6 +27,15 @@ export default async () => {
         expect(variantSvg(SRC, SRC, variant).includes('<circle')).toBe(true);
       expect(LOOK_COLOUR.idle).toBe(CONNECTED);
       expect(new Set(dots).size).toBe(4);
+    });
+
+    await it('paints the monochrome bus in the toolbar ink and leaves the colour bus alone', async () => {
+      const colour = '<svg><path fill="#3584e4"/></svg>';
+      expect(variantSvg(colour, SRC, 'idle').includes(TOOLBAR_INK.dark)).toBe(true);
+      expect(variantSvg(colour, SRC, 'idle', 'dark').includes('#241f31')).toBe(false);
+      expect(variantSvg(colour, SRC, 'idle', 'light').includes(`fill="${TOOLBAR_INK.light}"`)).toBe(true);
+      expect(variantSvg(colour, SRC, 'idle', 'light').includes(TOOLBAR_INK.dark)).toBe(false);
+      expect(variantSvg(colour, SRC, 'active', 'light')).toBe(variantSvg(colour, SRC, 'active', 'dark'));
     });
   });
 };

@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { LOOK_COLOUR, MONOCHROME } from '@beifahrer/core';
+import { LOOK_COLOUR, TOOLBAR_INK, type ToolbarInk } from '@beifahrer/core';
 
 import type { IconVariant } from '../manifest.ts';
 
@@ -21,7 +21,7 @@ export const LOOK: Record<IconVariant, { colour: boolean; dot: boolean }> = {
   'wide-active': { colour: true, dot: true },
 };
 
-/** The symbolic source draws everything in this one fill; the monochrome look swaps it. */
+/** The symbolic source draws everything in this one fill; the monochrome look swaps it for the toolbar's ink. */
 const SYMBOLIC_INK = '#241f31';
 
 /**
@@ -33,9 +33,14 @@ export const iconSource = (root: string, ...path: string[]): string => {
   return svg.slice(svg.indexOf('<svg'));
 };
 
-export function variantSvg(colourSource: string, symbolicSource: string, variant: IconVariant): string {
+export function variantSvg(
+  colourSource: string,
+  symbolicSource: string,
+  variant: IconVariant,
+  ink: ToolbarInk = 'dark',
+): string {
   const { colour, dot } = LOOK[variant];
-  let svg = colour ? colourSource : symbolicSource.replaceAll(SYMBOLIC_INK, MONOCHROME);
+  let svg = colour ? colourSource : symbolicSource.replaceAll(SYMBOLIC_INK, TOOLBAR_INK[ink]);
   if (!colour && svg === symbolicSource) throw new Error('the symbolic icon lost its fill ' + SYMBOLIC_INK);
   // The dot is the only state signal on the button (no badge), at the bottom right in each
   // source's own units (128 and 16), with a white ring to keep it apart from the bus at 16 px.

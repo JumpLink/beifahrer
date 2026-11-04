@@ -19,8 +19,41 @@
 
 export const ACTIVE_MS = 5_000;
 
-/** Mid-grey: readable on a light and on a dark toolbar alike. */
-export const MONOCHROME = '#7f7f86';
+/**
+ * The monochrome bus follows the toolbar's own icon colour, measured from Firefox on GNOME
+ * (2026-11-04): `dark` ink for a light toolbar (Adwaita's rgba(0,0,6,.8) on white), `light` ink
+ * for a dark one.
+ */
+export const TOOLBAR_INK = { dark: '#333338', light: '#ffffff' } as const;
+export type ToolbarInk = keyof typeof TOOLBAR_INK;
+
+/** `#rgb`, `#rrggbb`, `rgb()`/`rgba()` or a `[r, g, b]` array, as a WebExtension theme gives them. */
+export function parseThemeColour(value: unknown): [number, number, number] | null {
+  if (Array.isArray(value)) {
+    const [r, g, b] = value;
+    return [r, g, b].every((n) => typeof n === 'number' && n >= 0 && n <= 255) ? [r, g, b] : null;
+  }
+  if (typeof value !== 'string') return null;
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value.trim());
+  if (hex) {
+    const h = hex[1].length === 3 ? [...hex[1]].map((c) => c + c).join('') : hex[1];
+    return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number];
+  }
+  const fn = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i.exec(value.trim());
+  if (fn) {
+    const rgb = [fn[1], fn[2], fn[3]].map(Number);
+    return rgb.every((n) => n <= 255) ? (rgb as [number, number, number]) : null;
+  }
+  return null;
+}
+
+/** Light text on the toolbar means a dark toolbar, so the `light` ink; null when the colour is unreadable. */
+export function inkForThemeColour(value: unknown): ToolbarInk | null {
+  const rgb = parseThemeColour(value);
+  if (!rgb) return null;
+  const [r, g, b] = rgb;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 128 ? 'light' : 'dark';
+}
 
 /** Adwaita green 5: the dot of a connected look, the only state signal left on the button. */
 export const CONNECTED = '#26a269';
