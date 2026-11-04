@@ -9,6 +9,8 @@
  * the wire.
  */
 
+import type { ToolbarInk } from '@beifahrer/core';
+
 export type Target = 'chrome-mv3' | 'edge-mv3' | 'firefox-mv2' | 'safari-mv3';
 
 export const TARGETS: readonly Target[] = ['chrome-mv3', 'edge-mv3', 'firefox-mv2', 'safari-mv3'];
@@ -95,11 +97,15 @@ export type IconVariant = (typeof ICON_VARIANTS)[number];
  * BLANK in the toolbar button (measured, Firefox 155, 2026-09-25), so it gets the PNGs Chromium
  * already had.
  */
-export function iconPaths(_target: Target, variant: IconVariant): Record<string, string> {
+export function iconPaths(_target: Target, variant: IconVariant, ink?: ToolbarInk): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const size of ICON_SIZES) out[String(size)] = `icons/${variant}-${size}.png`;
+  for (const size of ICON_SIZES) out[String(size)] = `icons/${iconFile(variant, size, ink)}`;
   return out;
 }
+
+/** The dark ink (for light toolbars) has the plain name; the light ink adds `-light` (scripts/icons.ts). */
+export const iconFile = (variant: IconVariant, size: number, ink: ToolbarInk = 'dark'): string =>
+  `${variant}${ink === 'light' ? '-light' : ''}-${size}.png`;
 
 export interface ManifestInput {
   version: string;

@@ -6,13 +6,21 @@
  */
 
 import { browser } from '@wxt-dev/browser';
-import { ACTIVE_MS, toolbarLook, wildcardGrant, type Connection, type ToolbarIcon } from '@beifahrer/core';
+import {
+  ACTIVE_MS,
+  inkForThemeColour,
+  toolbarLook,
+  wildcardGrant,
+  type Connection,
+  type ToolbarIcon,
+  type ToolbarInk,
+} from '@beifahrer/core';
 import { activityState, onActivityChange } from './activity.ts';
 import { currentStatus, onStatusChange } from './bridge-client.ts';
 import { loadGrants, onGrantsChange } from './grants.ts';
 import { t } from './i18n.ts';
 import { loadSettings } from './settings.ts';
-import { ICON_SIZES } from '../manifest.ts';
+import { iconFile, ICON_SIZES } from '../manifest.ts';
 
 interface ButtonApi {
   setIcon?(details: { path: Record<string, string> }): Promise<void>;
@@ -25,10 +33,38 @@ function button(): ButtonApi | null {
   return b.action ?? b.browserAction ?? null;
 }
 
-function iconPath(variant: ToolbarIcon): Record<string, string> {
+interface ThemeApi {
+  getCurrent?(): Promise<{ colors?: Record<string, unknown> | null } | undefined>;
+  onUpdated?: { addListener(cb: () => void): void };
+}
+
+const darkQuery = (): MediaQueryList | null =>
+  globalThis.matchMedia?.('(prefers-color-scheme: dark)') ?? null;
+
+/**
+ * The ink of the toolbar's own icons (ADR 0025 § 11): Firefox tells us through the theme's icon or
+ * text colour (light text means a dark toolbar), else the colour scheme; a Chromium service worker
+ * has neither, so it keeps the dark ink.
+ */
+async function currentInk(): Promise<ToolbarInk> {
+  try {
+    const theme = (browser as unknown as { theme?: ThemeApi }).theme;
+    const colors = (await theme?.getCurrent?.())?.colors;
+    for (const key of ['icons', 'toolbar_text', 'bookmark_text']) {
+      const ink = inkForThemeColour(colors?.[key]);
+      if (ink) return ink;
+    }
+  } catch {
+    // no theme API here: fall through to the colour scheme
+  }
+  return darkQuery()?.matches ? 'light' : 'dark';
+}
+
+function iconPath(variant: ToolbarIcon, ink: ToolbarInk): Record<string, string> {
   // PNGs in every browser — see iconPaths() in manifest.ts for why not SVG in Firefox.
   const out: Record<string, string> = {};
-  for (const size of ICON_SIZES.filter((s) => s <= 32)) out[String(size)] = `/icons/${variant}-${size}.png`;
+  for (const size of ICON_SIZES.filter((s) => s <= 32))
+    out[String(size)] = `/icons/${iconFile(variant, size, ink)}`;
   return out;
 }
 
@@ -53,10 +89,11 @@ export async function refreshToolbar(): Promise<void> {
   clearTimeout(fadeTimer);
   if (inFlight === 0 && lastActivityAt > 0 && now - lastActivityAt < ACTIVE_MS)
     fadeTimer = setTimeout(() => void refreshToolbar(), ACTIVE_MS - (now - lastActivityAt) + 50);
-  const key = JSON.stringify(look);
+  const ink = await currentInk();
+  const key = JSON.stringify([look, ink]);
   if (key === painted) return;
   painted = key;
-  await api.setIcon?.({ path: iconPath(look.icon) });
+  await api.setIcon?.({ path: iconPath(look.icon, ink) });
   // No badge: Firefox draws it over the 16 px icon. Clear one an older version left behind.
   await api.setBadgeText?.({ text: '' });
   await api.setTitle?.({ title: titleFor(look.icon, currentStatus().state as Connection) });
@@ -82,5 +119,8 @@ export function installToolbar(): void {
   browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.paused) void refreshToolbar();
   });
+  // The toolbar's icon colour moves with the theme and the system's colour scheme.
+  (browser as unknown as { theme?: ThemeApi }).theme?.onUpdated?.addListener(() => void refreshToolbar());
+  darkQuery()?.addEventListener('change', () => void refreshToolbar());
   void refreshToolbar();
 }
