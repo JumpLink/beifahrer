@@ -502,7 +502,16 @@ look is now rendered in both inks (`TOOLBAR_INK`, core): `dark` `#333338` under 
 coloured looks and the status dot are unchanged. `src/toolbar.ts` picks the ink at runtime: Firefox's
 `browser.theme.getCurrent()` icon or text colour by luminance (light text means a dark toolbar),
 else `prefers-color-scheme`; it repaints on `theme.onUpdated` and on the media query's `change`.
-A Chromium service worker has no `matchMedia` and keeps the dark ink.
+A Chromium service worker has no `matchMedia`; see the next amendment.
+
+**Amendment 2026-11-04 (later): Chromium and Edge read the scheme through an offscreen document.**
+`extension/src/scheme.ts` creates one `chrome.offscreen` document (reason `MATCH_MEDIA`,
+`entrypoints/offscreen`) that reports `prefers-color-scheme` by message; the worker keeps the answer
+in `storage.session` and repaints on change. Only the `chrome-mv3` and `edge-mv3` manifests carry the
+`offscreen` permission, which Chrome lists without an install warning
+(<https://developer.chrome.com/docs/extensions/reference/permissions-list>). Firefox and Safari are
+unchanged; until the first report the dark ink stays. Verified in Chromium by flipping the
+offscreen document's scheme over DevTools: the worker received it and the bus turned white.
 
 ### 12. The style reference and its licence
 
