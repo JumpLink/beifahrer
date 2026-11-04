@@ -55,6 +55,26 @@ export function inkForThemeColour(value: unknown): ToolbarInk | null {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 128 ? 'light' : 'dark';
 }
 
+/** What the offscreen document of a Chromium service worker sends: its `prefers-color-scheme: dark` answer. */
+export const SCHEME_MESSAGE = 'beifahrer:colour-scheme';
+/** What the worker sends to an offscreen document that was already there, to have the answer again. */
+export const SCHEME_QUERY = 'beifahrer:colour-scheme?';
+
+export interface SchemeMessage {
+  type: typeof SCHEME_MESSAGE;
+  dark: boolean;
+}
+
+export function isSchemeMessage(value: unknown): value is SchemeMessage {
+  const m = value as Partial<SchemeMessage> | null;
+  return m?.type === SCHEME_MESSAGE && typeof m.dark === 'boolean';
+}
+
+/** A dark colour scheme means a dark toolbar, so the `light` ink; no answer yet keeps the `dark` ink. */
+export function inkForScheme(dark: boolean | null | undefined): ToolbarInk {
+  return dark ? 'light' : 'dark';
+}
+
 /** Adwaita green 5: the dot of a connected look, the only state signal left on the button. */
 export const CONNECTED = '#26a269';
 
