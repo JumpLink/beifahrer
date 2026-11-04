@@ -1,6 +1,5 @@
 import { browser } from '@wxt-dev/browser';
 import { originOf, withRule, withRuleQuiet, type Level, type OriginRule } from '@beifahrer/core';
-import { GjsifyOptionList } from '@gjsify/adwaita-core';
 import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../../src/bridge-client.ts';
 import { GRANTS_MESSAGE, type WideDuration, type WideView } from '../../src/grants-messages.ts';
@@ -19,6 +18,7 @@ import {
 import { scriptQuietControl, type ScriptQuietControl } from '../../src/ui/script-quiet.ts';
 import { Diagram, type DiagramModel } from '../../src/ui/diagram.ts';
 import { linksOf, stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
+import { optionList } from '../../src/ui/option-list.ts';
 import { showToast } from '../../src/ui/toast.ts';
 import { renderSessions } from '../../src/ui/sessions.ts';
 
@@ -179,7 +179,7 @@ function renderWideChoices(status: Status | undefined): void {
   if (wideFor.dataset.model === key) return;
   const keep = wideFor.selectedValue;
   wideFor.dataset.model = key;
-  wideFor.model = GjsifyOptionList.new(model);
+  wideFor.model = optionList(model);
   wideFor.selectedValue = model.some((m) => m.value === keep) ? keep : 'hour';
 }
 
@@ -218,7 +218,7 @@ async function main(): Promise<void> {
 
   const openOptions = (hash = '') => void openOptionsPage(browser, hash);
 
-  wideLevel.model = GjsifyOptionList.new([
+  wideLevel.model = optionList([
     { value: 'read', label: t('level_read') },
     { value: 'write', label: t('level_write') },
   ]);
@@ -229,7 +229,9 @@ async function main(): Promise<void> {
       browser.runtime.sendMessage({ type: 'status' }) as Promise<Status | undefined>,
       loadActivity(),
       loadSettings(),
-      browser.runtime.sendMessage({ type: GRANTS_MESSAGE, op: 'get' }) as Promise<WideView | null>,
+      (browser.runtime.sendMessage({ type: GRANTS_MESSAGE, op: 'get' }) as Promise<WideView | null>).catch(
+        () => null,
+      ),
     ]);
     renderState(status, settings.paused, activity);
     renderWide(wide, status, settings.features.script === true);
@@ -244,7 +246,7 @@ async function main(): Promise<void> {
   };
   await Promise.all([refresh(), renderSite()]);
   // While the popup is open: follow the agent live, and a pause set from the page or shortcut.
-  setInterval(() => void refresh(), 1000);
+  setInterval(() => void refresh().catch(() => undefined), 1000);
   browser.storage.onChanged.addListener((_changes, area) => {
     if (area === 'local') void refresh();
   });

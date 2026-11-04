@@ -15,10 +15,8 @@ import {
   type SavedSession,
   type SessionNameIssue,
 } from '@beifahrer/core';
-import { GjsifyOptionList } from '@gjsify/adwaita-core';
 import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../../src/bridge-client.ts';
-import { GRANTS_MESSAGE, type WideView } from '../../src/grants-messages.ts';
 import { featureLabel, plural, t, uiLanguage, type MessageKey } from '../../src/i18n.ts';
 import { toggleShortcut } from '../../src/shortcut.ts';
 import {
@@ -43,7 +41,8 @@ import {
 } from '../../src/ui/features.ts';
 import { scriptQuietControl } from '../../src/ui/script-quiet.ts';
 import { infoButton } from '../../src/ui/info.ts';
-import { heroIcon, stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
+import { stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
+import { optionList } from '../../src/ui/option-list.ts';
 import { showToast } from '../../src/ui/toast.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -67,17 +66,11 @@ const status = async () => (await browser.runtime.sendMessage({ type: 'status' }
 let state: UiState = 'unpaired';
 
 async function renderState(): Promise<void> {
-  const [current, activity, { paused }, wide] = await Promise.all([
-    status(),
-    loadActivity(),
-    loadSettings(),
-    browser.runtime.sendMessage({ type: GRANTS_MESSAGE, op: 'get' }) as Promise<WideView | null>,
-  ]);
+  const [current, activity, { paused }] = await Promise.all([status(), loadActivity(), loadSettings()]);
   state = stateOf(current?.state, paused, activity);
   $('state').textContent = t(STATE_WORDS[state]);
   const icon = $<HTMLImageElement>('hero-icon');
-  const src = `/icons/${heroIcon(state, wide !== null)}-48.png`;
-  if (icon.getAttribute('src') !== src) icon.setAttribute('src', src);
+  // Always the colour app icon (ADR 0025 § 9a), as in the popup; only the animation follows the state.
   icon.classList.toggle('working', state === 'working');
   setQuietly($<Adw.SwitchRow>('pause'), paused);
 
@@ -125,7 +118,7 @@ async function renderSites(): Promise<void> {
   for (const [origin, rule] of entries) {
     const row = document.createElement('adw-combo-row') as Adw.ComboRow;
     row.setAttribute('title', origin);
-    row.model = GjsifyOptionList.new(SITE_CHOICES.map(([value, label]) => ({ value, label: t(label) })));
+    row.model = optionList(SITE_CHOICES.map(([value, label]) => ({ value, label: t(label) })));
     group.addRow(row);
     row.selectedValue =
       rule.level === 'write' ? (rule.confirmWrites === false ? 'write-silent' : 'write') : rule.level;
@@ -535,15 +528,18 @@ async function main(): Promise<void> {
     network: (row: Adw.SwitchRow, on: boolean) => void setNetwork(row, on),
     captureSaves: (row: Adw.SwitchRow, on: boolean) => void setCaptureSaves(row, on),
   };
+  // Each part on its own: one failing call must leave the others rendered.
+  const guarded = (part: () => Promise<unknown>) =>
+    part().catch((err) => console.error('options: a section failed', err));
   await Promise.all([
-    setupPause(),
-    renderState(),
-    renderSites(),
-    setupTabs(),
-    renderFeatures(features, onChange),
-    renderShotsWarning(),
-    renderNetWarning(),
-    renderSavesWarning(),
+    guarded(setupPause),
+    guarded(renderState),
+    guarded(renderSites),
+    guarded(setupTabs),
+    guarded(() => renderFeatures(features, onChange)),
+    guarded(renderShotsWarning),
+    guarded(renderNetWarning),
+    guarded(renderSavesWarning),
   ]);
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
@@ -555,7 +551,7 @@ async function main(): Promise<void> {
       void renderSavesWarning();
     }
   });
-  setInterval(() => void renderState(), 2000);
+  setInterval(() => void renderState().catch(() => undefined), 2000);
   // The popup's "Show all" opens this page at its activity.
   if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
 }

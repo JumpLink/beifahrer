@@ -155,6 +155,14 @@ if (localeErrors.length) throw new Error(`_locales is inconsistent:\n  ${localeE
 rmSync(STAGE, { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
 for (const [name, entry] of Object.entries(SCRIPTS)) bundle(name, entry);
+// `@gjsify/adwaita-core` claims the Gio resource registry at load and throws on a second copy, so
+// only ui.js may carry it among the pages (background.js is its own realm). A page script that did would die before its first line (0.1.15 to 0.1.18).
+for (const name of ['popup', 'options', 'confirm']) {
+  if (readFileSync(join(STAGE, `${name}.js`), 'utf8').includes('claimResourceRegistry'))
+    throw new Error(
+      `${name}.js bundles @gjsify/adwaita-core; import it in src/ui/kit.ts only (option-list.ts)`,
+    );
+}
 // Injected before every request, the agent must evaluate once per realm (issue #138, guard-once.ts).
 const AGENT_BUNDLE = join(STAGE, 'page-agent.js');
 writeFileSync(AGENT_BUNDLE, oncePerRealm(readFileSync(AGENT_BUNDLE, 'utf8')));
