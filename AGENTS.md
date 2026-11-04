@@ -208,3 +208,7 @@ repo does not own is the one case where "it was tested here once" stops being ev
   package under `packages/` is LGPL-3.0-or-later (own `LICENSE` + `COPYING`). A package never
   depends on an AGPL workspace. No SPDX headers in sources.
 - Docs in English. Comments explain *why*.
+- A PR that changes anything visible shows it in its body: screenshots (headless, `headless-run`)
+  pushed to an orphan branch `pr-assets/<topic>` and embedded via
+  `https://raw.githubusercontent.com/JumpLink/beifahrer/pr-assets/<topic>/<file>.png`, before/after
+  where there is a before.
