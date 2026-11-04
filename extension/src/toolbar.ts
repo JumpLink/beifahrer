@@ -3,20 +3,10 @@
  * while an agent is at work, a yellow dot while paused, a red one without a bridge connection.
  * What to show is `toolbarLook` in core, in the ladder `alarmOf` there names; this file only
  * paints it, on whichever button API the browser has (`action` in MV3, `browserAction` in MV2).
- * The badge carries the link state beside it: green, yellow or red, with a text that says it
- * without the colour (Safari ignores the colour).
  */
 
 import { browser } from '@wxt-dev/browser';
-import {
-  ACTIVE_MS,
-  BADGE_STATUS,
-  badgeStatusOf,
-  toolbarLook,
-  wildcardGrant,
-  type Connection,
-  type ToolbarIcon,
-} from '@beifahrer/core';
+import { ACTIVE_MS, toolbarLook, wildcardGrant, type Connection, type ToolbarIcon } from '@beifahrer/core';
 import { activityState, onActivityChange } from './activity.ts';
 import { currentStatus, onStatusChange } from './bridge-client.ts';
 import { loadGrants, onGrantsChange } from './grants.ts';
@@ -27,7 +17,6 @@ import { ICON_SIZES } from '../manifest.ts';
 interface ButtonApi {
   setIcon?(details: { path: Record<string, string> }): Promise<void>;
   setBadgeText?(details: { text: string }): Promise<void>;
-  setBadgeBackgroundColor?(details: { color: string }): Promise<void>;
   setTitle?(details: { title: string }): Promise<void>;
 }
 
@@ -68,10 +57,8 @@ export async function refreshToolbar(): Promise<void> {
   if (key === painted) return;
   painted = key;
   await api.setIcon?.({ path: iconPath(look.icon) });
-  // The status badge is on every browser, beside the icon (ADR 0025 § 11).
-  const status = BADGE_STATUS[badgeStatusOf(look.icon)];
-  await api.setBadgeText?.({ text: status.text });
-  await api.setBadgeBackgroundColor?.({ color: status.colour });
+  // No badge: Firefox draws it over the 16 px icon. Clear one an older version left behind.
+  await api.setBadgeText?.({ text: '' });
   await api.setTitle?.({ title: titleFor(look.icon, currentStatus().state as Connection) });
 }
 

@@ -6,16 +6,15 @@
  *   not connected        monochrome + red dot     no agent can reach this browser at all
  *   paused               monochrome + yellow dot   the person's own stop
  *   "all sites" granted  monochrome + blue dot     a temporary grant is live (ADR 0010)
- *   agent active         the bus in colour        a request running, and ACTIVE_MS after
- *   connected, idle      monochrome bus            nothing is happening
+ *   agent active         the bus in colour + green dot  a request running, and ACTIVE_MS after
+ *   connected, idle      monochrome + green dot    nothing is happening
  *
  * That order is `alarmOf` below, and it is the one the popup's own word and banner follow, so the
  * button and the popup never disagree about what matters most (ADR 0014).
  *
- * The colour never says it alone: the badge text, the tooltip and the popup carry the state in
- * words with it, and every state without a connection has its own reason spelled out in `OFFLINE`.
- *
- * `badge` is only the fallback for a browser that cannot set the icon.
+ * The colour never says it alone: the tooltip and the popup carry the state in words with it, and
+ * every state without a connection has its own reason spelled out in `OFFLINE`. There is no
+ * toolbar badge: Firefox draws it over the 16 px icon and hides the bus (ADR 0025 § 11).
  */
 
 export const ACTIVE_MS = 5_000;
@@ -23,44 +22,26 @@ export const ACTIVE_MS = 5_000;
 /** Mid-grey: readable on a light and on a dark toolbar alike. */
 export const MONOCHROME = '#7f7f86';
 
+/** Adwaita green 5: the dot of a connected look, the only state signal left on the button. */
+export const CONNECTED = '#26a269';
+
 export type Connection = 'unpaired' | 'connecting' | 'connected' | 'offline' | 'unauthorized' | 'protocol';
 
 export type ToolbarIcon = 'idle' | 'active' | 'paused' | 'offline' | 'wide' | 'wide-active';
 
 /**
- * The colour each look leads with: the dot for the four that carry one, the bus for the two
- * that do not. Adwaita's own palette (red 3, yellow 4, blue 3), because the toolbar button is the
- * one place with no page stylesheet to inherit a theme from. The build draws the dot with it
- * (extension/scripts/icons.ts) and the badge fallback paints the button with it
- * (extension/src/toolbar.ts), so a dot and a badge cannot drift apart.
+ * The dot colour of every look: green while connected, red, yellow and blue for the loud ones. Adwaita's own palette (red 3, yellow 4, blue 3), because the toolbar button is the
+ * one place with no page stylesheet to inherit a theme from. The icon build draws the dot with it
+ * (extension/scripts/icons.ts).
  */
 export const LOOK_COLOUR: Record<ToolbarIcon, string> = {
-  idle: MONOCHROME,
-  active: '#c061cb',
+  idle: CONNECTED,
+  active: CONNECTED,
   paused: '#e5a50a',
   offline: '#e01b24',
   wide: '#3584e4',
   'wide-active': '#3584e4',
 };
-
-/**
- * The status badge on the button (ADR 0025 § 11): the diagram's link 2 in the toolbar. Text and
- * colour together, because Safari accepts `setBadgeBackgroundColor` and paints nothing with it, so
- * the text has to say the state alone. Green, yellow and red are the diagram's own greens,
- * yellows and reds.
- */
-export type BadgeStatus = 'connected' | 'paused' | 'offline';
-
-export const BADGE_STATUS: Record<BadgeStatus, { text: string; colour: string }> = {
-  connected: { text: '\u2713', colour: '#26a269' },
-  paused: { text: 'II', colour: '#e5a50a' },
-  offline: { text: '!', colour: '#e01b24' },
-};
-
-export function badgeStatusOf(icon: ToolbarIcon): BadgeStatus {
-  if (icon === 'offline') return 'offline';
-  return icon === 'paused' ? 'paused' : 'connected';
-}
 
 export interface ToolbarInput {
   connection: Connection;
@@ -76,8 +57,6 @@ export interface ToolbarInput {
 
 export interface ToolbarLook {
   icon: ToolbarIcon;
-  /** Badge text, for a browser that has setBadgeText but no setIcon. */
-  badge: '' | 'AI' | 'II' | '!' | '*';
   title: string;
 }
 
@@ -107,12 +86,11 @@ export function toolbarLook(input: ToolbarInput): ToolbarLook {
     // The guard has already proven the connection is not 'connected', which is exactly the key
     // union OFFLINE has: the cast narrows the type, it does not decide anything.
     const reason = OFFLINE[input.connection as Exclude<Connection, 'connected'>];
-    return { icon: 'offline', badge: '!', title: `Beifahrer — ${reason}` };
+    return { icon: 'offline', title: `Beifahrer — ${reason}` };
   }
   if (alarm === 'paused') {
     return {
       icon: 'paused',
-      badge: 'II',
       title: 'Beifahrer is paused — the agent gets nothing from this browser. Click to resume.',
     };
   }
@@ -121,25 +99,21 @@ export function toolbarLook(input: ToolbarInput): ToolbarLook {
     return isActive(input)
       ? {
           icon: 'wide-active',
-          badge: '*',
           title: 'Beifahrer — an agent is working, with access to all sites for now. Click to end it.',
         }
       : {
           icon: 'wide',
-          badge: '*',
           title: 'Beifahrer — access to all sites is on for now. Click to end it.',
         };
   }
   if (isActive(input)) {
     return {
       icon: 'active',
-      badge: 'AI',
       title: 'Beifahrer — an agent is using this browser right now. Click to see what, or to stop it.',
     };
   }
   return {
     icon: 'idle',
-    badge: '',
     title: 'Beifahrer — connected to an agent, idle. Click to see the activity or pause.',
   };
 }

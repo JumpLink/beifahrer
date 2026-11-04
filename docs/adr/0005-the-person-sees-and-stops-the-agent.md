@@ -78,7 +78,7 @@ handler can skip it:
   `extension/scripts/icons.ts` on GJS through GdkPixbuf/librsvg): grey when connected and idle,
   in colour while a request runs and for 5 s after, a red dot while paused, an amber dot when not
   paired or no bridge is running. The tooltip says it in words. `toolbarLook` (core) is the pure
-  mapping; badge text is only the fallback for a browser without `setIcon`.
+  mapping (no badge since 2026-11-04, ADR 0025 § 11).
 - **Popup**: the pause switch, the site's level, the features, and the last 20 requests: time,
   method in words, host, outcome, and for a fill the first 40 characters the agent typed. Never
   page text and never a path. Held in memory and `storage.session`, never on disk.
