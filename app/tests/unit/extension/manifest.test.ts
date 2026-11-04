@@ -17,6 +17,7 @@ interface Manifest {
   version: string;
   background: Record<string, unknown>;
   browser_specific_settings?: unknown;
+  permissions: string[];
 }
 
 /**
@@ -45,6 +46,15 @@ export default async () => {
     // own has to fail here and be argued for, not drift in unnoticed.
     await it('gives edge-mv3 exactly the chrome-mv3 manifest', async () => {
       sameJson(at('edge-mv3'), at('chrome-mv3'));
+    });
+
+    // The worker has no `matchMedia`; only Chromium has `chrome.offscreen`, and a permission a
+    // browser does not know is a warning (Firefox, AMO) or a load error, so nobody else asks.
+    await it('asks for offscreen on Chromium only', async () => {
+      expect(at('chrome-mv3').permissions.includes('offscreen')).toBe(true);
+      expect(at('edge-mv3').permissions.includes('offscreen')).toBe(true);
+      expect(at('firefox-mv2').permissions.includes('offscreen')).toBe(false);
+      expect(at('safari-mv3').permissions.includes('offscreen')).toBe(false);
     });
 
     await it('builds edge-mv3 as Chromium MV3: a service worker and no gecko keys', async () => {

@@ -42,6 +42,8 @@ const SCRIPTS: Record<string, string> = {
   popup: 'entrypoints/popup/main.ts',
   options: 'entrypoints/options/main.ts',
   confirm: 'entrypoints/confirm/main.ts',
+  // The Chromium service worker's eyes for the colour scheme (src/scheme.ts); no UI, no kit.
+  offscreen: 'entrypoints/offscreen/main.ts',
   // Translation + the Adwaita elements, shared by the three pages (src/ui/kit.ts, ADR 0008).
   ui: 'src/ui/kit.ts',
 };
@@ -53,6 +55,7 @@ const PAGES: Record<string, string> = {
   popup: 'entrypoints/popup/index.html',
   options: 'entrypoints/options/index.html',
   confirm: 'entrypoints/confirm/index.html',
+  offscreen: 'entrypoints/offscreen/index.html',
 };
 
 function bundle(name: string, entry: string): void {
