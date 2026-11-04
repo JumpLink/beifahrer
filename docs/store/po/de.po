@@ -1,0 +1,46 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: beifahrer-store-listing\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Beifahrer"
+msgstr "Beifahrer"
+
+msgid "Lets the person's own AI agent use their own browser, under a per-site policy that the person sets and can pause at any time."
+msgstr "Lässt den KI-Agenten der Person deren eigenen Browser nutzen, nach einer Richtlinie pro Website, die die Person festlegt und jederzeit pausieren kann."
+
+msgid "Reads the URL and title of open tabs, to apply the per-site policy to the tab the agent addresses and to list tabs to the person."
+msgstr "Liest URL und Titel offener Tabs, um die Richtlinie pro Website auf den vom Agenten angesprochenen Tab anzuwenden und der Person die Tabs aufzulisten."
+
+msgid "Stores the person's per-site policy, feature switches, pairing token and pause state in the browser's local extension storage."
+msgstr "Speichert Richtlinie pro Website, Funktionsschalter, Kopplungs-Token und Pausenstatus der Person im lokalen Erweiterungsspeicher des Browsers."
+
+msgid "Wakes the background worker to reconnect to the local bridge, save the automatic session snapshot, and end temporary site access when it expires."
+msgstr "Weckt den Hintergrundprozess, um die Verbindung zur lokalen Brücke wiederherzustellen, die automatische Sitzungssicherung zu speichern und befristeten Zugriff auf eine Website bei Ablauf zu beenden."
+
+msgid "Lists and restores recently closed tabs and windows, only when the person has switched tab management on."
+msgstr "Listet kürzlich geschlossene Tabs und Fenster auf und stellt sie wieder her, nur wenn die Person die Tabverwaltung eingeschaltet hat."
+
+msgid "Names and colours tab groups, only when the person has switched tab management on."
+msgstr "Benennt und färbt Tabgruppen, nur wenn die Person die Tabverwaltung eingeschaltet hat."
+
+msgid "Injects the page agent that reads and acts on a page, only after the policy allows that site's origin."
+msgstr "Fügt den Seiten-Agenten ein, der eine Seite liest und darauf handelt, erst nachdem die Richtlinie den Ursprung dieser Website erlaubt."
+
+msgid "Opens an empty offscreen document that reads the browser's light/dark colour scheme, so the toolbar icon matches it."
+msgstr "Öffnet ein leeres Offscreen-Dokument, das das helle/dunkle Farbschema des Browsers liest, damit das Symbolleistensymbol dazu passt."
+
+msgid "Optional. Lists network requests of a tab so the agent can see why a button did nothing; requested only when the person switches it on."
+msgstr "Optional. Listet Netzwerkanfragen eines Tabs auf, damit der Agent sieht, warum eine Schaltfläche nichts tat; wird nur angefragt, wenn die Person es einschaltet."
+
+msgid "Optional. Captures a page as a file for the agent; requested only when the person switches it on, and used only for that capture."
+msgstr "Optional. Speichert eine Seite als Datei für den Agenten; wird nur angefragt, wenn die Person es einschaltet, und nur für diese Aufnahme genutzt."
+
+msgid "Optional. Access to a site is requested per host when the person raises that site above \"none\"; the temporary \"all sites\" grant uses this pattern."
+msgstr "Optional. Der Zugriff auf eine Website wird pro Host angefragt, wenn die Person sie über „keine“ anhebt; die zeitlich begrenzte Freigabe „alle Websites“ nutzt dieses Muster."
+
+msgid "Optional. Needed only for screenshots, because the browser's capture call accepts nothing narrower; requested when the person switches screenshots on."
+msgstr "Optional. Nur für Screenshots nötig, weil der Aufnahmeaufruf des Browsers nichts Engeres akzeptiert; wird angefragt, wenn die Person Screenshots einschaltet."

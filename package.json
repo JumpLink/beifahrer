@@ -28,6 +28,36 @@
     "@gjsify/site": "0.64.16"
   },
   "gjsify": {
+    "webext": {
+      "listing": {
+        "metainfo": "data/eu.jumplink.beifahrer.metainfo.xml",
+        "languages": [
+          "en",
+          "de"
+        ],
+        "translations": "docs/store/po",
+        "icon": "data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg",
+        "singlePurpose": "Lets the person's own AI agent use their own browser, under a per-site policy that the person sets and can pause at any time.",
+        "permissions": {
+          "tabs": "Reads the URL and title of open tabs, to apply the per-site policy to the tab the agent addresses and to list tabs to the person.",
+          "storage": "Stores the person's per-site policy, feature switches, pairing token and pause state in the browser's local extension storage.",
+          "alarms": "Wakes the background worker to reconnect to the local bridge, save the automatic session snapshot, and end temporary site access when it expires.",
+          "sessions": "Lists and restores recently closed tabs and windows, only when the person has switched tab management on.",
+          "tabGroups": "Names and colours tab groups, only when the person has switched tab management on.",
+          "scripting": "Injects the page agent that reads and acts on a page, only after the policy allows that site's origin.",
+          "offscreen": "Opens an empty offscreen document that reads the browser's light/dark colour scheme, so the toolbar icon matches it.",
+          "webRequest": "Optional. Lists network requests of a tab so the agent can see why a button did nothing; requested only when the person switches it on.",
+          "downloads": "Optional. Captures a page as a file for the agent; requested only when the person switches it on, and used only for that capture.",
+          "http://*/*": "Optional. Access to a site is requested per host when the person raises that site above \"none\"; the temporary \"all sites\" grant uses this pattern.",
+          "https://*/*": "Optional. Access to a site is requested per host when the person raises that site above \"none\"; the temporary \"all sites\" grant uses this pattern.",
+          "<all_urls>": "Optional. Needed only for screenshots, because the browser's capture call accepts nothing narrower; requested when the person switches screenshots on."
+        },
+        "category": {
+          "cws": "Developer Tools",
+          "edge": "Developer tools"
+        }
+      }
+    },
     "site": {
       "metainfo": "data/eu.jumplink.beifahrer.metainfo.xml",
       "base": "/beifahrer/",
