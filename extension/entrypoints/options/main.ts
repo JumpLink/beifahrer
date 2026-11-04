@@ -40,6 +40,8 @@ import {
   setQuietly,
 } from '../../src/ui/features.ts';
 import { scriptQuietControl } from '../../src/ui/script-quiet.ts';
+import { Diagram, diagramOf } from '../../src/ui/diagram.ts';
+import { browserInfo } from '../../src/browser-info.ts';
 import { infoButton } from '../../src/ui/info.ts';
 import { stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
 import { optionList } from '../../src/ui/option-list.ts';
@@ -64,6 +66,18 @@ const status = async () => (await browser.runtime.sendMessage({ type: 'status' }
 // --- state: header word and banner ----------------------------------------------------------
 
 let state: UiState = 'unpaired';
+let browserName = '';
+
+// The artwork has its own `#pause` node, so the pause switch is `#pause-row`, never `#pause`.
+// "Pair" here is the token row on this very page; "resume" clears the pause.
+const diagram = new Diagram($('diagram-host'), (action) => {
+  if (action === 'resume') void saveSettings({ paused: false }).then(() => renderState());
+  else {
+    const token = $<Adw.PasswordEntryRow>('token');
+    token.scrollIntoView({ block: 'center' });
+    token.focus();
+  }
+});
 
 async function renderState(): Promise<void> {
   const [current, activity, { paused }] = await Promise.all([status(), loadActivity(), loadSettings()]);
@@ -72,7 +86,8 @@ async function renderState(): Promise<void> {
   const icon = $<HTMLImageElement>('hero-icon');
   // Always the colour app icon (ADR 0025 § 9a), as in the popup; only the animation follows the state.
   icon.classList.toggle('working', state === 'working');
-  setQuietly($<Adw.SwitchRow>('pause'), paused);
+  setQuietly($<Adw.SwitchRow>('pause-row'), paused);
+  diagram.set(diagramOf(current, paused, browserName));
 
   // The shared banner (src/ui/banner.ts). This page is where the token and the versions are, so the
   // only fix it can offer here is the one the pause needs.
@@ -82,7 +97,7 @@ async function renderState(): Promise<void> {
 }
 
 async function setupPause(): Promise<void> {
-  const pause = $<Adw.SwitchRow>('pause');
+  const pause = $<Adw.SwitchRow>('pause-row');
   // The shortcut is the person's to change (browser settings), so show the one they have,
   // formatted for this platform (mac: glyphs; see shortcut.ts).
   const shortcut = await toggleShortcut();
@@ -493,6 +508,10 @@ function renderRange(): void {
 }
 
 async function main(): Promise<void> {
+  browserName = await browserInfo().then(
+    (i) => i.name,
+    () => '',
+  );
   const settings = await loadSettings();
   $<Adw.PasswordEntryRow>('token').text = settings.token;
   $<Adw.SpinRow>('port').value = settings.port;
@@ -501,7 +520,7 @@ async function main(): Promise<void> {
   for (const id of ['port', 'port-count']) $(id).addEventListener('notify::value', renderRange);
   $('save').addEventListener('click', () => void connect());
 
-  $('pause').append(prefixIcon('media-playback-pause-symbolic'));
+  $('pause-row').append(prefixIcon('media-playback-pause-symbolic'));
   $('confirm-close').append(prefixIcon('window-close-symbolic'));
   $('ask-sites').append(prefixIcon('dialog-question-symbolic'));
   $('autosave').append(prefixIcon('document-open-recent-symbolic'));

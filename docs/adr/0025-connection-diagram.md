@@ -1,4 +1,4 @@
-# 0025: One connection diagram for the window and the popup
+# 0025: One connection diagram for the window and the extension
 
 - **Status:** accepted — decided by the person, 2026-11-03: the pill, no ring (§ 2), and the three
   defaults in § 13 as proposed. The extension and bridge side is implemented (protocol frames, popup diagram, hero icon, toolbar badge); the window side is a separate change.
@@ -545,6 +545,22 @@ says what the picture is for, and a picture directly under the heading with no g
 The diagram also gets 24 px of margin above and below on top of the column's 12 px spacing, so about
 36 px of air on each side. The fix sentence and button stay under the diagram, and the page's own
 sentence is still hidden when the diagram has a fix. The popup is unchanged.
+
+### 16. Amendment: the extension's diagram lives in the options page (2026-11-04)
+
+Supersedes § 13 item 2 and the popup rows of § 5, § 7a and § 9 for the extension. The person
+decided that the diagram does **not** belong in the toolbar popup: it is tall (the vertical
+arrangement alone is about 490 px) and pushes the controls needed within a second, the site level,
+"all sites", the agents and the pause, below the fold. The diagram moves to the options page, which
+has room: it sits directly under the hero, before "Pause agent", horizontal at 420 px and wider and
+vertical below that (§ 7a, unchanged).
+
+- The popup is back to its compact status: hero (coloured app icon, § 9a), name, one state word,
+  plus the shared banner and the onboarding step. It has no `#diagram-host`.
+- `diagramOf` moved into `src/ui/diagram.ts`, next to the model it builds.
+- The fix button is wired to what the options page can do: **Pair…** focuses the token row on the
+  same page, **Resume** clears the pause.
+- The window half (§ 15) is unchanged.
 
 ## Consequences
 
