@@ -1,15 +1,6 @@
 import { describe, expect, it } from '@gjsify/unit';
 
-import {
-  alarmOf,
-  BADGE_STATUS,
-  badgeStatusOf,
-  LOOK_COLOUR,
-  MONOCHROME,
-  toolbarLook,
-  type Connection,
-  type ToolbarInput,
-} from '@beifahrer/core';
+import { alarmOf, LOOK_COLOUR, toolbarLook, type Connection, type ToolbarInput } from '@beifahrer/core';
 
 /** Every connection the extension's status can be in; `unpaired` is what no token gives. */
 const CONNECTIONS: Connection[] = [
@@ -49,7 +40,6 @@ export default async () => {
         for (const paused of [false, true]) {
           const look = toolbarLook({ ...base, connection, paused });
           expect(look.icon).toBe('offline');
-          expect(look.badge).toBe('!');
           // The colour never says it alone, so the tooltip has to name a reason too.
           expect(look.title.length > 'Beifahrer — '.length).toBe(true);
         }
@@ -66,7 +56,6 @@ export default async () => {
         for (const inFlight of [0, 1]) {
           const look = toolbarLook({ ...base, paused: true, wide, inFlight });
           expect(look.icon).toBe('paused');
-          expect(look.badge).toBe('II');
         }
       }
     });
@@ -80,7 +69,6 @@ export default async () => {
     await it('shows the wide look while the grant is live, idle or working', async () => {
       expect(toolbarLook({ ...base, wide: true }).icon).toBe('wide');
       expect(toolbarLook({ ...base, wide: true, inFlight: 1 }).icon).toBe('wide-active');
-      expect(toolbarLook({ ...base, wide: true }).badge).toBe('*');
     });
     await it('does not paint a live grant over a missing bridge: that one is red (ADR 0014)', async () => {
       expect(toolbarLook({ ...base, connection: 'offline', wide: true }).icon).toBe('offline');
@@ -92,29 +80,16 @@ export default async () => {
     });
   });
 
-  await describe('LOOK_COLOUR: one table for the icon dot and the badge', async () => {
+  await describe('LOOK_COLOUR: one table for the icon dot', async () => {
     await it('paints the three loud looks red, yellow and blue (ADR 0014)', async () => {
       expect(LOOK_COLOUR.offline).toBe('#e01b24');
       expect(LOOK_COLOUR.paused).toBe('#e5a50a');
       expect(LOOK_COLOUR.wide).toBe('#3584e4');
       expect(LOOK_COLOUR['wide-active']).toBe(LOOK_COLOUR.wide);
     });
-    await it('keeps the quiet looks the mid grey a light and a dark toolbar both read', async () => {
-      expect(LOOK_COLOUR.idle).toBe(MONOCHROME);
-    });
-  });
-
-  await describe('BADGE_STATUS: the link state on every browser (ADR 0025)', async () => {
-    await it('maps each look to green, yellow or red, with a text that needs no colour', async () => {
-      expect(badgeStatusOf('offline')).toBe('offline');
-      expect(badgeStatusOf('paused')).toBe('paused');
-      for (const icon of ['idle', 'active', 'wide', 'wide-active'] as const)
-        expect(badgeStatusOf(icon)).toBe('connected');
-      expect(BADGE_STATUS.connected.colour).toBe('#26a269');
-      expect(BADGE_STATUS.paused.colour).toBe(LOOK_COLOUR.paused);
-      expect(BADGE_STATUS.offline.colour).toBe(LOOK_COLOUR.offline);
-      const texts = Object.values(BADGE_STATUS).map((b) => b.text);
-      expect(new Set(texts).size).toBe(3);
+    await it('paints the connected looks green, the only signal of a quiet bus', async () => {
+      expect(LOOK_COLOUR.idle).toBe('#26a269');
+      expect(LOOK_COLOUR.active).toBe(LOOK_COLOUR.idle);
     });
   });
 };

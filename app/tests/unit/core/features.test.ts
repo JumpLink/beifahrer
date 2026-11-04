@@ -227,21 +227,18 @@ export default async () => {
       for (const connection of ['unpaired', 'offline', 'connecting', 'unauthorized', 'protocol'] as const) {
         const look = toolbarLook({ ...base, connection, inFlight: 2 });
         expect(look.icon).toBe('offline');
-        expect(look.badge).toBe('!');
         expect(look.title).toMatch(/Beifahrer — /);
       }
     });
     await it('is monochrome and quiet when connected and idle', async () => {
       const look = toolbarLook({ ...base, connection: 'connected' });
       expect(look.icon).toBe('idle');
-      expect(look.badge).toBe('');
       expect(look.title).toMatch(/idle/);
     });
     await it('turns colour while a request runs and for ACTIVE_MS after', async () => {
       expect(toolbarLook({ ...base, connection: 'connected', inFlight: 1 }).icon).toBe('active');
       const recent = { ...base, connection: 'connected' as const, lastActivityAt: base.now - ACTIVE_MS + 1 };
       expect(toolbarLook(recent).icon).toBe('active');
-      expect(toolbarLook(recent).badge).toBe('AI');
       expect(toolbarLook({ ...recent, lastActivityAt: base.now - ACTIVE_MS }).icon).toBe('idle');
     });
     await it('shows the yellow paused dot while a bridge is connected', async () => {
@@ -249,7 +246,6 @@ export default async () => {
         const look = toolbarLook({ ...base, connection, paused: true, inFlight: 3 });
         // A missing bridge is the loudest state there is (ADR 0014), so it keeps the button.
         expect(look.icon).toBe(connection === 'connected' ? 'paused' : 'offline');
-        expect(look.badge).toBe(connection === 'connected' ? 'II' : '!');
         expect(look.title).toMatch(connection === 'connected' ? /paused/ : /Beifahrer — /);
       }
     });

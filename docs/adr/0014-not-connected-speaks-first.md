@@ -27,6 +27,11 @@ person's own switch and outranks every connected look (ADR 0005), and a wildcard
 whether or not an agent is connected (ADR 0010) — both put a rung between "quiet" and "loudest" that
 a missing bridge now has to pass.
 
+## Amendment 2026-11-04
+
+The toolbar badge (`!`, `II`) described below is gone: Firefox draws it over the 16 px icon and hides
+the bus (ADR 0025 § 11). The dot is the only state signal on the button; connected is a green dot.
+
 ## Decision
 
 One ladder, loudest first, in `alarmOf` (packages/core/src/toolbar.ts). The button, the badge, the

@@ -487,6 +487,13 @@ on the toolbar, and a badge is the one signal that fits there without a word. Th
 unchanged, so the monochrome idle bus still says *nothing is happening right now*. Safari ignores
 the badge colour, so the badge text carries the state alone and never the colour only.
 
+**Amendment 2026-11-04: no badge.** Firefox draws the badge over the top right of the 16 px
+button, so it hid the bus it was meant to sit beside. The extension no longer sets any badge
+(`BADGE_STATUS`, `badgeStatusOf` and `ToolbarLook.badge` are gone) and clears one an older version
+left. The state lives in the icon alone: every variant now carries a dot, green for connected idle
+and active (`CONNECTED`), yellow paused, red not connected, blue all sites. The text state stays in
+the tooltip and the popup. This replaces the first paragraph of § 9a ("gains a status badge").
+
 ### 12. The style reference and its licence
 
 GNOME's [app-illustrations](https://gitlab.gnome.org/Teams/Design/app-illustrations) was read as a

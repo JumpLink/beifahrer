@@ -12,8 +12,8 @@ import type { IconVariant } from '../manifest.ts';
 
 /** Whether the bus carries its colour, and whether the look leads with a dot. */
 export const LOOK: Record<IconVariant, { colour: boolean; dot: boolean }> = {
-  idle: { colour: false, dot: false },
-  active: { colour: true, dot: false },
+  idle: { colour: false, dot: true },
+  active: { colour: true, dot: true },
   paused: { colour: false, dot: true },
   offline: { colour: false, dot: true },
   // GNOME's blue 3: not a warning colour, but not the quiet idle look either.
@@ -33,39 +33,17 @@ export const iconSource = (root: string, ...path: string[]): string => {
   return svg.slice(svg.indexOf('<svg'));
 };
 
-/** Sizes the toolbar draws, where the browser's badge covers the top right of the button. */
-export const SMALL_MAX = 32;
-
-/**
- * `small` is the toolbar artwork: the whole look shrunk into the bottom left, because Firefox
- * paints its badge over the top right ~9 px of a 16 px button and the full-size bus vanished
- * behind it. The dot gets smaller and moves out to the corner so it does not eat a wheel.
- */
-export function variantSvg(
-  colourSource: string,
-  symbolicSource: string,
-  variant: IconVariant,
-  small = false,
-): string {
+export function variantSvg(colourSource: string, symbolicSource: string, variant: IconVariant): string {
   const { colour, dot } = LOOK[variant];
   let svg = colour ? colourSource : symbolicSource.replaceAll(SYMBOLIC_INK, MONOCHROME);
   if (!colour && svg === symbolicSource) throw new Error('the symbolic icon lost its fill ' + SYMBOLIC_INK);
-  const unit = colour ? 1 : 1 / 8;
-  if (small) {
-    const open = svg.indexOf('>', svg.indexOf('<svg')) + 1;
-    svg =
-      svg.slice(0, open) +
-      `<g transform="translate(0 ${25.6 * unit}) scale(0.8)">` +
-      svg.slice(open, svg.lastIndexOf('</svg>')) +
-      '</g></svg>';
-  }
-  // The dot sits at the bottom right in each source's own units (128 and 16), with a white ring
-  // to keep it apart from the bus at 16 px.
+  // The dot is the only state signal on the button (no badge), at the bottom right in each
+  // source's own units (128 and 16), with a white ring to keep it apart from the bus at 16 px.
   if (dot) {
-    const [c, r] = small ? [107, 15] : [102, 24];
+    const unit = colour ? 1 : 1 / 8;
     svg = svg.replace(
       '</svg>',
-      `  <circle cx="${c * unit}" cy="${c * unit}" r="${r * unit}" fill="${LOOK_COLOUR[variant]}" stroke="#ffffff" stroke-width="${6 * unit}"/>\n</svg>`,
+      `  <circle cx="${102 * unit}" cy="${102 * unit}" r="${24 * unit}" fill="${LOOK_COLOUR[variant]}" stroke="#ffffff" stroke-width="${6 * unit}"/>\n</svg>`,
     );
   }
   return svg;
