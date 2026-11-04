@@ -11,11 +11,14 @@
  */
 
 import './localize-page.ts';
+import { GjsifyOptionList } from '@gjsify/adwaita-core';
 import { Adw } from '@gjsify/adwaita-web';
 // The desktop's accent colour, on every page and live while it is open.
 import './accent.ts';
 import { registerIcons } from './icons.ts';
+import { installOptionList } from './option-list.ts';
 import { installToasts } from './toast.ts';
 
 registerIcons();
 installToasts(Adw.Toast);
+installOptionList(GjsifyOptionList);

@@ -48,6 +48,12 @@ const PROBE = `JSON.stringify({
   inline: document.documentElement.style.getPropertyValue('--accent-bg-color').trim(),
   // The copy's house style, as the person sees it (scripts/locales.ts checks the catalogue).
   copy: !/[\u2013\u2014!\u201C\u201D\u201E]/.test(document.body.innerText),
+  // Did the page's own script run to its end: its static parts, then its data-driven ones (0.1.18: the
+  // script threw at load and left every one of these empty).
+  hero: document.getElementById('hero-icon')?.getAttribute('src') ?? null,
+  legal: [...document.querySelectorAll('.legal-links a')].map((a) => a.getAttribute('href')),
+  diagram: document.getElementById('diagram-host')?.querySelector('svg') !== null && !!document.getElementById('diagram-host'),
+  groups: ['features', 'activity'].map((id) => document.getElementById(id)?.querySelectorAll('adw-switch-row, adw-action-row, .adw-row-text').length ?? null),
   words: document.body.innerText.split(/\\s+/).filter(Boolean).length,
 })`;
 
@@ -90,6 +96,25 @@ function judge(check, browser, page, raw) {
   );
   check(browser, `${page}.html: static text translated`, r.translated && !!r.lang, raw);
   check(browser, `${page}.html: follows the desktop accent the bridge reported`, r.accent === ACCENT_BG, raw);
+  if (page !== 'confirm')
+    check(browser, `${page}.html: hero is the colour app icon`, r.hero === '/icons/active-48.png', raw);
+  if (page === 'options') {
+    check(
+      browser,
+      'options.html: legal links carry an https href',
+      r.legal?.length === 2 &&
+        r.legal.every((h) => /^https:\/\/jumplink\.eu\/beifahrer\/(de|en)\//.test(h ?? '')),
+      raw,
+    );
+    check(
+      browser,
+      'options.html: features and activity are rendered',
+      r.groups?.[0] > 0 && r.groups?.[1] > 0,
+      raw,
+    );
+  }
+  if (page === 'popup')
+    check(browser, 'popup.html: the connection diagram is drawn', r.diagram === true, raw);
   check(
     browser,
     `${page}.html: no dash, "!" or curly quote in the visible text (${r.words} words)`,
