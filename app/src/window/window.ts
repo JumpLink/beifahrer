@@ -53,12 +53,15 @@ export function clamped(child: Gtk.Widget): Gtk.Widget {
 
 function createStatusPage(t: Translate, onAction: (id: DiagramAction) => void) {
   const diagram = createDiagram(t, onAction);
-  // A status page with the diagram where its icon would be: above the title, as in the mockups.
+  // Text first, so it is read before the picture and says what the picture is for; the diagram gets
+  // air on both sides (24 margin + 12 spacing = 36 px) instead of sitting against the sentence.
+  diagram.widget.set_margin_top(24);
+  diagram.widget.set_margin_bottom(24);
   const heading = new Gtk.Label({ wrap: true, justify: Gtk.Justification.CENTER });
   heading.add_css_class('title-1');
   const body = new Gtk.Label({ wrap: true, justify: Gtk.Justification.CENTER });
   const status = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 });
-  for (const w of [diagram.widget, heading, body, diagram.fix]) status.append(w);
+  for (const w of [heading, body, diagram.widget, diagram.fix]) status.append(w);
   const group = new Adw.PreferencesGroup({ title: t('sessions.title') });
   const warnings = new Adw.PreferencesGroup({ visible: false });
   const note = new Gtk.Label({ wrap: true, xalign: 0, visible: false });

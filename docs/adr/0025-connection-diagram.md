@@ -537,6 +537,15 @@ The registry is narrower than § 3 assumed, so the window derives two things its
   file that does not start with the root). A unit test compares it with `data/diagram/`. This is a
   JSON embed and not a GResource, so it works unchanged in the Flatpak, which ships only the bundle.
 
+### 15. Amendment: text first, diagram below (2026-11-04)
+
+§ 13 item 1 is superseded for the window. The person saw the implemented page and decided that the
+title and the sentence come **first** and the diagram **below** them: the text is read first and
+says what the picture is for, and a picture directly under the heading with no gap read as cramped.
+The diagram also gets 24 px of margin above and below on top of the column's 12 px spacing, so about
+36 px of air on each side. The fix sentence and button stay under the diagram, and the page's own
+sentence is still hidden when the diagram has a fix. The popup is unchanged.
+
 ## Consequences
 
 - The Status page stops saying "something is wrong" and starts saying **which half** is wrong and
