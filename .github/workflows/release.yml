@@ -215,6 +215,11 @@ jobs:
       #                       Connect by a person. It stays a manual step, and `safari-mv3` ships
       #                       unsigned on purpose so a person can load it from Xcode.
       #
+      # The listing text, permission justifications and screenshots are derived from the metainfo
+      # (`gjsify.webext.listing` in package.json, German catalogue in docs/store/po). Once gjsify
+      # ships `gjsify webext listing`, run `gjsify webext listing --check` in CI so a justification
+      # or translation that goes missing fails before a submission does.
+      #
       # Until then the zips on the release ARE the distribution for a browser: unpack one into an
       # extension page, or point a person at the download. The Linux packages beside them are the
       # CLI — a bridge on their own needs an extension that talks to it, which is the native-messaging
