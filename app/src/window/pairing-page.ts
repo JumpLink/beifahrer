@@ -72,17 +72,13 @@ export function createPairingPage(t: Translate, toast: (title: string) => void):
           title: b.isDefault ? t('setup.browser.default', { name: b.name }) : b.name,
           subtitle: t(`browser.state.${b.state}`),
         });
-        const badge = new Gtk.Image({
-          iconName:
-            b.state === 'connected'
-              ? 'emblem-ok-symbolic'
-              : b.state === 'installed'
-                ? 'dialog-information-symbolic'
-                : 'window-close-symbolic',
-          valign: Gtk.Align.CENTER,
-        });
-        badge.add_css_class(b.state === 'connected' ? 'success' : 'dim-label');
-        row.add_suffix(badge);
+        // Only the good news gets a mark (ADR 0009): an "x" there reads as a close button, and the
+        // subtitle already says what is missing.
+        if (b.state === 'connected') {
+          const badge = new Gtk.Image({ iconName: 'object-select-symbolic', valign: Gtk.Align.CENTER });
+          badge.add_css_class('success');
+          row.add_suffix(badge);
+        }
         return row;
       });
       for (const row of browserWidgets) browsers.add(row);

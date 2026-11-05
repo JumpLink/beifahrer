@@ -99,6 +99,7 @@
   "setup.browser.found": "Auf diesem Computer gefunden: {names}",
   "setup.browser.none": "Es wurde kein Browser automatisch gefunden. Wähle den, den du benutzt.",
   "setup.browser.default": "{name} (Standard)",
+  "setup.browser.isdefault": "Standardbrowser",
   "setup.extension.nostore": "Noch kein Browser-Store führt die Erweiterung, sie kommt darum vom Release auf GitHub. Das Fenster lädt selbst nichts herunter: Du öffnest den Link in deinem Browser.",
   "setup.extension.firefox.title": "Firefox",
   "setup.extension.firefox.body": "Firefox installiert die signierte Datei mit einem Klick und aktualisiert sie danach selbst.",

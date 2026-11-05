@@ -277,11 +277,10 @@ export function createSetupPage(
   });
 
   // -- step 3: the extension ----------------------------------------------------------------
+  // Plain names: "(default)" behind a long name is cut off in the row; the subtitle says it instead.
   const browserPick = new Adw.ComboRow({
     title: t('setup.browser.pick'),
-    model: Gtk.StringList.new(
-      choices.map((c) => (c.isDefault ? t('setup.browser.default', { name: c.name }) : c.name)),
-    ),
+    model: Gtk.StringList.new(choices.map((c) => c.name)),
   });
   browserPick.set_selected(
     Math.max(
@@ -289,13 +288,11 @@ export function createSetupPage(
       choices.findIndex((c) => c.id === state.browser),
     ),
   );
-  const statusRow = new Adw.ActionRow({ title: '' });
   const browserGroup = new Adw.PreferencesGroup({
     title: t('setup.browser.title'),
     description: t('setup.browser.description'),
   });
   browserGroup.add(browserPick);
-  browserGroup.add(statusRow);
   const browserFound = label(
     foundNames.length > 0
       ? t('setup.browser.found', { names: foundNames.join(', ') })
@@ -329,11 +326,9 @@ export function createSetupPage(
   let rows: readonly BrowserRow[] = [];
   const refreshStatus = () => {
     const row = rows.find((r) => r.id === state.browser);
-    statusRow.set_visible(row !== undefined);
-    if (row) {
-      statusRow.set_title(row.name);
-      statusRow.set_subtitle(t(`browser.state.${row.state}`));
-    }
+    const words = row ? [t(`browser.state.${row.state}`)] : [];
+    if (choices.find((c) => c.id === state.browser)?.isDefault) words.unshift(t('setup.browser.isdefault'));
+    browserPick.set_subtitle(words.join(' · '));
   };
 
   const refreshExtension = () => {
