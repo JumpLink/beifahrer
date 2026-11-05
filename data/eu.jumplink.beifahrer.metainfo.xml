@@ -63,6 +63,15 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.24" date="2026-11-05">
+      <description>
+        <ul>
+          <li>Your default browser comes first when setting up the extension</li>
+          <li>Firefox installs the extension in Firefox itself, not in whichever browser opens links</li>
+          <li>The Browser page shows for each browser whether the extension is installed and connected</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.23" date="2026-11-05">
       <description>
         <ul>
