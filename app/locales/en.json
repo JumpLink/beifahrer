@@ -165,7 +165,7 @@
   "diagram.fix.unreadable": "A session file could not be read, so this may be out of date.",
   "setup.extension.install": "Install in {name}",
   "setup.extension.safari.title": "Safari",
-  "setup.extension.safari.body": "Safari carries the extension inside a Mac app, so there is nothing to install from here. Pick another browser, or use the Safari app.",
+  "setup.extension.safari.body": "The extension comes with the Beifahrer app, so there is nothing to install. Turn it on in Safari's Settings, under Extensions, if you want to use Safari.",
   "setup.extension.store.body": "The extension is installed from the store, in the browser you picked.",
   "setup.extension.store.link": "Open the store page",
   "setup.extension.store.step1": "Add Beifahrer on the page that opens.",
