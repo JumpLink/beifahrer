@@ -51,6 +51,17 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
   Websites); for the all-sites patterns it answers `false`. The popup therefore does not offer
   "all sites" on Safari. Whether Safari answers the same when the extension is signed (this one
   loads as a temporary extension, which Safari drops after 24 hours or on quit) is not measured.
+- **`permissions.request({ origins: ['<all_urls>'] })` can resolve `true` with no prompt at all,
+  on an affected WebKit.** `WebExtensionContext::permissionState` matched the pattern against the
+  extension's own base URL and reported it `GrantedImplicitly` before checking whether the pattern
+  was `<all_urls>` itself — so a request for all sites short-circuited to "already granted" and the
+  native dialog never ran (bugs.webkit.org/288641, rdar://140010739, fixed in WebKit commit
+  `4fd2be2`; not measured which Safari ships the fix). From the options page this reads exactly
+  like "the Allow button does nothing": the switch flips on, nothing visible happens, and
+  Screenshots still cannot capture a tab. The fix never trusts the resolved boolean alone —
+  `requestAllUrls()` (options/main.ts) confirms with `permissions.contains` and tells a real refusal
+  apart from this silent one, so the page can say where to actually grant it (Safari Settings →
+  Extensions or Websites) instead of repeating a button that already "worked".
 - **Safari has neither `tabGroups` nor `sessions`.** `capabilities()` leaves out the methods that
   need them (`NEEDS_API` in handlers.ts), so the agent never gets offered a tool the browser
   cannot serve.

@@ -347,6 +347,9 @@
   "screenshots_missing": {
     "message": "Screenshots fehlt der Browserzugriff"
   },
+  "screenshots_safari_setting": {
+    "message": "Erlaube das in den Safari-Einstellungen unter Erweiterungen oder Websites"
+  },
   "network_denied": {
     "message": "Anfragen der Seite zu sehen braucht die Erlaubnis des Browsers. Das entscheiden Sie."
   },
