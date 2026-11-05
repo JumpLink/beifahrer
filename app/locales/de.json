@@ -165,7 +165,7 @@
   "diagram.fix.unreadable": "Eine Sitzungsdatei war nicht lesbar, das Bild kann veraltet sein.",
   "setup.extension.install": "In {name} installieren",
   "setup.extension.safari.title": "Safari",
-  "setup.extension.safari.body": "Safari bringt die Erweiterung in einer Mac-App mit, von hier aus gibt es nichts zu installieren. Wähle einen anderen Browser oder nutze die Safari-App.",
+  "setup.extension.safari.body": "Die Erweiterung ist bei der Beifahrer-App schon dabei, es gibt nichts zu installieren. Schalte sie in den Safari-Einstellungen unter Erweiterungen ein, wenn du Safari nutzen willst.",
   "setup.extension.store.body": "Die Erweiterung wird aus dem Store installiert, im Browser, den du gewählt hast.",
   "setup.extension.store.link": "Store-Seite öffnen",
   "setup.extension.store.step1": "Füge Beifahrer auf der Seite hinzu, die sich öffnet.",
@@ -175,5 +175,11 @@
   "browser.state.installed": "Installiert, nicht verbunden",
   "browser.state.not-installed": "Nicht installiert",
   "browser.state.not-connected": "Nicht verbunden",
-  "setup.extension.openfailed": "Der Link ließ sich nicht öffnen. Öffne ihn von Hand im Browser."
+  "setup.extension.openfailed": "Der Link ließ sich nicht öffnen. Öffne ihn von Hand im Browser.",
+  "safari.title": "Safari (optional)",
+  "safari.state.enabled": "An",
+  "safari.state.disabled": "Aus",
+  "safari.state.unknown": "Unbekannt",
+  "safari.open": "Safari-Einstellungen öffnen",
+  "safari.hint": "Die Erweiterung ist bei Beifahrer schon dabei. Schalte sie in den Safari-Einstellungen ein, wenn du Safari nutzen willst, und koppele sie dann mit dem Token auf dieser Seite."
 }

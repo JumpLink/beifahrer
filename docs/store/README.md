@@ -16,7 +16,7 @@ GitHub release are the distribution until then.
 | Chrome Web Store | `beifahrer-0.1.0-chrome-mv3.zip` | name, summary, description, single purpose, per-permission justification, remote-code declaration, data-use certification, privacy-policy URL, icon, small promo tile, 1–5 screenshots | [listing.md](listing.md), [privacy.md](privacy.md), [screenshots.md](screenshots.md) |
 | Edge Add-ons | `beifahrer-0.1.0-edge-mv3.zip` | name, short description, per language, logo, optional tile and 6 screenshots, single purpose, privacy-policy URL | [listing.md](listing.md), [privacy.md](privacy.md), [screenshots.md](screenshots.md) |
 | Opera | `beifahrer-0.1.0-chrome-mv3.zip` | summary, screenshots at 612×408, icons, privacy | [listing.md](listing.md), [screenshots.md](screenshots.md) |
-| Safari | `beifahrer-0.1.0-safari-mv3.zip` | a person signs in Xcode against a provisioning profile and uploads through App Store Connect | a person, no document here yet |
+| Safari | `beifahrer-0.1.0-safari-mv3.zip`, or the Xcode project from `extension/scripts/safari-build.sh` | App Store: a person signs in Xcode against a provisioning profile and uploads through App Store Connect. Outside the store: Developer ID + notarization (Safari 18.4+) — no certificate exists yet | a person; researched in [listing.md](listing.md#safari) and [macos-run.md §3.4](../macos-run.md#34-developer-id-distribution-outside-the-mac-app-store-researched-not-built) |
 
 The Edge package is the `chrome-mv3` manifest in full — Edge is Chromium, so it needs no branch of
 its own ([`extension/manifest.ts:14`](../../extension/manifest.ts): `edge-mv3` is in `TARGETS`, and

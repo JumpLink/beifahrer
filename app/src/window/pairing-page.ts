@@ -11,16 +11,25 @@ import type { BrowserRow } from './browser-model.ts';
 import { copyText } from './clipboard.ts';
 import type { Translate } from './i18n.ts';
 import type { PairingView } from './pairing-model.ts';
+import { createSafariRow } from './safari-row.ts';
+import type { SafariView } from './safari-model.ts';
 import { clamped } from './window.ts';
 
 export interface PairingPage {
   widget: Gtk.Widget;
   show(view: PairingView): void;
   showBrowsers(rows: readonly BrowserRow[]): void;
+  showSafari(view: SafariView): void;
   copyToken(): boolean;
 }
 
-export function createPairingPage(t: Translate, toast: (title: string) => void): PairingPage {
+/** `onOpenSafariSettings` must only ever run from the Safari row's own button click (ADR 0026 § 4). */
+export function createPairingPage(
+  t: Translate,
+  toast: (title: string) => void,
+  onOpenSafariSettings: () => void = () => {},
+): PairingPage {
+  const safariRow = createSafariRow(t, onOpenSafariSettings);
   const group = new Adw.PreferencesGroup({
     title: t('pairing.title'),
     description: t('pairing.description'),
@@ -47,6 +56,7 @@ export function createPairingPage(t: Translate, toast: (title: string) => void):
 
   const column = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 24 });
   column.append(browsers);
+  column.append(safariRow.widget);
   column.append(group);
   column.append(warnings);
   column.append(error);
@@ -84,6 +94,7 @@ export function createPairingPage(t: Translate, toast: (title: string) => void):
       for (const row of browserWidgets) browsers.add(row);
       browsers.set_visible(browserWidgets.length > 0);
     },
+    showSafari: safariRow.show,
     show(view) {
       token = view.token;
       group.set_visible(view.token !== null);
