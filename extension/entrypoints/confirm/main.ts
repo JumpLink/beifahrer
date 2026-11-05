@@ -66,6 +66,8 @@ function changeSentence(req: ConfirmRequest): string {
       return t('confirm_fill', req.target);
     case 'enterCode':
       return t('confirm_enterCode', req.target);
+    case 'upload':
+      return t('confirm_upload', req.target);
     case 'click':
       return t('confirm_click', req.target);
     case 'press':

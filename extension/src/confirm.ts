@@ -18,7 +18,17 @@ export interface ConfirmRequest {
   id: string;
   /** The site a write goes to. Empty for `close`, which is about the browser, not one site. */
   origin: string;
-  action: 'fill' | 'enterCode' | 'click' | 'press' | 'select' | 'check' | 'close' | 'access' | 'script';
+  action:
+    | 'fill'
+    | 'enterCode'
+    | 'upload'
+    | 'click'
+    | 'press'
+    | 'select'
+    | 'check'
+    | 'close'
+    | 'access'
+    | 'script';
   /** What is changed, or for `access` empty. */
   target: string;
   /** `access`: the level asked for. */

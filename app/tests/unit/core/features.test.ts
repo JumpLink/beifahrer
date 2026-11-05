@@ -88,6 +88,20 @@ export default async () => {
     });
   });
 
+  await describe('uploads', async () => {
+    await it('have their own switch, off by default (ADR 0027)', async () => {
+      expect(featureOf('page.upload')).toBe('upload');
+      expect(REQUIRED_LEVEL['page.upload']).toBe('write');
+      expect(DEFAULT_FEATURES.upload).toBe(false);
+      expect(preflight({ paused: false, features: DEFAULT_FEATURES }, 'page.upload')).toStrictEqual({
+        allow: false,
+        code: 'feature_disabled',
+        feature: 'upload',
+      });
+      expect(preflight({ paused: false, features: allOn }, 'page.upload').allow).toBe(true);
+    });
+  });
+
   await describe('one-time codes', async () => {
     await it('are typed only with their own switch, which is off by default (ADR 0020)', async () => {
       expect(featureOf('page.enterCode')).toBe('oneTimeCodes');
@@ -144,6 +158,8 @@ export default async () => {
         // A login QR code is a session challenge; reading it for the person is switched on deliberately.
         qrCodes: false,
         click: true,
+        // Hands a file from the person's disk to a site: switched on deliberately.
+        upload: false,
         // With the other far-reaching capabilities: a script is off until the person says so.
         script: false,
         open: true,

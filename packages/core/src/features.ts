@@ -30,6 +30,7 @@ export const FEATURES = [
   'oneTimeCodes',
   'qrCodes',
   'click',
+  'upload',
   'script',
   'open',
   'manageTabs',
@@ -88,6 +89,12 @@ export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = 
       'messenger, so you can scan it. Never logged, never kept (ADR 0022)',
   },
   click: { label: 'Click', detail: 'page_click — still needs Read + edit on the site' },
+  upload: {
+    label: 'Upload files',
+    detail:
+      'page_upload — puts files from the upload folder you set into a file field of the page. Needs ' +
+      'Read + edit on the site and the folder setting; you see the file names before it happens (ADR 0027)',
+  },
   script: {
     label: 'Run scripts',
     detail:
@@ -136,6 +143,9 @@ export const DEFAULT_FEATURES: Features = {
   // a decision they make once, per browser, behind a warning (ADR 0022).
   qrCodes: false,
   click: true,
+  // Off, like downloads: it hands a file from the person's disk to a site, which is a decision made
+  // once per browser (ADR 0027).
+  upload: false,
   // Off, with screenshots, downloads, tab management and sessions: every capability that reaches
   // past "act on the one page in front of the person" — and this one more than any of them. Running
   // the agent's own code in a tab is switched on deliberately, per browser, and every run asks
@@ -185,6 +195,7 @@ export const FEATURE_OF = {
   'page.select': 'fill',
   'page.check': 'fill',
   'page.click': 'click',
+  'page.upload': 'upload',
   'page.evaluate': 'script',
   // Navigation rides on the same switch as opening a tab: both are the agent pointing the
   // browser at a URL, and both are bounded by `read` on the site named. One switch, because

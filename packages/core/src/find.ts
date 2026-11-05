@@ -21,6 +21,7 @@ export const FIND_ROLES = [
   'checkbox',
   'radio',
   'combobox',
+  'file',
   'tab',
   'menuitem',
 ] as const;

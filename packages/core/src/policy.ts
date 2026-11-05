@@ -202,6 +202,9 @@ export const REQUIRED_LEVEL = {
   // `read`; its own feature switch is off by default.
   'page.readQr': 'read',
   'page.click': 'write',
+  // Puts files from the person's upload folder into a file field (ADR 0027). A write like any other: it
+  // confirms under `confirmWrites`, and its own feature switch is off by default.
+  'page.upload': 'write',
   // All three change the page, so all three are writes: a key can submit a form, an option can
   // change what a form asks for, a checkbox can agree to a term. None of them reads anything the
   // level below `write` would not already have let it read.

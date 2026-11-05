@@ -1,6 +1,6 @@
 /** Messages between the background and the page agent injected into a tab. */
 
-import type { ElementQuery, ExpectState, MetaQuery } from '@beifahrer/core';
+import type { ElementQuery, ExpectState, MetaQuery, UploadFile } from '@beifahrer/core';
 
 /**
  * The page agent's Stop button → background. The only message a content script may send, and it
@@ -20,6 +20,8 @@ export type PageRequest = PageTarget &
     | { beifahrer: 'click'; ref: string }
     /** A one-time code the person relayed (ADR 0020). Only ever into a field marked as one. */
     | { beifahrer: 'enterCode'; ref: string; code: string }
+    /** Files for a file field (ADR 0027); the bridge read them, the confirm window listed them. */
+    | { beifahrer: 'upload'; ref: string; files: UploadFile[] }
     /**
      * A key, on an element or wherever the focus is. `text` types characters one after another,
      * which is a different thing from pressing one key: a page that listens for `input` per

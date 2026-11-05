@@ -20,9 +20,10 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
 import { rangeOf, rangeOptions, type RangeArgs } from '../../bridge/session.ts';
 import { saveDirOptions, saveRootOf, type SaveArgs } from '../../save-dir.ts';
+import { uploadDirOptions, uploadRootOf, type UploadArgs } from '../../upload-dir.ts';
 import { createMcpServer, startBridge } from '../mcp/server.ts';
 
-interface Args extends RangeArgs, SaveArgs {
+interface Args extends RangeArgs, SaveArgs, UploadArgs {
   name?: string;
   args?: string;
   list?: boolean;
@@ -44,6 +45,7 @@ export const toolCommand: CommandModule<object, Args> = {
       .option('list', { type: 'boolean', describe: 'List the tools and their descriptions' })
       .options(rangeOptions)
       .options(saveDirOptions)
+      .options(uploadDirOptions)
       .option('wait', {
         type: 'number',
         default: 20,
@@ -69,7 +71,7 @@ export const toolCommand: CommandModule<object, Args> = {
         browserWaitMs: argv.wait * 1000,
         lazy: true,
       });
-      const server = createMcpServer(handle, allowWrite, saveRootOf(argv));
+      const server = createMcpServer(handle, allowWrite, saveRootOf(argv), uploadRootOf(argv));
       const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
       const client = new Client({ name: 'beifahrer-tool', version: '0' });
       await server.connect(serverSide);

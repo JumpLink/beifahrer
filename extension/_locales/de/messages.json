@@ -236,6 +236,9 @@
   "method_page_readQr": {
     "message": "Login-QR-Code gelesen"
   },
+  "method_page_upload": {
+    "message": "Dateien an ein Feld angehängt"
+  },
   "method_page_click": {
     "message": "Geklickt"
   },
@@ -319,6 +322,9 @@
   },
   "feature_qrCodes_label": {
     "message": "Login-QR-Code für dich auslesen"
+  },
+  "feature_upload_label": {
+    "message": "Dateien hochladen"
   },
   "feature_click_label": {
     "message": "Klicken"
@@ -580,6 +586,14 @@
   },
   "confirm_enterCode": {
     "message": "Den Einmalcode, den du genannt hast, in $TARGET$ eintippen",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirm_upload": {
+    "message": "Die unten aufgeführten Dateien in $TARGET$ hochladen",
     "placeholders": {
       "target": {
         "content": "$1"
