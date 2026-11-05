@@ -208,10 +208,11 @@ Ports, if you need them: fixture `47901`, DevTools `47903`, bridges `47910–479
 
 ## 3. Runbook B — the Safari extension
 
-Split this into two halves and do not confuse them: **the build is automatable and the loading is
-not.** The repository automates the first and has no tooling for the second.
+Split this into two halves and do not confuse them: **packaging and the unsigned local build are
+automated; loading it into Safari is a person's clicks, because Safari's own UI has no scripted
+route.**
 
-### 3.1 Build — automated
+### 3.1 Build the extension — automated
 
 ```sh
 gjsify workspace beifahrer-extension build
@@ -226,32 +227,95 @@ good — no error, no CPU, no later event, and a Web Inspector console attached 
 nothing. The same bundle in a background page connects at once. So: on Safari, a blank or inert
 extension is this, not a broken build.
 
-### 3.2 Load — manual, and currently by hand
-
-There is **no** `safari-web-extension-converter` step and no `xcrun` step anywhere in this
-repository. Safari needs its extension wrapped in a macOS app bundle before Safari will take it, and
-the tool for that is Xcode's:
+### 3.2 Package it into a macOS app and build it — automated
 
 ```sh
-xcrun safari-web-extension-converter <path to extension/.output/safari-mv3> [options]
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer   # Xcode itself, not the CLT
+cd extension && sh scripts/safari-build.sh
 ```
 
-**This exact invocation is unverified.** I have not run it against this build, and I will not invent
-flags for it — that is precisely the kind of confident line that costs a reader an afternoon. What
-is established:
+`extension/scripts/safari-build.sh` wraps two Xcode steps into one, into the gitignored
+`extension/.output-safari-xcode/`:
 
-- The build output is the correct input shape.
-- Safari currently loads the result as a **temporary extension**, which is the standing arrangement
-  "until an Xcode-packaged app exists" ([ADR 0001](adr/0001-a-browser-extension-not-a-driven-browser.md), § around line 126).
-- Signing is a person with an Apple Developer account: a Safari App Extension is signed by Xcode
-  against a provisioning profile and uploaded through App Store Connect. No CI secret helps
-  (`.github/workflows/release.yml:58-61`). `safari-mv3` ships **unsigned on purpose**.
+1. `xcrun safari-web-extension-packager` — Apple's current name for what used to be
+   `safari-web-extension-converter` (renamed; `--help` still calls the binary
+   `safari-web-extension-packager`, measured on Xcode 27.1) — wraps `.output/safari-mv3` into an
+   Xcode project with a container app + an app extension target (Swift, macOS-only).
+2. `xcodebuild … build` with `CODE_SIGN_IDENTITY=-` (ad-hoc, "Sign to Run Locally") so the app
+   builds and runs with **no Apple Developer certificate** — exactly the unsigned developer path
+   this task needs today.
 
-<verify: what to check> `xcrun safari-web-extension-converter --help` for the flags it actually
-wants on your Xcode, and the resulting app bundle's Info.plist for the extension's bundle
-identifier — Safari will not load one that does not match what the manifest declares.
+**A measured Apple-tool bug, not a project bug:** given `--app-name "Beifahrer"
+--bundle-identifier eu.jumplink.beifahrer`, Xcode 27.1 keeps the extension's id as given
+(`eu.jumplink.beifahrer.Extension`) but capitalizes the container APP's id instead
+(`eu.jumplink.Beifahrer`) — which fails `ValidateEmbeddedBinary` ("Embedded binary's bundle
+identifier is not prefixed with the parent app's bundle identifier"). The script patches
+`project.pbxproj` back to the lowercase id it was given before building. <verify: whether a later
+Xcode still does this> by diffing `PRODUCT_BUNDLE_IDENTIFIER` in a fresh `--force` run.
 
-### 3.3 Pair it, so the extension finds the bridge
+Verified end to end on this machine (Xcode 27.1, macOS 27, 2026-11-05):
+`codesign -dv extension/.output-safari-xcode/Beifahrer/build/Build/Products/Debug/Beifahrer.app`
+reports `Identifier=eu.jumplink.beifahrer`, `Signature=adhoc`, `BUILD SUCCEEDED`.
+
+### 3.3 Load it in Safari — a person's clicks, not a script
+
+Safari never reads a `.app` by API; every step below is a human in Safari's own UI. None of it can
+be scripted or done by an agent (it changes the person's own browser settings).
+
+1. Open the built app once: `open extension/.output-safari-xcode/Beifahrer/build/Build/Products/Debug/Beifahrer.app`
+   — this registers its extension with the system (`RegisterWithLaunchServices`, already run by the
+   build), it does not need to stay open.
+2. Safari → Settings → Developer tab → check **"Allow Unsigned Extensions"** (Safari's Develop menu
+   must be enabled first: Safari → Settings → Advanced → "Show features for web developers", if that
+   checkbox is not already visible).
+3. Safari → Settings → Extensions → check **"Beifahrer"** to enable it.
+4. Safari → Settings → Extensions → "Beifahrer" → turn on **"Allow on all websites"**, or grant it
+   per site from the toolbar's extension icon the first time it asks for a page.
+5. Click the Beifahrer toolbar icon → paste the pairing token from §3.4 into the options page.
+
+<verify: unsigned extensions expire> whether "Allow Unsigned Extensions" needs re-checking after a
+Safari restart or after 24 hours — `docs/traps-browser-platform.md` notes a *temporary* extension
+(the pre-3.2 state, loaded without an app at all) is dropped that way; whether an ad-hoc-signed app
+extension is the same is unmeasured here.
+
+### 3.4 Developer ID distribution outside the Mac App Store — researched, not built
+
+This task's longer-term goal (Developer-ID-signed + notarized download, no Apple review, no store).
+What changed and what it needs, from Apple's own pages (fetched 2026-11-05):
+
+- **Safari 18.4 (macOS Sequoia 15.4, March 2025) added exactly this path.** Before it, a Safari Web
+  Extension could only reach an end user through the Mac App Store; "Allow Unsigned Extensions" was
+  developer/tester-only. Source: [WebKit: *Developer ID-Signed and Notarized Safari Web
+  Extensions*](https://webkit.org/blog/16574/webkit-features-in-safari-18-4/#developer-id-signed-and-notarized-safari-web-extensions) —
+  "Safari 18.4 on macOS now supports Safari Web Extensions that have been Developer ID-signed and
+  notarized… Once notarized, your app and extension is ready for distribution and use in Safari."
+  Since this machine runs Xcode 27.1 / a much later macOS, the minimum OS is already met.
+- **Apple's own how-to:** [*Distributing your Safari web extension* — "Distribute your Developer
+  ID–signed and notarized extension outside the Mac App Store"](https://developer.apple.com/documentation/safariservices/distributing-your-safari-web-extension#Distribute-your-Developer-ID-signed-and-notarized-extension-outside-the-Mac-App-Store):
+  sign the container app (which carries the extension) with a **Developer ID Application**
+  certificate, then notarize it — the same pipeline as any non-App-Store Mac app, not an
+  extension-specific one. It points at [*Developer ID*](https://developer.apple.com/support/developer-id/)
+  and [*Notarizing macOS software before distribution*](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
+- **What that pipeline needs, from the notarization page and general Developer ID requirements**
+  (standard for every Developer-ID Mac app since macOS 10.14.5, nothing extension-specific found):
+  a **Developer ID Application** certificate issued to the enrolled Apple Developer account (Pascal
+  has the account; **no certificate exists yet** — this is the blocking step); **Hardened Runtime**
+  enabled on the app target (`ENABLE_HARDENED_RUNTIME = YES`, plus whatever entitlements the app
+  actually uses — this app needs none beyond the extension's own, since it has no app-group IPC: the
+  container app and the extension talk to the bridge over `ws://127.0.0.1`, not shared storage);
+  `codesign --options runtime` instead of ad-hoc; then `xcrun notarytool submit … --wait` against an
+  **App Store Connect API key** or an Apple ID + app-specific password, and `xcrun stapler staple`
+  the ticket onto the `.app` so Gatekeeper can verify it offline.
+- **Download format:** nothing in Apple's extension docs names one specifically — it is a regular
+  notarized Mac app at that point, so the same `.dmg`/`.zip` choice applies as the CLI's own macOS
+  packages (`.github/workflows/release.yml:132-135` already builds both for the CLI).
+- **Not done here, and why:** no certificate exists yet (task scope says so), and generating one is
+  an Apple Developer Portal action with Pascal's account — outside what this task or an agent should
+  do. Once it exists, `ci.yml`'s existing macOS sign+notarize+staple job for the CLI
+  (`macos` job, referenced at `release.yml:194-196`) is the pattern to extend to this Xcode project,
+  not a new pipeline.
+
+### 3.5 Pair it, so the extension finds the bridge
 
 ```sh
 gjsify run app/dist/gjs/beifahrer.mjs token     # paste it into the extension's options page
@@ -342,7 +406,9 @@ Each of these reads as an unrelated failure. Each has a known cause.
 | `no Chromium that loads unpacked extensions — set BEIFAHRER_E2E_CHROMIUM` | The driver found no `chromium-<rev>` directory with either documented darwin binary inside it. Both paths are marked NOT VERIFIED in `platform.ts`. | Set the variable to the real binary. Do not edit the table. |
 | Firefox binary not found | The standard macOS location is a candidate, not a guarantee; the fallback is a bare `firefox` on `PATH`. | Set `BEIFAHRER_E2E_FIREFOX` |
 | On Safari: blank page, extension inert, Web Inspector console evaluates nothing | Safari's extension **service worker** hangs on `new WebSocket('ws://127.0.0.1:…')`. It only bites once a token is set, because only then does the worker connect. | Already designed around: `safari-mv3` uses a non-persistent background page. If you see it anyway, you are running a Chromium/Firefox build, not the safari one. |
-| On Safari: "no extension found" in Safari's settings | Safari takes an **app bundle**, not a folder. The conversion is the manual `xcrun safari-web-extension-converter` step this repo does not have. | §3.2 — the invocation there is unverified; read `--help` |
+| On Safari: "no extension found" in Safari's settings | Safari takes an **app bundle**, not a folder, and that app has to be opened once before Safari registers it. | §3.2 then §3.3 step 1 |
+| `xcodebuild`: `ValidateEmbeddedBinary … not prefixed with the parent app's bundle identifier` | The packager itself mis-capitalizes the container app's id (§3.2) — not a project misconfiguration. | `extension/scripts/safari-build.sh` already patches this; if it recurs after an Xcode upgrade, diff `PRODUCT_BUNDLE_IDENTIFIER` in the generated `project.pbxproj` |
+| `xcodebuild: error: tool requires Xcode, but active developer directory is a command line tools instance` | `xcode-select`'s default points at the CLT, which has no `xcodebuild`. | `export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` |
 | Unit tests report a message you edited three lines away | `gjsify test` reuses `app/dist-test/test.gjs.mjs` when only `packages/core` changed: the bundler's cache is keyed on the entry files, not on what they import. | `rm -rf app/dist-test` before believing a green run — then **rebuild**, see the first row |
 | A Safari or MV3 `page_evaluate` answers `unsupported` | Not a macOS problem. An MV3 content script cannot `eval` (`script-src` may only name `self`, `none`, `wasm-unsafe-eval`, localhost), so the script run is engine-dependent ([ADR 0012](adr/0012-running-the-agents-own-script-in-the-page.md)). | Expected. The Firefox build supports it. |
 | A long-running GJS process exits 144 on a sandboxed host | The sandbox kills long-running **foreground** GJS processes. | Run in the background |

@@ -11,6 +11,7 @@
     "build": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify run dist/build.gjs.mjs",
     "zip": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify run dist/build.gjs.mjs --zip",
     "sign": "sh scripts/sign.sh",
+    "safari:build": "sh scripts/safari-build.sh",
     "dev": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify build scripts/dev.ts --app gjs --outfile dist/dev.gjs.mjs && gjsify run dist/dev.gjs.mjs",
     "dev:chromium": "gjsify build scripts/build.ts --app gjs --outfile dist/build.gjs.mjs && gjsify build scripts/dev.ts --app gjs --outfile dist/dev.gjs.mjs && gjsify run dist/dev.gjs.mjs --chromium"
   },

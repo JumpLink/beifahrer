@@ -292,17 +292,24 @@ submission or whether the package must be re-uploaded, is `<verify>`: read
 
 ## Safari
 
-There is no listing to write. A Safari web extension is signed in Xcode against a provisioning
-profile and uploaded through App Store Connect by a person, which is why
-[`.github/workflows/release.yml:58-61`](../../.github/workflows/release.yml) says so and why
-`safari-mv3` ships unsigned on purpose.
+There is no store listing to write, but there are now **two** distribution routes, not one — see
+[macos-run.md §3.4](../macos-run.md#34-developer-id-distribution-outside-the-mac-app-store-researched-not-built)
+for the sourced detail:
 
-What is written down: the target builds and passes its end-to-end test
-(`README.md`'s engine table), and the manifest takes the Chromium flavour with a background **page**
-instead of a service worker, because Safari's extension service worker hangs on the loopback socket
-(`extension/manifest.ts:125-134`). Whether Apple's submission accepts that, and what the review
-requires, is `<verify>`:
-[developer.apple.com/documentation/safariservices](https://developer.apple.com/documentation/safariservices/safari-web-extensions/).
+1. **Mac App Store.** Signed in Xcode against a provisioning profile, uploaded through App Store
+   Connect by a person — why [`.github/workflows/release.yml:58-61`](../../.github/workflows/release.yml)
+   says so, and why `safari-mv3` ships unsigned on purpose.
+2. **Developer ID + notarization, outside the App Store** (Safari 18.4+ / macOS Sequoia 15.4+,
+   [Apple's own page](https://developer.apple.com/documentation/safariservices/distributing-your-safari-web-extension#Distribute-your-Developer-ID-signed-and-notarized-extension-outside-the-Mac-App-Store)):
+   the same `.dmg`/`.zip` a Developer-ID Mac app ships as, no store review. Blocked today on a
+   Developer ID Application certificate that does not exist yet for this account.
+
+What is written down either way: the target builds and passes its end-to-end test (`README.md`'s
+engine table), the manifest takes the Chromium flavour with a background **page** instead of a
+service worker because Safari's extension service worker hangs on the loopback socket
+(`extension/manifest.ts:125-134`), and `extension/scripts/safari-build.sh` produces an ad-hoc-signed,
+locally-runnable `.app` for development (macos-run.md §3.2) — neither store's signing, but the same
+Xcode project either route would sign.
 
 ---
 

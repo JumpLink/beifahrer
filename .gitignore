@@ -8,6 +8,7 @@ app/ship/
 extension/.output/
 extension/.output-e2e/
 extension/.output-dev/
+extension/.output-safari-xcode/
 extension/dist/
 
 # gjsify
