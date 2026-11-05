@@ -10,8 +10,8 @@
  * They go to the extension and into the page; they never go back to the agent.
  */
 
-import { readFileSync, realpathSync, statSync } from 'node:fs';
-import { basename, isAbsolute, relative, resolve } from 'node:path';
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
 import { MAX_UPLOAD_FILE_BYTES, mimeOfName, uploadRefusal, type UploadFile } from '@beifahrer/core';
 
@@ -43,6 +43,23 @@ function inside(root: string, path: string): boolean {
 }
 
 /**
+ * `path` canonicalized up to, but not including, its final component: the leaf is left as given,
+ * so a symlink AT the leaf is still caught by the caller's own realpath check with its own
+ * message, while an ancestor directory that is itself a symlink — including macOS's `/var` →
+ * `/private/var`, which is exactly as real as one the person made — compares equal either way it
+ * was spelled.
+ */
+function realBeforeLeaf(path: string): string {
+  const extra: string[] = [];
+  let at = dirname(path);
+  while (!existsSync(at)) {
+    extra.unshift(basename(at));
+    at = dirname(at);
+  }
+  return join(realpathSync(at), ...extra, basename(path));
+}
+
+/**
  * Reads the named files for one call. A relative path counts from the person's directory. Throws a
  * plain Error the agent can relay, naming the path the agent gave and never one it was not given.
  */
@@ -65,7 +82,7 @@ export function readUploads(root: string | undefined, paths: readonly string[]):
     if (typeof requested !== 'string' || requested === '' || requested.includes('\0'))
       throw refuse('it is not a usable path');
     const wanted = resolve(realRoot, requested);
-    if (!inside(realRoot, wanted)) throw refuse('it is outside the allowed directory');
+    if (!inside(realRoot, realBeforeLeaf(wanted))) throw refuse('it is outside the allowed directory');
     let real: string;
     try {
       real = realpathSync(wanted);

@@ -54,6 +54,29 @@ export default async () => {
       s.done();
     });
 
+    await it('accepts a file when the allowed root is itself a symlink (macOS /var)', async () => {
+      const s = scratch();
+      const alias = join(s.base, 'alias-out');
+      symlinkSync(s.root, alias);
+      writeFileSync(join(s.root, 'invoice.pdf'), 'hello');
+      // Both the root and the requested path are spelled through the symlink, as macOS does for
+      // every path under /var (-> /private/var): neither side is canonical, and they must still
+      // agree.
+      const [file] = readUploads(alias, [join(alias, 'invoice.pdf')]);
+      expect(file!.name).toBe('invoice.pdf');
+      s.done();
+    });
+
+    await it('refuses a path that escapes through a symlinked ancestor directory', async () => {
+      const s = scratch();
+      mkdirSync(join(s.base, 'secret-out'));
+      writeFileSync(join(s.base, 'secret-out', 'leak.txt'), 'x');
+      // The symlink sits INSIDE the allowed root, one level above the leaf, and points OUTSIDE it.
+      symlinkSync(join(s.base, 'secret-out'), join(s.root, 'escape'));
+      expect(() => readUploads(s.root, [join(s.root, 'escape', 'leak.txt')])).toThrow(/outside/);
+      s.done();
+    });
+
     await it('enforces the size caps', async () => {
       const s = scratch();
       writeFileSync(join(s.root, 'big.bin'), Buffer.alloc(MAX_UPLOAD_FILE_BYTES + 1));
