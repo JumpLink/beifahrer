@@ -63,6 +63,13 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.22" date="2026-11-05">
+      <description>
+        <ul>
+          <li>Toolbar button in the browser's icon colour in Chrome and Edge too</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.21" date="2026-11-04">
       <description>
         <ul>
