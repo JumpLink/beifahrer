@@ -19,9 +19,10 @@ import {
 
 const KEY = 'activity';
 
-interface SessionArea {
+export interface SessionArea {
   get(key: string): Promise<Record<string, unknown>>;
   set(items: Record<string, unknown>): Promise<void>;
+  remove(key: string): Promise<void>;
 }
 
 let log: ActivityEntry[] = [];
@@ -65,10 +66,32 @@ async function urlOf(method: Method, params: unknown): Promise<string | null> {
   if (typeof p?.tabId !== 'number') return null;
   // A tab id the agent made up, or one closed meanwhile, simply has no host to show; the method
   // itself answers not_found.
-  return browser.tabs.get(p.tabId).then(
-    (tab) => tab.url ?? null,
-    () => null,
-  );
+  const tab = await browser.tabs.get(p.tabId).catch(() => null);
+  return tab?.url ?? null;
+}
+
+/**
+ * Store the log, never letting the write fail the call it is logging (file doc: "a lost log is
+ * better than a stored one"). Safari has answered `Exceeded storage quota` for this log well
+ * under any documented session-storage limit, and kept answering it for every later write once it
+ * did (<verify: exact Safari `storage.session` quota and why ~20 small entries hit it> — see
+ * traps-browser-platform.md); removing the key once and writing again recovers the one case
+ * where the key itself held something oversized, and is cheap either way.
+ */
+export async function persist(area: SessionArea | null, entries: ActivityEntry[]): Promise<void> {
+  if (!area) return;
+  try {
+    await area.set({ [KEY]: entries });
+    return;
+  } catch {
+    // fall through to the one retry below
+  }
+  try {
+    await area.remove(KEY);
+    await area.set({ [KEY]: entries });
+  } catch {
+    // best effort only: the log stays in memory for this call and every one after it
+  }
 }
 
 /** Run one request and log it, refusals included, with the session that sent it. */
@@ -92,7 +115,7 @@ export async function track<T>(
     lastActivityAt = Date.now();
     await load();
     log = pushActivity(log, activityEntry({ at: lastActivityAt, method, params, url, error, session }));
-    await sessionArea()?.set({ [KEY]: log });
+    await persist(sessionArea(), log);
     changed();
   }
 }

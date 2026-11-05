@@ -54,6 +54,23 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
 - **Safari has neither `tabGroups` nor `sessions`.** `capabilities()` leaves out the methods that
   need them (`NEEDS_API` in handlers.ts), so the agent never gets offered a tool the browser
   cannot serve.
+- **Safari's `storage.session` answers `Exceeded storage quota` on a log of ≤ 20 tiny entries,
+  and keeps answering it on every later write once it has.** Measured on Safari 27.0.1, extension
+  0.1.22 (safari-mv3), 2026-11-05: the first ~20 MCP calls (outline, read, find, rows, navigate,
+  click, press, wait, expect, tabs.open) worked, then every call failed, `tabs.list` included,
+  with `Invalid call to browser.storage.session.set(). Exceeded storage quota.` — the activity
+  log (`ACTIVITY_LIMIT = 20`, `PREVIEW_CHARS = 40`, packages/core/src/activity.ts) is nowhere
+  near Chrome's documented 10 MB (1 MB before Chrome 111) session-storage limit, and no WebKit
+  source or Apple doc names a smaller `storage.session` number for Safari
+  (<verify: the exact Safari `storage.session` byte or item quota, and whether it counts an
+  item's OLD value as still held while the new one is written>). The bug was `track()`'s
+  `finally` awaiting the session write unguarded, so a quota failure there turned an otherwise
+  successful call into `failed` — the opposite of the file's own "a lost log is better than a
+  stored one". `persist()` now never throws out of `track()`: one write, on failure one
+  remove-and-retry, and on failure again the log simply stays in memory for that call and every
+  one after it (extension/src/activity.ts). `storeGrants` (grants.ts) throws a plain message
+  instead of the browser's raw error on the same failure, but stays fail-closed: a grant that
+  could not be written is still not stored.
 - **Firefox's `permissions.request` must be the first `await` in the click handler.** Any earlier
   await ends the user gesture and the request silently fails (see popup/options).
 - **A Manifest V3 content script cannot `eval` or `new Function`.** It shares the extension's

@@ -58,10 +58,22 @@ export async function loadGrants(now = Date.now()): Promise<Grant[]> {
   return pruneGrants(parseGrants(raw, now), now, liveSessions);
 }
 
+/**
+ * Write the grants, or throw a plain message instead of the browser's raw quota error. Still
+ * fail-closed: a grant that could not be written is not stored, so `loadGrants` never sees it —
+ * nothing here widens access on failure, it only replaces what the thrown message says.
+ */
 async function storeGrants(grants: Grant[]): Promise<void> {
   const area = sessionArea();
-  if (area) await area.set({ [GRANTS_KEY]: grants });
-  else memory = grants;
+  if (!area) {
+    memory = grants;
+    return;
+  }
+  try {
+    await area.set({ [GRANTS_KEY]: grants });
+  } catch (err) {
+    throw new Error(`could not save the grant: ${(err as Error)?.message ?? String(err)}`);
+  }
 }
 
 async function loadHeld(): Promise<HeldHosts> {
