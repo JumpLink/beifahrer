@@ -513,6 +513,14 @@ in `storage.session` and repaints on change. Only the `chrome-mv3` and `edge-mv3
 unchanged; until the first report the dark ink stays. Verified in Chromium by flipping the
 offscreen document's scheme over DevTools: the worker received it and the bus turned white.
 
+**Amendment 2026-11-05: the monochrome looks draw a simpler bus.** At 16 px the app's symbolic
+icon, with the passenger and four uneven windows, blurred into a grey block, and it stood out
+beside the browser's own plain toolbar icons. The monochrome looks now render from their own source,
+`data/icons/toolbar/eu.jumplink.beifahrer-toolbar-symbolic.svg`: the same side view and roof board,
+no passenger, three equal windows, two wheels. The person chose it from four drawn variants. The
+app's symbolic icon (GNOME) and the coloured looks (`active`, `wide-active`, from the colour app
+icon) are unchanged.
+
 ### 12. The style reference and its licence
 
 GNOME's [app-illustrations](https://gitlab.gnome.org/Teams/Design/app-illustrations) was read as a

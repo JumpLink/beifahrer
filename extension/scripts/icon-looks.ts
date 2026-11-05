@@ -21,15 +21,16 @@ export const LOOK: Record<IconVariant, { colour: boolean; dot: boolean }> = {
   'wide-active': { colour: true, dot: true },
 };
 
-/** The symbolic source draws everything in this one fill; the monochrome look swaps it for the toolbar's ink. */
+/** The toolbar source draws everything in this one fill; the monochrome look swaps it for the toolbar's ink. */
 const SYMBOLIC_INK = '#241f31';
 
 /**
- * The app icons open with a prolog and a long design comment: GdkPixbuf sniffs the first bytes for
- * `<svg` and gives up on the file otherwise, so the derived copy starts at the root element.
+ * The icon sources (under data/icons/) open with a prolog and a design comment: GdkPixbuf sniffs the
+ * first bytes for `<svg` and gives up on the file otherwise, so the derived copy starts at the root
+ * element.
  */
 export const iconSource = (root: string, ...path: string[]): string => {
-  const svg = readFileSync(join(root, '..', 'data', 'icons', 'hicolor', ...path), 'utf8');
+  const svg = readFileSync(join(root, '..', 'data', 'icons', ...path), 'utf8');
   return svg.slice(svg.indexOf('<svg'));
 };
 
