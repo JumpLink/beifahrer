@@ -1,7 +1,7 @@
 /**
  * What the toolbar button shows, from the extension's state. Pure and exhaustive: the person
  * must be able to tell at a glance whether an agent is in the browser right now, and whether it
- * is stopped. The icon is the Beifahrer bus, drawn from the app icon (data/icons/):
+ * is stopped. The icon is the Beifahrer bus (data/icons/), monochrome or in colour:
  *
  *   not connected        monochrome + red dot     no agent can reach this browser at all
  *   paused               monochrome + yellow dot   the person's own stop

@@ -1,9 +1,11 @@
 /**
- * Render the toolbar icons from the app's own icon, data/icons/hicolor/: the colour bus
- * (scalable/apps/eu.jumplink.beifahrer.svg) and its symbolic twin. The variants are derived here
- * as SVG text and rasterised to PNG at every size the manifest names, for every browser. On GJS
- * through GdkPixbuf, whose SVG loader is librsvg: the stack a GNOME desktop draws its icons with,
- * so no rasteriser is vendored here.
+ * Render the toolbar icons from two sources in data/icons/: the app's colour bus
+ * (hicolor/scalable/apps/eu.jumplink.beifahrer.svg) for the coloured looks, and the toolbar mark
+ * (toolbar/eu.jumplink.beifahrer-toolbar-symbolic.svg) for the monochrome ones: the bus without
+ * the passenger, simpler than the app's symbolic icon so it still reads at 16 px (ADR 0025 § 11).
+ * The variants are derived here as SVG text and rasterised to PNG at every size the manifest names,
+ * for every browser. On GJS through GdkPixbuf, whose SVG loader is librsvg: the stack a GNOME
+ * desktop draws its icons with, so no rasteriser is vendored here.
  *
  *   idle      monochrome + green dot           connected, nothing running
  *   active    colour + green dot               an agent request running, and a few seconds after
@@ -33,8 +35,8 @@ const INKS = ['dark', 'light'] as const;
 
 /** Render every variant once into `stage`; `copyIcons` then places what each target needs. */
 export function renderIcons(root: string, stage: string): void {
-  const colour = iconSource(root, 'scalable', 'apps', 'eu.jumplink.beifahrer.svg');
-  const symbolic = iconSource(root, 'symbolic', 'apps', 'eu.jumplink.beifahrer-symbolic.svg');
+  const colour = iconSource(root, 'hicolor', 'scalable', 'apps', 'eu.jumplink.beifahrer.svg');
+  const symbolic = iconSource(root, 'toolbar', 'eu.jumplink.beifahrer-toolbar-symbolic.svg');
   mkdirSync(join(stage, 'icons'), { recursive: true });
   for (const variant of ICON_VARIANTS) {
     for (const ink of INKS) {
