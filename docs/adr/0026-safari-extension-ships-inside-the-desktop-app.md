@@ -1,8 +1,10 @@
 # 0026: The Safari extension ships inside the desktop app, not its own Xcode shell
 
 - **Status:** accepted (decided by the person, 2026-11-05: one app, well integrated, never Apple's
-  template shell). Implementation (the window's Safari row, the Swift helper, Firefox/Chromium
-  install rows) is a SEPARATE change — this ADR only records the decision and the probe it rests on.
+  template shell; amended the same day with the Variant-1-now decision: Developer-ID download first,
+  App Sandbox for that download later, the Mac App Store last, with the same app throughout). The
+  window's Safari row and the Swift helper that reads its state ship together with this amendment;
+  Firefox/Chromium install rows stay a separate change.
 - **Date:** 2026-11-05
 - **Relates to:** [0017](0017-native-desktop-app.md) (the window is a view, never a policy — kept
   here), [0002](0002-build-on-gjs-not-wxt.md) (the extension is bundled on GJS), `docs/macos-run.md`
@@ -71,10 +73,18 @@ them; the container app needs `allow-jit`, `allow-unsigned-executable-memory`,
 and `@gjsify/node-gi`'s `DYLD_*` re-exec, both already named in gjsify's own entitlement set, and
 nothing beyond them.
 
-**6. Notarisation is unaffected by the merge.** Embedding the `.appex` inside the already-Developer-ID
-app does not change `docs/macos-run.md` §3.4's finding: a certificate exists now (this task
-confirmed it in the keychain), notarisation itself is a separate Apple-side action needing the
-person's explicit submission, out of scope here as before.
+**6. Notarisation already runs in CI — `docs/macos-run.md` §3.4's "not done here" is out of date.**
+The macOS release job already signs with a Developer ID certificate and notarises through
+`notarytool`, then staples the ticket (`.github/workflows/ci.yml`'s `macos` job: secrets
+`APPLE_DEVELOPER_ID_P12_BASE64`/`_PASSWORD`, `APPLE_NOTARY_KEY_P8`/`_ID`/`_ISSUER_ID`, invoked by
+`release.yml` passing `sign: true`); a shipped release already carries `"notarized": true` in its
+`.gjsify-release.json` (v0.1.25 on). Once gjsify closes § 6 below and embeds the `.appex` before the
+outer bundle is sealed, the embedded extension is notarised automatically in the SAME submission —
+`notarytool` inspects the whole signed bundle, inner Mach-Os included, so there is no separate
+Apple-side action for the extension beyond what the app's own release already does.
+<verify: whether the first real submission after embedding lands raises a notary finding specific to
+the `.appex` (its own sandbox entitlements, its extension-point `Info.plist` keys) that a plain GJS
+app never triggered> — unmeasured, because no embedded build has been submitted yet.
 
 ## § 3 — Probe: embedding, signing, and launch (measured 2026-11-05, macOS 27 / Xcode 27.1 / arm64)
 
@@ -101,7 +111,7 @@ and the real extension's registration was re-checked afterwards and is unchanged
   gave in `docs/macos-run.md` §3.4).
 - **Does it start?** Built a fresh **arm64** stage (`gjsify ship darwin --stage` — the repo's
   existing stage was a stale x64 one, unrunnable on this host without Rosetta, which is not
-  installed; separately worth fixing, see § 7 below). `beifahrer token` (exercises the Node runtime
+  installed; unrelated to this ADR and not fixed here). `beifahrer token` (exercises the Node runtime
   + `@beifahrer/local`'s file access) ran and printed a token. Launching the full window (`beifahrer`,
   no args) stayed alive past 4 s with no `dyld … different Team IDs` error and only a benign
   `Gdk-WARNING` — the GTK4/libadwaita/node-gi closure loads under Hardened Runtime with the four
@@ -171,3 +181,110 @@ mechanism `signing.ts` already has for the outer bundle, recursively for the inn
 (`tests/e2e/ship-layout` already states the darwin layout's file-set as an equality; a nested
 bundle is a second equality one level in). Until it lands, Beifahrer's own build step does the
 copy-then-sign-twice by hand, as measured in § 3.
+
+Store metadata is a second, separate gjsify gap, named here for Stufe 3 (§ 8) and not fixed in this
+task: gjsify's ADR 0135 (`gjsify/gjsify/docs/adr/0135-store-listings-come-from-the-metainfo.md`,
+Proposed) already derives Chrome Web Store / Edge / AMO listings from
+`data/eu.jumplink.beifahrer.metainfo.xml` plus the gettext catalogues (`gjsify webext listing`,
+`packages/infra/site/src/listing/`), so hand-written store text never drifts from the one source.
+Two things that command does not cover yet, both App
+Store Connect only: **(a)** ADR 0135 names no App Store Connect target — name → App Name, summary →
+Subtitle, description → the long description, keywords → Keywords, `<releases>` → "What's New",
+`<url>` entries → Support/Marketing/Privacy URL, `<categories>` → primary category, the OARS
+`content_rating` → age rating, and screenshots fitted to the Mac sizes App Store Connect wants
+(`<verify: the exact field length limits>` — unmeasured here, Apple's limits were not looked up for
+this task); **(b)** `packages/infra/cli/src/utils/ship/plist.ts` deliberately omits
+`LSApplicationCategoryType` and `NSHumanReadableCopyright` (its own header names them as left out
+because "nothing a reader here can derive" them) — both ARE derivable from the metainfo
+(`<categories>` and `<project_license>`/developer name) and the Mac App Store wants them in
+`Info.plist`. Nothing in gjsify is changed by this task; both points go in `docs/gjsify-gaps.md`
+for whoever builds Stufe 3.
+
+## § 7 — Updates
+
+The Safari extension has **no update channel of its own** — unlike Firefox and Chromium, it never
+checks anywhere for a newer version; it updates only when the person installs a newer `Beifahrer.app`
+(App Store or Developer-ID download, Stufe-dependent). This is not a gap to close, it is what "ships
+inside the app" (§ 1) already means: Safari resolves an extension's version from its parent app's
+bundle, the same way `pluginkit` resolved its identity in § 3. Contrast with the other two builds,
+each on its own ceiling:
+
+- **Firefox** carries `update_url` in its manifest (`extension/manifest.ts`, `UPDATE_URL`,
+  `https://github.com/JumpLink/beifahrer/releases/latest/download/updates.json`) — the browser polls
+  that file itself and updates the `.xpi` without the app's involvement at all.
+- **Chromium** updates through its Web Store entry once one exists (§ 5); until then it has no update
+  path either, same as today.
+
+**One product version (AGENTS.md § Conventions) is what makes the coupling harmless.** Core and the
+extension's wire protocol stay version-stamped and checked at connect time regardless of which half
+updated when (`packages/core`'s handshake), so a person running an older Safari build against a newer
+bridge — or the reverse, for the short window between an app update landing and Safari re-registering
+it — sees a mismatch the same way Firefox or Chromium already would, not a new failure mode Safari
+invents.
+
+**Follow-up, not decided here:** whether the window should show an update hint or check itself (today
+ADR 0017 §3 says "no network access at all, updates arrive through the package manager" for the
+Flatpak/deb/rpm builds — a Developer-ID download has no package manager doing that for it). Named as
+a question, left `<verify: whether and how the window should notice a newer Developer-ID build exists>` — no
+code, no decision.
+
+## § 8 — Stufenplan (decided by the person, 2026-11-05: Variante 1 jetzt, Rest schrittweise)
+
+**Stufe 1 — now.** Developer-ID-signed, notarised download (§ 6 of the Decision, § 3 probe). The
+container app is **unsandboxed** (no `com.apple.security.app-sandbox` entitlement — only the four
+Hardened-Runtime ones § 5 names); the `.appex` keeps the `app-sandbox` entitlement the packager wrote
+for it (§ 5), because Safari requires every extension to be sandboxed regardless of its host. This is
+the state § 3's probe measured and the window's Safari row (this change) ships against.
+
+**Stufe 2 — App Sandbox for the Developer-ID download too**, later, analogous to how the Flatpak
+build is already confined (`gjsify.ship.flatpak.finishArgs` in `app/package.json`:
+`--filesystem=xdg-config/beifahrer:create` etc., pinned by the test in
+`app/tests/unit/bridge/config-dir.test.ts`) — the maintainer's own comparison is "App Sandbox is to
+Developer ID what Flatpak already is to Linux: a good security model, not a store requirement."
+Nothing below is measured; every line is `<verify>`:
+
+- <verify: which mechanism shares the pairing token between the sandboxed container app and the
+  `.appex`> — two candidates, neither tried: an **App Group**
+  (`com.apple.security.application-groups`, team-ID-prefixed, shared between both bundle ids) with the
+  token moved out of `configDir()`'s plain `~/Library/Application Support/beifahrer` into the group
+  container; or the **CLI running from the same signed bundle** (same container, so the existing
+  `configDir()` path is already inside the sandbox's own home and needs no entitlement at all) —
+  cheaper if it is sufficient, since it adds nothing new to verify.
+- <verify: which network entitlement the sandboxed bridge needs> — `com.apple.security.network.server`
+  (it listens on loopback for the extension) and possibly `.client`; unmeasured inside a sealed
+  sandboxed container, where § 3's unsandboxed probe never had to ask.
+- <verify: `com.apple.security.inherit` for the Swift helper> — a sandboxed parent's child process
+  needs this entitlement to inherit the parent's sandbox rather than running unsandboxed itself or
+  failing to spawn; untried here, since Stufe 1's container is unsandboxed and the helper (§ 4, this
+  change) was never run under App Sandbox.
+- The entitlement declaration itself is a cross-platform modelling gap, not a Beifahrer-specific one:
+  Flatpak's `finishArgs`, macOS entitlements and (eventually) MSIX capabilities all say the same thing
+  — "this sandboxed app may reach this resource" — in three incompatible vocabularies that
+  `app/package.json`'s `gjsify.ship` block today encodes three separate ways. Named here and in
+  `docs/gjsify-gaps.md`, NOT built: a shared permission model belongs in gjsify
+  (`packages/infra/cli/src/utils/ship/`), the same "fix at the core" rule § 6 above already applies to
+  the nested-bundle gap.
+
+**Stufe 3 — Mac App Store, same app.** Needs: an **Apple Distribution** certificate (not Developer
+ID) and a matching **provisioning profile**; a `.pkg` built with `productbuild`, signed with a
+**Mac Installer Distribution** certificate (a third identity, distinct from both signing certs
+above); upload through the **App Store Connect API** (an ASC API key, the same family of credential
+`notarytool` already uses for Stufe 1, but a different endpoint); **App Review is not guaranteed** —
+unlike Developer-ID notarisation, which is close to automatic once the signing is correct, a human
+reviews the submission and can reject it, for reasons unmeasured here. **Plan B, not chosen for Stufe
+3 either:** a small separate sandboxed app with its own id (`eu.jumplink.beifahrer.safari`) carrying
+only the extension — the same "second surface" objection the Decision's § 2 already raised against
+doing this for Stufe 1, restated because the Mac App Store is the one distribution channel where a
+thin wrapper is a common pattern and still rejected here for the same reason. **If a person ever has
+both the Developer-ID app and the Mac-App-Store app installed**, Safari would show two entries for
+what is, from the person's side, the same product — named here as a consequence to watch for, not
+solved (the two would need to carry the same extension id and differ only in their container's,
+which already breaks Safari's "two apps cannot both own that id" rule from the Context above, so this
+is actually a reason Stufe 3 must replace Stufe 1's install, not sit beside it; `<verify>` how the two
+distribution channels are meant to coexist on one machine, if at all). **Licence:** the project is
+AGPL-3.0-or-later (AGENTS.md § Conventions); App Store Review Guidelines do not forbid AGPL code, and
+with Pascal as sole author there is no second copyright holder whose consent an App-Store-specific
+term would need — this stops being true the day a second contributor's PR is merged, at which point
+consent (or a licence carve-out) becomes necessary before a Stufe-3 submission. **iOS:** Safari Web
+Extensions on iOS/iPadOS ship ONLY through the App Store — there is no Developer-ID or "allow unsigned
+extensions" path there at all, so an iOS release is Stufe 3 or nothing, never Stufe 1 or 2.
