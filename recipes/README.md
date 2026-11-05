@@ -60,7 +60,7 @@ anything else about a company goes into your own directory, never into a pull re
 
 | Key | Matches |
 |---|---|
-| `role` | `heading`, `link`, `button`, `textbox`, `richtext` (a contenteditable editor), `checkbox`, `radio`, `combobox`, `tab`, `menuitem` |
+| `role` | `heading`, `link`, `button`, `textbox`, `richtext` (a contenteditable editor), `checkbox`, `radio`, `combobox`, `file`, `tab`, `menuitem` |
 | `name` | a substring of the accessible name (label, `aria-label`, button text), case- and whitespace-insensitive. A list = any of them: put every UI language you know in it |
 | `text` | a substring of the visible text |
 | `nth` | the nth match from 0; default the first |

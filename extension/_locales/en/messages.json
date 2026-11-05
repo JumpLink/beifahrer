@@ -237,6 +237,9 @@
   "method_page_readQr": {
     "message": "Read a login QR code"
   },
+  "method_page_upload": {
+    "message": "Attached files to a field"
+  },
   "method_page_click": {
     "message": "Clicked"
   },
@@ -320,6 +323,9 @@
   },
   "feature_qrCodes_label": {
     "message": "Read a login QR code for you"
+  },
+  "feature_upload_label": {
+    "message": "Upload files"
   },
   "feature_click_label": {
     "message": "Click"
@@ -581,6 +587,14 @@
   },
   "confirm_enterCode": {
     "message": "Type the one-time code you gave into $TARGET$",
+    "placeholders": {
+      "target": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirm_upload": {
+    "message": "Upload the files listed below into $TARGET$",
     "placeholders": {
       "target": {
         "content": "$1"

@@ -14,6 +14,7 @@ export const FEATURE_ICON: Record<Feature, string> = {
   oneTimeCodes: 'dialog-password-symbolic',
   qrCodes: 'camera-photo-symbolic',
   click: 'input-mouse-symbolic',
+  upload: 'document-send-symbolic',
   script: 'utilities-terminal-symbolic',
   open: 'tab-new-symbolic',
   manageTabs: 'view-grid-symbolic',

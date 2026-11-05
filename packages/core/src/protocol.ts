@@ -28,6 +28,7 @@ import type { DownloadOutcome } from './download-state.ts';
 import type { ExpectState } from './expect.ts';
 import type { ScriptWorld } from './evaluate.ts';
 import type { Navigation } from './navigate.ts';
+import type { UploadFile, UploadedFile } from './upload.ts';
 import type { NetworkRow } from './network.ts';
 import type { Feature } from './features.ts';
 import type { ElementQuery, MetaQuery } from './find.ts';
@@ -307,6 +308,15 @@ export interface MethodMap {
     result: { text: string };
   };
   'page.click': { params: { tabId: number; ref: string }; result: { ref: string } };
+  /**
+   * Put local files into a file field (ADR 0027). The agent names paths; the bridge checks them
+   * against the person's upload folder and sends the bytes here as `files`. The result carries names,
+   * sizes and types only, never the content.
+   */
+  'page.upload': {
+    params: { tabId: number; ref: string; files: UploadFile[] };
+    result: { ref: string; files: UploadedFile[]; accepted: boolean };
+  };
   /**
    * A key, or text typed one character at a time.
    *

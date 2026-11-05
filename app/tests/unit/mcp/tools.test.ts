@@ -28,6 +28,7 @@ const WRITE = [
   'page_fill',
   'page_enter_code',
   'page_click',
+  'page_upload',
   'page_capture',
   'page_press',
   'page_select',

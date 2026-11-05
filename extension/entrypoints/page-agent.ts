@@ -34,6 +34,7 @@ import {
   type FoundElement,
   type KeySpec,
   type MetaQuery,
+  type UploadFile,
 } from '@beifahrer/core';
 import { FRAME_HELLO } from '@beifahrer/core';
 import { afterRepaint, hideNow, keepShown, show } from '../src/page-indicator.ts';
@@ -132,6 +133,7 @@ type Kind =
         | 'checkbox'
         | 'radio'
         | 'combobox'
+        | 'file'
         | 'tab'
         | 'menuitem';
     };
@@ -146,6 +148,7 @@ function kindOf(el: Element): Kind | null {
     const type = (el as HTMLInputElement).type;
     if (type === 'checkbox') return { role: 'checkbox' };
     if (type === 'radio') return { role: 'radio' };
+    if (type === 'file') return { role: 'file' };
     if (type === 'button' || type === 'submit' || type === 'reset') return { role: 'button' };
     if (TEXT_INPUTS.has(type)) return { role: 'textbox' };
     return null;
@@ -278,6 +281,16 @@ function describe(el: Element, kind: Kind): string {
       const select = el as HTMLSelectElement;
       const selected = select.selectedOptions?.[0]?.textContent ?? '';
       return `combobox "${name}"${selected ? ` = "${clip(selected, 60)}"` : ''}`;
+    }
+    case 'file': {
+      const input = el as HTMLInputElement;
+      const traits = [
+        input.multiple ? 'several' : '',
+        input.accept ? `accepts ${clip(input.accept, 60)}` : '',
+      ]
+        .filter(Boolean)
+        .join(', ');
+      return `file "${name}"${traits ? ` (${traits})` : ''}`;
     }
     default:
       return `${kind.role} "${name}"`;
@@ -877,6 +890,88 @@ function enterCode(ref: string, raw: string): PageResponse {
   el.focus();
   setNativeValue(el, parsed.code);
   return { ok: true, data: { ref, length: parsed.code.length } };
+}
+
+/**
+ * The file field a ref stands for: the field itself, the one a label points at, or the only one
+ * near a button that opens it. A page that hides its `<input type=file>` behind a styled button
+ * leaves no formal link, so the nearest ancestor holding exactly one is the answer; two of them is
+ * a guess nobody should make for the person, so that is refused instead.
+ */
+function fileInputFor(el: Element): HTMLInputElement | null {
+  const isFile = (e: Element | null | undefined): e is HTMLInputElement =>
+    e instanceof HTMLInputElement && e.type === 'file';
+  if (isFile(el)) return el;
+  if (el instanceof HTMLLabelElement && isFile(el.control)) return el.control;
+  const wrapping = el.closest('label');
+  if (wrapping && isFile(wrapping.control)) return wrapping.control;
+  let at: Element | null = el;
+  for (let i = 0; at && i < 4; i++, at = at.parentElement) {
+    const found = at.querySelectorAll('input[type="file"]');
+    if (found.length === 1) return found[0] as HTMLInputElement;
+    if (found.length > 1) return null;
+  }
+  return null;
+}
+
+/** Does the file match an `accept` attribute: `.pdf`, `image/*`, `application/pdf`? Empty accepts all. */
+function accepts(accept: string, name: string, mime: string): boolean {
+  const tokens = accept
+    .split(',')
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+  if (tokens.length === 0) return true;
+  const lower = name.toLowerCase();
+  return tokens.some((t) =>
+    t.startsWith('.') ? lower.endsWith(t) : t.endsWith('/*') ? mime.startsWith(t.slice(0, -1)) : mime === t,
+  );
+}
+
+/**
+ * Put files into a file field the way a person's choice in the picker does: the field's `files`
+ * set, then `input` and `change`. The bytes arrive from the bridge (ADR 0027) and are never
+ * returned; the answer is name, size and type per file, as the PAGE now holds them.
+ */
+function upload(ref: string, files: UploadFile[]): PageResponse {
+  const el = byRef(ref);
+  if (!el) return notFound(ref);
+  const input = fileInputFor(el);
+  if (!input)
+    return {
+      ok: false,
+      code: 'invalid',
+      message: `${ref} is not a file field, and no single file field belongs to it`,
+    };
+  if (input.disabled) return { ok: false, code: 'invalid', message: 'the file field is disabled' };
+  if (files.length === 0) return { ok: false, code: 'invalid', message: 'no files given' };
+  if (files.length > 1 && !input.multiple)
+    return { ok: false, code: 'invalid', message: 'the file field takes one file, not several' };
+  const refused = files.find((f) => !accepts(input.accept, f.name, f.mime));
+  if (refused)
+    return {
+      ok: false,
+      code: 'invalid',
+      message: `the file field accepts ${input.accept}, so "${refused.name}" is not allowed`,
+    };
+  const transfer = new DataTransfer();
+  for (const f of files) {
+    const binary = atob(f.base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    transfer.items.add(new File([bytes], f.name, { type: f.mime }));
+  }
+  input.files = transfer.files;
+  input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  const held = Array.from(input.files ?? []);
+  return {
+    ok: true,
+    data: {
+      ref,
+      files: held.map((f) => ({ name: f.name, mime: f.type, size: f.size })),
+      accepted: held.length === files.length,
+    },
+  };
 }
 
 function click(ref: string): PageResponse {
@@ -1960,6 +2055,7 @@ const VERB: Partial<Record<PageRequest['beifahrer'], 'reading' | 'editing'>> = {
   describe: 'editing',
   fill: 'editing',
   click: 'editing',
+  upload: 'editing',
   // press, select and check are `editing` for the same reason fill is: they change the page.
   press: 'editing',
   select: 'editing',
@@ -2021,6 +2117,8 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
       return fill(req.ref, req.text, req.as, req.mode);
     case 'enterCode':
       return enterCode(req.ref, req.code);
+    case 'upload':
+      return upload(req.ref, req.files);
     case 'where':
       // Read fresh, every time. This is the only answer the policy is decided on, so it must not
       // come from a value remembered at injection time — a frame that navigated since then would be

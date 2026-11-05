@@ -35,6 +35,8 @@ export const saveDirOptions = {
 export interface SaveOptions {
   /** The person's directory (`saveRootOf`); absent means no tool may write a file. */
   saveRoot?: string;
+  /** The person's upload directory (upload-dir.ts); absent means `page_upload` is refused. */
+  uploadRoot?: string;
 }
 
 export interface SavedFile {

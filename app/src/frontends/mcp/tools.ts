@@ -25,6 +25,7 @@ import { BridgeError, browserLabel, type BrowserAccess } from '../../bridge/brid
 import { registerFindTools } from './find-tools.ts';
 import { registerRecipeTools, type RecipeToolOptions } from './recipe-tools.ts';
 import { captureSink, type SaveOptions } from '../../save-dir.ts';
+import { readUploads } from '../../upload-dir.ts';
 import { registerTabTools } from './tab-tools.ts';
 
 export type Call = <M extends Method>(method: M, params: Params<M>, browser?: string) => Promise<Result<M>>;
@@ -562,6 +563,34 @@ export function registerTools(
     async ({ tabId, ref, code, browser }) => {
       try {
         return text(await call('page.enterCode', { tabId, ref, code }, browser));
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    'page_upload',
+    {
+      title: 'Upload local files into a file field',
+      description:
+        'Put files into a page\'s file field ("Choose file"), by ref from page_outline or page_find: the field itself, or the button or label that opens it. ' +
+        "paths are files inside the upload directory the PERSON set (the server's --upload-dir / BEIFAHRER_UPLOAD_DIR); a relative path counts from there, and anything outside it or without that setting is refused before the browser is asked. " +
+        'Several paths only if the field accepts several. The file content never comes back: the answer lists name, size and type per file and whether the page took them. ' +
+        'Needs the switch "Upload files" (off by default), level "read + edit", and the person confirms every time in a browser window, so this may take up to two minutes. ' +
+        POLICY_NOTE,
+      inputSchema: {
+        tabId: tabIdParam,
+        ref: z.string().describe('Element ref of the file field, or of the button or label that owns it'),
+        paths: z.array(z.string()).min(1).describe('Files to upload, inside the upload directory'),
+        browser: browserParam,
+      },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ tabId, ref, paths, browser }) => {
+      try {
+        const upload = readUploads(files.uploadRoot, paths);
+        return text(await call('page.upload', { tabId, ref, files: upload }, browser));
       } catch (err) {
         return failure(err);
       }

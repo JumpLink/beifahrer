@@ -139,6 +139,7 @@ all (options page):
 | See page requests | `page_network` — what the tab asked for and what came back, never with query strings. Switching it on asks the browser for its `webRequest` permission, which is a request log of this whole browser | **off** |
 | Fill in forms | `page_fill`, `page_press`, `page_select`, `page_check` — text into a field, keys into a form, a dropdown option, a checkbox. Still only at *Read + edit*, and you confirm | on |
 | Click | `page_click`, still only at *Read + edit*, and you confirm | on |
+| Upload files | `page_upload` — puts files from your upload folder (below) into a page's file field; needs *Read + edit*, and you confirm with the file names shown ([ADR 0027](docs/adr/0027-uploading-local-files.md)) | off |
 | Type one-time codes you relay | `page_enter_code` — types a TAN or SMS code you gave the agent into a field the page marks as a one-time code. Never a password or PIN field, 4 to 10 letters or digits, the code is masked in every log and window, you confirm every time ([ADR 0020](docs/adr/0020-one-time-codes-the-person-relays.md)) | **off** |
 | Read a login QR code for you | a recipe step decodes the QR code a login page shows and hands its content to you through the messenger, so you can scan it with your own app. Only recipes call it, nothing is logged or kept, no tool exists for it ([ADR 0022](docs/adr/0022-login-qr-code-for-the-person.md)) | **off** |
 | Run scripts | `page_evaluate` — the agent runs its own code in the page (Firefox only; Chromium's content-script policy forbids it), still only at *Read + edit*, and you see every script before it runs | **off** |
@@ -462,6 +463,13 @@ context. Start the server with `--save-dir /abs/path` (or `BEIFAHRER_SAVE_DIR`) 
 size, sha256, via}` and no bytes. Without the setting `saveDir` is refused, before anything is
 clicked. Files are named after the download, never overwritten, and readable by you only
 ([ADR 0021](docs/adr/0021-captured-files-on-disk.md)).
+
+**Files from disk into a page.** `page_upload` attaches files to a "Choose file" field. Start the server
+with `--upload-dir /abs/path` (or `BEIFAHRER_UPLOAD_DIR`); a call passes `paths`, files at or below that
+folder (a relative path counts from it). Without the setting, or for a path outside it, `..` or a
+symlink that leaves it, the call is refused before the browser is asked. At most 10 files, 10 MiB each,
+20 MiB together. The content never comes back to the agent; you switch on *Upload files* in the browser
+and see the file names before each upload ([ADR 0027](docs/adr/0027-uploading-local-files.md)).
 
 `beifahrer config <agent>` prints this snippet in the format of your agent (Claude Code, opencode,
 Codex CLI, Gemini CLI, Cursor, VS Code, Claude Desktop, Zed) and the file it goes in. The command is the one that

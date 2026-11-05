@@ -6,6 +6,7 @@ import { desktopSource } from '../../bridge/desktop.ts';
 import { BridgeError, label, listenInRange, type Bridge } from '../../bridge/bridge.ts';
 import { browserWaitOf, rangeOf, rangeOptions, sessionLabel, type RangeArgs } from '../../bridge/session.ts';
 import { saveDirOptions, saveRootOf, type SaveArgs } from '../../save-dir.ts';
+import { uploadDirOptions, uploadRootOf, type UploadArgs } from '../../upload-dir.ts';
 import { publishRegistry } from '../../registry/publisher.ts';
 import { VERSION } from '../../version.ts';
 import { startMcpServer } from '../mcp/server.ts';
@@ -17,7 +18,7 @@ function finish(code: number): never {
 
 export const mcpCommand: CommandModule<
   object,
-  RangeArgs & SaveArgs & { 'allow-write'?: boolean; wait?: number }
+  RangeArgs & SaveArgs & UploadArgs & { 'allow-write'?: boolean; wait?: number }
 > = {
   command: 'mcp',
   describe: "Serve MCP over stdio, with this session's own browser bridge on 127.0.0.1",
@@ -25,6 +26,7 @@ export const mcpCommand: CommandModule<
     y
       .options(rangeOptions)
       .options(saveDirOptions)
+      .options(uploadDirOptions)
       .option('allow-write', {
         type: 'boolean',
         describe:
@@ -40,6 +42,7 @@ export const mcpCommand: CommandModule<
       range: rangeOf(argv),
       allowWrite: argv['allow-write'],
       saveRoot: saveRootOf(argv),
+      uploadRoot: uploadRootOf(argv),
       browserWaitMs: browserWaitOf(argv.wait),
     }).catch((err) => {
       console.error(err instanceof Error ? err.message : err);

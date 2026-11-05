@@ -59,6 +59,7 @@ import {
   type Policy,
   type Result,
   type TabInfo,
+  uploadRefusal,
 } from '@beifahrer/core';
 import { askForAccess } from './access-prompt.ts';
 import { track } from './activity.ts';
@@ -528,7 +529,7 @@ async function askWhere(tabId: number, frame: number): Promise<string | null> {
  * one who has to recognise that from the window. So the keys, the values or the state go into the
  * window, not just the field's name — the same reason a script's whole text is shown (ADR 0012).
  */
-type WriteAction = 'fill' | 'enterCode' | 'click' | 'press' | 'select' | 'check';
+type WriteAction = 'fill' | 'enterCode' | 'upload' | 'click' | 'press' | 'select' | 'check';
 
 /**
  * One document's answer to a `page.expect` query, with the beifahrer frame number it came from.
@@ -1369,6 +1370,35 @@ const handlers: { [M in Method]: Handler<M> } = {
       route.frame,
       route.index,
     )) as unknown as Result<'page.enterCode'>;
+  },
+
+  /**
+   * Put the files the bridge read from the person's upload folder into a file field (ADR 0027).
+   *
+   * The folder check is the bridge's; the gate for the SITE is here, like every write. The window
+   * lists name and size of each file, never content, so the person sees what leaves their disk.
+   */
+  async 'page.upload'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const ref = refOf(params);
+    const files = Array.isArray(params.files) ? params.files : [];
+    for (const f of files)
+      if (!f || typeof f.name !== 'string' || typeof f.base64 !== 'string' || typeof f.mime !== 'string')
+        return fail('invalid', 'files must be {name, mime, size, base64}');
+    const refusal = uploadRefusal(files.map((f) => ({ size: Math.floor((f.base64.length * 3) / 4) })));
+    if (refusal) return fail('invalid', refusal);
+    const route = await routeFor('page.upload', tabId, ref, policy, ctx);
+    if (route.confirm) {
+      const list = files.map((f) => `${f.name} (${Math.ceil(f.size / 1024)} KiB)`).join('\n');
+      await confirmWrite(ctx, tabId, route.origin, 'upload', route.ref, list);
+    }
+    return (await page(
+      tabId,
+      ctx,
+      { beifahrer: 'upload', ref: route.ref, files },
+      route.frame,
+      route.index,
+    )) as unknown as Result<'page.upload'>;
   },
 
   async 'page.click'(params, policy, ctx) {
