@@ -8,6 +8,8 @@ import { pairingInfo, probePorts, readEntries, registryDir } from '@beifahrer/lo
 import { createTranslate, pickLocale } from './i18n.ts';
 import { viewOf } from './status-model.ts';
 import { connectedBrowsers, diagramOf, NO_BROWSERS, trackBrowsers } from './diagram-model.ts';
+import { browserOfName, browserRows } from './browser-model.ts';
+import { currentChoices, installedExtensions } from './browser-host.ts';
 import { watchRegistry } from './watch.ts';
 import { pairingView } from './pairing-model.ts';
 import { backgroundLine, inFlatpak, onClose } from './background-model.ts';
@@ -112,6 +114,17 @@ const application = new AdwaitaApp({
       const answer = await portal.setAutostart(ui.window, t('autostart.reason'), on);
       return afterAnswer(on, answer === 'granted');
     };
+    // The profiles are read, not watched: a fresh look at most every 10 s, however often the registry ticks.
+    const choices = currentChoices();
+    let installed = installedExtensions();
+    let installedAt = Date.now();
+    const installedNow = () => {
+      if (Date.now() - installedAt > 10_000) {
+        installed = installedExtensions();
+        installedAt = Date.now();
+      }
+      return installed;
+    };
     let lastLine = '';
     let browsers = NO_BROWSERS;
     const refresh = (probeAgain = true) => {
@@ -123,6 +136,13 @@ const application = new AdwaitaApp({
       );
       const view = viewOf(status, skipped, t, unregistered);
       browsers = trackBrowsers(browsers, connectedBrowsers(status.sessions));
+      ui.showBrowsers(
+        browserRows(
+          choices,
+          installedNow(),
+          new Set([...connectedBrowsers(status.sessions).values()].flatMap((n) => browserOfName(n) ?? [])),
+        ),
+      );
       ui.showStatus(view, diagramOf(status.sessions, skipped, unregistered, browsers, now, t));
       // A browser that really connected is the proof the pairing worked, whichever way it was done.
       // The first connected browser is the real end of setup: the assistant gives way to the tabs.
