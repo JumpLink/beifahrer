@@ -348,6 +348,9 @@
   "screenshots_missing": {
     "message": "Screenshots lack browser access"
   },
+  "screenshots_safari_setting": {
+    "message": "Allow this in Safari Settings, under Extensions or Websites"
+  },
   "network_denied": {
     "message": "Seeing page requests needs the browser's permission, which is your decision"
   },

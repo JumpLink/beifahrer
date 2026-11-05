@@ -44,6 +44,21 @@ const darkQuery = (): MediaQueryList | null =>
   globalThis.matchMedia?.('(prefers-color-scheme: dark)') ?? null;
 
 /**
+ * A background PAGE (Safari, Firefox's MV2) that never declares `color-scheme` is, per WebKit,
+ * treated as not dark-mode aware: `prefers-color-scheme` then always evaluates `light`, because the
+ * engine will not safely assume dark system colours for a document that never opted in (WebKit's
+ * "Dark Mode Support in WebKit"; confirmed for extension contexts by a WebKit engineer,
+ * w3c/webextensions#242). The popup, options and confirm pages already declare it with a `<meta>`
+ * tag; the background page draws nothing and has none, so `matchMedia` there answered `false`
+ * even in a dark system, and the toolbar bus painted in the dark ink (near-black) on a dark
+ * toolbar. `document` only exists in a background PAGE, never in an MV3 service worker (Chromium,
+ * Edge), so the check also doubles as the feature test.
+ */
+function optInColourScheme(): void {
+  if (typeof document !== 'undefined') document.documentElement.style.colorScheme = 'light dark';
+}
+
+/**
  * The ink of the toolbar's own icons (ADR 0025 § 11): Firefox tells us through the theme's icon or
  * text colour (light text means a dark toolbar), else the colour scheme: `matchMedia` where the
  * background is a page, the offscreen document's report (src/scheme.ts) in a Chromium service
@@ -117,6 +132,7 @@ function titleFor(icon: ToolbarIcon, connection: Connection): string {
 
 /** Repaint on every change that can alter the look. Registered synchronously (MV3 wake-up). */
 export function installToolbar(): void {
+  optInColourScheme();
   onStatusChange(() => void refreshToolbar());
   onActivityChange(() => void refreshToolbar());
   onGrantsChange(() => void refreshToolbar());

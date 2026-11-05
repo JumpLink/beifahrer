@@ -61,6 +61,24 @@ const DOWNLOADS = { permissions: ['downloads'] as ['downloads'] };
 const toast = (text: string, options: { buttonLabel?: string; onAction?: () => void } = {}) =>
   showToast(text, { timeout: 4, ...options });
 
+/**
+ * Requests `<all_urls>` and tells an honest refusal apart from a silent one with `contains`,
+ * the ground truth. A WebKit bug (bugs.webkit.org/288641, fixed in commit 4fd2be2) let `request`
+ * resolve `true` with no prompt at all, because an `<all_urls>` pattern trivially matches the
+ * extension's own origin and WebKit's permission check short-circuited to "already granted" —
+ * exactly the "the button did nothing" the person sees. `refused` is the browser answering `false`
+ * (a dialog ran, the person said no, or the browser plainly cannot grant it); `silent` is `request`
+ * claiming success while `contains` still says no, which only the browser's own site settings can
+ * fix from here.
+ */
+type AllUrlsOutcome = 'granted' | 'refused' | 'silent';
+
+async function requestAllUrls(): Promise<AllUrlsOutcome> {
+  const granted = await browser.permissions.request(ALL);
+  if (!granted) return 'refused';
+  return (await browser.permissions.contains(ALL)) ? 'granted' : 'silent';
+}
+
 const status = async () => (await browser.runtime.sendMessage({ type: 'status' })) as Status | undefined;
 
 // --- state: header word and banner ----------------------------------------------------------
@@ -219,10 +237,10 @@ async function setScreenshots(row: Adw.SwitchRow, on: boolean): Promise<void> {
   // permissions.request must be the FIRST await after the click (Firefox's user gesture); the
   // row notifies synchronously inside its own click handler, so the gesture is still live.
   if (on) {
-    const granted = await browser.permissions.request(ALL);
-    if (!granted) {
+    const outcome = await requestAllUrls();
+    if (outcome !== 'granted') {
       setQuietly(row, false);
-      toast(t('screenshots_denied'));
+      toast(t(outcome === 'silent' ? 'screenshots_safari_setting' : 'screenshots_denied'));
       return;
     }
   } else {
@@ -528,8 +546,9 @@ async function main(): Promise<void> {
   $('features').append(infoButton('features_info'));
   $('shots-grant').addEventListener('click', async () => {
     // First await after the click, for the same user-gesture reason as the switch.
-    if (await browser.permissions.request(ALL)) await renderShotsWarning();
-    else toast(t('screenshots_denied'));
+    const outcome = await requestAllUrls();
+    if (outcome === 'granted') await renderShotsWarning();
+    else toast(t(outcome === 'silent' ? 'screenshots_safari_setting' : 'screenshots_denied'));
   });
   $('net-grant').addEventListener('click', async () => {
     if (await browser.permissions.request(NETWORK)) await renderNetWarning();
