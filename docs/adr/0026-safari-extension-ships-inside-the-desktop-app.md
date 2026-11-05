@@ -50,6 +50,18 @@ forbidden fields and the registry ADR 0015 already exposes. Every string the per
 through gettext (en source, de catalogue), per the workspace's "every app is multilingual" rule
 (root `AGENTS.md`) and this repo's i18n discipline (`AGENTS.md` § Leitplanken).
 
+**Safari is optional, never a requirement, on macOS exactly as Firefox and Chromium are** (decided
+by the maintainer, 2026-11-05): the person picks the browser they use, and nothing here steers that
+choice. Embedding the `.appex` into the release build (§ 1) and shipping `Contents/Helpers/
+safari-ext-helper` beside it (§ 4) activate nothing by themselves — Safari only turns an extension
+on when the person checks it in Safari's own Settings (`docs/macos-run.md` §3.3), the same gate a
+Developer-ID-signed, notarised extension has always needed regardless of this app. The window's row
+reflects that: it is worded as one option among several ("Safari (optional)"), "off" is read as the
+row's normal resting state and not as a warning, and it carries no colour, icon or wording that
+would make a person feel they are missing a required step. It also plays no part in the connection
+ladder (ADR 0014) or the window's overall status — a person who never touches Safari sees exactly
+the same "Ready" state as one who does.
+
 **4. Reading state and opening Settings needs a small Swift helper in the bundle — measured
 viable, § 4.** `SFSafariExtensionManager.getStateOfSafariExtension` and
 `SFSafariApplication.showPreferencesForExtension` are Objective-C/Swift APIs with no

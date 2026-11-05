@@ -70,7 +70,7 @@ const application = new AdwaitaApp({
         .then((state) => {
           if (state === safariState) return;
           safariState = state;
-          ui.showSafari(safariView(process.platform, safariState, t));
+          ui.showSafari(safariView(process.platform, safariHelper !== null, safariState, t));
         })
         .finally(() => {
           safariReading = false;
@@ -187,7 +187,7 @@ const application = new AdwaitaApp({
       if (probeAgain) probeSafari();
       if (probeAgain) probe();
     };
-    ui.showSafari(safariView(process.platform, safariState, t));
+    ui.showSafari(safariView(process.platform, safariHelper !== null, safariState, t));
     refresh();
     const stop = watchRegistry(dir, refresh);
     app.connect('shutdown', () => {

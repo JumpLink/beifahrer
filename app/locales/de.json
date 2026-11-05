@@ -176,10 +176,10 @@
   "browser.state.not-installed": "Nicht installiert",
   "browser.state.not-connected": "Nicht verbunden",
   "setup.extension.openfailed": "Der Link ließ sich nicht öffnen. Öffne ihn von Hand im Browser.",
-  "safari.title": "Safari",
+  "safari.title": "Safari (optional)",
   "safari.state.enabled": "An",
   "safari.state.disabled": "Aus",
   "safari.state.unknown": "Unbekannt",
   "safari.open": "Safari-Einstellungen öffnen",
-  "safari.hint": "Schalte die Erweiterung in den Safari-Einstellungen ein und koppele sie dann mit dem Token auf dieser Seite."
+  "safari.hint": "Die Erweiterung ist bei Beifahrer schon dabei. Schalte sie in den Safari-Einstellungen ein, wenn du Safari nutzen willst, und koppele sie dann mit dem Token auf dieser Seite."
 }

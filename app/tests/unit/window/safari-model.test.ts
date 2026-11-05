@@ -40,14 +40,18 @@ export default async () => {
   await describe('safariView', async () => {
     const t = createTranslate('en');
 
-    await it('is only visible on macOS', async () => {
-      expect(safariView('darwin', 'unknown', t).visible).toBe(true);
-      expect(safariView('linux', 'unknown', t).visible).toBe(false);
-      expect(safariView('win32', 'enabled', t).visible).toBe(false);
+    await it('is visible only on macOS AND with the helper in the bundle', async () => {
+      expect(safariView('darwin', true, 'unknown', t).visible).toBe(true);
+      expect(safariView('linux', true, 'unknown', t).visible).toBe(false);
+      expect(safariView('win32', true, 'enabled', t).visible).toBe(false);
+      // The bug this guards: a dev build or a Linux host has no helper at all, so showing
+      // anything (even "Unknown") would be a row with nothing it could ever read or open.
+      expect(safariView('darwin', false, 'unknown', t).visible).toBe(false);
+      expect(safariView('darwin', false, 'enabled', t).visible).toBe(false);
     });
 
     await it('carries the state word untranslated and a translated sentence beside it', async () => {
-      const v = safariView('darwin', 'enabled', t);
+      const v = safariView('darwin', true, 'enabled', t);
       expect(v.state).toBe('enabled');
       expect(v.stateText.length > 0).toBe(true);
       expect(v.hint.length > 0).toBe(true);
@@ -56,15 +60,15 @@ export default async () => {
     await it("never offers an action on the browser's policy: the view has no field for one", async () => {
       // ADR 0017/0026: no pause, resume, feature switch or site level — only read-only state.
       expect(
-        Object.keys(safariView('darwin', 'disabled', t))
+        Object.keys(safariView('darwin', true, 'disabled', t))
           .sort()
           .join(),
       ).toBe('hint,state,stateText,visible');
     });
 
     await it("follows the person's language", async () => {
-      expect(safariView('darwin', 'enabled', createTranslate('de')).stateText).not.toBe(
-        safariView('darwin', 'enabled', t).stateText,
+      expect(safariView('darwin', true, 'enabled', createTranslate('de')).stateText).not.toBe(
+        safariView('darwin', true, 'enabled', t).stateText,
       );
     });
   });

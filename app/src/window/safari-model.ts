@@ -12,7 +12,7 @@ export type SafariState = 'enabled' | 'disabled' | 'unknown';
 export const SAFARI_EXTENSION_ID = 'eu.jumplink.beifahrer.Extension';
 
 export interface SafariView {
-  /** Only macOS has a Safari row at all (ADR 0026 §3). */
+  /** Only macOS, and only with the helper in the bundle, has a Safari row at all (ADR 0026 §3). */
   visible: boolean;
   state: SafariState;
   stateText: string;
@@ -21,13 +21,19 @@ export interface SafariView {
 
 /**
  * Read-only, no pause/resume/feature/level (ADR 0017 §2, ADR 0026 §3): `state` is Safari's own
- * answer to "is this extension on", never Beifahrer's policy. Off macOS, or when the helper is
- * missing (dev build, Linux), `state` is already `unknown` by the time it reaches here — this
- * function only turns it into words, it never decides fail-closed itself.
+ * answer to "is this extension on", never Beifahrer's policy. `hasHelper` is `helperPathOf(...)
+ * !== null` — without the helper there is nothing this row could ever read or open, so it stays
+ * hidden rather than showing "Unknown" (fail closed, no error dialog, ADR 0026 § 3/Stufenplan:
+ * Safari is one optional browser among others, never a requirement).
  */
-export function safariView(platform: string, state: SafariState, t: Translate): SafariView {
+export function safariView(
+  platform: string,
+  hasHelper: boolean,
+  state: SafariState,
+  t: Translate,
+): SafariView {
   return {
-    visible: platform === 'darwin',
+    visible: platform === 'darwin' && hasHelper,
     state,
     stateText: t(`safari.state.${state}`),
     hint: t('safari.hint'),

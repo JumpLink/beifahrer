@@ -176,10 +176,10 @@
   "browser.state.not-installed": "Not installed",
   "browser.state.not-connected": "Not connected",
   "setup.extension.openfailed": "The link could not be opened. Open it in your browser by hand.",
-  "safari.title": "Safari",
+  "safari.title": "Safari (optional)",
   "safari.state.enabled": "On",
   "safari.state.disabled": "Off",
   "safari.state.unknown": "Unknown",
   "safari.open": "Open Safari Settings",
-  "safari.hint": "Turn the extension on in Safari's Settings, then pair it with the token on this page."
+  "safari.hint": "The extension comes with Beifahrer. Turn it on in Safari's Settings if you want to use Safari, then pair it with the token on this page."
 }
