@@ -30,8 +30,8 @@ import {
 import type { Translate } from './i18n.ts';
 
 const CSS = `
-.diagram-pill { background: alpha(@accent_bg_color, 0.22); color: @accent_color; border-radius: 99px;
-  padding: 1px 10px; font-size: small; font-weight: bold; }
+.diagram-pill { background: @accent_bg_color; color: @accent_fg_color; border-radius: 99px;
+  padding: 1px 10px; margin-top: 4px; font-size: small; font-weight: bold; }
 .diagram-gone { opacity: 0.35; font-style: italic; }
 `;
 let styled = false;
