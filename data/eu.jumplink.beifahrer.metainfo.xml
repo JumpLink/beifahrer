@@ -63,6 +63,14 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.23" date="2026-11-05">
+      <description>
+        <ul>
+          <li>Connection diagram: every name centred under its picture, all on one line</li>
+          <li>"This app" label easier to read in dark mode</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.22" date="2026-11-05">
       <description>
         <ul>
