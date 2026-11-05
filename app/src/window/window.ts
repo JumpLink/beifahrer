@@ -19,6 +19,7 @@ import { createAgentsPage } from './agents-page.ts';
 import { createDiagram } from './diagram-widget.ts';
 import type { DiagramAction, DiagramView } from './diagram-model.ts';
 import type { Translate } from './i18n.ts';
+import type { BrowserRow } from './browser-model.ts';
 import { createPairingPage } from './pairing-page.ts';
 import type { PairingView } from './pairing-model.ts';
 import { createSetupPage } from './setup-page.ts';
@@ -29,6 +30,7 @@ export interface DesktopWindow {
   window: Adw.ApplicationWindow;
   showStatus(view: StatusView, diagram: DiagramView): void;
   showPairing(view: PairingView): void;
+  showBrowsers(rows: readonly BrowserRow[]): void;
   /** Setup is finished: remember it (once) and show the tabs. */
   onSetupFinished(): void;
   /** A message in the window's toast overlay. */
@@ -240,6 +242,10 @@ export function createWindow(
     showPairing(view) {
       pairingPage.show(view);
       setupPage.showPairing(view);
+    },
+    showBrowsers(rows) {
+      pairingPage.showBrowsers(rows);
+      setupPage.showBrowsers(rows);
     },
     onSetupFinished() {
       if (finished) return;

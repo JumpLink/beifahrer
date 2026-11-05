@@ -64,6 +64,7 @@ import windowBackgroundModel from './unit/window/background-model.test.ts';
 import configEdit from './unit/core/config-edit.test.ts';
 import windowSetupApply from './unit/window/setup-apply.test.ts';
 import windowSetupModel from './unit/window/setup-model.test.ts';
+import windowBrowserModel from './unit/window/browser-model.test.ts';
 import dispatch from './unit/dispatch.test.ts';
 import statusCommand from './unit/registry/status.test.ts';
 
@@ -130,5 +131,6 @@ run({
   configEdit,
   windowSetupApply,
   windowSetupModel,
+  windowBrowserModel,
   dispatch,
 });

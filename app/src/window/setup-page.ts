@@ -17,6 +17,8 @@ import { findAgent, serverSpec, userConfigPath, type AgentEntry } from '@beifahr
 
 import { detectInstall, expandPath, resolvesOnHost } from '../frontends/cli/install.ts';
 import { VERSION } from '../version.ts';
+import { preselected, type BrowserRow } from './browser-model.ts';
+import { currentChoices, openInBrowser } from './browser-host.ts';
 import { copyText } from './clipboard.ts';
 import { agentLabel } from './guide.ts';
 import type { Translate } from './i18n.ts';
@@ -32,9 +34,7 @@ import {
   chooseAgent,
   chooseBrowser,
   configView,
-  defaultBrowser,
   detectAgents,
-  detectBrowsers,
   extensionView,
   finishConfig,
   initialState,
@@ -42,7 +42,6 @@ import {
   markPaired,
   next,
   outcomeOfView,
-  type BrowserKind,
   type ConfigView,
   type Probe,
   type SetupState,
@@ -53,6 +52,8 @@ import { clamped } from './window.ts';
 export interface SetupPage {
   widget: Gtk.Widget;
   showPairing(view: PairingView): void;
+  /** Which browsers have the extension, for the extension step's status line. */
+  showBrowsers(rows: readonly BrowserRow[]): void;
   /** Back to the first step, for "run setup again". */
   reset(): void;
 }
@@ -86,11 +87,12 @@ export function createSetupPage(
   const probe: Probe = { has: existsSync, onPath: (command) => resolvesOnHost(command) };
   const detected = detectAgents(platform, expandPath, probe);
   const sections = setupSections(platform, detected);
-  const browsers = detectBrowsers(platform, expandPath, probe);
+  const choices = currentChoices(platform);
+  const foundNames = choices.filter((c) => c.detected).map((c) => c.name);
 
   const fresh = (): SetupState =>
     initialState(
-      defaultBrowser(browsers),
+      preselected(choices),
       sections.flatMap((x) => x.agents).find((a) => detected.has(a.id))?.id ?? null,
     );
   let state: SetupState = fresh();
@@ -275,36 +277,59 @@ export function createSetupPage(
   });
 
   // -- step 3: the extension ----------------------------------------------------------------
+  // Plain names: "(default)" behind a long name is cut off in the row; the subtitle says it instead.
   const browserPick = new Adw.ComboRow({
     title: t('setup.browser.pick'),
-    model: Gtk.StringList.new([t('setup.browser.firefox'), t('setup.browser.chromium')]),
+    model: Gtk.StringList.new(choices.map((c) => c.name)),
   });
-  const kinds: BrowserKind[] = ['firefox', 'chromium'];
-  browserPick.set_selected(kinds.indexOf(state.browser));
+  browserPick.set_selected(
+    Math.max(
+      0,
+      choices.findIndex((c) => c.id === state.browser),
+    ),
+  );
   const browserGroup = new Adw.PreferencesGroup({
     title: t('setup.browser.title'),
     description: t('setup.browser.description'),
   });
   browserGroup.add(browserPick);
   const browserFound = label(
-    browsers.length > 0
-      ? t('setup.browser.found', { names: browsers.map((b) => b.name).join(', ') })
+    foundNames.length > 0
+      ? t('setup.browser.found', { names: foundNames.join(', ') })
       : t('setup.browser.none'),
     'dim-label',
   );
   const extTitle = label('', 'heading');
   const extBody = label('');
   const extSteps = column(6);
+  // A button, not a LinkButton: the click opens the link IN the chosen browser, which a link cannot say.
+  const extInstall = Gtk.Button.new_with_label('');
+  extInstall.add_css_class('suggested-action');
+  extInstall.add_css_class('pill');
+  extInstall.set_halign(Gtk.Align.START);
   const extLink = new Gtk.LinkButton({ label: '', halign: Gtk.Align.START });
   const extStore = label('', 'dim-label');
   const extensionStep = column();
-  for (const w of [browserGroup, browserFound, extTitle, extBody, extSteps, extLink, extStore])
+  for (const w of [browserGroup, browserFound, extTitle, extBody, extSteps, extInstall, extLink, extStore])
     extensionStep.append(w);
   stack.add_named(extensionStep, 'extension');
   browserPick.connect('notify::selected', () => {
-    state = chooseBrowser(state, kinds[browserPick.get_selected()] ?? 'firefox');
+    state = chooseBrowser(state, choices[browserPick.get_selected()]?.id ?? 'firefox');
     render();
   });
+  let installUrl = '';
+  extInstall.connect('clicked', () => {
+    if (installUrl !== '' && !openInBrowser(state.browser, installUrl))
+      toast(t('setup.extension.openfailed'));
+  });
+
+  let rows: readonly BrowserRow[] = [];
+  const refreshStatus = () => {
+    const row = rows.find((r) => r.id === state.browser);
+    const words = row ? [t(`browser.state.${row.state}`)] : [];
+    if (choices.find((c) => c.id === state.browser)?.isDefault) words.unshift(t('setup.browser.isdefault'));
+    browserPick.set_subtitle(words.join(' · '));
+  };
 
   const refreshExtension = () => {
     const ext = extensionView(state.browser, VERSION, t);
@@ -312,9 +337,15 @@ export function createSetupPage(
     extBody.set_label(ext.body);
     clear(extSteps);
     ext.steps.forEach((s, i) => extSteps.append(label(`${i + 1}. ${s}`)));
+    installUrl = ext.action === 'launch' ? ext.url : '';
+    extInstall.set_label(ext.linkLabel);
+    extInstall.set_visible(ext.action === 'launch');
     extLink.set_label(ext.linkLabel);
     extLink.set_uri(ext.url);
+    extLink.set_visible(ext.action === 'download');
     extStore.set_label(ext.store);
+    extStore.set_visible(ext.store !== '');
+    refreshStatus();
   };
 
   // -- step 4: the pairing ------------------------------------------------------------------
@@ -419,6 +450,10 @@ export function createSetupPage(
       state = fresh();
       render();
       scroller.get_vadjustment().set_value(0);
+    },
+    showBrowsers(next) {
+      rows = next;
+      refreshStatus();
     },
     showPairing(pairing) {
       token = pairing.token;

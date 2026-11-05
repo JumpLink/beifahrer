@@ -23,13 +23,15 @@ import {
   type Install,
 } from '@beifahrer/core';
 
+import { STORE_URLS, specOf, type BrowserId, type Probe } from './browser-model.ts';
 import { agentLabel, guideSteps } from './guide.ts';
 import type { Translate } from './i18n.ts';
 import type { ApplyResult } from './setup-apply.ts';
 
+export { detectBrowsers, type Probe } from './browser-model.ts';
+
 export const STEPS = ['agent', 'config', 'extension', 'pairing'] as const;
 export type StepId = (typeof STEPS)[number];
-export type BrowserKind = 'firefox' | 'chromium';
 
 /**
  * How the config step ended. `manual`: there is nothing the window may write (no known file, a
@@ -42,11 +44,11 @@ export interface SetupState {
   agentId: string | null;
   allowWrite: boolean;
   config: ConfigOutcome;
-  browser: BrowserKind;
+  browser: BrowserId;
   paired: boolean;
 }
 
-export function initialState(browser: BrowserKind = 'firefox', agentId: string | null = null): SetupState {
+export function initialState(browser: BrowserId = 'firefox', agentId: string | null = null): SetupState {
   return { step: 'agent', agentId, allowWrite: false, config: 'pending', browser, paired: false };
 }
 
@@ -60,7 +62,7 @@ export function chooseAgent(
   return { ...state, agentId, allowWrite, config: same ? state.config : 'pending' };
 }
 
-export function chooseBrowser(state: SetupState, browser: BrowserKind): SetupState {
+export function chooseBrowser(state: SetupState, browser: BrowserId): SetupState {
   return { ...state, browser };
 }
 
@@ -99,13 +101,6 @@ export function back(state: SetupState): SetupState {
 export const isLast = (state: SetupState) => state.step === STEPS[STEPS.length - 1];
 
 // -- what this computer has ------------------------------------------------------------------
-
-export interface Probe {
-  /** A file or folder exists at this absolute path. */
-  has(path: string): boolean;
-  /** A bare command resolves through PATH. */
-  onPath(command: string): boolean;
-}
 
 const AGENT_COMMANDS: Record<string, string[]> = {
   'claude-code': ['claude'],
@@ -154,94 +149,6 @@ export function setupSections(platform: string, detected: ReadonlySet<string>): 
     group: s.group,
     agents: [...s.agents.filter((a) => detected.has(a.id)), ...s.agents.filter((a) => !detected.has(a.id))],
   }));
-}
-
-interface BrowserSpec {
-  kind: BrowserKind;
-  name: string;
-  commands: string[];
-  files: Partial<Record<string, string[]>>;
-}
-
-const FLATPAK = (id: string) => [
-  `/var/lib/flatpak/exports/bin/${id}`,
-  `~/.local/share/flatpak/exports/bin/${id}`,
-];
-
-const BROWSERS: readonly BrowserSpec[] = [
-  {
-    kind: 'firefox',
-    name: 'Firefox',
-    commands: ['firefox', 'firefox-esr'],
-    files: {
-      linux: [...FLATPAK('org.mozilla.firefox'), '/snap/bin/firefox'],
-      darwin: ['/Applications/Firefox.app'],
-      win32: [
-        '%ProgramFiles%\\Mozilla Firefox\\firefox.exe',
-        '%ProgramFiles(x86)%\\Mozilla Firefox\\firefox.exe',
-      ],
-    },
-  },
-  {
-    kind: 'chromium',
-    name: 'Chromium',
-    commands: ['chromium', 'chromium-browser'],
-    files: {
-      linux: [...FLATPAK('org.chromium.Chromium'), '/snap/bin/chromium'],
-      darwin: ['/Applications/Chromium.app'],
-    },
-  },
-  {
-    kind: 'chromium',
-    name: 'Google Chrome',
-    commands: ['google-chrome', 'google-chrome-stable'],
-    files: {
-      linux: FLATPAK('com.google.Chrome'),
-      darwin: ['/Applications/Google Chrome.app'],
-      win32: [
-        '%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe',
-        '%ProgramFiles(x86)%\\Google\\Chrome\\Application\\chrome.exe',
-        '%LOCALAPPDATA%\\Google\\Chrome\\Application\\chrome.exe',
-      ],
-    },
-  },
-  {
-    kind: 'chromium',
-    name: 'Brave',
-    commands: ['brave', 'brave-browser'],
-    files: {
-      linux: FLATPAK('com.brave.Browser'),
-      darwin: ['/Applications/Brave Browser.app'],
-      win32: ['%ProgramFiles%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe'],
-    },
-  },
-  {
-    kind: 'chromium',
-    name: 'Microsoft Edge',
-    commands: ['microsoft-edge', 'microsoft-edge-stable'],
-    files: {
-      linux: FLATPAK('com.microsoft.Edge'),
-      darwin: ['/Applications/Microsoft Edge.app'],
-      win32: ['%ProgramFiles(x86)%\\Microsoft\\Edge\\Application\\msedge.exe'],
-    },
-  },
-];
-
-export interface BrowserFound {
-  kind: BrowserKind;
-  name: string;
-}
-
-export function detectBrowsers(platform: string, expand: Expand, probe: Probe): BrowserFound[] {
-  return BROWSERS.filter(
-    (b) =>
-      b.commands.some((c) => probe.onPath(c)) || (b.files[platform] ?? []).some((f) => probe.has(expand(f))),
-  ).map(({ kind, name }) => ({ kind, name }));
-}
-
-/** Firefox when nothing was found: it is the browser whose build updates itself. */
-export function defaultBrowser(found: readonly BrowserFound[]): BrowserKind {
-  return found[0]?.kind ?? 'firefox';
 }
 
 // -- the config step -------------------------------------------------------------------------
@@ -417,6 +324,12 @@ export interface ExtensionView {
   body: string;
   linkLabel: string;
   url: string;
+  /**
+   * What the button does: `launch` opens `url` in THAT browser (Firefox installs the signed file, a
+   * store page opens where the person is signed in), `download` hands it to the default handler,
+   * `none` is a browser with nothing to install from here.
+   */
+  action: 'launch' | 'download' | 'none';
   /** What to do with the download, in order. */
   steps: string[];
   /** Says plainly that no store carries the extension yet. */
@@ -424,20 +337,39 @@ export interface ExtensionView {
 }
 
 /**
- * Firefox gets the signed `.xpi` of the latest release: opening it in Firefox installs it, and Firefox
+ * Firefox gets the signed `.xpi` of the latest release, opened IN Firefox: it installs the file and
  * updates it through `updates.json` from then on. Mozilla's signing picks the file's own name (a hash
- * and the version), so the release workflow attaches a second copy under the fixed name `beifahrer.xpi`
- * for this link. `latest` is the newest release, which is not always this app's version, and that is
- * fine: the extension and the app talk a versioned protocol.
- * Chromium gets the zip from the same release, which the browser loads unpacked.
+ * and the version), so the release workflow attaches a second copy under the fixed name `beifahrer.xpi`.
+ * `latest` is the newest release, which is not always this app's version, and that is fine: the
+ * extension and the app talk a versioned protocol.
+ * Chromium browsers get the store page in that browser once `stores` has one, else the zip from the
+ * same release, which the browser loads unpacked (ADR 0026 § 3). Safari has nothing to install here.
  */
-export function extensionView(browser: BrowserKind, version: string, t: Translate): ExtensionView {
-  if (browser === 'firefox') {
+export function extensionView(
+  browser: BrowserId,
+  version: string,
+  t: Translate,
+  stores: Partial<Record<BrowserId, string>> = STORE_URLS,
+): ExtensionView {
+  const kind = specOf(browser).kind;
+  if (kind === 'safari') {
+    return {
+      title: t('setup.extension.safari.title'),
+      body: t('setup.extension.safari.body'),
+      linkLabel: '',
+      url: '',
+      action: 'none',
+      steps: [],
+      store: '',
+    };
+  }
+  if (kind === 'firefox') {
     return {
       title: t('setup.extension.firefox.title'),
       body: t('setup.extension.firefox.body'),
-      linkLabel: t('setup.extension.firefox.link'),
+      linkLabel: t('setup.extension.install', { name: specOf(browser).name }),
       url: XPI_URL,
+      action: 'launch',
       steps: [
         t('setup.extension.firefox.step1'),
         t('setup.extension.firefox.step2'),
@@ -446,11 +378,24 @@ export function extensionView(browser: BrowserKind, version: string, t: Translat
       store: t('setup.extension.nostore'),
     };
   }
+  const storeUrl = stores[browser];
+  if (storeUrl) {
+    return {
+      title: specOf(browser).name,
+      body: t('setup.extension.store.body'),
+      linkLabel: t('setup.extension.store.link'),
+      url: storeUrl,
+      action: 'launch',
+      steps: [t('setup.extension.store.step1')],
+      store: '',
+    };
+  }
   return {
     title: t('setup.extension.chromium.title'),
     body: t('setup.extension.chromium.body'),
     linkLabel: t('setup.extension.chromium.link'),
     url: `${RELEASES_URL}/download/v${version}/beifahrer-${version}-chrome-mv3.zip`,
+    action: 'download',
     steps: [
       t('setup.extension.chromium.step1'),
       t('setup.extension.chromium.step2'),

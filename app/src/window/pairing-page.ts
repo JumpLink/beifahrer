@@ -7,6 +7,7 @@
 import Adw from 'gi://Adw?version=1';
 import Gtk from 'gi://Gtk?version=4.0';
 
+import type { BrowserRow } from './browser-model.ts';
 import { copyText } from './clipboard.ts';
 import type { Translate } from './i18n.ts';
 import type { PairingView } from './pairing-model.ts';
@@ -15,6 +16,7 @@ import { clamped } from './window.ts';
 export interface PairingPage {
   widget: Gtk.Widget;
   show(view: PairingView): void;
+  showBrowsers(rows: readonly BrowserRow[]): void;
   copyToken(): boolean;
 }
 
@@ -34,11 +36,17 @@ export function createPairingPage(t: Translate, toast: (title: string) => void):
   group.add(tokenRow);
   group.add(pathRow);
 
+  const browsers = new Adw.PreferencesGroup({
+    title: t('browser.list.title'),
+    description: t('browser.list.description'),
+    visible: false,
+  });
   const warnings = new Adw.PreferencesGroup();
   const error = new Gtk.Label({ wrap: true, xalign: 0, visible: false });
   error.add_css_class('error');
 
   const column = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 24 });
+  column.append(browsers);
   column.append(group);
   column.append(warnings);
   column.append(error);
@@ -53,9 +61,29 @@ export function createPairingPage(t: Translate, toast: (title: string) => void):
   copy.connect('clicked', copyToken);
 
   let rows: Adw.ActionRow[] = [];
+  let browserWidgets: Adw.ActionRow[] = [];
   return {
     widget: clamped(column),
     copyToken,
+    showBrowsers(list) {
+      for (const row of browserWidgets) browsers.remove(row);
+      browserWidgets = list.map((b) => {
+        const row = new Adw.ActionRow({
+          title: b.isDefault ? t('setup.browser.default', { name: b.name }) : b.name,
+          subtitle: t(`browser.state.${b.state}`),
+        });
+        // Only the good news gets a mark (ADR 0009): an "x" there reads as a close button, and the
+        // subtitle already says what is missing.
+        if (b.state === 'connected') {
+          const badge = new Gtk.Image({ iconName: 'object-select-symbolic', valign: Gtk.Align.CENTER });
+          badge.add_css_class('success');
+          row.add_suffix(badge);
+        }
+        return row;
+      });
+      for (const row of browserWidgets) browsers.add(row);
+      browsers.set_visible(browserWidgets.length > 0);
+    },
     show(view) {
       token = view.token;
       group.set_visible(view.token !== null);
