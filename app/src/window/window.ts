@@ -22,6 +22,7 @@ import type { Translate } from './i18n.ts';
 import type { BrowserRow } from './browser-model.ts';
 import { createPairingPage } from './pairing-page.ts';
 import type { PairingView } from './pairing-model.ts';
+import type { SafariView } from './safari-model.ts';
 import { createSetupPage } from './setup-page.ts';
 import { startView } from './setup-state-model.ts';
 import type { StatusView } from './status-model.ts';
@@ -31,6 +32,7 @@ export interface DesktopWindow {
   showStatus(view: StatusView, diagram: DiagramView): void;
   showPairing(view: PairingView): void;
   showBrowsers(rows: readonly BrowserRow[]): void;
+  showSafari(view: SafariView): void;
   /** Setup is finished: remember it (once) and show the tabs. */
   onSetupFinished(): void;
   /** A message in the window's toast overlay. */
@@ -122,12 +124,14 @@ export function createWindow(
   /** The stored flag; `markDone` stores it. */
   setupDone = false,
   markDone: () => void = () => {},
+  /** Must only ever run from the Safari row's own button click (ADR 0026 § 4). */
+  onOpenSafariSettings: () => void = () => {},
 ): DesktopWindow {
   const overlay = new Adw.ToastOverlay();
   let onDiagramAction: (id: DiagramAction) => void = () => {};
   const statusPage = createStatusPage(t, (id) => onDiagramAction(id));
   const toast = (title: string, timeout = 2) => overlay.add_toast(new Adw.Toast({ title, timeout }));
-  const pairingPage = createPairingPage(t, toast);
+  const pairingPage = createPairingPage(t, toast, onOpenSafariSettings);
   const agentsPage = createAgentsPage(t, toast);
 
   const stack = new Adw.ViewStack();
@@ -247,6 +251,7 @@ export function createWindow(
       pairingPage.showBrowsers(rows);
       setupPage.showBrowsers(rows);
     },
+    showSafari: pairingPage.showSafari,
     onSetupFinished() {
       if (finished) return;
       finished = true;

@@ -175,5 +175,11 @@
   "browser.state.installed": "Installiert, nicht verbunden",
   "browser.state.not-installed": "Nicht installiert",
   "browser.state.not-connected": "Nicht verbunden",
-  "setup.extension.openfailed": "Der Link ließ sich nicht öffnen. Öffne ihn von Hand im Browser."
+  "setup.extension.openfailed": "Der Link ließ sich nicht öffnen. Öffne ihn von Hand im Browser.",
+  "safari.title": "Safari",
+  "safari.state.enabled": "An",
+  "safari.state.disabled": "Aus",
+  "safari.state.unknown": "Unbekannt",
+  "safari.open": "Safari-Einstellungen öffnen",
+  "safari.hint": "Schalte die Erweiterung in den Safari-Einstellungen ein und koppele sie dann mit dem Token auf dieser Seite."
 }

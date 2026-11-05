@@ -41,3 +41,6 @@ screenshots/
 
 # Spike build output
 probes/adw-window/*.mjs
+
+# Swift helper build output (app/native/safari-ext-helper/build.sh)
+app/native/*/.build/

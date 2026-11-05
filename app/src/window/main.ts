@@ -28,6 +28,8 @@ import { loadSetupDone, saveSetupDone } from './setup-store.ts';
 import { shouldMarkDone } from './setup-state-model.ts';
 import { createBackgroundPortal } from './background-portal.ts';
 import { installAboutAction } from './about.ts';
+import { helperPathOf, SAFARI_EXTENSION_ID, safariView } from './safari-model.ts';
+import { openSafariSettings, readSafariState } from './safari-runner.ts';
 import { createWindow } from './window.ts';
 
 const locale = pickLocale([...GLib.get_language_names()]);
@@ -49,11 +51,31 @@ const markSetupDone = () => {
 };
 const hiddenStart = startsHidden(hiddenRequested, backend, autostart);
 
+// Resolved once: the running executable does not move while the process is alive.
+const safariHelper = helperPathOf(process.platform, process.execPath);
+
 const application = new AdwaitaApp({
   applicationId: 'eu.jumplink.beifahrer',
   createWindow: (app) => {
     installAboutAction(app, t, locale);
-    const ui = createWindow(app, t, showSwitch(backend), setupDone, markSetupDone);
+    const ui = createWindow(app, t, showSwitch(backend), setupDone, markSetupDone, () => {
+      if (safariHelper) openSafariSettings(safariHelper, SAFARI_EXTENSION_ID);
+    });
+    let safariState: 'enabled' | 'disabled' | 'unknown' = 'unknown';
+    let safariReading = false;
+    const probeSafari = () => {
+      if (safariReading || !safariHelper) return;
+      safariReading = true;
+      readSafariState(safariHelper, SAFARI_EXTENSION_ID)
+        .then((state) => {
+          if (state === safariState) return;
+          safariState = state;
+          ui.showSafari(safariView(process.platform, safariState, t));
+        })
+        .finally(() => {
+          safariReading = false;
+        });
+    };
     // What the last probe found that no session announced. It is kept as ports and not as "listening",
     // so a bridge that stops between two probes does not show up as a stranger.
     let unregistered: number[] = [];
@@ -162,8 +184,10 @@ const application = new AdwaitaApp({
       } catch (err) {
         ui.showPairing(pairingView(err instanceof Error ? err : new Error(String(err)), t));
       }
+      if (probeAgain) probeSafari();
       if (probeAgain) probe();
     };
+    ui.showSafari(safariView(process.platform, safariState, t));
     refresh();
     const stop = watchRegistry(dir, refresh);
     app.connect('shutdown', () => {
