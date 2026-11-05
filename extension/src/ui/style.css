@@ -347,6 +347,9 @@ pre.preview.code {
 }
 
 .dg-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   font-weight: bold;
   overflow-wrap: anywhere;
 }
@@ -357,8 +360,7 @@ pre.preview.code {
 }
 
 .here-pill {
-  display: inline-block;
-  margin-inline-start: var(--spacing-xs);
+  margin-block-start: var(--spacing-xs);
   padding: 0 var(--spacing-s);
   border-radius: 999px;
   background: var(--accent-bg-color);
@@ -392,12 +394,18 @@ pre.preview.code {
     flex-direction: column;
     align-items: center;
   }
+  /* Each column is centred on its node in the 600-unit artwork (nodes at 72, 300, 528, the link
+     ticks at 191 and 409), so a word sits under what it names; equal columns put it 12 units off. */
   .diagram-words {
     height: auto;
     width: 600px;
     max-width: 100%;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 144fr 94fr 124fr 94fr 144fr;
     grid-template-rows: auto;
+    align-items: start;
     text-align: center;
+  }
+  .dg-label {
+    align-items: center;
   }
 }

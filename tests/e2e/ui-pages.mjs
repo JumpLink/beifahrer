@@ -147,8 +147,12 @@ const chromiumProbe = (c) =>
  *
  * One `started` outside the loop, and nothing in the body touches the clock again — a deadline that
  * re-reads `Date.now()` in its own update measures the gap between rounds, not the budget.
+ *
+ * On the options page the diagram's artwork is the same kind of late arrival: it is spliced in once
+ * the status is read, and a Firefox run once probed the page between accent and artwork (the
+ * screenshot of that same run showed the diagram). So there the wait is on both.
  */
-async function readUntilAccent(read) {
+async function readUntilAccent(read, page) {
   const started = Date.now();
   let last = '';
   for (;;) {
@@ -159,13 +163,16 @@ async function readUntilAccent(read) {
       last = `the page did not answer: ${String(err?.message ?? err).slice(0, 200)}`;
     }
     let accent = '';
+    let drawn = page !== 'options';
     try {
-      accent = JSON.parse(last).accent;
+      const r = JSON.parse(last);
+      accent = r.accent;
+      drawn ||= r.diagram === true;
     } catch {
       /* not JSON: judge reports it */
     }
     const waitedMs = Date.now() - started;
-    if (accent === ACCENT_BG) return { raw: last, waitedMs, ok: true };
+    if (accent === ACCENT_BG && drawn) return { raw: last, waitedMs, ok: true };
     if (waitedMs >= ACCENT_BUDGET_MS) return { raw: last, waitedMs, ok: false };
     await sleep(250);
   }
@@ -257,7 +264,7 @@ export async function chromiumPages(check, devtoolsPort, shotsDir) {
     const before = contextIds(c);
     await c.send('Page.reload');
     await reloaded(c, before);
-    const { raw, waitedMs, ok } = await readUntilAccent(() => chromiumProbe(c));
+    const { raw, waitedMs, ok } = await readUntilAccent(() => chromiumProbe(c), page);
     // Only when it actually raced: how long the accent took is the whole story of issue #52.
     if (waitedMs > 500)
       console.log(`  · [chromium] ${page}.html: the accent landed after ${waitedMs} ms, not before`);
@@ -393,7 +400,7 @@ export async function firefoxPages(check, bidiPort, shotsDir) {
       }
       // The same race as Chromium's, and the same wait on the CONDITION rather than a fixed delay:
       // the accent is written after an async read, not while the document loads.
-      const { raw, waitedMs } = await readUntilAccent(() => evalIn(context, PROBE));
+      const { raw, waitedMs } = await readUntilAccent(() => evalIn(context, PROBE), page);
       if (waitedMs > 500)
         console.log(`  · [firefox] ${page}.html: the accent landed after ${waitedMs} ms, not before`);
       judge(check, 'firefox', page, String(raw));
