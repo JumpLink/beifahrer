@@ -62,6 +62,16 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
   `requestAllUrls()` (options/main.ts) confirms with `permissions.contains` and tells a real refusal
   apart from this silent one, so the page can say where to actually grant it (Safari Settings →
   Extensions or Websites) instead of repeating a button that already "worked".
+- **A background PAGE (Safari, Firefox MV2) that never declares `color-scheme` always reads
+  `prefers-color-scheme: light`, even in a dark system.** WebKit does not infer dark-mode support
+  for a document that never opted in ("Dark Mode Support in WebKit"); a WebKit engineer confirms
+  this holds for extension background contexts too (w3c/webextensions#242). The popup, options and
+  confirm pages already carry `<meta name="color-scheme" content="light dark">`; the background
+  page draws nothing and had none, so `toolbar.ts`'s `matchMedia` check always answered `false` and
+  the toolbar bus painted in the dark ink (near-black) on a dark Safari toolbar — invisible. Fixed
+  by `optInColourScheme()` setting `documentElement.style.colorScheme = 'light dark'` at
+  `installToolbar()`, feature-detected on `typeof document`, which is also what tells a background
+  PAGE apart from an MV3 service worker (Chromium, Edge) that has no `document` at all.
 - **Safari has neither `tabGroups` nor `sessions`.** `capabilities()` leaves out the methods that
   need them (`NEEDS_API` in handlers.ts), so the agent never gets offered a tool the browser
   cannot serve.
