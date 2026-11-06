@@ -181,18 +181,24 @@ click, never probed or called automatically.
 
 ## § 6 — gjsify gaps named, not fixed here
 
-`gjsify ship darwin` has no notion of a second nested bundle under `Contents/PlugIns/`, and
-`utils/ship/signing.ts`'s `signPayload` signs every Mach-O it finds flat, in one payload — it has no
-step that would seal an INNER bundle (the `.appex`) before sealing the OUTER one, which is the
-order this ADR's probe needed and had to do by hand (§3's "the appex is signed and sealed FIRST").
-Named in `docs/gjsify-gaps.md`, not implemented here per the workspace's "fix at the core" rule: the
-core capability — `--extra-plugin <dir>:<target-path>` or similar, staged like
-`utils/ship/app-runtime.ts` stages a carried runtime, signed through the SAME `sealAddPrefix`
-mechanism `signing.ts` already has for the outer bundle, recursively for the inner one — belongs in
-`gjsify/gjsify`, in `packages/infra/cli/src/utils/ship/`, with its own test
-(`tests/e2e/ship-layout` already states the darwin layout's file-set as an equality; a nested
-bundle is a second equality one level in). Until it lands, Beifahrer's own build step does the
-copy-then-sign-twice by hand, as measured in § 3.
+**CLOSED at gjsify 0.64.21** (gjsify#2548, `c2b66a81d`, "ship darwin nested bundles and
+helpers"): `gjsify.ship.nestedBundles` + `gjsify.ship.helperExecutables` (darwin-only,
+`resolveShipNestedBundles`/`resolveShipHelperExecutables` in `utils/ship/settings.ts`) stage a
+`.appex` under `Contents/PlugIns/` and a prebuilt executable under `Contents/Helpers/`, and
+`signPayload` seals the inner bundle FIRST through the same `sealAddPrefix` mechanism, recursively
+— exactly the core capability this section asked for. Beifahrer's own config is
+`app/package.json#gjsify.ship.nestedBundles`/`.helperExecutables`, pointing at the stable output
+paths `extension/scripts/safari-build.sh` and `app/native/safari-ext-helper/build.sh` now produce
+(`extension/.output-safari-appex/`, `app/native/safari-ext-helper/.build/safari-ext-helper`); the
+hand-rolled copy-then-sign-twice this section used to describe is gone — `gjsify ship darwin`
+does it.
+
+Below is kept as the record of what was true before 0.64.21, per this workspace's rule against
+deleting the incident a fix answers: `gjsify ship darwin` had no notion of a second nested bundle
+under `Contents/PlugIns/`, and `utils/ship/signing.ts`'s `signPayload` signed every Mach-O it found
+flat, in one payload — it had no step that would seal an INNER bundle (the `.appex`) before
+sealing the OUTER one, which is the order this ADR's probe needed and had to do by hand (§3's "the
+appex is signed and sealed FIRST").
 
 Store metadata is a second, separate gjsify gap, named here for Stufe 3 (§ 8) and not fixed in this
 task: gjsify's ADR 0135 (`gjsify/gjsify/docs/adr/0135-store-listings-come-from-the-metainfo.md`,
