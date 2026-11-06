@@ -121,3 +121,44 @@ export function watchSaves(tabUrl: string): {
     },
   };
 }
+
+/**
+ * Whether `probe` resolves, rather than throws — the shape every `browser.permissions.
+ * contains/request/remove` binding shares when the engine refuses a permission NAME outright
+ * (see `savesPermissionSupported`). Takes no browser API itself, so the fail-closed behaviour —
+ * any throw, for any reason, answers "not supported" — is testable without one.
+ */
+export async function probeSupport(probe: () => Promise<unknown>): Promise<boolean> {
+  try {
+    await probe();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let savesPermissionSupport: boolean | null = null;
+
+/**
+ * Whether `downloads` is a permission name THIS browser's `permissions` API recognizes at all,
+ * probed once and cached. Measured on Safari 27.0.1 (safari-mv3 0.1.25), 2026-11-06:
+ * `WebExtension::supportedPermissions()` (Source/WebKit/UIProcess/Extensions/WebExtension.cpp) is
+ * a fixed, compiled-in permission list — `activeTab, alarms, clipboardWrite, contextMenus,
+ * cookies, declarativeNetRequest*, menus, nativeMessaging, notifications, scripting, storage,
+ * tabs, unlimitedStorage, webNavigation, webRequest` plus a few behind feature flags — that
+ * carries `webRequest` but not `downloads`. `WebExtensionAPIPermissions::
+ * validatePermissionsDetails` checks every requested name against that list BEFORE the manifest's
+ * own `optional_permissions` entry is ever read, so `browser.permissions.contains({ permissions:
+ * ['downloads'] })` throws there with `"'downloads' is not a valid permission"` on every call,
+ * regardless of what the manifest declares — the uncaught rejection `options: a section failed`
+ * hid, undifferentiated from any other section (docs/traps-browser-platform.md). Never inferred
+ * from the browser's name: a later WebKit could add `downloads`, and probing is the only way to
+ * know.
+ */
+export async function savesPermissionSupported(): Promise<boolean> {
+  if (savesPermissionSupport !== null) return savesPermissionSupport;
+  savesPermissionSupport = await probeSupport(() =>
+    browser.permissions.contains({ permissions: ['downloads'] }),
+  );
+  return savesPermissionSupport;
+}

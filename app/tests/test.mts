@@ -38,6 +38,7 @@ import extensionIconLooks from './unit/extension/icon-looks.test.ts';
 import extensionStatus from './unit/extension/status.test.ts';
 import extensionGuardOnce from './unit/extension/guard-once.test.ts';
 import extensionOpenOptions from './unit/extension/open-options.test.ts';
+import extensionSaves from './unit/extension/saves.test.ts';
 import updatesJson from './unit/extension/updates-json.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
 import mcpTools from './unit/mcp/tools.test.ts';
@@ -105,6 +106,7 @@ run({
   extensionStatus,
   extensionGuardOnce,
   extensionOpenOptions,
+  extensionSaves,
   updatesJson,
   mcpGate,
   mcpTools,
