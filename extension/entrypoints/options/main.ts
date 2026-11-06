@@ -47,6 +47,7 @@ import { stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
 import { optionList } from '../../src/ui/option-list.ts';
 import { showToast } from '../../src/ui/toast.ts';
 import { reportPageScheme } from '../../src/scheme.ts';
+import { savesPermissionSupported } from '../../src/saves.ts';
 
 // Reports this page's own, always-current colour scheme to the background (scheme.ts): a fresh
 // page never goes stale the way Safari's long-lived background page can.
@@ -298,6 +299,14 @@ async function renderNetWarning(): Promise<void> {
  * browser's `downloads` grant, asked in the same click and kept off when the browser says no.
  */
 async function setCaptureSaves(row: Adw.SwitchRow, on: boolean): Promise<void> {
+  // Fail closed: a browser whose `permissions` API refuses the name `downloads` outright (Safari,
+  // WebKit's supportedPermissions() has no such entry — see `savesPermissionSupported`) must never
+  // end up with the switch on. The row is hidden by `renderSavesWarning` before this can be
+  // reached by a click, but a programmatic toggle is guarded the same way.
+  if (on && !(await savesPermissionSupported())) {
+    setQuietly(row, false);
+    return;
+  }
   // permissions.request must be the FIRST await after the click (Firefox's user gesture).
   if (on) {
     const granted = await browser.permissions.request(DOWNLOADS);
@@ -313,8 +322,21 @@ async function setCaptureSaves(row: Adw.SwitchRow, on: boolean): Promise<void> {
   await renderSavesWarning();
 }
 
-/** Shown only when the switch is on and the browser's grant is gone. */
+/**
+ * Shown only when the switch is on and the browser's grant is gone — and the switch itself is
+ * hidden where the browser's `permissions` API does not recognize `downloads` at all (Safari;
+ * `savesPermissionSupported`, `extension/src/saves.ts`), because asking `permissions.contains` or
+ * `.request` there throws before the manifest is even read (measured 2026-11-06, incident in
+ * docs/traps-browser-platform.md). Feature-detected, never inferred from the browser's name.
+ */
 async function renderSavesWarning(): Promise<void> {
+  const supported = await savesPermissionSupported();
+  const row = document.querySelector<HTMLElement>('[data-feature="captureSaves"]');
+  if (row) row.hidden = !supported;
+  if (!supported) {
+    $('saves-warning').hidden = true;
+    return;
+  }
   const { features } = await loadSettings();
   const granted = await browser.permissions.contains(DOWNLOADS);
   $('saves-warning').hidden = !features.captureSaves || granted;
@@ -571,18 +593,21 @@ async function main(): Promise<void> {
     network: (row: Adw.SwitchRow, on: boolean) => void setNetwork(row, on),
     captureSaves: (row: Adw.SwitchRow, on: boolean) => void setCaptureSaves(row, on),
   };
-  // Each part on its own: one failing call must leave the others rendered.
-  const guarded = (part: () => Promise<unknown>) =>
-    part().catch((err) => console.error('options: a section failed', err));
+  // Each part on its own: one failing call must leave the others rendered. The section's own name
+  // and the error go in the FIRST string argument — Safari's error list in Settings → Extensions
+  // shows only that first argument (measured, incident 2026-11-06, docs/traps-browser-platform.md),
+  // so naming the section there is what makes that list point at a cause instead of one undifferentiated line.
+  const guarded = (name: string, part: () => Promise<unknown>) =>
+    part().catch((err) => console.error(`options: section ${name} failed: ${err}`));
   await Promise.all([
-    guarded(setupPause),
-    guarded(renderState),
-    guarded(renderSites),
-    guarded(setupTabs),
-    guarded(() => renderFeatures(features, onChange)),
-    guarded(renderShotsWarning),
-    guarded(renderNetWarning),
-    guarded(renderSavesWarning),
+    guarded('setupPause', setupPause),
+    guarded('renderState', renderState),
+    guarded('renderSites', renderSites),
+    guarded('setupTabs', setupTabs),
+    guarded('renderFeatures', () => renderFeatures(features, onChange)),
+    guarded('renderShotsWarning', renderShotsWarning),
+    guarded('renderNetWarning', renderNetWarning),
+    guarded('renderSavesWarning', renderSavesWarning),
   ]);
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
