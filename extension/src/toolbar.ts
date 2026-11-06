@@ -10,6 +10,7 @@ import {
   ACTIVE_MS,
   inkForScheme,
   inkForThemeColour,
+  resolveSchemeDark,
   toolbarLook,
   wildcardGrant,
   type Connection,
@@ -20,7 +21,7 @@ import { activityState, onActivityChange } from './activity.ts';
 import { currentStatus, onStatusChange } from './bridge-client.ts';
 import { loadGrants, onGrantsChange } from './grants.ts';
 import { t } from './i18n.ts';
-import { installScheme, reportedDark } from './scheme.ts';
+import { installScheme, reportedByPage, reportedDark } from './scheme.ts';
 import { loadSettings } from './settings.ts';
 import { iconFile, ICON_SIZES } from '../manifest.ts';
 
@@ -60,9 +61,12 @@ function optInColourScheme(): void {
 
 /**
  * The ink of the toolbar's own icons (ADR 0025 § 11): Firefox tells us through the theme's icon or
- * text colour (light text means a dark toolbar), else the colour scheme: `matchMedia` where the
- * background is a page, the offscreen document's report (src/scheme.ts) in a Chromium service
- * worker, which has neither; until that answers, the dark ink.
+ * text colour (light text means a dark toolbar), else the colour scheme, through
+ * `resolveSchemeDark` (core): a live extension page's own report first — the fix for Safari's
+ * background page, whose `matchMedia` can go stale for as long as the bridge's socket keeps it
+ * alive (docs/traps-browser-platform.md) — else the background's own `matchMedia` where it has a
+ * `document`, else the offscreen document's report (src/scheme.ts) in a Chromium service worker,
+ * which has neither; until any of them has answered, the dark ink.
  */
 async function currentInk(): Promise<ToolbarInk> {
   try {
@@ -76,7 +80,12 @@ async function currentInk(): Promise<ToolbarInk> {
     // no theme API here: fall through to the colour scheme
   }
   const query = darkQuery();
-  return inkForScheme(query ? query.matches : reportedDark());
+  const dark = resolveSchemeDark({
+    reportedByPage: reportedByPage(),
+    matches: query ? query.matches : null,
+    offscreenDark: reportedDark(),
+  });
+  return inkForScheme(dark);
 }
 
 function iconPath(variant: ToolbarIcon, ink: ToolbarInk): Record<string, string> {

@@ -72,6 +72,39 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
   by `optInColourScheme()` setting `documentElement.style.colorScheme = 'light dark'` at
   `installToolbar()`, feature-detected on `typeof document`, which is also what tells a background
   PAGE apart from an MV3 service worker (Chromium, Edge) that has no `document` at all.
+  **Amendment, incident 2026-11-05/06 (safari-mv3 0.1.25, Safari 27.0.1, macOS 27, automatic
+  light/dark by time of day):** opting in made the FIRST read correct but not a LATER one. Measured
+  sequence: dark at night (icon correctly light) → system switched to light during the day → icon
+  stayed light (wrong) through two `refreshToolbar()` calls, each re-reading
+  `matchMedia('(prefers-color-scheme: dark)').matches` → turning the extension off and on in
+  Safari's settings (which recreates the background page) made it correctly dark again. The
+  background page is kept alive for as long as the bridge's WebSocket is connected, so it can live
+  for hours — and once Safari evaluates `prefers-color-scheme` for a document, that document's
+  `MediaQueryList` neither fires `change` again nor updates `.matches` for a LATER system
+  appearance change: no WebKit bug or Apple doc names this exact staleness for a long-lived
+  extension background page, so this half of the claim is `<verify>`; it rests on the measurement
+  above, not a citation. (The nearest documented relatives are both about a *different* kind of
+  staleness: Firefox's own `bugzilla.mozilla.org/1587723`, "no `change` event ever fires on a
+  WebExtension background page" — Beifahrer's `installScheme`/offscreen document already answers
+  that one for Chromium's MV3 worker, which has no `matchMedia` at all — and WebKit's
+  `bugs.webkit.org/266853`, a PWA's `prefers-color-scheme` not moving while the app stays open,
+  which is the same *symptom* in a different host but not evidence about extension background
+  pages specifically.) No Safari-only fix erases the ink question (no `icon_variants` dark/light
+  manifest entry removes it either: WebKit added `icon_variants` support in STP 204 / 283118@main,
+  but it is a set of ICON FILES per `color_schemes`, not a live signal the extension's own code can
+  read — using it would mean giving up the single coloured bus icon for a second always-grey
+  "template" set, since Safari only applies the system tint to monochrome template images
+  (lapcatsoftware.com/articles/blues.html), which is a bigger product change than this fix, not a
+  smaller one). The fix instead gives Safari a FRESH source: every freshly loaded extension page
+  (popup, options, confirm) reports its own, currently-evaluated `prefers-color-scheme` to the
+  background on load and on its own `change` event (`reportPageScheme`, scheme.ts) — a short-lived
+  page is never kept alive long enough to go stale the same way. `resolveSchemeDark` (core,
+  toolbar.ts) prefers that report over the background's own `matchMedia`, which stays ahead of the
+  Chromium offscreen document's report as before. **The residual gap is named, not hidden:** a
+  scheme change on Safari while no popup, options or confirm window is open, and before the
+  background page itself is ever recreated, is still invisible to the icon until one of those pages
+  next opens — there being no page to report it is not itself detectable, so the background's own
+  (possibly stale) `matchMedia` answer stands until then.
 - **Safari has neither `tabGroups` nor `sessions`.** `capabilities()` leaves out the methods that
   need them (`NEEDS_API` in handlers.ts), so the agent never gets offered a tool the browser
   cannot serve.

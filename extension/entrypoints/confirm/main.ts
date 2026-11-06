@@ -2,7 +2,12 @@ import { browser } from '@wxt-dev/browser';
 import type { Gtk } from '@gjsify/adwaita-web';
 import type { AccessScope, ConfirmRequest } from '../../src/confirm.ts';
 import { t } from '../../src/i18n.ts';
+import { reportPageScheme } from '../../src/scheme.ts';
 import { originPattern } from '../../src/settings.ts';
+
+// Reports this page's own, always-current colour scheme to the background (scheme.ts): a fresh
+// page never goes stale the way Safari's long-lived background page can.
+reportPageScheme();
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const id = location.hash.slice(1);
