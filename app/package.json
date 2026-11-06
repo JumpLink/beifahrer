@@ -92,7 +92,23 @@
           "--filesystem=xdg-config/beifahrer:create",
           "--filesystem=xdg-run/beifahrer:create"
         ]
-      }
+      },
+      "nestedBundles": [
+        {
+          "source": "../extension/.output-safari-appex/Beifahrer Extension.appex",
+          "name": "Beifahrer Extension.appex",
+          "entitlements": [
+            "com.apple.security.app-sandbox",
+            "com.apple.security.files.user-selected.read-only"
+          ]
+        }
+      ],
+      "helperExecutables": [
+        {
+          "source": "native/safari-ext-helper/.build/safari-ext-helper",
+          "name": "safari-ext-helper"
+        }
+      ]
     },
     "excludeGlobals": [
       "document",
