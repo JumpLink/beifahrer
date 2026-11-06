@@ -70,9 +70,50 @@ export function isSchemeMessage(value: unknown): value is SchemeMessage {
   return m?.type === SCHEME_MESSAGE && typeof m.dark === 'boolean';
 }
 
+/**
+ * What a freshly loaded extension page (popup, options, confirm) sends to report its OWN
+ * `prefers-color-scheme`, since Safari's background page can be kept alive for hours by the
+ * bridge's socket and never see a later system appearance change (its `matchMedia` answers the
+ * value from when it last loaded — measured, incident 2026-11-05/06, see the trap). A page may
+ * report only this boolean and nothing else.
+ */
+export const PAGE_SCHEME_MESSAGE = 'beifahrer:page-colour-scheme';
+
+export interface PageSchemeMessage {
+  type: typeof PAGE_SCHEME_MESSAGE;
+  dark: boolean;
+}
+
+export function isPageSchemeMessage(value: unknown): value is PageSchemeMessage {
+  const m = value as Partial<PageSchemeMessage> | null;
+  return m?.type === PAGE_SCHEME_MESSAGE && typeof m.dark === 'boolean';
+}
+
 /** A dark colour scheme means a dark toolbar, so the `light` ink; no answer yet keeps the `dark` ink. */
 export function inkForScheme(dark: boolean | null | undefined): ToolbarInk {
   return dark ? 'light' : 'dark';
+}
+
+export interface SchemeSources {
+  /** What a live page (popup, options, confirm) last reported; null until one has. */
+  reportedByPage: boolean | null;
+  /** The background's own `matchMedia`, where it has a `document`; null in an MV3 worker. */
+  matches: boolean | null;
+  /** The Chromium offscreen document's report (src/scheme.ts); null where there is none. */
+  offscreenDark: boolean | null;
+}
+
+/**
+ * Which source answers `prefers-color-scheme` for the toolbar ink. A page's own report wins: it is
+ * freshly loaded every time, where the background page can go stale for as long as the bridge's
+ * socket keeps it alive (the Safari trap). Below that, the background's own query, then the
+ * Chromium offscreen document; no answer at all is `null`, and the caller keeps the dark ink
+ * (`inkForScheme`).
+ */
+export function resolveSchemeDark(sources: SchemeSources): boolean | null {
+  if (sources.reportedByPage !== null) return sources.reportedByPage;
+  if (sources.matches !== null) return sources.matches;
+  return sources.offscreenDark;
 }
 
 /** Adwaita green 5: the dot of a connected look, the only state signal left on the button. */
