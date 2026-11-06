@@ -63,6 +63,17 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.26" date="2026-11-06">
+      <description>
+        <ul>
+          <li>On a Mac, the app brings the Safari extension along; turn it on in Safari's settings if you want to use Safari</li>
+          <li>An agent can put a file from a folder you allowed into an upload field on a page</li>
+          <li>Safari keeps answering after many calls in a row</li>
+          <li>The toolbar icon in Safari follows light and dark mode once a Beifahrer page opens</li>
+          <li>In Safari, the options page says where to allow screenshots and hides what Safari cannot do</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.25" date="2026-11-05">
       <description>
         <ul>
