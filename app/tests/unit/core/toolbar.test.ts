@@ -4,7 +4,10 @@ import {
   alarmOf,
   inkForScheme,
   inkForThemeColour,
+  isPageSchemeMessage,
   isSchemeMessage,
+  PAGE_SCHEME_MESSAGE,
+  resolveSchemeDark,
   SCHEME_MESSAGE,
   LOOK_COLOUR,
   parseThemeColour,
@@ -129,6 +132,33 @@ export default async () => {
       expect(isSchemeMessage({ type: SCHEME_MESSAGE, dark: 'yes' })).toBe(false);
       expect(isSchemeMessage({ type: 'status', dark: true })).toBe(false);
       expect(isSchemeMessage(null)).toBe(false);
+    });
+    await it('accepts only a well-formed page scheme report, and nothing else in it', async () => {
+      expect(isPageSchemeMessage({ type: PAGE_SCHEME_MESSAGE, dark: true })).toBe(true);
+      expect(isPageSchemeMessage({ type: PAGE_SCHEME_MESSAGE, dark: false })).toBe(true);
+      expect(isPageSchemeMessage({ type: PAGE_SCHEME_MESSAGE, dark: 'yes' })).toBe(false);
+      expect(isPageSchemeMessage({ type: SCHEME_MESSAGE, dark: true })).toBe(false);
+      expect(isPageSchemeMessage(null)).toBe(false);
+    });
+  });
+
+  // A fresh page's report wins over the background's own (possibly stale, on Safari) `matchMedia`,
+  // which in turn wins over the Chromium offscreen document's report (incident 2026-11-05/06).
+  await describe('resolveSchemeDark: a page report outranks matchMedia, which outranks offscreen', async () => {
+    await it('prefers a page report over every other source', async () => {
+      expect(resolveSchemeDark({ reportedByPage: true, matches: false, offscreenDark: false })).toBe(true);
+      expect(resolveSchemeDark({ reportedByPage: false, matches: true, offscreenDark: true })).toBe(false);
+    });
+    await it('falls back to matchMedia when no page has reported yet', async () => {
+      expect(resolveSchemeDark({ reportedByPage: null, matches: true, offscreenDark: false })).toBe(true);
+      expect(resolveSchemeDark({ reportedByPage: null, matches: false, offscreenDark: true })).toBe(false);
+    });
+    await it('falls back to the offscreen report where there is no matchMedia (Chromium worker)', async () => {
+      expect(resolveSchemeDark({ reportedByPage: null, matches: null, offscreenDark: true })).toBe(true);
+      expect(resolveSchemeDark({ reportedByPage: null, matches: null, offscreenDark: false })).toBe(false);
+    });
+    await it('answers null when nothing has ever reported, so the ink stays dark', async () => {
+      expect(resolveSchemeDark({ reportedByPage: null, matches: null, offscreenDark: null })).toBe(null);
     });
   });
 };
