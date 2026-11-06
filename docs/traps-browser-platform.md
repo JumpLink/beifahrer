@@ -46,6 +46,32 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
   pill's hide-before-screenshot goes the same way (`tellPage`). Frames are not measured on Safari.
   Measured on Safari 27.0.1, 2026-10-04. Without this every `page.*` call answered `not_found: the
   page did not answer`, although policy and host grant were fine.
+- **Safari's `permissions` API refuses the name `downloads` outright, so any call naming it throws
+  before the manifest is even read.** Measured on Safari 27.0.1, extension 0.1.25 (safari-mv3),
+  2026-11-06: Safari Settings → Extensions → Beifahrer showed "options: a section failed
+  (options.js:16:5357)", with no way to tell which of the eight `guarded()` sections in
+  options/main.ts failed or why — Safari's error list shows only the FIRST argument of
+  `console.error`. WebKit's own source pins it down:
+  `WebExtension::supportedPermissions()` (Source/WebKit/UIProcess/Extensions/WebExtension.cpp) is a
+  fixed, compiled-in list — `activeTab, alarms, clipboardWrite, contextMenus, cookies,
+  declarativeNetRequest*, menus, nativeMessaging, notifications, scripting, storage, tabs,
+  unlimitedStorage, webNavigation, webRequest` plus a few behind feature flags — that carries
+  `webRequest` but has no `downloads` entry at all. `WebExtensionAPIPermissions::
+  validatePermissionsDetails` checks every requested permission NAME against that list before
+  anything else, including before the manifest's own `optional_permissions` is ever read
+  (`verifyRequestedPermissions` runs only after, and for `contains()` is never called), so
+  `browser.permissions.contains({ permissions: ['downloads'] })` throws
+  `"'downloads' is not a valid permission"` on Safari on every call, regardless of what the
+  manifest declares — that uncaught rejection was `renderSavesWarning`'s. Fixed two ways: `guarded`
+  now names the failing section and the message in the FIRST `console.error` argument
+  (`options: section <name> failed: <message>`), so Safari's list points at a cause next time;
+  and `savesPermissionSupported()` (extension/src/saves.ts) probes `permissions.contains` once,
+  caches the answer, and answers false on ANY throw, never inferring unsupported from the browser's
+  name. `renderSavesWarning` hides the "Take hidden downloads" switch and its warning row entirely
+  where unsupported, and `setCaptureSaves` refuses to switch it on even if called directly — fail
+  closed, the same pattern as `groupApi()`/`sessionsApi()` for `tabs.group` and
+  `sessions.recentlyClosed`. `webRequest` (used by "See what a page requests") IS in
+  `supportedPermissions()`, so `renderNetWarning`/`setNetwork` are unaffected.
 - **Safari grants host access one site at a time, through its own prompt.** `permissions.request`
   for one origin works once the person has allowed the site in Safari (toolbar badge, or Settings →
   Websites); for the all-sites patterns it answers `false`. The popup therefore does not offer
