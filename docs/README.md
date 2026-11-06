@@ -5,6 +5,9 @@ Reference material for Beifahrer. The rules an agent needs on nearly every task 
 
 | Document | Holds |
 |---|---|
+| [overview.md](overview.md) | What Beifahrer is, the extension/bridge split, and why builds produce two bundles |
+| [security/](security/README.md) | The hard rules that keep the person in control: policy enforcement, `page.evaluate`, frames, access control, data handling |
+| [conventions.md](conventions.md) | Commits, versioning, licences, docs language, and PR screenshot workflow |
 | [adr/](adr/) | The design decisions, one file each, numbered and immutable once accepted. A rule in `AGENTS.md` that names an ADR points here |
 | [store/](store/) | Store submissions: listing text, privacy policy, screenshots, and what is still undecided ([index](store/README.md)) |
 | [macos-run.md](macos-run.md) | Running this repository on an Apple-silicon MacBook: prerequisites, build, run, and the failures that only look like Beifahrer bugs |
