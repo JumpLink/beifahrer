@@ -254,15 +254,16 @@ identifier is not prefixed with the parent app's bundle identifier"). The script
 Xcode still does this> by diffing `PRODUCT_BUNDLE_IDENTIFIER` in a fresh `--force` run.
 
 Verified end to end on this machine (Xcode 27.1, macOS 27, 2026-11-05):
-`codesign -dv extension/.output-safari-xcode/Beifahrer/build/Build/Products/Debug/Beifahrer.app`
-reports `Identifier=eu.jumplink.beifahrer`, `Signature=adhoc`, `BUILD SUCCEEDED`.
+`codesign -dv extension/.output-safari-xcode/Beifahrer/build/Build/Products/Release/Beifahrer.app`
+reports `Identifier=eu.jumplink.beifahrer`, `Signature=adhoc`, `BUILD SUCCEEDED` (measured on the
+Debug build; Release is the default since 2026-11-06, `SAFARI_CONFIGURATION=Debug` restores it).
 
 ### 3.3 Load it in Safari — a person's clicks, not a script
 
 Safari never reads a `.app` by API; every step below is a human in Safari's own UI. None of it can
 be scripted or done by an agent (it changes the person's own browser settings).
 
-1. Open the built app once: `open extension/.output-safari-xcode/Beifahrer/build/Build/Products/Debug/Beifahrer.app`
+1. Open the built app once: `open extension/.output-safari-xcode/Beifahrer/build/Build/Products/Release/Beifahrer.app`
    — this registers its extension with the system (`RegisterWithLaunchServices`, already run by the
    build), it does not need to stay open.
 2. Safari → Settings → Developer tab → check **"Allow Unsigned Extensions"** (Safari's Develop menu

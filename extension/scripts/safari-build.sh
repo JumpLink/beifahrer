@@ -42,10 +42,37 @@ PROJECT="$XCODE_DIR/$APP_NAME/$APP_NAME.xcodeproj"
 sed -i '' -E "s/PRODUCT_BUNDLE_IDENTIFIER = eu\\.jumplink\\.[A-Za-z]+;/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;/" \
   "$PROJECT/project.pbxproj"
 
-xcodebuild -project "$PROJECT" -scheme "$APP_NAME" -configuration Debug \
+# Built universal (arm64 + x86_64, measured 2026-11-06), not ONLY_ACTIVE_ARCH: the staged
+# `.appex` below has ONE static path in app/package.json#gjsify.ship.nestedBundles, read by both
+# of ci.yml's `gjsify ship darwin --arch <a>` passes, so it must satisfy both itself rather than
+# needing a second, arch-keyed build.
+# Release, not Debug: a Debug build splits the extension's executable into a stub plus
+# `<name>.debug.dylib` and `__preview.dylib` (Xcode's previews), and carries `get-task-allow` —
+# all three landed inside the shipped app in PR #203's first CI build. `SAFARI_CONFIGURATION=Debug`
+# keeps the old local build for debugging in Safari's Web Inspector. Xcode still adds
+# `get-task-allow` to the ad-hoc signature here, through the same base-entitlement injection that
+# adds the App Sandbox, so it is left alone: `gjsify ship --sign` re-signs the appex with only
+# `nestedBundles[].entitlements` (app/package.json), which is what notarisation sees. The build also REGISTERS the app with Launch Services, so building in a second checkout moves
+# the person's Safari extension to that copy (measured 2026-11-06): re-register the one in use.
+CONFIGURATION="${SAFARI_CONFIGURATION:-Release}"
+xcodebuild -project "$PROJECT" -scheme "$APP_NAME" -configuration "$CONFIGURATION" \
   CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES \
-  ONLY_ACTIVE_ARCH=YES -derivedDataPath "$XCODE_DIR/$APP_NAME/build" build
+  ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO -derivedDataPath "$XCODE_DIR/$APP_NAME/build" build
 
-APP="$XCODE_DIR/$APP_NAME/build/Build/Products/Debug/$APP_NAME.app"
+APP="$XCODE_DIR/$APP_NAME/build/Build/Products/$CONFIGURATION/$APP_NAME.app"
 echo "safari-build: built $APP (ad-hoc signed, Sign to Run Locally)"
 echo "safari-build: open it once, then load the extension in Safari — docs/macos-run.md §3.2"
+
+# A stable location for `gjsify ship darwin`'s `gjsify.ship.nestedBundles[].source` to point at
+# (ADR 0026 § 6) — Xcode's own DerivedData-style path above carries the scheme/configuration/arch
+# in it, which is not something a package.json config should have to track.
+APPEX_SRC=$(find "$APP/Contents/PlugIns" -maxdepth 1 -name '*.appex' -print -quit)
+if [ -z "$APPEX_SRC" ]; then
+  echo "safari-build: no .appex found under $APP/Contents/PlugIns" >&2
+  exit 1
+fi
+STABLE_DIR=".output-safari-appex"
+rm -rf "$STABLE_DIR"
+mkdir -p "$STABLE_DIR"
+cp -R "$APPEX_SRC" "$STABLE_DIR/"
+echo "safari-build: appex staged at extension/$STABLE_DIR/$(basename "$APPEX_SRC")"

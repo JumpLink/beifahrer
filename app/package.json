@@ -92,7 +92,23 @@
           "--filesystem=xdg-config/beifahrer:create",
           "--filesystem=xdg-run/beifahrer:create"
         ]
-      }
+      },
+      "nestedBundles": [
+        {
+          "source": "../extension/.output-safari-appex/Beifahrer Extension.appex",
+          "name": "Beifahrer Extension.appex",
+          "entitlements": [
+            "com.apple.security.app-sandbox",
+            "com.apple.security.files.user-selected.read-only"
+          ]
+        }
+      ],
+      "helperExecutables": [
+        {
+          "source": "native/safari-ext-helper/.build/safari-ext-helper",
+          "name": "safari-ext-helper"
+        }
+      ]
     },
     "excludeGlobals": [
       "document",
@@ -120,22 +136,22 @@
   "dependencies": {
     "@beifahrer/core": "*",
     "@beifahrer/local": "*",
-    "@gjsify/adwaita-app": "0.64.19",
-    "@gjsify/adwaita-core": "0.64.19",
-    "@gjsify/distribution": "0.64.19",
-    "@gjsify/mcp": "0.64.19",
-    "@gjsify/node-gi": "0.64.19",
-    "@gjsify/utils": "0.64.19",
-    "@gjsify/ws": "0.64.19",
+    "@gjsify/adwaita-app": "0.64.22",
+    "@gjsify/adwaita-core": "0.64.22",
+    "@gjsify/distribution": "0.64.22",
+    "@gjsify/mcp": "0.64.22",
+    "@gjsify/node-gi": "0.64.22",
+    "@gjsify/utils": "0.64.22",
+    "@gjsify/ws": "0.64.22",
     "@modelcontextprotocol/sdk": "^1.30.1",
     "ws": "^8.21.3",
     "yargs": "^18.2.0",
     "zod": "^4.6.5"
   },
   "optionalDependencies": {
-    "@gjsify/node-runtime-darwin-arm64": "0.64.19",
-    "@gjsify/node-runtime-darwin-x64": "0.64.19",
-    "@gjsify/node-runtime-win32-x64": "0.64.19"
+    "@gjsify/node-runtime-darwin-arm64": "0.64.22",
+    "@gjsify/node-runtime-darwin-x64": "0.64.22",
+    "@gjsify/node-runtime-win32-x64": "0.64.22"
   },
   "devDependencies": {
     "@girs/adw-1": "5.4.0",
@@ -145,11 +161,11 @@
     "@girs/gtk-4.0": "5.4.0",
     "@girs/xdp-1.0": "5.4.0",
     "@girs/xdpgtk4-1.0": "5.4.0",
-    "@gjsify/cli": "0.64.19",
-    "@gjsify/node-globals": "0.64.19",
-    "@gjsify/rolldown-native": "0.64.19",
-    "@gjsify/runtime": "0.64.19",
-    "@gjsify/unit": "0.64.19",
+    "@gjsify/cli": "0.64.22",
+    "@gjsify/node-globals": "0.64.22",
+    "@gjsify/rolldown-native": "0.64.22",
+    "@gjsify/runtime": "0.64.22",
+    "@gjsify/unit": "0.64.22",
     "@types/node": "^26.6.2",
     "@types/ws": "^8.18.1",
     "@types/yargs": "^17.0.35",

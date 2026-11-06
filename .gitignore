@@ -9,6 +9,7 @@ extension/.output/
 extension/.output-e2e/
 extension/.output-dev/
 extension/.output-safari-xcode/
+extension/.output-safari-appex/
 extension/dist/
 
 # gjsify
