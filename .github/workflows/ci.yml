@@ -73,12 +73,17 @@ jobs:
           DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
         run: sh app/native/safari-ext-helper/build.sh
 
+      # Tarred, like the macOS stages below: both paths sit under a dot-directory, which
+      # upload-artifact@v4 skipped silently (the appex never reached build-and-test, PR #203), and
+      # an upload drops the executable bit of the appex's own Mach-O as well as the helper's.
+      - name: Pack the Safari extension native artifacts
+        # COPYFILE_DISABLE: macOS tar would otherwise add `._*` metadata files inside the bundle.
+        run: COPYFILE_DISABLE=1 tar -cf safari-native.tar extension/.output-safari-appex app/native/safari-ext-helper/.build/safari-ext-helper
+
       - uses: actions/upload-artifact@v4
         with:
           name: macos-safari-native
-          path: |
-            extension/.output-safari-appex/
-            app/native/safari-ext-helper/.build/safari-ext-helper
+          path: safari-native.tar
           if-no-files-found: error
 
   build-and-test:
@@ -238,16 +243,18 @@ jobs:
       # The appex and the Swift helper, from `macos-safari-native` above — downloaded to the exact
       # paths `app/package.json#gjsify.ship.nestedBundles[0].source` and `.helperExecutables[0].source`
       # already name, so `resolveShipNestedBundles`/`resolveShipHelperExecutables` find them with
-      # no config change here. `upload-artifact`/`download-artifact` strip the executable bit off
-      # plain files (unlike a tar'd directory), so the helper's is restored by hand.
+      # no config change here. One tar, so the modes and the dot-directories survive the trip.
       - name: Download the Safari extension native artifacts
         uses: actions/download-artifact@v4
         with:
           name: macos-safari-native
           path: .
 
-      - name: Restore the helper's executable bit
-        run: chmod +x app/native/safari-ext-helper/.build/safari-ext-helper
+      - name: Unpack the Safari extension native artifacts
+        run: |
+          tar -xf safari-native.tar && rm safari-native.tar
+          test -d "extension/.output-safari-appex/Beifahrer Extension.appex"
+          test -x app/native/safari-ext-helper/.build/safari-ext-helper
 
       # Tarred because `upload-artifact` drops the executable bit and flattens symlinks, and a
       # `.app` with either gone does not launch.
