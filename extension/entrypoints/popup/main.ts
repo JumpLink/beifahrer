@@ -6,6 +6,7 @@ import { GRANTS_MESSAGE, type WideDuration, type WideView } from '../../src/gran
 import { browserInfo } from '../../src/browser-info.ts';
 import { t, type MessageKey } from '../../src/i18n.ts';
 import { WILDCARD_PATTERNS, loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
+import { reportPageScheme } from '../../src/scheme.ts';
 import { openOptions as openOptionsPage } from '../../src/ui/open-options.ts';
 import { renderBanner } from '../../src/ui/banner.ts';
 import {
@@ -20,6 +21,10 @@ import { stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
 import { optionList } from '../../src/ui/option-list.ts';
 import { showToast } from '../../src/ui/toast.ts';
 import { renderSessions } from '../../src/ui/sessions.ts';
+
+// Reports this page's own, always-current colour scheme to the background (scheme.ts): a fresh
+// page never goes stale the way Safari's long-lived background page can.
+reportPageScheme();
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const levels = $<Adw.ToggleGroup>('levels');

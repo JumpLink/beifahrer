@@ -46,6 +46,11 @@ import { infoButton } from '../../src/ui/info.ts';
 import { stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
 import { optionList } from '../../src/ui/option-list.ts';
 import { showToast } from '../../src/ui/toast.ts';
+import { reportPageScheme } from '../../src/scheme.ts';
+
+// Reports this page's own, always-current colour scheme to the background (scheme.ts): a fresh
+// page never goes stale the way Safari's long-lived background page can.
+reportPageScheme();
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const ALL = { origins: ['<all_urls>'] };
