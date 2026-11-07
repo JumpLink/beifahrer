@@ -258,3 +258,8 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
   the installed app carries `eu.jumplink.beifahrer` and the bus. Removing that entry from
   `com.apple.dock` `recent-apps` (then `killall Dock`) leaves only the entry under the current id,
   2026-11-07.
+- **A GTK `quit` action stops the system from quitting the app (ADR 0024 § 6).** On macOS GTK 4's
+  `applicationShouldTerminate:` runs the action `quit` and answers "cancel"; with that action present
+  the process outlived a quit request from `NSRunningApplication.terminate()` (the same path as
+  Dock → Quit and logout), without it the process ended at once. Register no `quit` action.
+  Measured with a minimal GJS `Gtk.Application` on Homebrew GTK 4, macOS 27, 2026-11-07.

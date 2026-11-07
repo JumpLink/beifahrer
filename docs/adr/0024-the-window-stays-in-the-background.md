@@ -69,6 +69,19 @@ libportal, with no new gjsify package. Then deb/rpm on desktops with a StatusNot
 once `@gjsify/status-icon` has its Linux cuts. macOS and Windows follow their drivers; until then
 rule 2 makes closing quit there.
 
+**6. macOS: the Dock is the place (Pascal, 2026-11-07).** Each system follows its own usual flow. On
+macOS a running app keeps its Dock icon with the dot, and a click on it brings the window back; that
+is how Mail or Messages behave when their window is closed. So `onClose` takes a `dock` input (true
+on `darwin`), and closing hides the window there. GTK calls `g_application_activate` for a Dock click
+without a visible window, which presents the window again. A menu-bar status item stays behind
+`@gjsify/status-icon` (rule 5); autostart waits for a macOS driver.
+
+Quitting must never be a custom `app.quit` action. GTK's `applicationShouldTerminate:` triggers an
+action called `quit` and answers "cancel" (⌘Q, Dock → Quit, logout, restart); measured 2026-11-07
+with GTK 4 from Homebrew on macOS 27: with such an action the process stayed alive after the system's
+quit request, without it the process ended at once. Beifahrer therefore registers no `quit` action;
+the system's quit ends the process (the window is a viewer, the bridges are separate processes).
+
 ## Consequences
 
 - A beginner closes the window and still sees, in the panel or GNOME's background list, whether the
