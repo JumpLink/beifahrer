@@ -20,12 +20,12 @@ export default async () => {
   });
 
   await describe('helperPathOf', async () => {
-    await it('sits beside the bundle on darwin, whichever of the two paths node runs from', async () => {
+    await it('is the main of the bundle on darwin, whichever of the two paths node runs from', async () => {
       expect(helperPathOf('darwin', '/Applications/Beifahrer.app/Contents/Helpers/beifahrer')).toBe(
-        '/Applications/Beifahrer.app/Contents/Helpers/safari-ext-helper',
+        '/Applications/Beifahrer.app/Contents/MacOS/beifahrer',
       );
       expect(helperPathOf('darwin', '/Applications/Beifahrer.app/Contents/MacOS/beifahrer')).toBe(
-        '/Applications/Beifahrer.app/Contents/Helpers/safari-ext-helper',
+        '/Applications/Beifahrer.app/Contents/MacOS/beifahrer',
       );
     });
 

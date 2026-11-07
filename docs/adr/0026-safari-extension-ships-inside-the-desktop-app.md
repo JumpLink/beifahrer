@@ -4,7 +4,10 @@
   template shell; amended the same day with the Variant-1-now decision: Developer-ID download first,
   App Sandbox for that download later, the Mac App Store last, with the same app throughout). The
   window's Safari row and the Swift helper that reads its state ship together with this amendment;
-  Firefox/Chromium install rows stay a separate change.
+  Firefox/Chromium install rows stay a separate change. **Amended 2026-11-07 (§ 9):** the Swift
+  helper is now the app's own Mach-O main executable, because only that binary gets an answer from
+  SafariServices; the `Contents/Helpers/safari-ext-helper` placement in §§ 4 and 6 is the record of
+  what shipped in 0.1.26 and showed "Unknown".
 - **Date:** 2026-11-05
 - **Relates to:** [0017](0017-native-desktop-app.md) (the window is a view, never a policy — kept
   here), [0002](0002-build-on-gjs-not-wxt.md) (the extension is bundled on GJS), `docs/macos-run.md`
@@ -306,3 +309,31 @@ term would need — this stops being true the day a second contributor's PR is m
 consent (or a licence carve-out) becomes necessary before a Stufe-3 submission. **iOS:** Safari Web
 Extensions on iOS/iPadOS ship ONLY through the App Store — there is no Developer-ID or "allow unsigned
 extensions" path there at all, so an iOS release is Stufe 3 or nothing, never Stufe 1 or 2.
+
+## § 9 — Amendment 2026-11-07: the Swift code is the app's main executable
+
+**What 0.1.26 showed.** Installed and notarized, the Safari row read "Unknown" every time. Measured on
+probe apps with their own `eu.jumplink.gjsify.probe*` ids: `SFSafariExtensionManager.
+getStateOfSafariExtension` answers only a process that IS the containing app's `CFBundleExecutable`.
+The same binary at `Contents/Helpers/safari-ext-helper` gets `SFErrorDomain Code=1` (LaunchServices
+-10814), so § 4's "no app-bundle context needed for the query" was true only for the nonexistent id it
+was tried with. The 0.1.26 main executable was the generated sh launcher, which cannot link
+SafariServices at all.
+
+**Decision.** `app/native/macos-main/main.swift` (was `app/native/safari-ext-helper/`) builds
+`Contents/MacOS/beifahrer` through `gjsify.ship.mainExecutable` (gjsify ADR 0024, amendment
+"app-provided darwin main executable"). It handles one reserved flag, `--safari-ext state <id>` /
+`--safari-ext open-settings <id>`, and for every other argv it `execv`s
+`Contents/Resources/beifahrer-launcher`, the generated launcher, so the GUI, the CLI and `mcp`
+behave as before. A flag, not a bare `state`, so no CLI subcommand is ever shadowed; the launcher is
+found from `_NSGetExecutablePath` + `realpath`, not `argv[0]`, so a symlinked CLI still works. The
+window spawns `Contents/MacOS/beifahrer --safari-ext …` (`helperPathOf` in
+`app/src/window/safari-model.ts`). § 4's click-only rule for `open-settings` is unchanged.
+
+**Why the launcher sits in `Resources`.** A non-Mach-O file in `Contents/MacOS` keeps its code
+signature only in extended attributes, which the zip and dmg packers drop: the extracted `.app`
+fails `codesign --verify --deep --strict`. gjsify's e2e `ship-nested-bundles` checks exactly that on
+an extracted zip.
+
+**Not a fix for local builds.** Safari still rejects a locally re-signed extension; only the
+notarized build is the measurement for this row (`docs/traps-browser-platform.md`).

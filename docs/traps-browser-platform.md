@@ -239,3 +239,22 @@ feature), and the absence of a console tool is a decision to keep, not a backlog
   `dialog`, and no item at all ends in the capture timeout, whose message names the dialog.
 - **A permission in both `permissions` and `optional_permissions` loads fine** (the e2e build does
   exactly that for `downloads` and `webRequest`).
+
+## The macOS app bundle and Safari's registration (ADR 0026 § 9)
+
+- **Only the bundle's `CFBundleExecutable` may ask SafariServices.**
+  `SFSafariExtensionManager.getStateOfSafariExtension` from any other binary in the same signed
+  `.app` (0.1.26 had it at `Contents/Helpers/safari-ext-helper`) fails with `SFErrorDomain Code=1`
+  (LaunchServices -10814), so the row read "Unknown". Hence the Swift main at
+  `Contents/MacOS/beifahrer` with its `--safari-ext` mode. Measured on probe apps, macOS 27,
+  2026-11-07.
+- **Safari rejects a locally re-signed build of the extension.** Running `xcodebuild` or
+  `extension/scripts/safari-build.sh` also re-registers the extension to that local build, and
+  Safari then turns it off in the installed app as well. Recover: `pluginkit -r` + `lsregister -u` on
+  the local build, then `lsregister -f /Applications/Beifahrer.app` and `pluginkit -a` on its
+  `.appex`. Only a notarized build is a measurement for the Safari row.
+- **A stale Dock `recent-apps` entry keeps a generic icon.** The app's bundle id was once
+  `eu.jumplink.beifahrer.Cli`; a Dock entry recorded under the old id shows a blank icon even after
+  the installed app carries `eu.jumplink.beifahrer` and the bus. Removing that entry from
+  `com.apple.dock` `recent-apps` (then `killall Dock`) leaves only the entry under the current id,
+  2026-11-07.

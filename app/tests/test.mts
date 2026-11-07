@@ -35,6 +35,7 @@ import bridgeDesktop from './unit/bridge/desktop.test.ts';
 import extensionManifest from './unit/extension/manifest.test.ts';
 import extensionQr from './unit/extension/qr.test.ts';
 import extensionIconLooks from './unit/extension/icon-looks.test.ts';
+import extensionActivity from './unit/extension/activity.test.ts';
 import extensionStatus from './unit/extension/status.test.ts';
 import extensionGuardOnce from './unit/extension/guard-once.test.ts';
 import extensionOpenOptions from './unit/extension/open-options.test.ts';
@@ -67,6 +68,7 @@ import configEdit from './unit/core/config-edit.test.ts';
 import windowSetupApply from './unit/window/setup-apply.test.ts';
 import windowSetupModel from './unit/window/setup-model.test.ts';
 import windowBrowserModel from './unit/window/browser-model.test.ts';
+import windowSafariModel from './unit/window/safari-model.test.ts';
 import dispatch from './unit/dispatch.test.ts';
 import statusCommand from './unit/registry/status.test.ts';
 
@@ -103,6 +105,7 @@ run({
   extensionManifest,
   extensionQr,
   extensionIconLooks,
+  extensionActivity,
   extensionStatus,
   extensionGuardOnce,
   extensionOpenOptions,
@@ -136,5 +139,6 @@ run({
   windowSetupApply,
   windowSetupModel,
   windowBrowserModel,
+  windowSafariModel,
   dispatch,
 });

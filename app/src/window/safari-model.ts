@@ -1,6 +1,6 @@
 /**
- * Pure half of the Safari row (ADR 0026 §§ 3-4): parsing the Swift helper's one-line stdout, and
- * finding the helper beside the running executable the same way `launcherOf` (core/agents.ts) finds
+ * Pure half of the Safari row (ADR 0026 §§ 3-4): parsing the Swift main's one-line `--safari-ext`
+ * stdout, and finding that main beside the running executable the same way `launcherOf` (core/agents.ts) finds
  * the CLI launcher. No Gio here, so both are tested without a display and without `swiftc`.
  */
 
@@ -47,13 +47,15 @@ export function parseSafariState(stdout: string): SafariState {
 }
 
 /**
- * `Contents/Helpers/safari-ext-helper` beside the bundle the running executable sits in, or null off
- * macOS or outside a bundle (a checkout, `gjsify run`). The running executable is the carried node
- * (`Contents/Helpers/<name>`), not the launcher (`Contents/MacOS/<name>`) — same ambiguity
- * `launcherOf` already resolves by accepting either.
+ * The app's own Mach-O main, `Contents/MacOS/beifahrer`, of the bundle the running executable sits
+ * in, or null off macOS or outside a bundle (a checkout, `gjsify run`). Only that binary — the
+ * bundle's CFBundleExecutable — gets an answer from SafariServices (ADR 0026, amendment
+ * 2026-11-07); it takes `--safari-ext …` itself and hands everything else to the launcher. The
+ * running executable is the carried node (`Contents/Helpers/<name>`), not the main — same
+ * ambiguity `launcherOf` already resolves by accepting either.
  */
 export function helperPathOf(platform: string, execPath: string | null | undefined): string | null {
   if (platform !== 'darwin' || !execPath) return null;
   const m = /^(.*\.app)\/Contents\/(?:MacOS|Helpers)\/[^/]+$/.exec(execPath);
-  return m ? `${m[1]}/Contents/Helpers/safari-ext-helper` : null;
+  return m ? `${m[1]}/Contents/MacOS/beifahrer` : null;
 }

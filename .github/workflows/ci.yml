@@ -68,17 +68,17 @@ jobs:
           DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
         run: sh extension/scripts/safari-build.sh
 
-      - name: Build the Safari helper (Swift, universal)
+      - name: Build the macOS main executable (Swift, universal)
         env:
           DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
-        run: sh app/native/safari-ext-helper/build.sh
+        run: sh app/native/macos-main/build.sh
 
       # Tarred, like the macOS stages below: both paths sit under a dot-directory, which
       # upload-artifact@v4 skipped silently (the appex never reached build-and-test, PR #203), and
-      # an upload drops the executable bit of the appex's own Mach-O as well as the helper's.
+      # an upload drops the executable bit of the appex's own Mach-O as well as the main executable's.
       - name: Pack the Safari extension native artifacts
         # COPYFILE_DISABLE: macOS tar would otherwise add `._*` metadata files inside the bundle.
-        run: COPYFILE_DISABLE=1 tar -cf safari-native.tar extension/.output-safari-appex app/native/safari-ext-helper/.build/safari-ext-helper
+        run: COPYFILE_DISABLE=1 tar -cf safari-native.tar extension/.output-safari-appex app/native/macos-main/.build/beifahrer
 
       - uses: actions/upload-artifact@v4
         with:
@@ -254,7 +254,7 @@ jobs:
         run: |
           tar -xf safari-native.tar && rm safari-native.tar
           test -d "extension/.output-safari-appex/Beifahrer Extension.appex"
-          test -x app/native/safari-ext-helper/.build/safari-ext-helper
+          test -x app/native/macos-main/.build/beifahrer
 
       # Tarred because `upload-artifact` drops the executable bit and flattens symlinks, and a
       # `.app` with either gone does not launch.
