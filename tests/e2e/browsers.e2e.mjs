@@ -2887,6 +2887,7 @@ async function pausedChecks(browser, client) {
     ['page_download', { tabId: 1, url }],
     ['page_rows', { tabId: 1 }],
     ['page_capture', { tabId: 1, ref: 'e1' }],
+    ['page_upload', { tabId: 1, ref: 'e1', paths: ['x.pdf'] }],
     ['recipes_for_tab', { tabId: 1 }],
     ['recipe_run', { tabId: 1, id: 'openproject/add-comment', params: { text: 'x' } }],
     ['tab_open', { url }],
@@ -2932,8 +2933,13 @@ async function scenario(browser, gate) {
   const profile = mkdtempSync(join(tmpdir(), `beifahrer-e2e-${browser}-`));
   const tokenFile = join(profile, 'token');
   writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
+  // An upload directory with the file the paused check names, so page_upload passes the bridge's
+  // own path check and reaches the extension, where the pause has to refuse it.
+  const uploadDir = join(profile, 'uploads');
+  mkdirSync(uploadDir);
+  writeFileSync(join(uploadDir, 'x.pdf'), '%PDF-1.4\n');
 
-  const { client } = await startMcp(tokenFile, `${browser}-mcp.log`);
+  const { client } = await startMcp(tokenFile, `${browser}-mcp.log`, { BEIFAHRER_UPLOAD_DIR: uploadDir });
 
   const proc = await launch(browser, profile);
   const browserOut = captureOutput(proc);
