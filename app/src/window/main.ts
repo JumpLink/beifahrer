@@ -236,7 +236,11 @@ const application = new AdwaitaApp({
       asking = true;
       portal
         .request(ui.window, t('background.reason'))
-        .then((background) => (onClose({ statusIcon: false, background }) === 'hide' ? hide() : quit()))
+        .then((background) =>
+          onClose({ statusIcon: false, dock: process.platform === 'darwin', background }) === 'hide'
+            ? hide()
+            : quit(),
+        )
         .catch(quit)
         .finally(() => {
           asking = false;
