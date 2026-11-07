@@ -36,15 +36,19 @@ const line = (statuses: BridgeStatus[], locale: 'en' | 'de' = 'en') => {
 export default async () => {
   await describe('onClose', async () => {
     await it('hides when the portal granted', async () => {
-      expect(onClose({ statusIcon: false, background: 'granted' })).toBe('hide');
+      expect(onClose({ statusIcon: false, dock: false, background: 'granted' })).toBe('hide');
     });
     await it('hides when a status icon is shown, whatever the portal said', async () => {
-      expect(onClose({ statusIcon: true, background: 'unavailable' })).toBe('hide');
-      expect(onClose({ statusIcon: true, background: 'denied' })).toBe('hide');
+      expect(onClose({ statusIcon: true, dock: false, background: 'unavailable' })).toBe('hide');
+      expect(onClose({ statusIcon: true, dock: false, background: 'denied' })).toBe('hide');
+    });
+    await it('hides when the Dock keeps the app, whatever the portal said', async () => {
+      expect(onClose({ statusIcon: false, dock: true, background: 'unavailable' })).toBe('hide');
+      expect(onClose({ statusIcon: false, dock: true, background: 'denied' })).toBe('hide');
     });
     await it('quits when nothing lets the person get it back', async () => {
-      expect(onClose({ statusIcon: false, background: 'denied' })).toBe('quit');
-      expect(onClose({ statusIcon: false, background: 'unavailable' })).toBe('quit');
+      expect(onClose({ statusIcon: false, dock: false, background: 'denied' })).toBe('quit');
+      expect(onClose({ statusIcon: false, dock: false, background: 'unavailable' })).toBe('quit');
     });
   });
 
