@@ -17,19 +17,19 @@
   },
   "dependencies": {
     "@beifahrer/core": "*",
-    "@gjsify/adwaita-core": "0.64.22",
-    "@gjsify/adwaita-icons": "0.64.22",
-    "@gjsify/adwaita-web": "0.64.22",
-    "@gjsify/app-settings": "0.64.22",
+    "@gjsify/adwaita-core": "0.64.24",
+    "@gjsify/adwaita-icons": "0.64.24",
+    "@gjsify/adwaita-web": "0.64.24",
+    "@gjsify/app-settings": "0.64.24",
     "@wxt-dev/browser": "^0.3.0",
     "jsqr": "1.4.0"
   },
   "devDependencies": {
     "@girs/gdkpixbuf-2.0": "5.4.0",
-    "@gjsify/cli": "0.64.22",
-    "@gjsify/node-globals": "0.64.22",
-    "@gjsify/rolldown-native": "0.64.22",
-    "@gjsify/runtime": "0.64.22",
+    "@gjsify/cli": "0.64.24",
+    "@gjsify/node-globals": "0.64.24",
+    "@gjsify/rolldown-native": "0.64.24",
+    "@gjsify/runtime": "0.64.24",
     "fflate": "^0.8.3",
     "typescript": "^6.0.3",
     "web-ext": "^10.7.0"
