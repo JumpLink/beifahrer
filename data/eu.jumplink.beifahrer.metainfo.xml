@@ -63,6 +63,14 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.27" date="2026-11-07">
+      <description>
+        <ul>
+          <li>On a Mac, the Safari row now shows whether the extension is on instead of staying on Unknown</li>
+          <li>The app says when a second, outdated pairing file is left over from an earlier version</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.26" date="2026-11-06">
       <description>
         <ul>
