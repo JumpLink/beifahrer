@@ -103,12 +103,9 @@
           ]
         }
       ],
-      "helperExecutables": [
-        {
-          "source": "native/safari-ext-helper/.build/safari-ext-helper",
-          "name": "safari-ext-helper"
-        }
-      ]
+      "mainExecutable": {
+        "source": "native/macos-main/.build/beifahrer"
+      }
     },
     "excludeGlobals": [
       "document",
