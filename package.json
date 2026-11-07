@@ -111,32 +111,6 @@
           "url": "https://github.com/JumpLink/beifahrer#from-source"
         }
       ],
-      "screenshots": {
-        "source": "merge",
-        "items": [
-          {
-            "from": 0,
-            "variants": {
-              "desktop-light": "docs/images/popup-light.png",
-              "desktop-dark": "docs/images/popup-dark.png"
-            }
-          },
-          {
-            "from": 1,
-            "variants": {
-              "desktop-light": "docs/images/options-light.png",
-              "desktop-dark": "docs/images/options-dark.png"
-            }
-          },
-          {
-            "from": 2,
-            "variants": {
-              "desktop-light": "docs/images/confirm-light.png",
-              "desktop-dark": "docs/images/confirm-dark.png"
-            }
-          }
-        ]
-      },
       "privacy": {
         "statements": {
           "en": "docs/store/privacy.md",

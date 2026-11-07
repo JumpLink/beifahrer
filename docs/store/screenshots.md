@@ -59,10 +59,15 @@ their measured sizes are the honest starting point:
 
 | Existing file | Measured size | What it is |
 |---|---|---|
-| `popup-light.png`, `popup-dark.png` | 360 × 685 | the toolbar popup |
-| `options-light.png`, `options-dark.png` | 800 × 1951 | the options page, full length |
-| `confirm-light.png`, `confirm-dark.png` | 520 × 241 | the confirmation window |
-| `popup-de-*.png`, `options-de-dark.png` | as above | the same, in German (`BEIFAHRER_E2E_LANG=de`) |
+| `popup-light.png`, `popup-dark.png` | 720 × 1488 (360 wide at 2×) | the toolbar popup |
+| `options-light.png`, `options-dark.png` | 1600 × 5330 (800 wide at 2×) | the options page, full length |
+| `confirm-light.png`, `confirm-dark.png` | 1040 × 488 (520 wide at 2×) | the confirmation window |
+| `<page>-de-light.png`, `<page>-de-dark.png` | as above | the same, in German (`BEIFAHRER_E2E_LANG=de`) |
+
+They are regenerated with `BEIFAHRER_E2E_SCALE=2`, once per language, and the metainfo lists them
+as AppStream renditions: the German file as `<image xml:lang="de">`, the dark set as screenshots
+with `environment="gnome:dark"`. The web page picks the one matching the visitor's language and
+colour scheme.
 
 **None of these is store-ready**, and the reason is size, not content: a store wants 1280×800, and
 these are 360 px wide. The three shots therefore need one thing a person does with an image editor,
