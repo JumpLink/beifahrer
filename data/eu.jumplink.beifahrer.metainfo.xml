@@ -84,6 +84,13 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.28" date="2026-11-07">
+      <description>
+        <ul>
+          <li>On a Mac, closing the window keeps Beifahrer running; click its Dock icon to bring the window back</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.27" date="2026-11-07">
       <description>
         <ul>
