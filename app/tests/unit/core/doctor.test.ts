@@ -130,6 +130,7 @@ export default async () => {
       const t = byId(checks, 'token')!;
       expect(t.level).toBe('warn');
       expect(t.title).toMatch(/\/home\/p\/\.config\/beifahrer\/token/);
+      expect(t.fix).toMatch(/if every browser connects, delete that file/);
       expect(Object.keys(t).sort().join()).toBe('fix,id,level,title');
     });
 
