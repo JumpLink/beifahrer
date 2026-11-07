@@ -48,16 +48,37 @@
   <screenshots>
     <screenshot type="default">
       <image type="source">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/popup-light.png</image>
+      <image type="source" xml:lang="de">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/popup-de-light.png</image>
       <caption>The toolbar popup shows the policy for the current site</caption>
       <caption xml:lang="de">Das Popup zeigt die Richtlinie der aktuellen Website</caption>
     </screenshot>
     <screenshot>
       <image type="source">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/options-light.png</image>
+      <image type="source" xml:lang="de">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/options-de-light.png</image>
       <caption>Per-site policy in the options page</caption>
       <caption xml:lang="de">Richtlinie pro Website in den Einstellungen</caption>
     </screenshot>
     <screenshot>
       <image type="source">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/confirm-light.png</image>
+      <image type="source" xml:lang="de">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/confirm-de-light.png</image>
+      <caption>Confirmation before an action the policy does not pre-approve</caption>
+      <caption xml:lang="de">Bestätigung vor einer Aktion ohne Vorab-Freigabe</caption>
+    </screenshot>
+    <screenshot environment="gnome:dark">
+      <image type="source">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/popup-dark.png</image>
+      <image type="source" xml:lang="de">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/popup-de-dark.png</image>
+      <caption>The toolbar popup shows the policy for the current site</caption>
+      <caption xml:lang="de">Das Popup zeigt die Richtlinie der aktuellen Website</caption>
+    </screenshot>
+    <screenshot environment="gnome:dark">
+      <image type="source">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/options-dark.png</image>
+      <image type="source" xml:lang="de">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/options-de-dark.png</image>
+      <caption>Per-site policy in the options page</caption>
+      <caption xml:lang="de">Richtlinie pro Website in den Einstellungen</caption>
+    </screenshot>
+    <screenshot environment="gnome:dark">
+      <image type="source">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/confirm-dark.png</image>
+      <image type="source" xml:lang="de">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/confirm-de-dark.png</image>
       <caption>Confirmation before an action the policy does not pre-approve</caption>
       <caption xml:lang="de">Bestätigung vor einer Aktion ohne Vorab-Freigabe</caption>
     </screenshot>
