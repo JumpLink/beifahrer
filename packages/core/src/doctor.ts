@@ -94,7 +94,7 @@ export function diagnose(input: DoctorInput): Check[] {
       id: 'token',
       level: 'warn',
       title: `A second token file holds a different token: ${token.other}`,
-      fix: 'A browser paired with that one cannot connect. Paste the token from `beifahrer token` instead; an older Beifahrer that is still running may read the other file until it is restarted.',
+      fix: 'Most likely left over from an older Beifahrer: if every browser connects, delete that file. A browser that does not connect is paired with the old token; paste the token from `beifahrer token` into it.',
     });
   } else {
     checks.push({ id: 'token', level: 'ok', title: `Pairing token in ${token.path}` });

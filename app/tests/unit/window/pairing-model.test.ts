@@ -21,6 +21,7 @@ export default async () => {
       expect(v.warnings[0]!.description).toMatch(
         /\/home\/p\/\.config\/beifahrer\/token holds a different token/,
       );
+      expect(v.warnings[0]!.description).toMatch(/If every browser connects, delete that file/);
       expect(JSON.stringify(v.warnings)).not.toMatch(/tok-1/);
     });
 

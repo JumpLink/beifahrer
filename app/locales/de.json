@@ -21,7 +21,7 @@
   "pairing.copied": "Token kopiert",
   "pairing.path": "Gespeichert in",
   "pairing.other.title": "Es gibt eine weitere Token-Datei",
-  "pairing.other.description": "{path} enthält ein anderes Token. Ein Browser, der damit gekoppelt wurde, kann sich nicht verbinden: Füge stattdessen das Token oben ein. Ein älteres Beifahrer, das noch läuft, benutzt möglicherweise die andere Datei, bis es neu gestartet wird.",
+  "pairing.other.description": "{path} enthält ein anderes Token, vermutlich übrig von einem älteren Beifahrer. Wenn sich jeder Browser verbindet, lösche diese Datei. Ein Browser, der sich nicht verbindet, ist mit dem alten Token gekoppelt: Füge dort das Token oben ein.",
   "pairing.error": "Das Token konnte nicht gelesen werden: {reason}",
   "foreign.one": "Port {ports} wird von etwas gehalten, das sich nicht meldet",
   "foreign.many": "Die Ports {ports} werden von etwas gehalten, das sich nicht meldet",
