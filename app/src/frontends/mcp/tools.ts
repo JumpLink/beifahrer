@@ -631,7 +631,8 @@ export function registerTools(
         'does the fetching; no token or header ever reaches you. What it may produce is bounded: a link or blob of the ' +
         "tab's own origin, or a page on a sister origin of the same site (app-api.<site> for a <site> tab), which needs " +
         'level "read" on its own. With the "Take hidden downloads" switch on (and the browser\'s downloads permission ' +
-        'granted), a blob the page saves out of sight is taken too (via: "save") and the browser\'s own copy is removed. ' +
+        'granted), a blob the page saves out of sight is taken too (via: "save") and the browser\'s own copy is removed, ' +
+        'together with the viewer tab the browser opened for that copy (only a tab on exactly that file). ' +
         'A file the browser saves by itself (a plain download) comes back as via: "download" with no bytes and a ' +
         '"download" object: state complete | interrupted | timeout | dialog, the path on disk, bytes and the reason. ' +
         '"dialog" means the browser asks the person where to save: only they can answer it, do not click again. ' +

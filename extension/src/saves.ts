@@ -19,11 +19,18 @@
  *   agent is told why it got nothing, instead of both losing it.
  * - **Cancel is not enough.** A small blob is complete before the event is delivered (both engines),
  *   and `cancel` of a finished download is an error in Firefox and a no-op in Chromium, so a file
- *   is left behind. `discard` waits for the download to settle and deletes the file if it exists.
+ *   is left behind. `discard` waits for the download to settle and deletes the file if it exists,
+ *   then closes the viewer tab a browser set to open PDFs shows for that copy (#197).
  */
 
 import { browser } from '@wxt-dev/browser';
-import { describeDownload, judgeSave, type DownloadOutcome, type DownloadSnapshot } from '@beifahrer/core';
+import {
+  describeDownload,
+  isViewerOf,
+  judgeSave,
+  type DownloadOutcome,
+  type DownloadSnapshot,
+} from '@beifahrer/core';
 
 export interface Save {
   id: number;
@@ -33,6 +40,7 @@ export interface Save {
 interface DownloadItem extends DownloadSnapshot {
   id: number;
   url?: string;
+  filename?: string;
 }
 
 interface DownloadsApi {
@@ -60,6 +68,34 @@ export function savesAvailable(): boolean {
 }
 
 const SETTLE_BUDGET_MS = 3_000;
+// Measured on Firefox 159 (probes/downloads/viewer.mjs): the viewer tab is created ~20 ms after the
+// download completes, as about:blank, and holds its file: address ~120 ms later.
+const VIEWER_BUDGET_MS = 1_500;
+
+/**
+ * Close the viewer tab the browser opened for the copy it wrote at `filename`. Only a tab whose
+ * address is exactly that file goes (`isViewerOf`); the budget is bounded because the tab may show
+ * up after the file is gone, and there is nothing to wait for where the browser opens none.
+ */
+async function closeViewer(filename: string): Promise<void> {
+  const deadline = Date.now() + VIEWER_BUDGET_MS;
+  for (;;) {
+    const tabs: { id?: number; url?: string }[] = [];
+    try {
+      tabs.push(...(await browser.tabs.query({})));
+    } catch {
+      // No tab list this round; the next one may have it.
+    }
+    const ids: number[] = [];
+    for (const t of tabs) if (t.id !== undefined && isViewerOf(t.url ?? '', filename)) ids.push(t.id);
+    if (ids.length) {
+      await Promise.all(ids.map((id: number) => browser.tabs.remove(id).catch(() => undefined)));
+      return;
+    }
+    if (Date.now() >= deadline) return;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
 
 /** Wait until a download is no longer running; its last state, or null if the browser forgot it. */
 async function settled(api: DownloadsApi, id: number): Promise<string | null> {
@@ -116,8 +152,12 @@ export function watchSaves(tabUrl: string): {
     async discard(save) {
       if (!api) return;
       await api.cancel(save.id).catch(() => undefined);
-      if ((await settled(api, save.id)) === 'complete') await api.removeFile(save.id).catch(() => undefined);
+      const state = await settled(api, save.id);
+      const filename = (await api.search({ id: save.id }).catch(() => []))[0]?.filename ?? '';
+      if (state === 'complete') await api.removeFile(save.id).catch(() => undefined);
       await api.erase({ id: save.id }).catch(() => undefined);
+      // The browser may have opened its copy in a viewer tab that now points at nothing (#197).
+      if (state === 'complete' && filename) await closeViewer(filename);
     },
   };
 }
