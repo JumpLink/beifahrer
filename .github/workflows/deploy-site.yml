@@ -13,6 +13,8 @@ on:
       - "docs/store/privacy*.md"
       - "docs/store/legal-notice*.md"
       - "gjsify-lock.json"
+      - "extension/manifest.ts"
+      - "extension/_locales/**"
       - ".github/workflows/deploy-site.yml"
   workflow_dispatch:
 
@@ -62,6 +64,11 @@ jobs:
 
       - name: Install dependencies
         run: gjsify install --immutable
+
+      # The extension page reads the built manifests (`gjsify.site.extension.manifests`); a missing
+      # one fails the site build.
+      - name: Build the extension
+        run: gjsify workspace beifahrer-extension build
 
       # Without the token the release lookup shares the runner IP's anonymous rate limit, gets a 403
       # and the page ships with no downloads; the build only warns.

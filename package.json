@@ -24,8 +24,8 @@
     "test": "gjsify workspace beifahrer-app test"
   },
   "devDependencies": {
-    "@gjsify/cli": "0.64.25",
-    "@gjsify/site": "0.64.25"
+    "@gjsify/cli": "0.64.30",
+    "@gjsify/site": "0.64.30"
   },
   "gjsify": {
     "webext": {
@@ -150,7 +150,17 @@
           "name": "JumpLink - Pascal Garber",
           "iban": "DE94100101232090324020"
         }
-      ]
+      ],
+      "extension": {
+        "manifests": {
+          "chromium": "extension/.output/chrome-mv3/manifest.json",
+          "firefox": "extension/.output/firefox-mv2/manifest.json",
+          "edge": "extension/.output/edge-mv3/manifest.json",
+          "safari": "extension/.output/safari-mv3/manifest.json"
+        },
+        "locales": "extension/_locales",
+        "component": "extension"
+      }
     }
   }
 }
