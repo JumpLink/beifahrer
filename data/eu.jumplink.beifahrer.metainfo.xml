@@ -85,6 +85,15 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.29" date="2026-11-11">
+      <description>
+        <ul>
+          <li>Three feature rows (hidden downloads, page requests, file upload) showed a placeholder instead of their icon; fixed</li>
+          <li>After taking a hidden download, Firefox no longer leaves a tab open on the deleted file</li>
+          <li>The German app name is now part of the app description</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.28" date="2026-11-07">
       <description>
         <ul>
