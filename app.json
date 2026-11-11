@@ -2,7 +2,8 @@
   "schema": 1,
   "id": "eu.jumplink.beifahrer",
   "name": {
-    "en": "Beifahrer"
+    "en": "Beifahrer",
+    "de": "Beifahrer"
   },
   "summary": {
     "en": "Let AI use your browser",
