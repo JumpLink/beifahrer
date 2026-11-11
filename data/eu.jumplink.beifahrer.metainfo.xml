@@ -5,6 +5,7 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>AGPL-3.0-or-later</project_license>
   <name>Beifahrer</name>
+  <name xml:lang="de">Beifahrer</name>
   <summary>Let AI use your browser</summary>
   <summary xml:lang="de">KI nutzt deinen Browser</summary>
   <developer id="eu.jumplink">
