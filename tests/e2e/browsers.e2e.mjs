@@ -1282,7 +1282,7 @@ async function uploadScenario(browser) {
     check(
       name,
       'a person who denies the window gets "denied"',
-      denied.error && /^denied:/.test(denied.text),
+      denied.error && denied.text.startsWith('denied:'),
       denied.text.slice(0, 240),
     );
 
@@ -1300,7 +1300,7 @@ async function uploadScenario(browser) {
       check(
         name,
         'a page on level "read" is refused',
-        r.error && /^forbidden:/.test(r.text),
+        r.error && r.text.startsWith('forbidden:'),
         r.text.slice(0, 240),
       );
     }
