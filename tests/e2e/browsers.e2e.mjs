@@ -33,6 +33,7 @@
  */
 
 import { spawn, execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   createWriteStream,
   existsSync,
@@ -40,6 +41,7 @@ import {
   mkdtempSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { createServer } from 'node:http';
@@ -1147,6 +1149,263 @@ async function confirmScenario(browser) {
     rmSync(profile, { recursive: true, force: true });
   }
 }
+/**
+ * ADR 0027: `page_upload` end to end. A form with four file fields (single, `multiple`,
+ * `accept=".pdf"`, and a hidden one behind a button) listens for `input`/`change` AND posts its
+ * FormData to the fixture server, which records name, size and sha256 of what ARRIVED. So the
+ * check is on the bytes the page sent, not on what the extension says it set. The refusals come
+ * first, on the fresh page: every one must leave the page untouched.
+ */
+async function uploadScenario(browser) {
+  const name = `${browser} upload`;
+  const profile = mkdtempSync(join(tmpdir(), `beifahrer-e2e-upload-${browser}-`));
+  const tokenFile = join(profile, 'token');
+  writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
+  const uploadDir = join(profile, 'uploads');
+  mkdirSync(uploadDir);
+  // Bytes with every value in them, NUL and 0xff included: a text round trip would corrupt these.
+  const binary = (n, seed) => Buffer.from(Array.from({ length: n }, (_, i) => (i * seed + (i >> 3)) & 0xff));
+  const sha = (buf) => createHash('sha256').update(buf).digest('hex');
+  const data = {
+    'a.bin': binary(5000, 7),
+    'c.bin': binary(3001, 13),
+    'b.pdf': Buffer.concat([Buffer.from('%PDF-1.4\n'), binary(2048, 31)]),
+    'd.pdf': Buffer.concat([Buffer.from('%PDF-1.4\n'), binary(777, 5)]),
+    'data.bin': binary(10, 1),
+  };
+  for (const [file, bytes] of Object.entries(data)) writeFileSync(join(uploadDir, file), bytes);
+  const outside = join(profile, 'outside.txt');
+  writeFileSync(outside, 'outside');
+  symlinkSync(outside, join(uploadDir, 'escape.txt'));
+  writeFileSync(join(uploadDir, 'big.bin'), Buffer.alloc(10 * 1024 * 1024 + 1, 1));
+  for (let i = 0; i < 3; i++)
+    writeFileSync(join(uploadDir, `nine${i}.bin`), Buffer.alloc(9 * 1024 * 1024, i));
+  for (let i = 0; i < 11; i++) writeFileSync(join(uploadDir, `s${i}.bin`), `s${i}`);
+
+  const a = await startMcp(tokenFile, `${browser}-upload-a.log`, { BEIFAHRER_UPLOAD_DIR: uploadDir });
+  // A second session with no folder at all: the person who never set one.
+  const bare = await startMcp(tokenFile, `${browser}-upload-b.log`, { BEIFAHRER_UPLOAD_DIR: '' });
+  const proc = await launch(browser, profile);
+  const answered = async (pending, answer) => {
+    await sleep(1_000);
+    await tool(a.client, 'tab_open', {
+      url: `${ALLOWED}/__beifahrer_e2e/confirm?answer=${answer}`,
+      active: false,
+    });
+    return Promise.race([pending, sleep(20_000).then(() => ({ error: true, text: 'no answer in 20 s' }))]);
+  };
+  const sunk = async () => (await fetch(`${ALLOWED}/api/uploads`)).json();
+  try {
+    await until(a.client, (s) => s.browsers?.length === 1, 60);
+    await until(bare.client, (s) => s.browsers?.length === 1, 60);
+    await fetch(`${ALLOWED}/api/uploads-reset`);
+
+    const opened = await tool(a.client, 'tab_open', { url: `${ALLOWED}/upload-page` });
+    const tabId = opened.error ? null : JSON.parse(opened.text).tab?.tabId;
+    if (tabId == null) {
+      check(name, 'the upload fixture tab opened', false, opened.text.slice(0, 200));
+      return;
+    }
+    await tool(a.client, 'page_wait', { tabId, for: 'load' });
+    const outline = await tool(a.client, 'page_outline', { tabId });
+    const ref = (re) => new RegExp(`\\[(e\\d+)\\] ${re}`).exec(outline.text)?.[1];
+    const single = ref('file "Single file"');
+    const multi = ref('file "Many files" \\(several\\)');
+    const pdf = ref('file "Only PDF" \\(accepts \\.pdf\\)');
+    const pick = ref('button "Datei wählen"');
+    const send = ref('button "Send upload"');
+    check(
+      name,
+      'page_outline names the file fields with role "file" (several / accepts), and the opener button',
+      !!(single && multi && pdf && pick && send),
+      outline.text.slice(0, 600),
+    );
+    if (!(single && multi && pdf && pick && send)) return;
+    const found = await tool(a.client, 'page_find', { tabId, role: 'file' });
+    check(
+      name,
+      'page_find role=file finds the visible file fields',
+      !found.error && (found.text.match(/Single file|Many files|Only PDF/g) ?? []).length >= 3,
+      found.text.slice(0, 400),
+    );
+    const events = async () => (await tool(a.client, 'page_read', { tabId })).text;
+
+    // Refusals. Nothing below may reach the page: no event, no file on the server.
+    const bridgeRefusals = [
+      ['a path outside the folder', [outside], /outside the allowed directory/],
+      ['a ".." path', ['../outside.txt'], /outside the allowed directory/],
+      ['a symlink out of the folder', ['escape.txt'], /symlink/],
+      ['a file over 10 MiB', ['big.bin'], /too large/],
+      ['more than 10 files', Array.from({ length: 11 }, (_, i) => `s${i}.bin`), /at most 10 files/],
+      ['more than 20 MiB in all', ['nine0.bin', 'nine1.bin', 'nine2.bin'], /together.*20 MiB/],
+    ];
+    for (const [label, paths, why] of bridgeRefusals) {
+      const r = await quickly(a.client, 'page_upload', { tabId, ref: multi, paths });
+      check(
+        name,
+        `${label} is refused by the bridge, with a reason`,
+        r.error && why.test(r.text),
+        r.text.slice(0, 240),
+      );
+    }
+    const noDir = await quickly(bare.client, 'page_upload', { tabId, ref: single, paths: ['a.bin'] });
+    check(
+      name,
+      'no upload folder set: refused, and says how the person sets one',
+      noDir.error && /not allowed uploads/.test(noDir.text) && /--upload-dir/.test(noDir.text),
+      noDir.text.slice(0, 240),
+    );
+    const wrongType = await answered(
+      tool(a.client, 'page_upload', { tabId, ref: pdf, paths: ['data.bin'] }),
+      'allow',
+    );
+    check(
+      name,
+      'a file the field does not accept is refused',
+      wrongType.error && /accepts \.pdf/.test(wrongType.text),
+      wrongType.text.slice(0, 240),
+    );
+    const tooMany = await answered(
+      tool(a.client, 'page_upload', { tabId, ref: single, paths: ['a.bin', 'c.bin'] }),
+      'allow',
+    );
+    check(
+      name,
+      'several files for a field without "multiple" are refused',
+      tooMany.error && /takes one file/.test(tooMany.text),
+      tooMany.text.slice(0, 240),
+    );
+    const denied = await answered(
+      tool(a.client, 'page_upload', { tabId, ref: single, paths: ['a.bin'] }),
+      'deny',
+    );
+    check(
+      name,
+      'a person who denies the window gets "denied"',
+      denied.error && /^denied:/.test(denied.text),
+      denied.text.slice(0, 240),
+    );
+
+    // The same page on an origin that is only at level read.
+    const ro = await tool(a.client, 'tab_open', { url: `${FORBIDDEN}/upload-page`, active: false });
+    const roTab = ro.error ? null : JSON.parse(ro.text).tab?.tabId;
+    if (roTab == null) check(name, 'the read-only tab opened', false, ro.text.slice(0, 200));
+    else {
+      await tool(a.client, 'page_wait', { tabId: roTab, for: 'load' });
+      const roOutline = await tool(a.client, 'page_outline', { tabId: roTab });
+      const roRef = /\[(e\d+)\] file "Single file"/.exec(roOutline.text)?.[1];
+      const r = roRef
+        ? await quickly(a.client, 'page_upload', { tabId: roTab, ref: roRef, paths: ['a.bin'] })
+        : { error: false, text: `no file field in: ${roOutline.text.slice(0, 200)}` };
+      check(
+        name,
+        'a page on level "read" is refused',
+        r.error && /^forbidden:/.test(r.text),
+        r.text.slice(0, 240),
+      );
+    }
+
+    const untouched = await events();
+    check(
+      name,
+      'after every refusal the page saw no input/change event and the server got nothing',
+      !/(input|change):/.test(untouched) && (await sunk()).length === 0,
+      untouched.slice(-300),
+    );
+
+    // The real thing.
+    const put = async (field, paths) => {
+      const r = await answered(tool(a.client, 'page_upload', { tabId, ref: field, paths }), 'allow');
+      return r;
+    };
+    const one = await put(single, ['a.bin']);
+    check(
+      name,
+      'a single file lands: the answer holds name and size, accepted',
+      !one.error && /"a\.bin"/.test(one.text) && /5000/.test(one.text) && /"accepted":\s*true/.test(one.text),
+      one.text.slice(0, 300),
+    );
+    const many = await put(multi, ['a.bin', 'c.bin']);
+    check(
+      name,
+      'two files land in a "multiple" field',
+      !many.error && /"accepted":\s*true/.test(many.text),
+      many.text.slice(0, 300),
+    );
+    const only = await put(pdf, ['b.pdf']);
+    check(
+      name,
+      'a .pdf lands in the accept=".pdf" field',
+      !only.error && /"accepted":\s*true/.test(only.text),
+      only.text.slice(0, 300),
+    );
+    const viaButton = await put(pick, ['d.pdf']);
+    check(
+      name,
+      'the ref of the button fills the hidden file field behind it',
+      !viaButton.error && /"accepted":\s*true/.test(viaButton.text),
+      viaButton.text.slice(0, 300),
+    );
+    const after = await events();
+    for (const [field, file, size] of [
+      ['single', 'a.bin', 5000],
+      ['multi', 'c.bin', 3001],
+      ['pdf', 'b.pdf', data['b.pdf'].length],
+      ['hidden', 'd.pdf', data['d.pdf'].length],
+    ]) {
+      check(
+        name,
+        `the page's own listeners fired input and change on #${field}`,
+        after.includes(`input:${field}:`) &&
+          after.includes(`change:${field}:`) &&
+          after.includes(`${file}/${size}`),
+        after.slice(-400),
+      );
+    }
+
+    const submitted = await answered(tool(a.client, 'page_click', { tabId, ref: send }), 'allow');
+    let got = [];
+    for (let i = 0; i < 20 && got.length < 5; i++) {
+      got = await sunk();
+      if (got.length < 5) await sleep(500);
+    }
+    check(
+      name,
+      'the form submit went through',
+      !submitted.error && got.length > 0,
+      submitted.text.slice(0, 200),
+    );
+    const expected = [
+      ['single', 'a.bin'],
+      ['multi', 'a.bin'],
+      ['multi', 'c.bin'],
+      ['pdf', 'b.pdf'],
+      ['hidden', 'd.pdf'],
+    ];
+    const mismatches = expected.filter(
+      ([field, file]) =>
+        !got.some(
+          (g) =>
+            g.field === field &&
+            g.name === file &&
+            g.size === data[file].length &&
+            g.sha256 === sha(data[file]),
+        ),
+    );
+    check(
+      name,
+      'the server received exactly the bytes of the files in the folder (name, size, sha256)',
+      got.length === expected.length && mismatches.length === 0,
+      `got ${JSON.stringify(got)}; missing ${JSON.stringify(mismatches)}`,
+    );
+  } finally {
+    await a.client.close().catch(() => undefined);
+    await bare.client.close().catch(() => undefined);
+    await stopBrowser(proc, browser === 'firefox');
+    rmSync(profile, { recursive: true, force: true });
+  }
+}
+
 /**
  * ADR 0019: a page saves a blob out of sight (an `<a download>` that never enters the DOM). The
  * switch and the browser's `downloads` permission are on in this build. Two pages: one keeps its
@@ -3021,6 +3280,8 @@ async function scenario(browser, gate) {
         // Issue #35: a request log is the furthest-reaching capability in the list, and `webRequest`
         // cannot be narrowed to a site — so it is off until the person grants the browser permission.
         ['page_network', { tabId: allowed.tabId }, 'See what a page requests'],
+        // ADR 0027: handing a file to a site is off by default, and the refusal names the switch.
+        ['page_upload', { tabId: allowed.tabId, ref: 'e1', paths: ['x.pdf'] }, 'Upload files'],
       ]) {
         const r = await tool(client, name, args);
         // ADR 0012 + issue #31: a script is refused on a Manifest V3 build by the BRIDGE's capability
@@ -3337,7 +3598,7 @@ async function reconnectScenario(browser) {
 
 const which = process.argv[2] ?? 'all';
 const browsers = which === 'all' ? ['chromium', 'firefox'] : [which];
-/** BEIFAHRER_E2E_ONLY=reconnect or =saves runs just that scenario (one build, no fixture scenarios). */
+/** BEIFAHRER_E2E_ONLY=reconnect, =saves or =upload runs just that scenario (one build, no fixture scenarios). */
 const ONLY = process.env.BEIFAHRER_E2E_ONLY;
 
 const FRAME_FIXTURE = `<!doctype html><html><head><title>Frame document</title></head><body>
@@ -3385,27 +3646,78 @@ const SAVES_FIXTURE = (variant) => `<!doctype html><html><head><title>Saves</tit
   });
 </script>
 </body></html>`;
+const UPLOAD_FIXTURE = `<!doctype html><html><head><title>Upload</title></head><body>
+<form id="f">
+<label for="single">Single file</label><input type="file" id="single" name="single">
+<label for="multi">Many files</label><input type="file" id="multi" name="multi" multiple>
+<label for="pdf">Only PDF</label><input type="file" id="pdf" name="pdf" accept=".pdf">
+<div><button type="button" id="pick" onclick="document.getElementById('hidden').click()">Datei wählen</button><input type="file" id="hidden" name="hidden" hidden></div>
+<button type="submit">Send upload</button>
+</form>
+<p id="events"></p>
+<p id="result"></p>
+<script>
+  const log = document.getElementById('events');
+  for (const type of ['input', 'change'])
+    document.addEventListener(type, (e) => {
+      if (e.target.type !== 'file') return;
+      log.textContent += type + ':' + e.target.id + ':' + [...e.target.files].map((f) => f.name + '/' + f.size).join(',') + '; ';
+    }, true);
+  document.getElementById('f').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await fetch('/api/upload', { method: 'POST', body: new FormData(e.target) });
+    document.getElementById('result').textContent = 'sent:' + res.status;
+  });
+</script>
+</body></html>`;
+// What the fixture server received from the upload form: field, name, size and sha256 of each file.
+const UPLOADED = [];
+function parseMultipart(buf, boundary) {
+  const parts = [];
+  const delim = Buffer.from(`--${boundary}`);
+  let at = buf.indexOf(delim);
+  while (at !== -1) {
+    const next = buf.indexOf(delim, at + delim.length);
+    if (next === -1) break;
+    const part = buf.subarray(at + delim.length + 2, next - 2);
+    const split = part.indexOf('\r\n\r\n');
+    const head = part.subarray(0, split).toString('utf8');
+    const body = part.subarray(split + 4);
+    const m = /name="([^"]*)"(?:; filename="([^"]*)")?/.exec(head);
+    if (m?.[2])
+      parts.push({
+        field: m[1],
+        name: m[2],
+        size: body.length,
+        sha256: createHash('sha256').update(body).digest('hex'),
+      });
+    at = next;
+  }
+  return parts;
+}
 // Point 2 of the download gaps: how often does the SERVER see a file that one click asked for?
 const FILE_HITS = { count: 0 };
 const LINK_FIXTURE = `<!doctype html><html><head><title>Link</title></head><body>
 <a id="file" href="/file.bin">Get file</a>
 </body></html>`;
 const page = (req) =>
-  req.url?.startsWith('/link')
-    ? LINK_FIXTURE
-    : req.url?.startsWith('/saves')
-      ? SAVES_FIXTURE(
-          req.url.includes('v=revoke') ? 'revoke' : req.url.includes('v=native') ? 'native' : 'keep',
-        )
-      : req.url?.startsWith('/elsewhere')
-        ? ELSEWHERE_FIXTURE
-        : req.url?.startsWith('/openproject')
-          ? OP_FIXTURE
-          : req.url?.startsWith('/frame-foreign')
-            ? FOREIGN_FRAME_FIXTURE
-            : req.url?.startsWith('/frame')
-              ? FRAME_FIXTURE
-              : FIXTURE;
+  req.url?.startsWith('/upload-page')
+    ? UPLOAD_FIXTURE
+    : req.url?.startsWith('/link')
+      ? LINK_FIXTURE
+      : req.url?.startsWith('/saves')
+        ? SAVES_FIXTURE(
+            req.url.includes('v=revoke') ? 'revoke' : req.url.includes('v=native') ? 'native' : 'keep',
+          )
+        : req.url?.startsWith('/elsewhere')
+          ? ELSEWHERE_FIXTURE
+          : req.url?.startsWith('/openproject')
+            ? OP_FIXTURE
+            : req.url?.startsWith('/frame-foreign')
+              ? FOREIGN_FRAME_FIXTURE
+              : req.url?.startsWith('/frame')
+                ? FRAME_FIXTURE
+                : FIXTURE;
 const fixture = createServer((req, res) => {
   // Issue #35: the two API paths, before anything is HTML. `/api/submit` answers 500 on purpose —
   // a failing POST with a status is the row an agent is looking for, and a page that answered 200
@@ -3413,6 +3725,26 @@ const fixture = createServer((req, res) => {
   if (req.url?.startsWith('/api/ping')) {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end('{"ok":true}');
+    return;
+  }
+  if (req.url?.startsWith('/api/uploads-reset')) {
+    UPLOADED.length = 0;
+    res.writeHead(200).end('ok');
+    return;
+  }
+  if (req.url?.startsWith('/api/uploads')) {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(UPLOADED));
+    return;
+  }
+  if (req.method === 'POST' && req.url?.startsWith('/api/upload')) {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => {
+      const boundary = /boundary=(.+)$/.exec(req.headers['content-type'] ?? '')?.[1];
+      if (boundary) UPLOADED.push(...parseMultipart(Buffer.concat(chunks), boundary));
+      res.writeHead(200).end('ok');
+    });
     return;
   }
   if (req.url?.startsWith('/api/submit')) {
@@ -3499,6 +3831,14 @@ const BUILDS = {
     policy: { origins: { [ALLOWED]: { level: 'write' } } },
     features: { screenshot: true },
   },
+  // ADR 0027: uploads on. The ALLOWED site keeps its confirmation (the window every upload passes
+  // through); FORBIDDEN is a second origin at level read, reachable through a host grant.
+  upload: {
+    ...seed,
+    policy: { origins: { [ALLOWED]: { level: 'write' }, [FORBIDDEN]: { level: 'read' } } },
+    features: { upload: true },
+    e2eHostOrigins: [FORBIDDEN],
+  },
   // ADR 0019: capture takes a blob the page saves out of sight. The switch on, and the browser's
   // `downloads` grant in the manifest because a test cannot click the options page's prompt.
   saves: {
@@ -3508,16 +3848,17 @@ const BUILDS = {
   },
 };
 for (const [gate, build] of Object.entries(BUILDS)) {
-  if (ONLY && gate !== (ONLY === 'saves' ? 'saves' : 'off')) continue;
+  if (ONLY && gate !== (ONLY === 'saves' || ONLY === 'upload' ? ONLY : 'off')) continue;
   buildExtension(build);
   for (const b of browsers) {
-    if (gate === 'access' || gate === 'confirm' || gate === 'saves') {
+    if (gate === 'access' || gate === 'confirm' || gate === 'saves' || gate === 'upload') {
       console.log(
-        `\n${b} (${{ access: 'temporary access', confirm: 'confirmation', saves: 'hidden downloads' }[gate]})`,
+        `\n${b} (${{ access: 'temporary access', confirm: 'confirmation', saves: 'hidden downloads', upload: 'file upload' }[gate]})`,
       );
       try {
         if (gate === 'access') await accessScenario(b);
         else if (gate === 'saves') await savesScenario(b);
+        else if (gate === 'upload') await uploadScenario(b);
         else await confirmScenario(b);
       } catch (err) {
         check(b, `${gate} scenario ran`, false, err.stack ?? String(err));
