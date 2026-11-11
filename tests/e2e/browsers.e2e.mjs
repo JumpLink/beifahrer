@@ -1178,8 +1178,17 @@ async function savesScenario(browser) {
         'user_pref("browser.download.useDownloadDir", true);',
         'user_pref("browser.download.always_ask_before_handling_new_types", false);',
         'user_pref("browser.download.open_pdf_attachments_inline", false);',
-        'user_pref("pdfjs.disabled", true);',
+        'user_pref("pdfjs.disabled", false);',
       ].join('\n'),
+    );
+    // "Open in Firefox" for PDFs (action 3): the browser shows its own copy in a new tab (#197).
+    writeFileSync(
+      join(profile, 'handlers.json'),
+      JSON.stringify({
+        defaultHandlersVersion: { 'en-US': 4 },
+        mimeTypes: { 'application/pdf': { action: 3, ask: false, extensions: ['pdf'] } },
+        schemes: {},
+      }),
     );
   }
   const tokenFile = join(profile, 'token');
@@ -1200,6 +1209,8 @@ async function savesScenario(browser) {
   try {
     await until(a.client, (s) => s.browsers?.length === 1, 60);
 
+    const listedBefore = await tool(a.client, 'tabs_list', {});
+    const tabsBefore = (JSON.parse(listedBefore.text).tabs ?? JSON.parse(listedBefore.text)).length;
     const kept = await capture('keep');
     const doc = kept.error ? null : JSON.parse(kept.text);
     check(
@@ -1219,6 +1230,16 @@ async function savesScenario(browser) {
     );
     await sleep(1_500);
     check(name, "and the browser's own copy is gone", files().length === 0, files().join(', '));
+    // Issue #197: the viewer tab Firefox opened for that copy is closed with it. A `file:` tab has
+    // no host, so it is counted rather than read: the capture's own tab is the only one it adds.
+    const listed = await tool(a.client, 'tabs_list', {});
+    const tabCount = listed.error ? -1 : (JSON.parse(listed.text).tabs ?? JSON.parse(listed.text)).length;
+    check(
+      name,
+      'and no viewer tab on the deleted file is left open',
+      tabCount === tabsBefore + 1,
+      `before ${tabsBefore}, after ${tabCount}: ${listed.text.slice(0, 400)}`,
+    );
 
     const revoked = await capture('revoke');
     check(
