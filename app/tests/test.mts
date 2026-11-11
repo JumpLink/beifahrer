@@ -35,6 +35,7 @@ import bridgeDesktop from './unit/bridge/desktop.test.ts';
 import extensionManifest from './unit/extension/manifest.test.ts';
 import extensionQr from './unit/extension/qr.test.ts';
 import extensionIconLooks from './unit/extension/icon-looks.test.ts';
+import extensionIconNames from './unit/extension/icon-names.test.ts';
 import extensionActivity from './unit/extension/activity.test.ts';
 import extensionStatus from './unit/extension/status.test.ts';
 import extensionGuardOnce from './unit/extension/guard-once.test.ts';
@@ -105,6 +106,7 @@ run({
   extensionManifest,
   extensionQr,
   extensionIconLooks,
+  extensionIconNames,
   extensionActivity,
   extensionStatus,
   extensionGuardOnce,
