@@ -85,6 +85,13 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.30" date="2026-11-11">
+      <description>
+        <ul>
+          <li>On a Mac, closing the window now minimises it, so a click on the Dock icon brings it back</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.29" date="2026-11-11">
       <description>
         <ul>
