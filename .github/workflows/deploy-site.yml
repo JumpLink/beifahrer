@@ -33,11 +33,12 @@ jobs:
       image: fedora:44
     steps:
       # The AVIF and WebP loaders are what the site build needs to read and resize screenshots;
-      # librsvg renders the icon.
+      # librsvg renders the icon; glib2-devel brings glib-compile-resources, which the extension build
+      # embeds its resources with.
       - name: Install system prerequisites
         run: >
           dnf install -y --setopt=install_weak_deps=False
-          git tar xz findutils rsync gjs json-glib libsoup3 gdk-pixbuf2 librsvg2 avif-pixbuf-loader webp-pixbuf-loader
+          git tar xz findutils rsync gjs json-glib libsoup3 gdk-pixbuf2 librsvg2 avif-pixbuf-loader webp-pixbuf-loader glib2-devel
 
       - uses: actions/checkout@v4
 
