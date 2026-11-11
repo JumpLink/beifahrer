@@ -25,6 +25,18 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/support/"/>
   </url>
   <url>
+    <loc>https://jumplink.eu/beifahrer/en/extension/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/extension/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/extension/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/extension/"/>
+  </url>
+  <url>
+    <loc>https://jumplink.eu/beifahrer/de/extension/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/extension/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/extension/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/extension/"/>
+  </url>
+  <url>
     <loc>https://jumplink.eu/beifahrer/en/privacy/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/privacy/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/privacy/"/>
