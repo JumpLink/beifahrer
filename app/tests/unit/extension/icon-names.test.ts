@@ -22,7 +22,10 @@ const bundled = (): Map<string, string> => {
 
 /** The icons `@gjsify/adwaita-web` compiles into its stylesheet as `--icon-<name>` custom properties. */
 const compiledIn = (): Set<string> => {
-  const css = readFileSync(join(ROOT, 'node_modules', '@gjsify', 'adwaita-web', 'dist', 'adwaita-web.css'), 'utf8');
+  const css = readFileSync(
+    join(ROOT, 'node_modules', '@gjsify', 'adwaita-web', 'dist', 'adwaita-web.css'),
+    'utf8',
+  );
   return new Set([...css.matchAll(/--icon-([a-z0-9-]+):/g)].map((m) => `${m[1]}-symbolic`));
 };
 
