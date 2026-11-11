@@ -5,6 +5,7 @@ import {
   downloadFilename,
   judgeCapture,
   judgeDownloadReach,
+  isViewerOf,
   judgeSave,
   refusedOpenMessage,
   registrableDomain,
@@ -162,6 +163,35 @@ export default async () => {
       expect(judgeSave('data:application/pdf;base64,AAAA', tab).ok).toBe(false);
       expect(judgeSave('file:///home/p/Downloads/x.pdf', tab).ok).toBe(false);
       expect(judgeSave('blob:https://meine.portal.example/1', 'about:blank').ok).toBe(false);
+    });
+  });
+
+  // Issue #197: only the viewer of exactly the deleted file may be closed.
+  await describe('isViewerOf', async () => {
+    const file = '/tmp/saved/probe viewer.pdf';
+    await it('matches the percent-encoded address of the same path', async () => {
+      expect(isViewerOf('file:///tmp/saved/probe%20viewer.pdf', file)).toBe(true);
+      expect(isViewerOf('file:///tmp/saved/probe%20viewer.pdf#page=1', file)).toBe(true);
+      expect(isViewerOf('file:///tmp/saved/probe viewer.pdf', file)).toBe(true);
+    });
+    await it('matches a Windows path', async () => {
+      expect(isViewerOf('file:///C:/Users/p/Downloads/a%20b.pdf', 'C:\\Users\\p\\Downloads\\a b.pdf')).toBe(
+        true,
+      );
+    });
+    await it('leaves every other file: tab alone', async () => {
+      expect(isViewerOf('file:///tmp/saved/other.pdf', file)).toBe(false);
+      expect(isViewerOf('file:///tmp/saved/probe%20viewer.pdf.bak', file)).toBe(false);
+      expect(isViewerOf('file:///tmp/probe%20viewer.pdf', file)).toBe(false);
+      expect(isViewerOf('file:///tmp/saved/probe%20viewer.pdf?x=1', file)).toBe(false);
+      expect(isViewerOf('file://evil.example/tmp/saved/probe%20viewer.pdf', file)).toBe(false);
+    });
+    await it('leaves non-file tabs, bad input and an empty name alone', async () => {
+      expect(isViewerOf('https://tmp/saved/probe%20viewer.pdf', file)).toBe(false);
+      expect(isViewerOf('about:blank', file)).toBe(false);
+      expect(isViewerOf('not a url', file)).toBe(false);
+      expect(isViewerOf('file:///tmp/%E0%A4%A', file)).toBe(false);
+      expect(isViewerOf('file:///', '')).toBe(false);
     });
   });
 

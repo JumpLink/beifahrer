@@ -269,3 +269,29 @@ export function refusedOpenMessage(opened: string, reason: string, tabId: number
     `may not follow (${reason}). The tab ${tabId} was left open.`
   );
 }
+
+/**
+ * Whether `tabUrl` is the browser's viewer tab for exactly the file at `filename` (issue #197).
+ *
+ * A browser set to open a saved PDF shows the copy it just wrote as `file://<path>`, with the path
+ * percent-encoded its own way. So both sides are decoded before they are compared, and the whole
+ * path must be equal: another `file:` tab, a sibling in the same folder or a query on the same
+ * name is not this file. A fragment is the viewer's own (`#page=1`) and is ignored.
+ */
+export function isViewerOf(tabUrl: string, filename: string): boolean {
+  if (!filename) return false;
+  let url: URL;
+  try {
+    url = new URL(tabUrl);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'file:' || (url.host !== '' && url.host !== 'localhost') || url.search) return false;
+  const slashed = filename.replace(/\\/g, '/');
+  const path = slashed.startsWith('/') ? slashed : `/${slashed}`;
+  try {
+    return decodeURIComponent(url.pathname) === path;
+  } catch {
+    return false;
+  }
+}
