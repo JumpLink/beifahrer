@@ -53,3 +53,8 @@ chooses the path chooses what gets overwritten.
 - The agent can chain `path` into another tool without the bytes passing through it.
 - The person decides where captured documents land; nothing lands anywhere until they say so.
 - A file stays on disk after the session. Cleaning the directory is the person's job.
+- A browser set to open PDFs after saving shows its own copy in a `file://` viewer tab (#197).
+  Measured on Firefox 159: the tab appears ~20 ms after the download completes, as `about:blank`,
+  and holds its `file:` address ~120 ms later; `tabs.query` sees it. Chromium opens none. After
+  `discard` deleted the copy, a bounded look (1.5 s) closes a tab whose address is exactly that file
+  (`isViewerOf`, compared percent-decoded); no other `file:` tab is ever touched.
