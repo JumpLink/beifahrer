@@ -34,7 +34,7 @@ for the browser session that displayed it. That is why this is a decision and no
    compatible with this project's licences. It lives in the background bundle only.
 3. **No tool.** Only the recipe runner calls `page.readQr`. The agent has no `page_read_qr`.
 4. **Recipe syntax.** The `person` step takes `qr: {name?: string[]}`. The result is
-   `person: {…, link?}`; `lotse` puts `link` into its message to the person.
+   `person: {…, link?}`; `lotsman` puts `link` into its message to the person.
 5. **Without the switch** the step still ends the run with `needs_person`; `link` is absent and the
    person scans the code in the tab, as before.
 
@@ -53,7 +53,7 @@ for the browser session that displayed it. That is why this is a decision and no
   effect and fills nothing.
 - The decoded text goes ONLY to `person.link`, to be shown to the person. It is not in the step log,
   the message, the activity log (which never holds page text), an error, or any file.
-- `lotse` keeps it out of its question store and log and refuses it on a free hosted model, as it does a code.
+- `lotsman` keeps it out of its question store and log and refuses it on a free hosted model, as it does a code.
 - Unchanged: Beifahrer never reads or replays credentials, tokens or cookies. A QR code is shown
   to the person; nothing is signed in on their behalf.
 
