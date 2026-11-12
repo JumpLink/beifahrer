@@ -32,7 +32,22 @@ handshake and then never fires `open` — measured 2026-10-01, the same profile 
 the key set. A run without it looks like a browser that never starts the background page, which is
 a different and much cheaper bug to fix.
 
-## Last measured: 2026-10-01 (issue #6)
+## Last measured: 2026-11-13 (issue #6)
+
+Fedora workstation, GNOME 51: `org.gnome.Epiphany` 51.1 (Fedora Flatpak, system) and 51.2 (Flathub
+Flatpak, user); no Devel Flatpak exists on Flathub. Probe from a copy on port 47951, throwaway
+profile, `default-browser=false`, 75 s per build.
+
+| | 51.1 | 51.2 |
+|---|---|---|
+| Extension loaded (Epiphany logs it) | yes | yes |
+| Background page connects (`websocket open`, boot `fetch`) | **no**, server sees nothing | **no**, server sees nothing |
+| API checks (`tabs.*`, …) | not reached | not reached |
+
+Verdict: **still not supported** on 51.1 and 51.2; the background page does not start, so `tabs`
+could not even be asked. The 2026-10-01 measurement below is kept for history.
+
+## Measured: 2026-10-01 (issue #6)
 
 Fedora workstation, both Flatpaks installed: `org.gnome.Epiphany` 50.6 and
 `org.gnome.Epiphany.Devel` 51.1. The probe ran from a copy on port 47951, because 47813–47822 belong
