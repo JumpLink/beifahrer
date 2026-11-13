@@ -16,4 +16,5 @@ Reference material for Beifahrer. The rules an agent needs on nearly every task 
 | [traps-build-and-test.md](traps-build-and-test.md) | Build and test facts paid for: the stale test bundle, `gjsify check`'s colours, `update_url`, the person's port range, what the e2e cannot do headless |
 | [desktop-app-spikes.md](desktop-app-spikes.md) | What was measured before the native app: an Adwaita window under node-gi, one project vs two packages, registry liveness |
 | [gjsify-gaps.md](gjsify-gaps.md) | gjsify capabilities this project lacks and how each is worked around — each gap fixed UPSTREAM, never around |
+| [plan/webext-submit.md](plan/webext-submit.md) | The plan for `gjsify webext submit`: uploading the built packages to Chrome and Edge from a command, with the review's corrections and the secret names |
 | [plan/extension-page-and-stores.md](plan/extension-page-and-stores.md) | The plan for the public pages, the two product pictures, the Epiphany re-measurement and the way into the stores — streams, steps, gates and what only a person can decide |
