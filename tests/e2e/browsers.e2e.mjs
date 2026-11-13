@@ -1214,13 +1214,14 @@ async function uploadScenario(browser) {
     const pdf = ref('file "Only PDF" \\(accepts \\.pdf\\)');
     const pick = ref('button "Datei wählen"');
     const send = ref('button "Send upload"');
+    const shadowPick = ref('button "Browse your files"');
     check(
       name,
       'page_outline names the file fields with role "file" (several / accepts), and the opener button',
-      !!(single && multi && pdf && pick && send),
+      !!(single && multi && pdf && pick && send && shadowPick),
       outline.text.slice(0, 600),
     );
-    if (!(single && multi && pdf && pick && send)) return;
+    if (!(single && multi && pdf && pick && send && shadowPick)) return;
     const found = await tool(a.client, 'page_find', { tabId, role: 'file' });
     check(
       name,
@@ -1346,12 +1347,20 @@ async function uploadScenario(browser) {
       !viaButton.error && /"accepted":\s*true/.test(viaButton.text),
       viaButton.text.slice(0, 300),
     );
+    const viaShadow = await put(shadowPick, ['d.pdf']);
+    check(
+      name,
+      'the ref of a button inside a shadow root fills the file field beside its host',
+      !viaShadow.error && /"accepted":\s*true/.test(viaShadow.text),
+      viaShadow.text.slice(0, 300),
+    );
     const after = await events();
     for (const [field, file, size] of [
       ['single', 'a.bin', 5000],
       ['multi', 'c.bin', 3001],
       ['pdf', 'b.pdf', data['b.pdf'].length],
       ['hidden', 'd.pdf', data['d.pdf'].length],
+      ['shadowed', 'd.pdf', data['d.pdf'].length],
     ]) {
       check(
         name,
@@ -1365,9 +1374,9 @@ async function uploadScenario(browser) {
 
     const submitted = await answered(tool(a.client, 'page_click', { tabId, ref: send }), 'allow');
     let got = [];
-    for (let i = 0; i < 20 && got.length < 5; i++) {
+    for (let i = 0; i < 20 && got.length < 6; i++) {
       got = await sunk();
-      if (got.length < 5) await sleep(500);
+      if (got.length < 6) await sleep(500);
     }
     check(
       name,
@@ -1381,6 +1390,7 @@ async function uploadScenario(browser) {
       ['multi', 'c.bin'],
       ['pdf', 'b.pdf'],
       ['hidden', 'd.pdf'],
+      ['shadowed', 'd.pdf'],
     ];
     const mismatches = expected.filter(
       ([field, file]) =>
@@ -3713,11 +3723,22 @@ const UPLOAD_FIXTURE = `<!doctype html><html><head><title>Upload</title></head><
 <label for="multi">Many files</label><input type="file" id="multi" name="multi" multiple>
 <label for="pdf">Only PDF</label><input type="file" id="pdf" name="pdf" accept=".pdf">
 <div><button type="button" id="pick" onclick="document.getElementById('hidden').click()">Datei wählen</button><input type="file" id="hidden" name="hidden" hidden></div>
+<div id="shadowed-row"><x-browse></x-browse><input type="file" id="shadowed" name="shadowed" hidden></div>
 <button type="submit">Send upload</button>
 </form>
 <p id="events"></p>
 <p id="result"></p>
 <script>
+  // A design system's own button: the visible control lives in an open shadow root, and the file
+  // field sits beside the host, outside it (the Edge Add-ons upload page is built this way).
+  customElements.define('x-browse', class extends HTMLElement {
+    constructor() {
+      super();
+      const root = this.attachShadow({ mode: 'open' });
+      root.innerHTML = '<button type="button">Browse your files</button>';
+      root.querySelector('button').addEventListener('click', () => document.getElementById('shadowed').click());
+    }
+  });
   const log = document.getElementById('events');
   for (const type of ['input', 'change'])
     document.addEventListener(type, (e) => {

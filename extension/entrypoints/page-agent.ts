@@ -905,8 +905,11 @@ function fileInputFor(el: Element): HTMLInputElement | null {
   if (el instanceof HTMLLabelElement && isFile(el.control)) return el.control;
   const wrapping = el.closest('label');
   if (wrapping && isFile(wrapping.control)) return wrapping.control;
+  // A button inside an open shadow root (a design system's `<x-button>`) has no parent element at
+  // the root of its shadow tree; the walk steps out through the host instead of stopping there.
+  const up = (e: Element): Element | null => e.parentElement ?? (e.getRootNode() as ShadowRoot).host ?? null;
   let at: Element | null = el;
-  for (let i = 0; at && i < 4; i++, at = at.parentElement) {
+  for (let i = 0; at && i < 4; i++, at = at ? up(at) : null) {
     const found = at.querySelectorAll('input[type="file"]');
     if (found.length === 1) return found[0] as HTMLInputElement;
     if (found.length > 1) return null;
