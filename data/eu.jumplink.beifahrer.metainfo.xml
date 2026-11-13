@@ -12,20 +12,40 @@
     <name>Pascal Garber</name>
   </developer>
   <description>
-    <p>Beifahrer lets an AI agent work in your own browser, with your own sessions and the tab you are looking at, instead of in a separate automated one.</p>
-    <p xml:lang="de">Beifahrer lässt einen KI-Agenten in deinem eigenen Browser arbeiten, mit deinen Sitzungen und dem Tab, den du gerade ansiehst, statt in einem separaten automatisierten Browser.</p>
-    <p>A browser extension talks to a local MCP bridge. Every site is covered by a policy you set, and anything the policy does not allow is refused.</p>
-    <p xml:lang="de">Eine Browser-Erweiterung spricht mit einer lokalen MCP-Brücke. Jede Website unterliegt einer Richtlinie, die du festlegst; was sie nicht erlaubt, wird abgelehnt.</p>
+    <p>Beifahrer lets an AI agent work in the browser you already use, with your tabs and the sites you are logged into, instead of in a second browser it starts for itself.</p>
+    <p xml:lang="de">Beifahrer lässt einen KI-Agenten in dem Browser arbeiten, den du ohnehin benutzt, mit deinen Tabs und den Seiten, bei denen du angemeldet bist, statt in einem zweiten Browser, den er selbst startet.</p>
+    <p>Four parts, in this order:</p>
+    <p xml:lang="de">Vier Teile, in dieser Reihenfolge:</p>
+    <ol>
+      <li>Your agent asks for something, for example to read the page you are looking at.</li>
+      <li xml:lang="de">Dein Agent fragt nach etwas, zum Beispiel danach, die Seite zu lesen, die du gerade ansiehst.</li>
+      <li>The Beifahrer app on your computer takes that request. The app is the bridge between your agent and your browser, and it is the only part your agent talks to.</li>
+      <li xml:lang="de">Die Beifahrer-App auf deinem Rechner nimmt diese Anfrage entgegen. Die App ist die Brücke zwischen deinem Agenten und deinem Browser, und nur mit ihr spricht dein Agent.</li>
+      <li>The Beifahrer extension in your browser checks the request against the rules you set, and refuses anything they do not cover.</li>
+      <li xml:lang="de">Die Beifahrer-Erweiterung in deinem Browser prüft die Anfrage gegen die Regeln, die du gesetzt hast, und lehnt alles ab, was sie nicht abdecken.</li>
+      <li>The browser carries it out, and you watch it happen.</li>
+      <li xml:lang="de">Der Browser führt sie aus, und du siehst dabei zu.</li>
+    </ol>
+    <p>Beifahrer sends nothing out. No account, no telemetry, no server on the internet. The app and the extension talk to each other on your own computer and nowhere else.</p>
+    <p xml:lang="de">Beifahrer sendet nichts nach außen. Kein Konto, keine Telemetrie, kein Server im Internet. App und Erweiterung sprechen miteinander auf deinem eigenen Rechner und sonst nirgends.</p>
+    <p>You say what the agent may do, and you take it back whenever you want:</p>
+    <p xml:lang="de">Du sagst, was der Agent darf, und nimmst es zurück, wann immer du willst:</p>
     <ul>
-      <li>Works in Firefox and Chromium-based browsers</li>
-      <li xml:lang="de">Funktioniert in Firefox und Chromium-basierten Browsern</li>
-      <li>Per-site policy: allowed, ask first, or forbidden</li>
-      <li xml:lang="de">Richtlinie pro Website: erlaubt, nachfragen oder verboten</li>
-      <li>Confirmation prompts for actions you have not pre-approved</li>
-      <li xml:lang="de">Bestätigungsdialoge für Aktionen ohne Vorab-Freigabe</li>
-      <li>Local only: the bridge runs on your machine</li>
-      <li xml:lang="de">Nur lokal: Die Brücke läuft auf deinem Rechner</li>
+      <li>Set each site to None, Read or Edit. On a site you left at None the agent sees the host name and nothing else, not the title and not the rest of the address.</li>
+      <li xml:lang="de">Stelle jede Website auf Nichts, Lesen oder Bearbeiten. Bei einer Website, die auf Nichts steht, sieht der Agent den Hostnamen und sonst nichts, nicht den Titel und nicht den Rest der Adresse.</li>
+      <li>Need more for a while? Allow all sites for an hour, until the browser closes, or for this one agent session. No temporary access survives a browser restart.</li>
+      <li xml:lang="de">Brauchst du für eine Weile mehr? Gib alle Websites frei, für eine Stunde, bis der Browser schließt oder für diese eine Agenten-Sitzung. Keine befristete Freigabe übersteht einen Neustart des Browsers.</li>
+      <li>Before a change, Beifahrer asks. A filled field, a click, a closed tab: a window names the site and what is about to happen. On a site you trust you can switch the asking off.</li>
+      <li xml:lang="de">Vor einer Änderung fragt Beifahrer nach. Ein ausgefülltes Feld, ein Klick, ein geschlossener Tab: Ein Fenster nennt die Website und das, was gleich passiert. Bei einer Website, der du traust, kannst du das Nachfragen ausschalten.</li>
+      <li>Pause stops everything, down to listing your open tabs. Only you start it again, in the extension or with a keyboard shortcut.</li>
+      <li xml:lang="de">Pausieren hält alles an, bis hin zum Auflisten deiner offenen Tabs. Nur du startest wieder, in der Erweiterung oder per Tastenkürzel.</li>
+      <li>You see the agent at work. The toolbar button changes, a small label with a Stop button appears in the page, and the extension lists what the agent did.</li>
+      <li xml:lang="de">Du siehst den Agenten arbeiten. Das Symbol in der Symbolleiste ändert sich, in der Seite erscheint ein kleines Feld mit einer Stopp-Schaltfläche, und die Erweiterung listet auf, was der Agent getan hat.</li>
+      <li>What you did not switch on stays off: screenshots, downloads, saved sessions, tab management, the request log, and running the agent's own code in a page.</li>
+      <li xml:lang="de">Was du nicht eingeschaltet hast, bleibt aus: Screenshots, Downloads, gespeicherte Sitzungen, Tabverwaltung, das Anfragenprotokoll und das Ausführen von eigenem Code des Agenten in einer Seite.</li>
     </ul>
+    <p>Works in Firefox and in Chromium-based browsers.</p>
+    <p xml:lang="de">Funktioniert in Firefox und in Chromium-basierten Browsern.</p>
   </description>
   <icon type="stock">eu.jumplink.beifahrer</icon>
   <url type="homepage">https://jumplink.eu/beifahrer/</url>
