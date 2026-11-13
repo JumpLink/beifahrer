@@ -32,6 +32,7 @@ import {
   cleanSessionLabel,
   isExtensionOrigin,
   isLoopbackAddress,
+  outdatedExtensionNote,
   parseChunk,
   parseHello,
   parseResponse,
@@ -349,7 +350,14 @@ export class Bridge extends EventEmitter implements BrowserAccess {
         new BridgeError({ code: 'timeout', message: `${method} got no answer within ${timeoutMs / 1000} s` }),
     );
     conn.socket.send(JSON.stringify({ type: 'request', id, method, params }));
-    return promise;
+    // A stale extension fails on a page in ways that read like a page problem (issue #210).
+    return promise.catch((err: unknown) => {
+      const note = outdatedExtensionNote(conn.hello.extension.version, this.options.version);
+      if (note && err instanceof BridgeError && err.wire.code === 'failed') {
+        throw new BridgeError({ ...err.wire, message: `${err.wire.message}. ${note}` });
+      }
+      throw err;
+    });
   }
 
   #admit(socket: WebSocket): void {

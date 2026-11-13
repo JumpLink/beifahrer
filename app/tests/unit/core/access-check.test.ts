@@ -183,6 +183,22 @@ export default async () => {
       expect(answer).toMatch(/is not a Beifahrer method/);
     });
 
+    await it('accepts the tool name for the protocol name (issue #154)', async () => {
+      const url = 'https://tracker.example/x';
+      const dotted = check({ features: on(), policy, method: 'page.read', url });
+      const tool = check({ features: on(), policy, method: 'page_read', url });
+      expect(tool.stage).toBe(dotted.stage);
+      expect(tool.need).toBe(dotted.need);
+      expect(tool.feature).toBe(dotted.feature);
+      expect(check({ features: on(), policy, method: 'page_enter_code', url }).need).toBe('write');
+      expect(check({ features: on(), policy, method: 'tab_open', url }).need).toBe('read');
+      expect(check({ features: on(), policy, method: 'window_create', url }).need).toBe('read');
+      // The alias only renames: an unknown tool name is still refused, and says the two forms.
+      const unknown = accessCheck({ features: on(), policy, method: 'page_exec', url });
+      expect(typeof unknown).toBe('string');
+      expect(unknown).toMatch(/page_read/);
+    });
+
     await it('reports the missing browser grant as its own step, asking nobody', async () => {
       const revoked = check({
         features: on(),

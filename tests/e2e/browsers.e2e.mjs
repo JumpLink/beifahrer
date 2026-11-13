@@ -2406,6 +2406,25 @@ async function navigation(browser, client, allowed, forbidden) {
   );
 }
 
+async function growingRows(browser, client) {
+  const opened = await tool(client, 'tab_open', { url: `${ALLOWED}/growing-rows`, active: false });
+  const tabId = opened.error ? null : JSON.parse(opened.text).tab?.tabId;
+  if (tabId == null) {
+    check(browser, 'the growing-rows tab opened', false, opened.text.slice(0, 200));
+    return;
+  }
+  await tool(client, 'page_wait', { tabId, for: 'load' });
+  const rows = await tool(client, 'page_rows', { tabId, maxRows: 200 });
+  const count = rows.error ? -1 : JSON.parse(rows.text).count;
+  check(
+    browser,
+    'page_rows waits for rows that arrive after the scroll reached the end (issue #143)',
+    count === 60,
+    `${count} rows`,
+  );
+  await tool(client, 'tabs_close', { tabIds: [tabId] });
+}
+
 async function framesAndOrigins(browser, client, allowed) {
   // --- the same-origin frame, which the person allowed by allowing the page -------------------
   // Asked TWICE on purpose, and the second answer is the one under test. Whether the frames need
@@ -2445,6 +2464,12 @@ async function framesAndOrigins(browser, client, allowed) {
     'a frame on a site the person blocked is invisible in the outline',
     !/frame-foreign/.test(outline.text) && !/Foreign frame button/.test(outline.text),
     outline.text.match(/[^\n]*frame-foreign[^\n]*/)?.[0] ?? 'nicht genannt',
+  );
+  check(
+    browser,
+    'but the outline says a frame was withheld, with its origin and levels and nothing of its content (issue #153)',
+    /— frame withheld: http:\/\/localhost:\d+ \(level \w+, needs read\)/.test(outline.text),
+    outline.text.match(/[^\n]*withheld[^\n]*/)?.[0] ?? 'keine Zeile',
   );
   const found = await tool(client, 'page_find', { tabId: allowed.tabId, name: 'Foreign frame button' });
   check(
@@ -3511,6 +3536,7 @@ async function scenario(browser, gate) {
 
     await shadowDom(browser, client, allowed);
     await framesAndOrigins(browser, client, allowed);
+    await growingRows(browser, client);
     await keys(browser, client, allowed, ref);
     await assertions(browser, client, allowed, ref);
     await requests(browser, client, allowed, forbidden, ref);
@@ -3647,6 +3673,20 @@ const FOREIGN_FRAME_FIXTURE = `<!doctype html><html><head><title>Foreign frame</
 </body></html>`;
 // A page that is NOT the fixture, so a navigation can be told apart from "the page did not change
 // yet" — the failure a page_read right after a goto produces when the load is not waited for.
+// Issue #143: a list that appends rows AFTER a scroll reaches its end, later than a fixed pause.
+const GROWING_ROWS_FIXTURE = `<!doctype html><html><head><title>Growing rows</title></head><body style="margin:0">
+<ul id="list" style="margin:0;padding:0;list-style:none"></ul>
+<script>
+  const list = document.getElementById('list');
+  let n = 0;
+  let pending = false;
+  const add = () => { for (let i = 0; i < 20; i++) { const li = document.createElement('li'); li.style.height = '100px'; li.textContent = 'Growing row ' + (++n); list.appendChild(li); } pending = false; };
+  add();
+  // Polled, not driven by scroll events: a tab in the background gets none.
+  setInterval(() => {
+    if (!pending && n < 60 && window.scrollY + innerHeight >= document.documentElement.scrollHeight - 4) { pending = true; setTimeout(add, 500); }
+  }, 100);
+</script></body></html>`;
 const ELSEWHERE_FIXTURE = `<!doctype html><html><head><title>Elsewhere</title></head><body>
 <h1>Second document</h1>
 <p>Text that only this page has.</p>
@@ -3724,21 +3764,23 @@ const LINK_FIXTURE = `<!doctype html><html><head><title>Link</title></head><body
 const page = (req) =>
   req.url?.startsWith('/upload-page')
     ? UPLOAD_FIXTURE
-    : req.url?.startsWith('/link')
-      ? LINK_FIXTURE
-      : req.url?.startsWith('/saves')
-        ? SAVES_FIXTURE(
-            req.url.includes('v=revoke') ? 'revoke' : req.url.includes('v=native') ? 'native' : 'keep',
-          )
-        : req.url?.startsWith('/elsewhere')
-          ? ELSEWHERE_FIXTURE
-          : req.url?.startsWith('/openproject')
-            ? OP_FIXTURE
-            : req.url?.startsWith('/frame-foreign')
-              ? FOREIGN_FRAME_FIXTURE
-              : req.url?.startsWith('/frame')
-                ? FRAME_FIXTURE
-                : FIXTURE;
+    : req.url?.startsWith('/growing-rows')
+      ? GROWING_ROWS_FIXTURE
+      : req.url?.startsWith('/link')
+        ? LINK_FIXTURE
+        : req.url?.startsWith('/saves')
+          ? SAVES_FIXTURE(
+              req.url.includes('v=revoke') ? 'revoke' : req.url.includes('v=native') ? 'native' : 'keep',
+            )
+          : req.url?.startsWith('/elsewhere')
+            ? ELSEWHERE_FIXTURE
+            : req.url?.startsWith('/openproject')
+              ? OP_FIXTURE
+              : req.url?.startsWith('/frame-foreign')
+                ? FOREIGN_FRAME_FIXTURE
+                : req.url?.startsWith('/frame')
+                  ? FRAME_FIXTURE
+                  : FIXTURE;
 const fixture = createServer((req, res) => {
   // Issue #35: the two API paths, before anything is HTML. `/api/submit` answers 500 on purpose —
   // a failing POST with a status is the row an agent is looking for, and a page that answered 200
