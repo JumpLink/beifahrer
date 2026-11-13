@@ -1690,19 +1690,36 @@ async function rows(match: string | undefined, maxRows: number): Promise<PageRes
   };
 
   const first = collectRows()[0];
-  const scroller = scrollerOf(first);
+  let scroller = scrollerOf(first);
+  const root = (document.scrollingElement ?? document.documentElement) as HTMLElement;
   const origin = scroller.scrollTop;
   const started = Date.now();
   scroller.scrollTop = 0;
   await new Promise((r) => setTimeout(r, 60));
+  // A list that loads more when its end is reached grows AFTER the scroll, later than a fixed pause
+  // (issue #143). At the end, wait a bounded time for the height to grow before calling it the end.
+  const GROW_WAIT_MS = 1_500;
   for (let step = 0; step < 400 && Date.now() - started < ROWS_BUDGET_MS; step++) {
     if (take()) break;
     const before = scroller.scrollTop;
+    const heightBefore = scroller.scrollHeight;
     scroller.scrollTop = before + Math.max(scroller.clientHeight * 0.8, 100);
     await new Promise((r) => setTimeout(r, 120));
     if (scroller.scrollTop === before) {
+      // The chosen element does not move: the page itself may be the scroller (issue #143).
+      if (scroller !== root) {
+        scroller = root;
+        continue;
+      }
       take();
       break;
+    }
+    const atEnd = scroller.scrollTop + scroller.clientHeight >= heightBefore - 4;
+    if (atEnd) {
+      const until = Date.now() + GROW_WAIT_MS;
+      while (scroller.scrollHeight <= heightBefore && Date.now() < until) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
     }
   }
   if (!hit) scroller.scrollTop = origin;
