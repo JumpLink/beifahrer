@@ -1,0 +1,76 @@
+<!--
+  The fictional browser window, as a fragment: both pictures put something different in `{{page}}`
+  and nothing else about the frame differs between them.
+
+  Every part of it is deliberately nobody's: three neutral circles for the window buttons, one tab,
+  plain chevrons for back and forward, a pill address field, three dots for a menu. The ONE mark
+  that is real is the extension's own toolbar icon, with the green dot the real button carries while
+  a session is connected (`extension/src/toolbar.ts`).
+
+  The address is the extension's own page, written in the generic `extension://` form rather than
+  either browser's real scheme (`chrome-extension://<32 letters>`, `moz-extension://<uuid>`): the
+  id is per-install, and naming one scheme names one browser. No captured real address appears
+  here, the same rule the screenshot fixtures follow (`docs/store/screenshots.md`).
+-->
+<div class="browser">
+  <div class="browser__tabs">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <div class="tab">
+      <div class="tab__dot"></div>
+      <div class="tab__title">{{tab_title}}</div>
+      <div class="tab__close">&#215;</div>
+    </div>
+    <div class="tab-new">+</div>
+  </div>
+  <div class="browser__bar">
+    <div class="nav">
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M10 3.5 5.5 8l4.5 4.5" />
+      </svg>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M6 3.5 10.5 8 6 12.5" />
+      </svg>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M13 8a5 5 0 1 1-1.6-3.7M13 3v2.2h-2.2" />
+      </svg>
+    </div>
+    <div class="address">
+      <svg width="11" height="13" viewBox="0 0 11 13" fill="currentColor">
+        <path
+          d="M5.5 0a3 3 0 0 1 3 3v1.5h.5A1 1 0 0 1 10 5.5v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h.5V3a3 3 0 0 1 3-3Zm0 1.4A1.6 1.6 0 0 0 3.9 3v1.5h3.2V3a1.6 1.6 0 0 0-1.6-1.6Z"
+        />
+      </svg>
+      <span><b>{{address}}</b>{{address_path}}</span>
+    </div>
+    <div class="toolbar-icon">{{toolbar_icon}}</div>
+    <div class="menu-dots"><i></i><i></i><i></i></div>
+  </div>
+  <div class="browser__page">{{page}}</div>
+</div>

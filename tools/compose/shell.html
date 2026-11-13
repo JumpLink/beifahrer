@@ -1,0 +1,18 @@
+<!doctype html>
+<!--
+  The document every composed picture is rendered in. The stylesheet is inlined rather than linked
+  so the page needs no server and no file:// base: the renderer hands Chromium one self-contained
+  string, which is also why two runs produce the same bytes.
+-->
+<html lang="{{lang}}" class="{{scheme}}">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{title}}</title>
+    <style>
+      {{css}}
+    </style>
+  </head>
+  <body>
+    {{body}}
+  </body>
+</html>

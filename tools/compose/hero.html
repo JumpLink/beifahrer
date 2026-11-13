@@ -1,0 +1,26 @@
+<!--
+  The hero: the extension's own settings page inside the fictional frame, and the desktop app that
+  the extension talks to standing beside it. One picture of the whole product, because neither half
+  explains itself alone — an extension nobody can see a bridge for, or an app with no browser in it.
+
+  Both rectangles are REAL captures. The page inside the frame is `docs/images/options-<scheme>.png`
+  as the e2e wrote it (`tests/e2e/ui-pages.mjs`), at its own 800 CSS px, cropped by the window the
+  way a taller-than-the-window page really is. The app is a `headless-run --window-shot` capture of
+  the actual libadwaita window. Nothing in either is redrawn here.
+
+  They do not overlap. A hero that tucks one window behind the other hides the rows that are the
+  whole point, and both halves here have text worth reading.
+-->
+<div class="hero">
+  <section class="hero__browser">
+    <div class="hero__label">
+      <span class="caption">{{caption_browser}}</span>
+      <span class="status"><span class="status__dot"></span>{{status}}</span>
+    </div>
+    {{frame}}
+  </section>
+  <section class="hero__app">
+    <div class="hero__label"><span class="caption">{{caption_app}}</span></div>
+    <img class="app" src="{{app_src}}" alt="" />
+  </section>
+</div>

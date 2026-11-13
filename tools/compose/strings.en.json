@@ -1,0 +1,8 @@
+{
+  "tab_title": "Beifahrer settings",
+  "address": "extension://beifahrer",
+  "address_path": "/options.html",
+  "status": "Connected",
+  "caption_browser": "In your browser",
+  "caption_app": "On your desktop"
+}

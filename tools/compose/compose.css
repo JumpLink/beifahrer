@@ -1,0 +1,391 @@
+/*
+ * The shared look of every composed product picture: the fictional browser frame, the desktop
+ * behind it, and the small furniture both pictures use.
+ *
+ * The frame is DELIBERATELY NOT any shipping browser. No vendor shape, no vendor colour, no logo:
+ * a plain rounded window, one tab, a pill-shaped address field, three dots for a menu. Anything
+ * that would let a reader name the browser is a claim this repository cannot make.
+ */
+
+:root {
+  --canvas-w: 1280px;
+  --canvas-h: 800px;
+
+  --desk-1: #e7e3ee;
+  --desk-2: #cfc9dd;
+
+  --win-bg: #ffffff;
+  --win-chrome: #ecebf0;
+  --win-border: rgb(0 0 0 / 14%);
+  --win-shadow: 0 2px 6px rgb(0 0 0 / 10%), 0 18px 48px rgb(0 0 0 / 22%);
+
+  --tab-bg: #ffffff;
+  --field-bg: #ffffff;
+  --field-border: rgb(0 0 0 / 12%);
+
+  --ink: #1d1b22;
+  --ink-dim: #5f5c69;
+  --ink-faint: #8e8a98;
+
+  --ok: #1f7a45;
+  --ok-bg: #e4f3ea;
+
+  --radius-win: 12px;
+  --radius-tab: 9px;
+
+  --font: 'Inter', 'Cantarell', 'Noto Sans', 'DejaVu Sans', sans-serif;
+  --font-mono: 'Source Code Pro', 'DejaVu Sans Mono', monospace;
+}
+
+:root.dark {
+  --desk-1: #2b2733;
+  --desk-2: #15131b;
+
+  --win-bg: #1e1c24;
+  --win-chrome: #2a2733;
+  --win-border: rgb(255 255 255 / 12%);
+  --win-shadow: 0 2px 6px rgb(0 0 0 / 30%), 0 18px 48px rgb(0 0 0 / 55%);
+
+  --tab-bg: #3a3647;
+  --field-bg: #15131b;
+  --field-border: rgb(255 255 255 / 10%);
+
+  --ink: #f2f0f6;
+  --ink-dim: #b6b1c2;
+  --ink-faint: #837e90;
+
+  --ok: #6fd79b;
+  --ok-bg: rgb(111 215 155 / 14%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: var(--canvas-w);
+  height: var(--canvas-h);
+  overflow: hidden;
+  font-family: var(--font);
+  color: var(--ink);
+  /* Flat, quiet, and nobody's brand colour: the picture is about the windows, not the wallpaper. */
+  background: linear-gradient(145deg, var(--desk-1), var(--desk-2));
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- the fictional browser window ----------------------------------------------------------- */
+
+.browser {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--win-bg);
+  border: 1px solid var(--win-border);
+  border-radius: var(--radius-win);
+  box-shadow: var(--win-shadow);
+}
+
+.browser__tabs {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  align-items: center;
+  height: 40px;
+  padding: 6px 10px 0;
+  background: var(--win-chrome);
+}
+
+/*
+ * Window buttons as three neutral circles, in no vendor's order and in no vendor's colours: they
+ * say "this is a window" without saying whose.
+ */
+.dots {
+  display: flex;
+  flex: none;
+  gap: 7px;
+  margin-right: 4px;
+}
+
+.dots i {
+  width: 11px;
+  height: 11px;
+  background: rgb(0 0 0 / 16%);
+  border-radius: 50%;
+}
+
+:root.dark .dots i {
+  background: rgb(255 255 255 / 18%);
+}
+
+.tab {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  max-width: 260px;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--tab-bg);
+  border-radius: var(--radius-tab) var(--radius-tab) 0 0;
+}
+
+.tab__dot {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  background: var(--ink-faint);
+  border-radius: 3px;
+}
+
+.tab__title {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab__close {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ink-faint);
+}
+
+.tab-new {
+  font-size: 17px;
+  line-height: 1;
+  color: var(--ink-dim);
+}
+
+.browser__bar {
+  display: flex;
+  flex: none;
+  gap: 12px;
+  align-items: center;
+  height: 44px;
+  padding: 0 12px;
+  background: var(--tab-bg);
+  border-bottom: 1px solid var(--win-border);
+}
+
+.nav {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 15px;
+  color: var(--ink-dim);
+}
+
+.address {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: 14px;
+}
+
+.address svg {
+  flex: none;
+}
+
+.address b {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/*
+ * The one mark in the frame that IS the product: the extension's own toolbar icon, drawn in the
+ * toolbar ink with the green dot the real button shows while a session is connected (toolbar.ts).
+ */
+.toolbar-icon {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+/*
+ * Both selectors, and both needed: the file carries `fill="#241f31"` on its group, and a
+ * presentation attribute beats a `fill` inherited from the `<svg>` element. A class selector beats
+ * the attribute, so the mark takes the toolbar's ink in either colour scheme.
+ */
+.toolbar-icon svg,
+.toolbar-icon svg g {
+  width: 18px;
+  height: 18px;
+  fill: var(--ink);
+}
+
+.toolbar-icon::after {
+  position: absolute;
+  right: 2px;
+  bottom: 3px;
+  width: 8px;
+  height: 8px;
+  content: '';
+  background: var(--ok);
+  border: 1.5px solid var(--tab-bg);
+  border-radius: 50%;
+}
+
+.menu-dots {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2.5px;
+  align-items: center;
+  width: 20px;
+}
+
+.menu-dots i {
+  width: 3px;
+  height: 3px;
+  background: var(--ink-dim);
+  border-radius: 50%;
+}
+
+.browser__page {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: var(--win-bg);
+}
+
+/*
+ * The real screenshot, pinned to the top of the page area and scaled UNIFORMLY to its width — the
+ * aspect ratio is never touched, so no row is squashed. The page is far taller than the window, so
+ * the bottom is cut off by the frame, which is what a person really sees on a long page.
+ */
+.shot {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* --- the hero layout -------------------------------------------------------------------------- */
+
+/*
+ * Side by side, not one behind the other: a hero that tucks the app window behind the browser hides
+ * the rows that carry the claim, and both halves here have words worth reading.
+ */
+/*
+ * Both columns start at the same line, so the two captions read as one row rather than as a label
+ * each. The right column is the shorter of the two and simply ends earlier: a caption floating
+ * alone under the app window had nothing above it to belong to.
+ */
+.hero {
+  display: flex;
+  gap: 28px;
+  align-items: start;
+  justify-content: center;
+  width: var(--canvas-w);
+  height: var(--canvas-h);
+  padding: 32px;
+}
+
+/*
+ * The two widths are ONE decision: both captures are shown at the same 0.775 of their own logical
+ * size, so the browser and the app keep the size relation they have on a real desktop. Picking them
+ * separately is what makes a composed picture look assembled — a giant app beside a toy browser.
+ * 800 CSS px of options page → 620; 711 logical px of app window (with its shadow) → 551.
+ */
+.hero__browser {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 14px;
+  width: 622px;
+}
+
+/* 622 minus the 1 px border on each side: the page area is exactly 620, which is what `.shot` fills. */
+.hero__browser .browser {
+  height: 660px;
+}
+
+.hero__app {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 14px;
+  width: 551px;
+}
+
+.hero__app .app {
+  width: 551px;
+  height: auto;
+}
+
+.hero__label {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  height: 32px;
+}
+
+/* --- the app window beside it ---------------------------------------------------------------- */
+
+/*
+ * The app capture already carries its own shadow and rounded corners (headless-run --window-shot
+ * writes RGBA with the shadow matted in), so this holds no frame of its own: a second shadow
+ * around a shadow reads as a sticker.
+ */
+.app {
+  display: block;
+}
+
+/* --- the status strip ------------------------------------------------------------------------ */
+
+/*
+ * Colour never speaks alone (AGENTS.md): every green dot in a composed picture sits beside the
+ * word that says the same thing.
+ */
+.status {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 14px 6px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ok);
+  background: var(--ok-bg);
+  border: 1px solid rgb(31 122 69 / 22%);
+  border-radius: 999px;
+}
+
+:root.dark .status {
+  border-color: rgb(111 215 155 / 28%);
+}
+
+.status__dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  background: var(--ok);
+  border-radius: 50%;
+}
+
+.caption {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.caption span {
+  font-weight: 400;
+  color: var(--ink-dim);
+}
