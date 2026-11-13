@@ -14,6 +14,7 @@ import {
   MAX_NETWORK_LIMIT,
   MAX_RESULT_CHARS,
   WORLDS,
+  outdatedExtensionNote,
   type BrowserFamily,
   type Level,
   type Method,
@@ -193,6 +194,15 @@ export function registerTools(
   const call: Call = async <M extends Method>(method: M, params: Params<M>, browser?: string) =>
     (await bridgeOf(handle)).call(method, params, browser);
 
+  /** The first connected extension older than this Beifahrer, as the `note` field (issue #210). */
+  const staleNote = (extensions: string[], app: string): { note?: string } => {
+    for (const v of extensions) {
+      const note = outdatedExtensionNote(v, app);
+      if (note) return { note };
+    }
+    return {};
+  };
+
   const browsersAnswer = answer({
     port: z.number().int().describe("This session's own bridge port, the one the person's popup shows"),
     session: loose({
@@ -219,6 +229,10 @@ export function registerTools(
       .describe('Empty when nobody is connected — then ask the person, do not retry'),
     // Why the list is empty, when the bridge saw the browser go: the two causes need opposite
     // moves, and "empty" alone reads the same for both (issue #28).
+    note: z
+      .string()
+      .optional()
+      .describe('Present when the connected extension is older than this Beifahrer: tell the person to update it'),
     disconnected: loose({
       by: z
         .enum(['person', 'lost'])
@@ -268,6 +282,7 @@ export function registerTools(
           port: status.port,
           session: { label: status.session.label, pid: status.session.pid, version: status.version },
           browsers,
+          ...staleNote(browsers.map((b) => b.extensionVersion), status.version),
           // Only while the list is empty, and then it says whether the person stopped it (issue #28).
           ...(status.disconnected ? { disconnected: status.disconnected } : {}),
         });

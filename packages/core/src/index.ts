@@ -30,3 +30,4 @@ export * from './agents.ts';
 export * from './doctor.ts';
 export * from './wait.ts';
 export * from './config-edit.ts';
+export * from './versions.ts';

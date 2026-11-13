@@ -208,6 +208,28 @@ export default async () => {
       await bridge.stop();
     });
 
+    await it('adds the outdated-extension note to a failed call (issue #210)', async () => {
+      const bridge = new Bridge({ port: 0, token: TOKEN, version: '0.1.30', timeoutMs: 2_000, browserWaitMs: 0 });
+      await bridge.start();
+      const r = await connect(bridge, {
+        onRequest: (req, ws) =>
+          ws.send(
+            JSON.stringify({
+              type: 'response',
+              id: req.id,
+              ok: false,
+              error: { code: 'failed', message: 'could not reach the page: nope' },
+            }),
+          ),
+      });
+      let caught: unknown;
+      await bridge.call('page.read', { tabId: 1 }).catch((e) => (caught = e));
+      expect((caught as BridgeError).message.includes('could not reach the page: nope')).toBe(true);
+      expect((caught as BridgeError).message.includes('extension is outdated')).toBe(true);
+      r.ws.close();
+      await bridge.stop();
+    });
+
     await it('refuses a method the browser did not announce', async () => {
       const bridge = await startBridge();
       const r = await connect(bridge);
