@@ -1698,7 +1698,10 @@ async function rows(match: string | undefined, maxRows: number): Promise<PageRes
   await new Promise((r) => setTimeout(r, 60));
   // A list that loads more when its end is reached grows AFTER the scroll, later than a fixed pause
   // (issue #143). At the end, wait a bounded time for the height to grow before calling it the end.
-  const GROW_WAIT_MS = 1_500;
+  // 3 s, not less: the agent often works in a background tab, where the browser throttles timers to
+  // about 1 s, so the page's own load-more and this loop's 100 ms steps both run slow. ROWS_BUDGET_MS
+  // still bounds the whole call.
+  const GROW_WAIT_MS = 3_000;
   for (let step = 0; step < 400 && Date.now() - started < ROWS_BUDGET_MS; step++) {
     if (take()) break;
     const before = scroller.scrollTop;

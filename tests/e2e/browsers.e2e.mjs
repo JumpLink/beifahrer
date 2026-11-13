@@ -3674,16 +3674,18 @@ const FOREIGN_FRAME_FIXTURE = `<!doctype html><html><head><title>Foreign frame</
 // A page that is NOT the fixture, so a navigation can be told apart from "the page did not change
 // yet" — the failure a page_read right after a goto produces when the load is not waited for.
 // Issue #143: a list that appends rows AFTER a scroll reaches its end, later than a fixed pause.
-const GROWING_ROWS_FIXTURE = `<!doctype html><html><head><title>Growing rows</title></head><body>
-<ul id="list"></ul>
+const GROWING_ROWS_FIXTURE = `<!doctype html><html><head><title>Growing rows</title></head><body style="margin:0">
+<ul id="list" style="margin:0;padding:0;list-style:none"></ul>
 <script>
   const list = document.getElementById('list');
   let n = 0;
-  const add = () => { for (let i = 0; i < 20; i++) { const li = document.createElement('li'); li.style.height = '40px'; li.textContent = 'Growing row ' + (++n); list.appendChild(li); } };
+  let pending = false;
+  const add = () => { for (let i = 0; i < 20; i++) { const li = document.createElement('li'); li.style.height = '100px'; li.textContent = 'Growing row ' + (++n); list.appendChild(li); } pending = false; };
   add();
-  window.addEventListener('scroll', () => {
-    if (n < 60 && window.scrollY + innerHeight >= document.documentElement.scrollHeight - 4) setTimeout(add, 500);
-  });
+  // Polled, not driven by scroll events: a tab in the background gets none.
+  setInterval(() => {
+    if (!pending && n < 60 && window.scrollY + innerHeight >= document.documentElement.scrollHeight - 4) { pending = true; setTimeout(add, 500); }
+  }, 100);
 </script></body></html>`;
 const ELSEWHERE_FIXTURE = `<!doctype html><html><head><title>Elsewhere</title></head><body>
 <h1>Second document</h1>
