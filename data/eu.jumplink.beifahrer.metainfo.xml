@@ -105,6 +105,13 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.31" date="2026-11-13">
+      <description>
+        <ul>
+          <li>File upload now also works on pages whose "Browse your files" button sits inside a shadow root</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.30" date="2026-11-11">
       <description>
         <ul>
