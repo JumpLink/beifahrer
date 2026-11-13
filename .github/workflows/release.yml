@@ -203,13 +203,20 @@ jobs:
       # store nobody can be created for from CI, plus a secret this repository does not hold and
       # this workflow must not need. A step per store, once a person has decided to submit:
       #
-      #   Chrome Web Store  — $CHROME_WEB_STORE_CLIENT_ID, $CHROME_WEB_STORE_CLIENT_SECRET,
-      #                       $CHROME_WEB_STORE_REFRESH_TOKEN  (Google Cloud OAuth client;
-      #                       a Web Store API key alone cannot publish)
-      #   Edge Add-ons      — $EDGE_ADDONS_PRODUCT_ID, $EDGE_ADDONS_CLIENT_ID,
-      #                       $EDGE_ADDONS_CLIENT_SECRET, $EDGE_ADDONS_API_TOKEN  (Partner Center
-      #                       product + Entra app; Edge's API is a Microsoft Graph extension of
-      #                       the Store API)
+      #   Chrome Web Store  — API v2, addressed by publisher and item:
+      #                       $CHROME_WEB_STORE_PUBLISHER_ID, $CHROME_WEB_STORE_ITEM_ID,
+      #                       $CHROME_WEB_STORE_CLIENT_ID, $CHROME_WEB_STORE_CLIENT_SECRET,
+      #                       $CHROME_WEB_STORE_REFRESH_TOKEN  (Google Cloud OAuth client; the
+      #                       item must exist, the API cannot create it)
+      #   Edge Add-ons      — API v1.1 (`Authorization: ApiKey` + `X-ClientID`):
+      #                       $EDGE_ADDONS_PRODUCT_ID, $EDGE_ADDONS_CLIENT_ID,
+      #                       $EDGE_ADDONS_API_KEY  (Partner Center → Edge → Publish API; the
+      #                       key expires and must be renewed by a person)
+      #
+      # Both are asynchronous and neither changes the listing text, so a step is
+      # `gjsify webext submit --store <chrome|edge>` (plan: docs/plan/webext-submit.md): it uploads
+      # a draft by default, `--submit` only on a tag, and the step sits behind a GitHub Environment
+      # with a required reviewer.
       #   Safari            — none of these help: a macOS Safari App Extension is signed by Xcode
       #                       against a provisioning profile and uploaded through App Store
       #                       Connect by a person. It stays a manual step, and `safari-mv3` ships
