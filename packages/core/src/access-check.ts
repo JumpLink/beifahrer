@@ -31,6 +31,28 @@ import {
   type Policy,
 } from './policy.ts';
 
+/**
+ * The tool name an agent knows for each protocol method: `page.enterCode` is `page_enter_code`, and
+ * the tab and window tools are singular (`tab_open` for `tabs.open`). The mapping is mechanical, so
+ * it is derived from the policy table and cannot drift from it (issue #154).
+ */
+const TOOL_ALIASES: ReadonlyMap<string, Method> = (() => {
+  const map = new Map<string, Method>();
+  for (const method of Object.keys(REQUIRED_LEVEL) as Method[]) {
+    const tool = method.replace(/\./g, '_').replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+    map.set(tool, method);
+    if (tool.startsWith('tabs_')) map.set(`tab_${tool.slice(5)}`, method);
+    if (tool.startsWith('windows_')) map.set(`window_${tool.slice(8)}`, method);
+  }
+  return map;
+})();
+
+/** The protocol method for a name given either as `page.read` or as the tool name `page_read`. */
+export function resolveMethod(value: unknown): Method | null {
+  if (isMethod(value)) return value;
+  return typeof value === 'string' ? (TOOL_ALIASES.get(value) ?? null) : null;
+}
+
 /** Which check decides the answer — the check order, read one step at a time. */
 export type AccessStage = 'ok' | 'feature' | 'level' | 'grant' | 'unsupported';
 
@@ -93,13 +115,13 @@ export interface AccessCheckInput {
  */
 export function accessCheck(input: AccessCheckInput): AccessCheck | string {
   const { features, policy, ctx, unsupported } = input;
-  if (!isMethod(input.method)) {
+  const method = resolveMethod(input.method);
+  if (method === null) {
     return (
-      `"${input.method}" is not a Beifahrer method. browsers_list names what this browser has; ` +
-      'ask about one of those.'
+      `"${input.method}" is not a Beifahrer method. Give it as the protocol name (page.read) or as ` +
+      'the tool name (page_read); browsers_list names what this browser can serve.'
     );
   }
-  const method: Method = input.method;
   const access = accessFor(policy, input.url ?? null, ctx);
   const need = REQUIRED_LEVEL[method];
   // Both levels in one answer, always. `decide` returns a union whose allowed branch carries

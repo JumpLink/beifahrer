@@ -912,7 +912,7 @@ export function registerTools(
         method: z
           .string()
           .describe(
-            'The method you are about to call, as browsers_list names it: page.read, page.click, tabs.close',
+            'The method you are about to call, as browsers_list names it (page.read, page.click, tabs.close); the tool name (page_read) is accepted too',
           ),
         tabId: tabIdParam.optional().describe('A tab from tabs_list; the answer is about the page it is on'),
         url: z.string().optional().describe('A URL instead of a tab — for a site you have not opened yet'),

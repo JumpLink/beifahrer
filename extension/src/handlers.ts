@@ -25,7 +25,7 @@ import {
   preflightMessage,
   evaluateRequestOf,
   expectationOf,
-  isMethod,
+  resolveMethod,
   type DownloadOutcome,
   judgeCapture,
   judgeDownloadReach,
@@ -874,7 +874,7 @@ const handlers: { [M in Method]: Handler<M> } = {
     // the tab as well would answer a different question.
     const tabId = raw.tabId === undefined ? null : tabIdOf(params);
     const url = typeof raw.url === 'string' ? raw.url : tabId !== null ? (await getTab(tabId)).url : null;
-    const named = isMethod(raw.method) ? raw.method : null;
+    const named = resolveMethod(raw.method);
     const origin = originOf(url);
     // No grant is consulted for a method that touches no page, and none exists to consult for a URL
     // with no origin: null says "the question does not apply here", which is not the same as "no".
@@ -884,7 +884,7 @@ const handlers: { [M in Method]: Handler<M> } = {
       features: (await loadSettings()).features,
       policy,
       ctx: accessOf(ctx),
-      method: typeof raw.method === 'string' ? raw.method : String(raw.method),
+      method: named ?? (typeof raw.method === 'string' ? raw.method : String(raw.method)),
       url,
       unsupported: named === null ? null : (unsupportedReasons()[named] ?? null),
       hostGranted,
