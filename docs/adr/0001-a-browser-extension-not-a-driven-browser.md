@@ -111,6 +111,13 @@ extension active never died, so #2801's fix has reached stable. What replaces it
 So the blocker is no longer the abort; it is a `tabs` API that does not answer, in stable and in
 nightly alike.
 
+Re-measured on 2026-11-13 on GNOME 51, against `org.gnome.Epiphany` 51.1 (Fedora Flatpak, system)
+and 51.2 (Flathub Flatpak, user); no Devel Flatpak was available. Throwaway profile, probe on port
+47951, `default-browser=false`. **Neither build starts the background page**: Epiphany logs the
+extension being loaded, but the probe's server sees no connection at all — not the WebSocket, not
+the boot `fetch` — so `report.jsonl` holds only `server-up` and no API check ran. Verdict: **still
+not supported** on 51.1 and 51.2; no `epiphany-mv2` target.
+
 From Epiphany's source: `tabs.executeScript` (main frame only), `tabs.query/create/update/remove`,
 `tabs.sendMessage`, `windows.*`, `cookies`, `downloads` exist; `tabs.captureVisibleTab`,
 `scripting`, `webNavigation`, `webRequest`, native messaging and `runtime.connect` do not; of the
