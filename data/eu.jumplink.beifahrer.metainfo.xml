@@ -35,8 +35,8 @@
       <li xml:lang="de">Stelle jede Website auf Nichts, Lesen oder Bearbeiten. Bei einer Website, die auf Nichts steht, sieht der Agent den Hostnamen und sonst nichts, nicht den Titel und nicht den Rest der Adresse.</li>
       <li>Need more for a while? Allow all sites for an hour, until the browser closes, or for this one agent session. No temporary access survives a browser restart.</li>
       <li xml:lang="de">Brauchst du für eine Weile mehr? Gib alle Websites frei, für eine Stunde, bis der Browser schließt oder für diese eine Agenten-Sitzung. Keine befristete Freigabe übersteht einen Neustart des Browsers.</li>
-      <li>Before a change, Beifahrer asks. A filled field, a click, a closed tab: a window names the site and what is about to happen. On a site you trust you can switch the asking off.</li>
-      <li xml:lang="de">Vor einer Änderung fragt Beifahrer nach. Ein ausgefülltes Feld, ein Klick, ein geschlossener Tab: Ein Fenster nennt die Website und das, was gleich passiert. Bei einer Website, der du traust, kannst du das Nachfragen ausschalten.</li>
+      <li>Before a change, Beifahrer asks. For a filled field or a click, a window names the site and what is about to happen. Before tabs are closed, a window lists them. On a site you trust you can switch the asking off.</li>
+      <li xml:lang="de">Vor einer Änderung fragt Beifahrer nach. Bei einem ausgefüllten Feld oder einem Klick nennt ein Fenster die Website und das, was gleich passiert. Bevor Tabs geschlossen werden, listet ein Fenster sie auf. Bei einer Website, der du traust, kannst du das Nachfragen ausschalten.</li>
       <li>Pause stops everything, down to listing your open tabs. Only you start it again, in the extension or with a keyboard shortcut.</li>
       <li xml:lang="de">Pausieren hält alles an, bis hin zum Auflisten deiner offenen Tabs. Nur du startest wieder, in der Erweiterung oder per Tastenkürzel.</li>
       <li>You see the agent at work. The toolbar button changes, a small label with a Stop button appears in the page, and the extension lists what the agent did.</li>
