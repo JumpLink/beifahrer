@@ -209,7 +209,13 @@ export default async () => {
     });
 
     await it('adds the outdated-extension note to a failed call (issue #210)', async () => {
-      const bridge = new Bridge({ port: 0, token: TOKEN, version: '0.1.30', timeoutMs: 2_000, browserWaitMs: 0 });
+      const bridge = new Bridge({
+        port: 0,
+        token: TOKEN,
+        version: '0.1.30',
+        timeoutMs: 2_000,
+        browserWaitMs: 0,
+      });
       await bridge.start();
       const r = await connect(bridge, {
         onRequest: (req, ws) =>

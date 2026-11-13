@@ -232,7 +232,9 @@ export function registerTools(
     note: z
       .string()
       .optional()
-      .describe('Present when the connected extension is older than this Beifahrer: tell the person to update it'),
+      .describe(
+        'Present when the connected extension is older than this Beifahrer: tell the person to update it',
+      ),
     disconnected: loose({
       by: z
         .enum(['person', 'lost'])
@@ -282,7 +284,10 @@ export function registerTools(
           port: status.port,
           session: { label: status.session.label, pid: status.session.pid, version: status.version },
           browsers,
-          ...staleNote(browsers.map((b) => b.extensionVersion), status.version),
+          ...staleNote(
+            browsers.map((b) => b.extensionVersion),
+            status.version,
+          ),
           // Only while the list is empty, and then it says whether the person stopped it (issue #28).
           ...(status.disconnected ? { disconnected: status.disconnected } : {}),
         });

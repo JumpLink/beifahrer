@@ -2446,6 +2446,12 @@ async function framesAndOrigins(browser, client, allowed) {
     !/frame-foreign/.test(outline.text) && !/Foreign frame button/.test(outline.text),
     outline.text.match(/[^\n]*frame-foreign[^\n]*/)?.[0] ?? 'nicht genannt',
   );
+  check(
+    browser,
+    'but the outline says a frame was withheld, with its origin and levels and nothing of its content (issue #153)',
+    /— frame withheld: http:\/\/localhost:\d+ \(level \w+, needs read\)/.test(outline.text),
+    outline.text.match(/[^\n]*withheld[^\n]*/)?.[0] ?? 'keine Zeile',
+  );
   const found = await tool(client, 'page_find', { tabId: allowed.tabId, name: 'Foreign frame button' });
   check(
     browser,

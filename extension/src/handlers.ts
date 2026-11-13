@@ -31,6 +31,7 @@ import {
   judgeDownloadReach,
   refusedOpenMessage,
   levelFor,
+  withheldFrameLine,
   parseNetwork,
   parseElementQuery,
   parseExpect,
@@ -423,6 +424,17 @@ async function readAcrossFrames(
         : { frame: row.index, data: { unreadable: moved ?? ('err' in answer ? answer.err : 'unknown') } },
     );
   }
+  // The frames the policy left out get ONE line per origin, naming origin and level, never content
+  // (issue #153): silence reads as "this page embeds nothing".
+  const kept = new Set(framesAtLevel(rows, policy, ctx, level));
+  const named = new Set<string>();
+  for (const row of rows) {
+    const origin = originOf(row.url);
+    if (kept.has(row) || !isWebUrl(row.url) || !origin || named.has(origin)) continue;
+    named.add(origin);
+    const have = levelFor(policy, row.url, accessOf(ctx));
+    out.push({ frame: row.index, data: { withheld: withheldFrameLine(origin, have, level) } });
+  }
   return out;
 }
 
@@ -432,9 +444,11 @@ function joinedText(parts: { frame: number; data: Record<string, unknown> }[], t
   const rest = parts
     .slice(1)
     .map((part) =>
-      part.data.unreadable
-        ? `${FRAME_MARK}${part.data.url ?? 'a frame'}\n— not readable: ${part.data.unreadable}`
-        : `${FRAME_MARK}${part.data.url ?? ''}\n${String(part.data.text ?? '').trim()}`,
+      part.data.withheld
+        ? String(part.data.withheld)
+        : part.data.unreadable
+          ? `${FRAME_MARK}${part.data.url ?? 'a frame'}\n— not readable: ${part.data.unreadable}`
+          : `${FRAME_MARK}${part.data.url ?? ''}\n${String(part.data.text ?? '').trim()}`,
     )
     .filter((section) => section.trim() !== FRAME_MARK);
   return [head, ...rest].filter(Boolean).join('\n\n').trim();
@@ -446,9 +460,11 @@ function joinedOutline(parts: { frame: number; data: Record<string, unknown> }[]
   const rest = parts
     .slice(1)
     .map((part) =>
-      part.data.unreadable
-        ? `${FRAME_MARK}${part.data.url ?? 'a frame'}\n— not readable: ${part.data.unreadable}`
-        : `${FRAME_MARK}${part.data.url ?? ''}\n${String(part.data.outline ?? '').trim()}`,
+      part.data.withheld
+        ? String(part.data.withheld)
+        : part.data.unreadable
+          ? `${FRAME_MARK}${part.data.url ?? 'a frame'}\n— not readable: ${part.data.unreadable}`
+          : `${FRAME_MARK}${part.data.url ?? ''}\n${String(part.data.outline ?? '').trim()}`,
     )
     .filter((section) => section.trim() !== FRAME_MARK);
   return [head, ...rest].filter(Boolean).join('\n');

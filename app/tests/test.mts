@@ -7,6 +7,7 @@ import features from './unit/core/features.test.ts';
 import browserFamily from './unit/core/browser-family.test.ts';
 import accessCheck from './unit/core/access-check.test.ts';
 import versions from './unit/core/versions.test.ts';
+import withheld from './unit/core/withheld.test.ts';
 import oneTimeCode from './unit/core/one-time-code.test.ts';
 import find from './unit/core/find.test.ts';
 import recipes from './unit/core/recipes.test.ts';
@@ -79,6 +80,7 @@ run({
   browserFamily,
   accessCheck,
   versions,
+  withheld,
   find,
   oneTimeCode,
   recipes,
