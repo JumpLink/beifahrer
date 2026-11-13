@@ -30,8 +30,8 @@
 
 
 <style>:root{--brand-light:#d9c2f0;--band-fg-light:#10233b;--brand-dark:#613583;--band-fg-dark:#ffffff}</style>
-<link rel="stylesheet" href="/beifahrer/assets/site-e07ce046.css">
-<script type="module" src="/beifahrer/assets/site-a106d2d9.js"></script>
+<link rel="stylesheet" href="/beifahrer/assets/site-b6b57cf5.css">
+<script type="module" src="/beifahrer/assets/site-5efa9115.js"></script>
 </head>
 <body>
 <div class="topbar">
@@ -54,22 +54,99 @@
 <h1>Beifahrer</h1>
 <p class="hero-by">by <a href="https://jumplink.eu/">Pascal Garber</a></p>
 <p class="ext-short">Let an AI agent use this browser. You choose, site by site, what it may read and change.</p>
-<extension-install class="download ext-install">
-<ul class="ext-install-list">
-<li data-browser="firefox">
-<a class="button" href="https://github.com/JumpLink/beifahrer/releases/download/v0.1.30/1bcb7e59df60460d8b95-0.1.30.xpi"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.9v7.6M4.8 6.4 8 9.6l3.2-3.2M2.4 13.3h11.2"/></g></svg><span>Install for Firefox</span></a>
-<a class="ext-alt" href="https://github.com/JumpLink/beifahrer/releases/download/v0.1.30/beifahrer.xpi">Signed Firefox add-on <small>0.5 MB</small></a>
-<a class="ext-alt" href="https://github.com/JumpLink/beifahrer/releases/download/v0.1.30/beifahrer-0.1.30-firefox-mv2.zip">Firefox extension <small>0.5 MB</small></a>
-<a class="ext-alt" href="https://github.com/JumpLink/beifahrer#from-source">Build from source</a>
+<app-download class="download">
+<div class="download-split">
+<a class="button download-cta" href="https://github.com/JumpLink/beifahrer/releases/download/v0.1.30/1bcb7e59df60460d8b95-0.1.30.xpi" data-os="firefox" data-arch="noarch"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.9v7.6M4.8 6.4 8 9.6l3.2-3.2M2.4 13.3h11.2"/></g></svg><span class="download-label">Install for Firefox</span></a>
+<a class="button download-toggle" href="#all-downloads" aria-label="All download options"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="m4.2 6.2 3.8 3.8 3.8-3.8"/></svg></a>
+</div>
+<dialog id="all-downloads" class="download-dialog" aria-labelledby="all-downloads-title">
+<div class="dialog-head">
+<h2 id="all-downloads-title">All download options</h2>
+<button class="dialog-close" type="button" aria-label="Close" hidden><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="m3.8 3.8 8.4 8.4M12.2 3.8 3.8 12.2"/></svg></button>
+</div>
+<div class="components">
+<section class="component" data-component="extension">
+
+<div class="os-tabs" role="tablist" aria-label="Browser" hidden><button class="os-tab" type="button" role="tab" id="os-tab-extension-firefox" aria-controls="os-group-extension-firefox" data-os="firefox" aria-selected="true"><svg class="icon icon-brand icon-firefox" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><circle class="b2" cx="8" cy="8.3" r="6.6"/><path class="b1" d="M7.98 15.68l-0.11 0c-1.62 0-3.13-0.5-4.37-1.35l0.02 0.02c-1.27-0.86-2.27-2.07-2.89-3.47l-0.02-0.06c-0.36-0.83-0.56-1.73-0.59-2.64l0-0.02c-0.06-1.01 0.02-2.02 0.24-3.01l-0.01 0.07c0.21-0.98 0.55-1.93 1.01-2.82l-0.03 0.06c0.39-0.8 0.93-1.53 1.58-2.14l0 0-0.1 2.48q0.1-0.12 0.6-0.13t0.62 0.13c0.33-0.54 0.82-0.96 1.4-1.21l0.02-0.01c0.64-0.32 1.35-0.5 2.07-0.52h0.01c-0.41 0.38-0.76 0.81-1.05 1.29l-0.01 0.03c-0.32 0.41-0.5 0.91-0.52 1.44v0c0.16 0.05 0.34 0.09 0.54 0.12l0.01 0q0.34 0.05 0.56 0.07t0.6 0.03 0.45 0.03q0.13 0.04 0.08 0.4c-0.03 0.24-0.12 0.47-0.27 0.67l0 0c-0.04 0.06-0.09 0.11-0.14 0.16l0 0c-0.15 0.12-0.32 0.22-0.49 0.31l-0.01 0c-0.28 0.15-0.57 0.25-0.88 0.3l-0.02 0.01 0.14 1.67-1.23-0.59c-0.1 0.23-0.13 0.48-0.06 0.73l-0.01-0.01c0.07 0.23 0.18 0.42 0.32 0.59l0 0c0.16 0.16 0.35 0.29 0.57 0.36l0.01 0c0.23 0.08 0.48 0.1 0.73 0.06l-0.01 0c0.32-0.06 0.61-0.17 0.88-0.31l-0.01 0q0.41-0.22 0.73-0.39c0.2-0.12 0.43-0.17 0.66-0.16h-0.01 0.02c0.3 0 0.57 0.11 0.78 0.3l-0.01-0.01c0.17 0.15 0.23 0.37 0.18 0.58l0 0q-0.01 0.02-0.02 0.05c-0.03 0.04-0.05 0.07-0.08 0.11l0 0c-0.04 0.05-0.1 0.1-0.16 0.13l0 0c-0.08 0.05-0.18 0.08-0.27 0.1l-0.01 0c-0.13 0.02-0.28 0.03-0.41 0.01l0 0c-0.3 0.5-0.74 0.92-1.26 1.19l-0.02 0c-0.44 0.2-0.92 0.3-1.4 0.29q-0.24 0-0.47-0.03l0.02 0.01c0.41 0.34 0.89 0.59 1.41 0.72l0.03 0c0.49 0.13 1.01 0.15 1.51 0.05l-0.02 0.01c0.48-0.1 0.95-0.26 1.39-0.48l-0.03 0.02c0.42-0.2 0.8-0.47 1.14-0.78l0 0c0.28-0.26 0.51-0.56 0.7-0.9l0.01-0.02c0.25-0.53 0.37-1.12 0.34-1.71v0.01c-0.02-0.59-0.13-1.16-0.34-1.7l0.01 0.03c-0.14-0.42-0.38-0.8-0.69-1.1l-0.01 0c0.47 0.19 0.87 0.43 1.23 0.71l-0.01-0.01c0.3 0.26 0.53 0.6 0.67 0.98l0.01 0.02c0.14-2.12-0.73-4.18-2.36-5.54l-0.01-0.01c1.46 0.39 2.74 1.25 3.64 2.46l0.01 0.01c0.92 1.35 1.39 2.96 1.33 4.59v-0.01l0 0.08c0 0.78-0.13 1.52-0.37 2.22l0.02-0.05c-0.26 0.76-0.63 1.48-1.11 2.13l0.01-0.02c-0.47 0.64-1.03 1.22-1.65 1.72l-0.02 0.01c-1.35 1.06-3.02 1.64-4.74 1.64h0z"/></svg><span>Firefox</span></button><button class="os-tab" type="button" role="tab" id="os-tab-extension-chromium" aria-controls="os-group-extension-chromium" data-os="chromium" aria-selected="false"><svg class="icon icon-brand icon-chromium" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path class="b1" d="M2.01 3.16A7.7 7.7 0 0 1 13.99 3.16L11.25 4.74A4.6 4.6 0 0 0 4.75 4.74Z"/><path class="b2" d="M15.19 5.24A7.7 7.7 0 0 1 9.2 15.61L9.2 12.44A4.6 4.6 0 0 0 12.45 6.82Z"/><path class="b3" d="M6.8 15.61A7.7 7.7 0 0 1 .81 5.24L3.55 6.82A4.6 4.6 0 0 0 6.8 12.44Z"/><circle class="b4" cx="8" cy="8" r="3.4"/></svg><span>Chromium</span></button></div>
+<div class="os-groups">
+<section class="os-group" id="os-group-extension-firefox" role="tabpanel" aria-labelledby="os-tab-extension-firefox" data-os="firefox">
+<h3 class="os-title"><svg class="icon icon-brand icon-firefox" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><circle class="b2" cx="8" cy="8.3" r="6.6"/><path class="b1" d="M7.98 15.68l-0.11 0c-1.62 0-3.13-0.5-4.37-1.35l0.02 0.02c-1.27-0.86-2.27-2.07-2.89-3.47l-0.02-0.06c-0.36-0.83-0.56-1.73-0.59-2.64l0-0.02c-0.06-1.01 0.02-2.02 0.24-3.01l-0.01 0.07c0.21-0.98 0.55-1.93 1.01-2.82l-0.03 0.06c0.39-0.8 0.93-1.53 1.58-2.14l0 0-0.1 2.48q0.1-0.12 0.6-0.13t0.62 0.13c0.33-0.54 0.82-0.96 1.4-1.21l0.02-0.01c0.64-0.32 1.35-0.5 2.07-0.52h0.01c-0.41 0.38-0.76 0.81-1.05 1.29l-0.01 0.03c-0.32 0.41-0.5 0.91-0.52 1.44v0c0.16 0.05 0.34 0.09 0.54 0.12l0.01 0q0.34 0.05 0.56 0.07t0.6 0.03 0.45 0.03q0.13 0.04 0.08 0.4c-0.03 0.24-0.12 0.47-0.27 0.67l0 0c-0.04 0.06-0.09 0.11-0.14 0.16l0 0c-0.15 0.12-0.32 0.22-0.49 0.31l-0.01 0c-0.28 0.15-0.57 0.25-0.88 0.3l-0.02 0.01 0.14 1.67-1.23-0.59c-0.1 0.23-0.13 0.48-0.06 0.73l-0.01-0.01c0.07 0.23 0.18 0.42 0.32 0.59l0 0c0.16 0.16 0.35 0.29 0.57 0.36l0.01 0c0.23 0.08 0.48 0.1 0.73 0.06l-0.01 0c0.32-0.06 0.61-0.17 0.88-0.31l-0.01 0q0.41-0.22 0.73-0.39c0.2-0.12 0.43-0.17 0.66-0.16h-0.01 0.02c0.3 0 0.57 0.11 0.78 0.3l-0.01-0.01c0.17 0.15 0.23 0.37 0.18 0.58l0 0q-0.01 0.02-0.02 0.05c-0.03 0.04-0.05 0.07-0.08 0.11l0 0c-0.04 0.05-0.1 0.1-0.16 0.13l0 0c-0.08 0.05-0.18 0.08-0.27 0.1l-0.01 0c-0.13 0.02-0.28 0.03-0.41 0.01l0 0c-0.3 0.5-0.74 0.92-1.26 1.19l-0.02 0c-0.44 0.2-0.92 0.3-1.4 0.29q-0.24 0-0.47-0.03l0.02 0.01c0.41 0.34 0.89 0.59 1.41 0.72l0.03 0c0.49 0.13 1.01 0.15 1.51 0.05l-0.02 0.01c0.48-0.1 0.95-0.26 1.39-0.48l-0.03 0.02c0.42-0.2 0.8-0.47 1.14-0.78l0 0c0.28-0.26 0.51-0.56 0.7-0.9l0.01-0.02c0.25-0.53 0.37-1.12 0.34-1.71v0.01c-0.02-0.59-0.13-1.16-0.34-1.7l0.01 0.03c-0.14-0.42-0.38-0.8-0.69-1.1l-0.01 0c0.47 0.19 0.87 0.43 1.23 0.71l-0.01-0.01c0.3 0.26 0.53 0.6 0.67 0.98l0.01 0.02c0.14-2.12-0.73-4.18-2.36-5.54l-0.01-0.01c1.46 0.39 2.74 1.25 3.64 2.46l0.01 0.01c0.92 1.35 1.39 2.96 1.33 4.59v-0.01l0 0.08c0 0.78-0.13 1.52-0.37 2.22l0.02-0.05c-0.26 0.76-0.63 1.48-1.11 2.13l0.01-0.02c-0.47 0.64-1.03 1.22-1.65 1.72l-0.02 0.01c-1.35 1.06-3.02 1.64-4.74 1.64h0z"/></svg><span>Firefox</span></h3>
+<ul>
+<li class="target" data-os="firefox" data-arch="noarch" data-unavailable data-format="store">
+<span class="target-link">
+<span class="target-icon"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.6 14 4.5v7L8 14.4l-6-2.9v-7L8 1.6Z"/><path d="m2 4.5 6 2.9 6-2.9M8 7.4v7"/></g></svg></span>
+<span class="target-text"><span class="target-name">Firefox Add-ons</span><span class="target-meta">Not yet available</span></span>
+
+</span>
 </li>
-<li data-browser="chromium">
-<span class="button ext-unavailable" aria-disabled="true"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.9v7.6M4.8 6.4 8 9.6l3.2-3.2M2.4 13.3h11.2"/></g></svg><span>Add to Chromium</span><small>Not yet available</small></span>
-<a class="ext-alt" href="https://github.com/JumpLink/beifahrer/releases/download/v0.1.30/beifahrer-0.1.30-chrome-mv3.zip">Chromium extension <small>0.5 MB</small></a>
-<a class="ext-alt" href="https://github.com/JumpLink/beifahrer/releases/download/v0.1.30/beifahrer-0.1.30-edge-mv3.zip">Chromium extension <small>0.5 MB</small></a>
-<a class="ext-alt" href="https://github.com/JumpLink/beifahrer#from-source">Build from source</a>
+<li class="target" data-os="firefox" data-arch="noarch" data-recommended data-cta="Install for Firefox" data-format="xpi" data-size="0.5 MB">
+<a href="https://github.com/JumpLink/beifahrer/releases/download/v0.1.30/1bcb7e59df60460d8b95-0.1.30.xpi">
+<span class="target-icon"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.9v7.6M4.8 6.4 8 9.6l3.2-3.2M2.4 13.3h11.2"/></g></svg></span>
+<span class="target-text"><span class="target-name">Signed Firefox add-on</span><span class="target-meta">Recommended</span></span>
+<span class="target-size">0.5 MB</span>
+</a>
+</li>
+<li class="target" data-os="firefox" data-arch="noarch" data-cta="Install for Firefox" data-format="zip" data-size="0.5 MB">
+<a href="https://github.com/JumpLink/beifahrer/releases/download/v0.1.30/beifahrer-0.1.30-firefox-mv2.zip">
+<span class="target-icon"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.9v7.6M4.8 6.4 8 9.6l3.2-3.2M2.4 13.3h11.2"/></g></svg></span>
+<span class="target-text"><span class="target-name">Firefox extension</span></span>
+<span class="target-size">0.5 MB</span>
+</a>
+</li>
+<li class="target" data-os="firefox" data-arch="noarch" data-cta="Build from source" data-format="source">
+<a href="https://github.com/JumpLink/beifahrer#from-source">
+<span class="target-icon"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.9v7.6M4.8 6.4 8 9.6l3.2-3.2M2.4 13.3h11.2"/></g></svg></span>
+<span class="target-text"><span class="target-name">Build from source</span></span>
+
+</a>
 </li>
 </ul>
-</extension-install>
+
+
+
+</section>
+<section class="os-group" id="os-group-extension-chromium" role="tabpanel" aria-labelledby="os-tab-extension-chromium" data-os="chromium">
+<h3 class="os-title"><svg class="icon icon-brand icon-chromium" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path class="b1" d="M2.01 3.16A7.7 7.7 0 0 1 13.99 3.16L11.25 4.74A4.6 4.6 0 0 0 4.75 4.74Z"/><path class="b2" d="M15.19 5.24A7.7 7.7 0 0 1 9.2 15.61L9.2 12.44A4.6 4.6 0 0 0 12.45 6.82Z"/><path class="b3" d="M6.8 15.61A7.7 7.7 0 0 1 .81 5.24L3.55 6.82A4.6 4.6 0 0 0 6.8 12.44Z"/><circle class="b4" cx="8" cy="8" r="3.4"/></svg><span>Chromium</span></h3>
+<ul>
+<li class="target" data-os="chromium" data-arch="noarch" data-unavailable data-format="store">
+<span class="target-link">
+<span class="target-icon"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.6 14 4.5v7L8 14.4l-6-2.9v-7L8 1.6Z"/><path d="m2 4.5 6 2.9 6-2.9M8 7.4v7"/></g></svg></span>
+<span class="target-text"><span class="target-name">Chrome Web Store</span><span class="target-meta">Not yet available</span></span>
+
+</span>
+</li>
+<li class="target" data-os="chromium" data-arch="noarch" data-recommended data-cta="Install for Chromium" data-format="zip" data-size="0.5 MB">
+<a href="https://github.com/JumpLink/beifahrer/releases/download/v0.1.30/beifahrer-0.1.30-chrome-mv3.zip">
+<span class="target-icon"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.9v7.6M4.8 6.4 8 9.6l3.2-3.2M2.4 13.3h11.2"/></g></svg></span>
+<span class="target-text"><span class="target-name">Chrome extension</span><span class="target-meta">Recommended</span></span>
+<span class="target-size">0.5 MB</span>
+</a>
+</li>
+<li class="target" data-os="chromium" data-arch="noarch" data-cta="Install for Chromium" data-format="zip" data-size="0.5 MB">
+<a href="https://github.com/JumpLink/beifahrer/releases/download/v0.1.30/beifahrer-0.1.30-edge-mv3.zip">
+<span class="target-icon"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.9v7.6M4.8 6.4 8 9.6l3.2-3.2M2.4 13.3h11.2"/></g></svg></span>
+<span class="target-text"><span class="target-name">Edge extension</span></span>
+<span class="target-size">0.5 MB</span>
+</a>
+</li>
+<li class="target" data-os="chromium" data-arch="noarch" data-cta="Build from source" data-format="source">
+<a href="https://github.com/JumpLink/beifahrer#from-source">
+<span class="target-icon"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.9v7.6M4.8 6.4 8 9.6l3.2-3.2M2.4 13.3h11.2"/></g></svg></span>
+<span class="target-text"><span class="target-name">Build from source</span></span>
+
+</a>
+</li>
+</ul>
+
+
+
+</section>
+</div>
+</section>
+</div>
+<p class="dialog-foot"><a href="https://github.com/JumpLink/beifahrer/releases">All releases on GitHub<svg class="icon link-external" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9.2 2.2h4.6v4.6M13.4 2.6 7.6 8.4"/><path d="M12 9.6v2.8c0 .8-.6 1.4-1.4 1.4H4c-.8 0-1.4-.6-1.4-1.4V5.8c0-.8.6-1.4 1.4-1.4h2.8"/></g></svg></a></p>
+</dialog>
+</app-download>
 </div>
 </div>
 <section class="band" aria-label="Screenshots">
@@ -123,7 +200,7 @@
 </dl>
 </aside>
 <div class="ext-main">
-<section class="ext-needs">
+<section class="pair">
 <a class="card" href="/beifahrer/en/">
 <img class="related-icon" src="/beifahrer/eu.jumplink.beifahrer.svg" alt="" width="48" height="48">
 <span class="related-text"><span class="related-name">Needs the app Beifahrer</span><span class="related-summary">Let AI use your browser</span></span>
@@ -132,9 +209,13 @@
 </section>
 <section class="ext-section about">
 <h2>About</h2>
-<p>Beifahrer lets an AI agent work in your own browser, with your own sessions and the tab you are looking at, instead of in a separate automated one.</p>
-<p>A browser extension talks to a local MCP bridge. Every site is covered by a policy you set, and anything the policy does not allow is refused.</p>
-<ul><li>Works in Firefox and Chromium-based browsers</li><li>Per-site policy: allowed, ask first, or forbidden</li><li>Confirmation prompts for actions you have not pre-approved</li><li>Local only: the bridge runs on your machine</li></ul>
+<p>Beifahrer lets an AI agent work in the browser you already use, with your tabs and the sites you are logged into, instead of in a second browser it starts for itself.</p>
+<p>Four parts, in this order:</p>
+<ul><li>Your agent asks for something, for example to read the page you are looking at.</li><li>The Beifahrer app on your computer takes that request. The app is the bridge between your agent and your browser, and it is the only part your agent talks to.</li><li>The Beifahrer extension in your browser checks the request against the rules you set, and refuses anything they do not cover.</li><li>The browser carries it out, and you watch it happen.</li></ul>
+<p>Beifahrer sends nothing out. No account, no telemetry, no server on the internet. The app and the extension talk to each other on your own computer and nowhere else.</p>
+<p>You say what the agent may do, and you take it back whenever you want:</p>
+<ul><li>Set each site to None, Read or Edit. On a site you left at None the agent sees the host name and nothing else, not the title and not the rest of the address.</li><li>Need more for a while? Allow all sites for an hour, until the browser closes, or for this one agent session. No temporary access survives a browser restart.</li><li>Before a change, Beifahrer asks. For a filled field or a click, a window names the site and what is about to happen. Before tabs are closed, a window lists them. On a site you trust you can switch the asking off.</li><li>Pause stops everything, down to listing your open tabs. Only you start it again, in the extension or with a keyboard shortcut.</li><li>You see the agent at work. The toolbar button changes, a small label with a Stop button appears in the page, and the extension lists what the agent did.</li><li>What you did not switch on stays off: screenshots, downloads, saved sessions, tab management, the request log, and running the agent&#39;s own code in a page.</li></ul>
+<p>Works in Firefox and in Chromium-based browsers.</p>
 </section>
 <section class="ext-section ext-permissions">
 <h2>Permissions</h2>
@@ -225,10 +306,10 @@
 <section class="ext-section">
 <h2>Works in</h2>
 <ul class="ext-chips">
-<li class="ext-chip"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.3"/><circle cx="8" cy="8" r="2.4"/><path d="M8 5.6h5.7M5.9 9.2 3.1 14M10.1 9.2 7.3 14.1"/></g></svg><span>Chromium</span></li>
-<li class="ext-chip"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.3"/><path d="M4.9 7.4a3.3 3.3 0 1 0 5.7-2.5c.2 1-.1 1.8-.9 2.4"/></g></svg><span>Firefox</span><small>140.0+</small></li>
-<li class="ext-chip"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.3"/><path d="M1.7 8h12.6"/><path d="M8 1.7c1.7 1.7 2.6 3.9 2.6 6.3S9.7 12.6 8 14.3C6.3 12.6 5.4 10.4 5.4 8s.9-4.6 2.6-6.3Z"/></g></svg><span>Edge</span></li>
-<li class="ext-chip"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.3"/><path d="M1.7 8h12.6"/><path d="M8 1.7c1.7 1.7 2.6 3.9 2.6 6.3S9.7 12.6 8 14.3C6.3 12.6 5.4 10.4 5.4 8s.9-4.6 2.6-6.3Z"/></g></svg><span>Safari</span></li>
+<li class="ext-chip"><svg class="icon icon-brand icon-chromium" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path class="b1" d="M2.01 3.16A7.7 7.7 0 0 1 13.99 3.16L11.25 4.74A4.6 4.6 0 0 0 4.75 4.74Z"/><path class="b2" d="M15.19 5.24A7.7 7.7 0 0 1 9.2 15.61L9.2 12.44A4.6 4.6 0 0 0 12.45 6.82Z"/><path class="b3" d="M6.8 15.61A7.7 7.7 0 0 1 .81 5.24L3.55 6.82A4.6 4.6 0 0 0 6.8 12.44Z"/><circle class="b4" cx="8" cy="8" r="3.4"/></svg><span>Chromium</span></li>
+<li class="ext-chip"><svg class="icon icon-brand icon-firefox" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><circle class="b2" cx="8" cy="8.3" r="6.6"/><path class="b1" d="M7.98 15.68l-0.11 0c-1.62 0-3.13-0.5-4.37-1.35l0.02 0.02c-1.27-0.86-2.27-2.07-2.89-3.47l-0.02-0.06c-0.36-0.83-0.56-1.73-0.59-2.64l0-0.02c-0.06-1.01 0.02-2.02 0.24-3.01l-0.01 0.07c0.21-0.98 0.55-1.93 1.01-2.82l-0.03 0.06c0.39-0.8 0.93-1.53 1.58-2.14l0 0-0.1 2.48q0.1-0.12 0.6-0.13t0.62 0.13c0.33-0.54 0.82-0.96 1.4-1.21l0.02-0.01c0.64-0.32 1.35-0.5 2.07-0.52h0.01c-0.41 0.38-0.76 0.81-1.05 1.29l-0.01 0.03c-0.32 0.41-0.5 0.91-0.52 1.44v0c0.16 0.05 0.34 0.09 0.54 0.12l0.01 0q0.34 0.05 0.56 0.07t0.6 0.03 0.45 0.03q0.13 0.04 0.08 0.4c-0.03 0.24-0.12 0.47-0.27 0.67l0 0c-0.04 0.06-0.09 0.11-0.14 0.16l0 0c-0.15 0.12-0.32 0.22-0.49 0.31l-0.01 0c-0.28 0.15-0.57 0.25-0.88 0.3l-0.02 0.01 0.14 1.67-1.23-0.59c-0.1 0.23-0.13 0.48-0.06 0.73l-0.01-0.01c0.07 0.23 0.18 0.42 0.32 0.59l0 0c0.16 0.16 0.35 0.29 0.57 0.36l0.01 0c0.23 0.08 0.48 0.1 0.73 0.06l-0.01 0c0.32-0.06 0.61-0.17 0.88-0.31l-0.01 0q0.41-0.22 0.73-0.39c0.2-0.12 0.43-0.17 0.66-0.16h-0.01 0.02c0.3 0 0.57 0.11 0.78 0.3l-0.01-0.01c0.17 0.15 0.23 0.37 0.18 0.58l0 0q-0.01 0.02-0.02 0.05c-0.03 0.04-0.05 0.07-0.08 0.11l0 0c-0.04 0.05-0.1 0.1-0.16 0.13l0 0c-0.08 0.05-0.18 0.08-0.27 0.1l-0.01 0c-0.13 0.02-0.28 0.03-0.41 0.01l0 0c-0.3 0.5-0.74 0.92-1.26 1.19l-0.02 0c-0.44 0.2-0.92 0.3-1.4 0.29q-0.24 0-0.47-0.03l0.02 0.01c0.41 0.34 0.89 0.59 1.41 0.72l0.03 0c0.49 0.13 1.01 0.15 1.51 0.05l-0.02 0.01c0.48-0.1 0.95-0.26 1.39-0.48l-0.03 0.02c0.42-0.2 0.8-0.47 1.14-0.78l0 0c0.28-0.26 0.51-0.56 0.7-0.9l0.01-0.02c0.25-0.53 0.37-1.12 0.34-1.71v0.01c-0.02-0.59-0.13-1.16-0.34-1.7l0.01 0.03c-0.14-0.42-0.38-0.8-0.69-1.1l-0.01 0c0.47 0.19 0.87 0.43 1.23 0.71l-0.01-0.01c0.3 0.26 0.53 0.6 0.67 0.98l0.01 0.02c0.14-2.12-0.73-4.18-2.36-5.54l-0.01-0.01c1.46 0.39 2.74 1.25 3.64 2.46l0.01 0.01c0.92 1.35 1.39 2.96 1.33 4.59v-0.01l0 0.08c0 0.78-0.13 1.52-0.37 2.22l0.02-0.05c-0.26 0.76-0.63 1.48-1.11 2.13l0.01-0.02c-0.47 0.64-1.03 1.22-1.65 1.72l-0.02 0.01c-1.35 1.06-3.02 1.64-4.74 1.64h0z"/></svg><span>Firefox</span><small>140.0+</small></li>
+<li class="ext-chip"><svg class="icon icon-brand icon-edge" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path class="b1" d="M3.75 1.17c1.28-0.79 2.74-1.19 4.22-1.17 5.25 0 8.03 3.87 8.03 6.86 0 1.02-0.41 2-1.12 2.72-0.72 0.73-1.69 1.14-2.71 1.16-2.35 0-2.86-0.72-2.86-1 0-0.12 0.04-0.19 0.15-0.29l0.03-0.04 0.01-0.05c0.33-0.36 0.5-0.82 0.5-1.3 0-2.46-2.57-4.46-5.75-4.46-1.17-0.01-2.33 0.28-3.36 0.84 0.84-1.8 2.58-3.05 2.85-3.24 0.03-0.02 0.01-0.03 0.01-0.03z"/><path class="b2" d="M4.24 11.11c-0.04 0.94 0.14 1.87 0.51 2.72 0.43 0.83 1.03 1.6 1.77 2.17-1.86-0.36-3.49-1.37-4.67-2.79-1.19-1.45-1.85-3.26-1.85-5.15 0-1.6 1.95-2.95 4.25-2.95 1.14-0.02 2.26 0.34 3.18 1.02l-0.11 0.04c-1.61 0.55-3.08 2.83-3.08 4.94"/><path class="b3" d="M14.68 12.5l-0.02 0c-0.37 0.59-0.81 1.1-1.32 1.55-0.96 0.88-2.13 1.42-3.4 1.56-0.58 0.01-1.15-0.1-1.68-0.36-0.8-0.32-1.47-0.93-1.93-1.65-0.45-0.75-0.66-1.62-0.59-2.49-0.02-0.63 0.17-1.26 0.47-1.82 0.43 1.04 1.17 1.92 2.11 2.53s2.05 0.92 3.17 0.89c0.97 0.01 1.94-0.21 2.82-0.64l0.06-0.03c0.12-0.07 0.24-0.12 0.36 0 0.14 0.15 0.06 0.29-0.04 0.44 0 0-0.01 0.01-0.01 0.02"/></svg><span>Edge</span></li>
+<li class="ext-chip"><svg class="icon icon-brand icon-safari" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path class="b1" fill-rule="evenodd" d="M8 .3A7.7 7.7 0 1 1 8 15.7 7.7 7.7 0 0 1 8 .3Zm0 1.2A6.5 6.5 0 1 0 8 14.5 6.5 6.5 0 0 0 8 1.5ZM7.7 2.2h.6v1.2h-.6ZM12.6 7.7h1.2v.6h-1.2ZM7.7 12.6h.6v1.2h-.6ZM2.2 7.7h1.2v.6H2.2Z"/><path class="b2" d="M11.25 4.75 8.96 8.74 7.26 7.05Z"/><path class="b3" d="M4.75 11.25 7.05 7.26 8.74 8.96Z"/></svg><span>Safari</span></li>
 </ul>
 </section>
 </div>
