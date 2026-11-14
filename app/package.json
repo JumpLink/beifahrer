@@ -78,6 +78,24 @@
         "accentDark": "#613583"
       },
       "contentRating": "oars-1.1",
+      "screenshots": [
+        {
+          "url": "https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/desktop-light.png",
+          "caption": "The window lists agent sessions and the browsers connected to them"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/popup-light.png",
+          "caption": "The toolbar popup shows the policy for the current site"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/options-light.png",
+          "caption": "Per-site policy in the settings"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/confirm-light.png",
+          "caption": "Confirmation before an action the policy does not pre-approve"
+        }
+      ],
       "homepageUrl": "https://jumplink.eu/beifahrer/",
       "bugtrackerUrl": "https://github.com/JumpLink/beifahrer/issues",
       "vcsBrowserUrl": "https://github.com/JumpLink/beifahrer",
