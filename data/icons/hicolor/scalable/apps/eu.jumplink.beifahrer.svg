@@ -1,11 +1,4 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!--
-Beifahrer C3 — Bully, yellow with an orange upper side and a surfboard on the rack: the trip,
-not the commute. Variant e of Pascal's d (lighting pass); c of b: the roof is a TOP FACE seen from slightly above,
-like the money stack in the GNOME HIG — the side face meets it with square shoulders, the
-rounding lives in the roof's far corners, and the board lies flat on it instead of standing up.
--->
-
 <svg
    width="128"
    height="128"
@@ -13,6 +6,12 @@ rounding lives in the roof's far corners, and the board lies flat on it instead 
    version="1.1"
    id="svg6"
    xmlns="http://www.w3.org/2000/svg">
+<!--
+Beifahrer C3 — Bully, yellow with an orange upper side and a surfboard on the rack: the trip,
+not the commute. Variant e of Pascal's d (lighting pass); c of b: the roof is a TOP FACE seen from slightly above,
+like the money stack in the GNOME HIG — the side face meets it with square shoulders, the
+rounding lives in the roof's far corners, and the board lies flat on it instead of standing up.
+-->
   
   <defs
      id="defs4">

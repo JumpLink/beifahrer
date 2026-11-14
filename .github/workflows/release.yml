@@ -8,8 +8,8 @@ name: Release
 #
 # The installable packages follow the same rule and are built there too, not here: ci.yml ships
 # the app as `ship-deb-rpm` (`.deb`, `.rpm`), `ship-windows` (`windows-dir-zip`, `.msi`),
-# `ship-macos` (`.zip` + `.dmg` per arch, signed and notarised) and `ship-flatpak` (`.flatpak`), as
-# uploaded artifacts, each file with its `.gjsify-release.json` record; the `release` job below only
+# `ship-macos` (`.zip` + `.dmg` per arch, signed and notarised), `ship-flatpak` (`.flatpak`) and
+# `ship-linux-tar` (`-flatpak.tar.gz`, the source a FlatPark package downloads), as uploaded artifacts, each file with its `.gjsify-release.json` record; the `release` job below only
 # attaches them. ONE ship project (ADR 0023): the app is `kind: app`, one binary that opens the
 # window without arguments and acts as the MCP/CLI bridge with a subcommand.
 # Everything but macOS assembles on the SAME `fedora:44` container, and macOS is STAGED there too;
@@ -88,7 +88,7 @@ jobs:
           name: extension-zips
           path: zips
 
-      # The installable packages, again out of CI rather than built here (see the header). SIX
+      # The installable packages, again out of CI rather than built here (see the header). SEVEN
       # artifacts, not one: `.deb` + `.rpm` and the Windows packages come out of
       # the container that already runs the tests, macOS out of the job that signs it, the
       # `.flatpak` out of the privileged flatpak-builder job, and merging them into a single upload would mean one of those jobs
@@ -135,7 +135,9 @@ jobs:
             "packages/beifahrer-${version}-1.x86_64.dmg" \
             "packages/beifahrer-${version}-1.windows.x64.zip" \
             "packages/beifahrer-${version}-1.x64.msi" \
-            "packages/eu.jumplink.beifahrer-${version}-1.x86_64.flatpak"; do
+            "packages/eu.jumplink.beifahrer-${version}-1.x86_64.flatpak" \
+            "packages/beifahrer-${version}-linux-x86_64-flatpak.tar.gz" \
+            "packages/beifahrer-${version}-linux-x86_64-flatpak.tar.gz.gjsify-release.json"; do
             if [ ! -s "$f" ]; then
               echo "::error::missing or empty artifact: $f"
               missing=1
