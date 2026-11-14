@@ -75,13 +75,16 @@ is how Mail or Messages behave when their window is closed. So `onClose` takes a
 on `darwin`), and closing takes the window away there. A menu-bar status item stays behind
 `@gjsify/status-icon` (rule 5); autostart waits for a macOS driver.
 
-The window is **minimised, not hidden**, on macOS (0.1.29). The first idea, `set_visible(false)`, did
-not work: GTK 4.24.1's Quartz delegate has no `applicationShouldHandleReopen:hasVisibleWindows:`
-(upstream added it on 2026-10-19, in `main` and in no release), so a Dock click on an app without a
-visible window never reaches `activate`. Measured with a GJS probe: a hidden window stayed hidden
-after a reopen event, a minimised one came back because AppKit's default reopen restores it. The
-shim is dropped when the shipped GTK has the delegate method (gjsify ships GTK as a Homebrew bottle,
-it cannot be patched there); see [gjsify-gaps.md](../gjsify-gaps.md).
+The window is **hidden** on macOS like everywhere else (`set_visible(false)`). GTK 4.24.1's Quartz
+delegate has no `applicationShouldHandleReopen:hasVisibleWindows:`, so a Dock click on an app without
+a visible window never reached `activate`. 0.1.29 minimised the window instead (AppKit's default
+reopen restores a minimised one; measured with a GJS probe). Since gjsify 0.64.39 `AdwaitaApp` installs
+the missing method itself through `@gjsify/gtk-quartz-native` (gjsify ADR 0141), so the shim is gone;
+a Node-hosted `.app` (this one) only stages the bridge from 0.64.40 (gjsify#2632).
+The bridge is an optional dependency and `installDockReopen()` fails silently without it, with no
+query for the app: where it did not load, the hidden window has no Dock way back. Fail-safe direction
+(the window stays visible when in doubt) is therefore a check at release time: a Dock click on the
+shipped build with the window closed must bring it back. See [gjsify-gaps.md](../gjsify-gaps.md).
 
 Quitting must never be a custom `app.quit` action. GTK's `applicationShouldTerminate:` triggers an
 action called `quit` and answers "cancel" (⌘Q, Dock → Quit, logout, restart); measured 2026-11-07
