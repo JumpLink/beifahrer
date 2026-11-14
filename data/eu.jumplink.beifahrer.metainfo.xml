@@ -105,6 +105,13 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.32" date="2026-11-14">
+      <description>
+        <ul>
+          <li>Releases now include a Linux source archive for FlatPark packaging</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.31" date="2026-11-13">
       <description>
         <ul>
