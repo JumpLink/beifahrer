@@ -79,7 +79,8 @@ The window is **hidden** on macOS like everywhere else (`set_visible(false)`). G
 delegate has no `applicationShouldHandleReopen:hasVisibleWindows:`, so a Dock click on an app without
 a visible window never reached `activate`. 0.1.29 minimised the window instead (AppKit's default
 reopen restores a minimised one; measured with a GJS probe). Since gjsify 0.64.39 `AdwaitaApp` installs
-the missing method itself through `@gjsify/gtk-quartz-native` (gjsify ADR 0141), so the shim is gone.
+the missing method itself through `@gjsify/gtk-quartz-native` (gjsify ADR 0141), so the shim is gone;
+a Node-hosted `.app` (this one) only stages the bridge from 0.64.40 (gjsify#2632).
 The bridge is an optional dependency and `installDockReopen()` fails silently without it, with no
 query for the app: where it did not load, the hidden window has no Dock way back. Fail-safe direction
 (the window stays visible when in doubt) is therefore a check at release time: a Dock click on the
