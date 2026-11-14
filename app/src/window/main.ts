@@ -222,11 +222,7 @@ const application = new AdwaitaApp({
         app.hold();
         held = true;
       }
-      // macOS: minimise instead of hiding. GTK 4.24's Quartz delegate has no
-      // applicationShouldHandleReopen (added upstream 2026-10-19), so a Dock click on a hidden window
-      // never reaches `activate`; AppKit itself restores a minimised one.
-      if (process.platform === 'darwin') ui.window.minimize();
-      else ui.window.set_visible(false);
+      ui.window.set_visible(false);
       refresh(false);
     };
     const quit = () => {
