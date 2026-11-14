@@ -227,6 +227,33 @@ jobs:
             fi
           done
 
+      # The FlatPark source archive (ADR 0142 in gjsify): the same staged payload as the `.deb`, plus
+      # `gschemas.compiled`, with no interpreter bundled, because `org.gnome.Platform` provides gjs.
+      # A second `ship` call beside the one above, not another entry in its `--target`, so a failure
+      # here names this format and the `.deb`/`.rpm` step stays what it was. The row's only host tool
+      # is `glib-compile-schemas`, which `glib2-devel` above already installs.
+      - name: Package Beifahrer (FlatPark tarball)
+        working-directory: app
+        run: gjsify ship linux --skip-build --target linux-tar-flatpak
+
+      # The name is the one `utils/ship/formats.ts` renders for `linux-tar-flatpak` — note the
+      # `-flatpak` suffix, which the plain `linux-tar` row does not have, so both variants fit in one
+      # `out/`. `x86_64`, not `all`: the tarball carries the arch of the host that packed it.
+      # The record is asserted too, because the FlatPark package is generated from it.
+      - name: Assert the FlatPark tarball arrived
+        working-directory: app/ship/out
+        run: |
+          set -eu
+          ls -la
+          version=$(node -p "require('$GITHUB_WORKSPACE/app/package.json').version")
+          for f in "beifahrer-${version}-linux-x86_64-flatpak.tar.gz" \
+                   "beifahrer-${version}-linux-x86_64-flatpak.tar.gz.gjsify-release.json"; do
+            if [ ! -s "$f" ]; then
+              echo "::error::missing or empty artifact: $f"
+              exit 1
+            fi
+          done
+
       # macOS and Windows runtimes are `optionalDependencies` gated by os/cpu
       # (`@gjsify/node-runtime-{darwin-arm64,darwin-x64,win32-x64}`), which a plain install on this
       # Linux host SKIPS — naming the target installs it instead, and `ship` picks up both that
@@ -314,6 +341,17 @@ jobs:
           # Already-compressed packages; the default level 6 would spend minutes re-compressing them
           # on the way up and again on the way down for no gain.
           compression-level: 0
+
+      # Its own artifact, like `ship-windows`: `ship-*` is what release.yml downloads, so the tarball
+      # and its record reach the release through the existing pattern. Already gzipped.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ship-linux-tar
+          path: |
+            app/ship/out/*-flatpak.tar.gz
+            app/ship/out/*-flatpak.tar.gz.gjsify-release.json
+          compression-level: 0
+          if-no-files-found: error
 
       # `ship-*`, matching `ship-deb-rpm` and `ship-flatpak`, so release.yml's existing
       # `pattern: ship-*` download already picks this up with no change to that step. Each file
