@@ -27,11 +27,34 @@ import GdkPixbuf from 'gi://GdkPixbuf?version=2.0';
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { MIN_OPAQUE_SHARE, opaqueShare, iconSource, variantSvg } from './icon-looks.ts';
+import {
+  MIN_OPAQUE_SHARE,
+  STORE_ICON_ART,
+  STORE_ICON_SIZE,
+  hasPaddedStoreIcon,
+  opaqueShare,
+  iconSource,
+  variantSvg,
+} from './icon-looks.ts';
 
 import { iconFile, ICON_SIZES, ICON_VARIANTS, type Target } from '../manifest.ts';
 
 const INKS = ['dark', 'light'] as const;
+
+/** Staged beside the plain icons; only a target with `hasPaddedStoreIcon` receives it, under the plain name. */
+const paddedName = (ink: (typeof INKS)[number]): string =>
+  `padded-${iconFile('active', STORE_ICON_SIZE, ink)}`;
+
+/** The artwork at `STORE_ICON_ART` px, centred on a transparent `STORE_ICON_SIZE` px canvas. */
+export function paddedIcon(svg: string): GdkPixbuf.Pixbuf {
+  const art = GdkPixbuf.Pixbuf.new_from_file_at_size(svg, STORE_ICON_ART, STORE_ICON_ART);
+  const canvas = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, true, 8, STORE_ICON_SIZE, STORE_ICON_SIZE);
+  canvas.fill(0x00000000);
+  const x = (STORE_ICON_SIZE - art.get_width()) / 2;
+  const y = (STORE_ICON_SIZE - art.get_height()) / 2;
+  art.copy_area(0, 0, art.get_width(), art.get_height(), canvas, x, y);
+  return canvas;
+}
 
 /** Render every variant once into `stage`; `copyIcons` then places what each target needs. */
 export function renderIcons(root: string, stage: string): void {
@@ -49,14 +72,22 @@ export function renderIcons(root: string, stage: string): void {
         if (share < MIN_OPAQUE_SHARE) throw new Error(`${name} is nearly empty (${share.toFixed(2)} opaque)`);
         pixbuf.savev(join(stage, 'icons', name), 'png', [], []);
       }
+      if (variant === 'active') paddedIcon(svg).savev(join(stage, 'icons', paddedName(ink)), 'png', [], []);
     }
   }
 }
 
-export function copyIcons(stage: string, dir: string, _target: Target): void {
+export function copyIcons(stage: string, dir: string, target: Target): void {
   mkdirSync(join(dir, 'icons'), { recursive: true });
   for (const variant of ICON_VARIANTS) {
     const names = INKS.flatMap((ink) => ICON_SIZES.map((size) => iconFile(variant, size, ink)));
     for (const name of names) copyFileSync(join(stage, 'icons', name), join(dir, 'icons', name));
+  }
+  if (hasPaddedStoreIcon(target)) {
+    for (const ink of INKS)
+      copyFileSync(
+        join(stage, 'icons', paddedName(ink)),
+        join(dir, 'icons', iconFile('active', STORE_ICON_SIZE, ink)),
+      );
   }
 }
