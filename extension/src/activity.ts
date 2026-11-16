@@ -12,6 +12,7 @@ import { browser } from '@wxt-dev/browser';
 import {
   ACTIVITY_LIMIT,
   activityEntry,
+  isTabId,
   pushActivity,
   type ActivityEntry,
   type Method,
@@ -63,7 +64,7 @@ export async function activityLog(): Promise<ActivityEntry[]> {
 async function urlOf(method: Method, params: unknown): Promise<string | null> {
   const p = params as { tabId?: unknown; url?: unknown } | null;
   if (method === 'tabs.open' && typeof p?.url === 'string') return p.url;
-  if (typeof p?.tabId !== 'number') return null;
+  if (!isTabId(p?.tabId)) return null;
   // A tab id the agent made up, or one closed meanwhile, simply has no host to show; the method
   // itself answers not_found.
   const tab = await browser.tabs.get(p.tabId).catch(() => null);

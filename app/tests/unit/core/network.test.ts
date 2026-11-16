@@ -2,6 +2,7 @@ import { describe, expect, it } from '@gjsify/unit';
 import {
   MAX_NETWORK_LIMIT,
   MAX_NETWORK_URL,
+  isTabId,
   networkRow,
   parseNetwork,
   redactUrl,
@@ -39,6 +40,21 @@ export default async () => {
       const cut = redactUrl(long);
       expect(cut.length).toBe(MAX_NETWORK_URL);
       expect(cut.endsWith('…')).toBe(true);
+    });
+  });
+
+  await describe('isTabId', async () => {
+    await it('refuses what tabs.get throws on: -1, fractions, non-numbers', async () => {
+      expect(isTabId(-1)).toBe(false);
+      expect(isTabId(1.5)).toBe(false);
+      expect(isTabId(Number.NaN)).toBe(false);
+      expect(isTabId('3')).toBe(false);
+      expect(isTabId(undefined)).toBe(false);
+    });
+
+    await it('accepts a real tab id, 0 included', async () => {
+      expect(isTabId(0)).toBe(true);
+      expect(isTabId(42)).toBe(true);
     });
   });
 
