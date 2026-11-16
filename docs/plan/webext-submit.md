@@ -1,70 +1,124 @@
 # Plan — `gjsify webext submit`: the packages into Chrome and Edge from a command
 
-Stream G of [extension-page-and-stores.md](extension-page-and-stores.md) names the way into the
-stores. This plan is the part that can be automated: a command in gjsify that uploads a built
-package to the Chrome Web Store and Edge Add-ons, and a release step that calls it behind a
-person's approval. Reviewed by Opus on 2026-11-13; the review's corrections are folded in below.
+- **Written:** 2026-11-13 · **Reviewed and rewritten:** 2026-11-16
+- **What it is:** the automatable part of Stream G in
+  [extension-page-and-stores.md](extension-page-and-stores.md) — a gjsify command that uploads a
+  built package to the Chrome Web Store and Edge Add-ons, and a Beifahrer release step that calls it
+  behind a person's approval.
 
-## What the review changed
+The command exists. What is left is one gjsify fix, the version pin, and the uploads only a person
+may do.
+
+## Status
+
+| # | Step | State | Blocked by |
+|---|---|---|---|
+| S0 | ADR 0077 §7 amended with the measured API facts | done — gjsify #2627 | — |
+| S1 | `store.json` and `--stores` in `webext listing` | done — gjsify #2628 | — |
+| S2 | Store table and types (`StoreBackend`, env credentials, injectable `fetch`) | done — gjsify #2627 | — |
+| S3 | Chrome backend, API v2 | done — gjsify #2631 | — |
+| S4 | Edge backend, API v1.1 | done — gjsify #2631 | — |
+| S5 | Bounded poll/retry layer | done — gjsify #2633 | — |
+| S6 | `webext submit --store … [--dry-run] [--submit]` | done — gjsify #2634, released in v0.64.45 | — |
+| S6b | **Fix: `submit` must not demand a `webext` project shape** | open — gjsify #2673, CI running | a gjsify release ≥ 0.64.46 |
+| S7 | Document the command for agents in gjsify's cli `AGENTS.md` | open, needs a decision | the file is 32,766 B of a 32,768 B limit |
+| S8 | Beifahrer: `submit-stores` job in `release.yml` | written — Beifahrer PR #252, open | S6b, then the pin bump |
+| S8b | Bump Beifahrer's `@gjsify/*` pins 0.64.40 → ≥ 0.64.46 | open | S6b released |
+| S9 | The first upload per store, by hand | open — Pascal | Edge: a working drag-in or extension ≥ 0.1.31 |
+
+**Why S6b blocks everything:** `resolveSubmitProject` required a project to declare
+`gjsify.webext` with targets *and* a build shape; Beifahrer declares `gjsify.webext.listing` plus
+`targets` and nothing else, so `submit` refused the very project it was written for. The command in
+v0.64.45 therefore cannot run against this repository at all.
+
+## What the review measured, and what it changed (kept as the record)
 
 | Draft said | Measured | Consequence |
 |---|---|---|
-| New command `webext publish` | gjsify ADR 0077 §7 already decided `webext sign` and `webext submit`; `publish` collides with the npm command | name it **`webext submit`**; amend ADR 0077, no new ADR for the "whether" |
-| Chrome API v1 | v1 ended 2026-10-15; v2 needs the **publisher id** in the path (`/v2/publishers/{PUB}/items/{EXT}:upload\|:publish\|:fetchStatus`, upload via `/upload/v2/…`) | env list gains `CHROME_WEB_STORE_PUBLISHER_ID`; refresh-token exchange stays |
-| Edge: client id, secret, API token (release.yml comment) | v1.1: `Authorization: ApiKey <key>` + `X-ClientID`; no token exchange; the key **expires after 72 days** | fix the workflow comment; a 401 must say where to renew (Partner Center → Publish API → Create API credentials) |
-| Calls are synchronous | both are asynchronous: Chrome `uploadState: IN_PROGRESS` then `fetchStatus`; Edge `202` + `Location: <operationId>` then poll | a bounded poll layer and an exit code for "accepted, never resolved" |
-| Mock server in tests | house standard is an injected `fetch` (`publish-readback.ts`) | no mock server; runs on Node and GJS |
-| Leave AMO out | ADR 0077 §7 has AMO in the same table | the store table has an AMO slot; no backend in the first slice |
-| `store.json` carries the listing | neither API changes listing text; Edge takes one free-text field (certification notes) | `store.json` is **preflight**, not payload: resolve ids, check the manifest version against the last published, run `listing --check` first |
+| New command `webext publish` | ADR 0077 §7 already decided `webext sign` / `webext submit`; `publish` collides with the npm command | the command is `webext submit` |
+| Chrome API v1 | v1 ended 2026-10-15; v2 puts the **publisher id** in the path (`/v2/publishers/{PUB}/items/{EXT}:upload\|:publish\|:fetchStatus`, upload via `/upload/v2/…`) | the env list carries `CHROME_WEB_STORE_PUBLISHER_ID`; the refresh-token exchange stays |
+| Edge wants client id, secret and an API token | v1.1 wants `Authorization: ApiKey <key>` + `X-ClientID`; no token exchange; the key **expires after 72 days** | a 401 must name where to renew it |
+| The calls are synchronous | both are asynchronous: Chrome `uploadState` then `fetchStatus`; Edge `202` + `Location: <operationId>` then poll | a bounded poll layer and an exit code for "accepted, never resolved" |
+| Tests need a mock server | the house standard is an injected `fetch` (`publish-readback.ts`) | no mock server; the specs run on Node and on GJS |
+| Leave AMO out | ADR 0077 §7 lists AMO in the same table | the store table has an AMO slot with no backend behind it |
+| `store.json` carries the listing | neither API changes listing text; Edge takes one free-text field (certification notes) | `store.json` is **preflight**, not payload |
 
-Both APIs can **not create a product**. The first upload per store is by hand; `submit` only ever
-adds a version to an existing one. Chrome also needs one manual publish after every visibility
-change in the dashboard, or the API refuses `publish`. Edge has no "unlisted" like Chrome: what the
-plan calls "hidden" is a different mechanism, to be read up before Stream G step 2.
+Neither API can **create a product**. The first upload per store is by hand; `submit` only ever adds
+a version to an existing product. Chrome also needs one manual publish in the dashboard after a
+visibility change, or the API refuses `publish`.
 
 ## Rules that do not bend
 
-- Credentials from the environment only, never a file, never an argument. A redaction function over
+- Credentials from the environment only — never a file, never an argument. A redaction function over
   header names, with a test.
 - `--dry-run` **checks** the credentials with exactly one read call (Chrome `fetchStatus`; Edge an
-  operation GET on an unknown id: 404 means a live key, 401 a dead one). It never uploads.
-- Default is upload as a draft. `--submit` is explicit, and refuses when `$GITHUB_REF` is not a tag.
+  operation GET on an unknown id). It never uploads.
+- Default is upload as a draft. `--submit` is explicit and refuses when `$GITHUB_REF` is not a tag.
 - Idempotent re-runs: the same version again is "already there" (exit 0), not a red run. Edge
   `NoModulesUpdated` and `InProgressSubmission` exit 0 with a note; `SubmissionValidationError` and
-  `ModuleStateUnPublishable` are real errors. Chrome `cancelSubmission` is the documented way out
-  and belongs in the command's help.
-- The workflow step sits behind a GitHub Environment **with a required reviewer**, never behind a
+  `ModuleStateUnPublishable` are real errors. Chrome `cancelSubmission` is the documented way out and
+  is named in the command's help.
+- The workflow step sits behind a GitHub Environment **with a required reviewer** — never behind a
   dispatch input alone, never behind the tag push alone.
-- Going public, the first submission, privacy and data-use declarations stay with the person.
+- Going public, the first submission, and every privacy or data-use declaration stay with Pascal.
 
-## Steps
+## The open steps
 
-| # | Step | Where | Gate | Needs | Model |
-|---|---|---|---|---|---|
-| S0 | Amend ADR 0077 §7 with the measured API facts; decide whether store credentials join `ship credentials` (ADR 0126) or get their own table | gjsify `docs/adr/` | `gjsify` doc gates | — | `paid-opus` |
-| S1 | `store.json` and `--stores` in `webext listing` (Stream F2) | gjsify `packages/infra/site/src/listing/` | `gjsify workspace @gjsify/site run test` | — | `paid-sonnet` |
-| S2 | Store table and types: `StoreBackend` with `upload`, `publish`, `status`; credentials from env; `fetchImpl` injectable | gjsify `packages/infra/cli/src/utils/webext/stores/index.ts` | `gjsify workspace @gjsify/cli run test:node` | S0 | `paid-sonnet` |
-| S3 | Chrome backend, v2, with specs for every error class | `stores/chrome.ts` + spec | test:node, test:gjs | S2 | `paid-sonnet` |
-| S4 | Edge backend, v1.1, with specs (72-day message, `202` + operation poll) | `stores/edge.ts` + spec | test:node, test:gjs | S2 | `paid-sonnet` |
-| S5 | Shared poll/retry layer: bounded, timeout flag, own exit code, idempotency classes | `stores/poll.ts` + spec | test:node, test:gjs | S3, S4 | `paid-opus` |
-| S6 | Subcommand `webext submit --store chrome\|edge [--dry-run] [--submit]`, redaction, preflight against `store.json` | `commands/webext/subcommands.ts`, `utils/webext/submit.ts` | `gjsify foreach -A check`, lint | S5, S1 | `paid-sonnet` |
-| S7 | Docs: cli `AGENTS.md` (command, measured traps), README | gjsify | `check-agent-context-size.mjs --check` | S6 | `go-flash` |
-| S8 | Beifahrer: fix the `release.yml` comment block (v1.1 / v2 shapes), add the step behind an Environment with reviewer, env names including the publisher id | beifahrer `.github/workflows/release.yml` | `node tools/check-doc-links.mjs` | S6 | `go-flash` |
-| S9 | First uploads by hand (Chrome unlisted, Edge) | the person, or Beifahrer `page_upload` | — | accounts | person |
+| # | Step | Owner | Precondition | Done when |
+|---|---|---|---|---|
+| S6b | Land gjsify #2673 and cut a patch release | agent | #2673 CI green | `npm view @gjsify/cli version` ≥ 0.64.46 and that version's `submit` accepts a `listing`-only project |
+| S8b | Bump every `@gjsify/*` pin in `package.json`, `app/`, `extension/`, `gjsify-lock.json` | agent | S6b released | `gjsify upgrade --check` exits 0; `gjsify foreach -A check`, `gjsify run lint`, `oxfmt --check .`, app unit tests and `node tests/e2e/browsers.e2e.mjs all` all pass |
+| S8 | Merge PR #252 | agent | S8b merged; `webext submit --store chrome --dry-run` run locally against the real secrets | the `submit-stores` job appears in a dispatch run and stops at the `store-release` approval |
+| S7 | Document `submit` for agents | agent, after Pascal decides where | S6b | the command, its env names and the 72-day trap are findable from gjsify's cli docs, and `check-agent-context-size.mjs --check` passes |
+| S9a | Chrome: upload the first package by hand, keep the item **unlisted** | Pascal | the tag's `chrome-mv3` zip; the store preview approved | the draft item holds a version and the review queue has it |
+| S9b | Edge: upload the first package | Pascal (or agent via `page_upload` once the extension is ≥ 0.1.31) | the tag's `edge-mv3` zip | the Edge product holds a package |
+| S9c | A dispatch run with `submit_for_review` off, to prove the draft upload path | agent | S8 merged, S9a/S9b done | both stores show a new draft version, nothing submitted |
 
-S3 and S4 run in parallel. Everything before S9 needs no account.
+**S7 needs a decision, not more text.** gjsify's cli `AGENTS.md` is 2 bytes under
+`project_doc_max_bytes` (32 KiB), past which Codex truncates the tail without saying so. Three ways
+out: trim something stale from that file and add a short section; add one pointer line there and put
+the detail in a README (gjsify's `packages/infra/site/README.md` already describes the listing and
+submission flow); or split the webext part of `AGENTS.md` into its own file. The last is the
+cheapest to keep true — Pascal decides.
 
-## Secret names (final)
+**The Edge upload trap:** Partner Center's file field lives inside a shadow root, and the installed
+extension 0.1.30 cannot reach it, so the upload fails silently. Extension 0.1.31+ carries the fix;
+until it is installed, Pascal drags the zip in. This is why S9b has two owners.
 
-Set by the person with `gh secret set <NAME> --repo JumpLink/beifahrer`; the value is prompted for
-and never goes through chat.
+## Secret names and their renewal
 
-| Store | Secrets |
+Set with `gh secret set <NAME> --repo JumpLink/beifahrer`; the value is prompted for and never goes
+through a chat.
+
+| Store | Secrets | State |
+|---|---|---|
+| Chrome | `CHROME_WEB_STORE_PUBLISHER_ID`, `CHROME_WEB_STORE_ITEM_ID`, `CHROME_WEB_STORE_CLIENT_ID`, `CHROME_WEB_STORE_CLIENT_SECRET`, `CHROME_WEB_STORE_REFRESH_TOKEN` | all five set; validity unchecked until the first CI run |
+| Edge | `EDGE_ADDONS_PRODUCT_ID`, `EDGE_ADDONS_CLIENT_ID`, `EDGE_ADDONS_API_KEY` | all three set; the key was created 2026-11-14 |
+
+- **Chrome OAuth:** GCP project `beifahrer-publishing`, consent screen in production, desktop client.
+  A refresh token from a test-mode consent screen expires after seven days — that is why it is in
+  production.
+- **Edge key renewal: by 2027-01-20.** The key is valid 72 days from 2026-11-14; Partner Center
+  shows the exact date (→ Publish API → Create API credentials). Renew before the date, not after a
+  red run: a dead key only announces itself as a 401 on a release.
+
+## Checks the first real run must answer
+
+Each of these is **unverified**: the behaviour is documented nowhere we trust, so the first run
+writes the answer back into this table and into gjsify's cli docs.
+
+| Question | Why it matters |
 |---|---|
-| Chrome | `CHROME_WEB_STORE_PUBLISHER_ID`, `CHROME_WEB_STORE_ITEM_ID`, `CHROME_WEB_STORE_CLIENT_ID`, `CHROME_WEB_STORE_CLIENT_SECRET`, `CHROME_WEB_STORE_REFRESH_TOKEN` |
-| Edge | `EDGE_ADDONS_PRODUCT_ID`, `EDGE_ADDONS_CLIENT_ID`, `EDGE_ADDONS_API_KEY` (expires after 72 days) |
+| Does Chrome report `IN_PROGRESS` or `UPLOAD_IN_PROGRESS`? | the poll layer matches on the string |
+| What is an item's publish status right after a visibility change? | decides whether `publish` is refused and a manual step is needed |
+| Is `deployPercentage` accepted without `STAGED_PUBLISH`? | an accepted-but-ignored field would silently not stage |
+| What format does Edge want publish notes in? | a rejected body costs a review cycle |
+| Does Edge always return the `Location` header, or sometimes only a body? | the operation id is read from it |
+| 404 or 401 on an unknown operation id? | `--dry-run`'s liveness check distinguishes the two |
 
 ## Out of scope
 
-Safari (Xcode and App Store Connect, ADR 0026), AMO as a backend (signing already runs in the
-release workflow), creating products, changing listing text through an API.
+Safari (Xcode and App Store Connect — [ADR 0026](../adr/0026-safari-extension-ships-inside-the-desktop-app.md)),
+AMO as a `submit` backend (signing already runs in
+[`release.yml`](../../.github/workflows/release.yml)'s `sign-firefox` job and Firefox is
+self-distributed), creating a product, and changing listing text through an API.
