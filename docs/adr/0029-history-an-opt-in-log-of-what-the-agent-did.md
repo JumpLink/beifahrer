@@ -1,6 +1,6 @@
 # 0029: History: an opt-in log of what the agent did
 
-- **Status:** accepted (the UI and the storage wiring are not built yet; see "Steps")
+- **Status:** accepted; steps 2 to 4 shipped together (storage, options UI, privacy text)
 - **Date:** 2026-11-16
 - **Refs:** [#81](https://github.com/JumpLink/beifahrer/issues/81)
 - **Relates to:** [0005](0005-the-person-sees-and-stops-the-agent.md) (the person sees the agent), [0007](0007-one-connection-per-agent-session.md) (session labels), [0015](0015-session-registry.md) (what a local record may hold), [0016](0016-scripts-without-asking.md) (the activity log is how a person sees quiet scripts afterwards)
@@ -103,9 +103,9 @@ This PR does not change the privacy page: it describes shipped behaviour, and no
 
 1. **Done in this PR:** `packages/core/src/history.ts`: entry type, `historyEntry` (redaction),
    `parseHistory`, `pruneHistory`/`pushHistory` (the cap), with unit tests.
-2. Extension storage module and the switch (`history_enabled`, default off), written from `track`.
-3. Options UI, i18n `en`/`de`, phone-width check, "Clear history".
-4. Privacy page update (above) in the same release as step 2.
+2. **Done:** extension storage module and the switch (`history_enabled`, default off), written from `track`.
+3. **Done:** options UI, i18n `en`/`de`, phone-width check, "Clear history".
+4. **Done:** privacy page update (above) in the same release as step 2.
 
 Steps 2 to 4 ship together; step 2 must not ship without the switch, the clear action and the privacy
 text.

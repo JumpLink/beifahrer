@@ -42,6 +42,7 @@ import extensionQr from './unit/extension/qr.test.ts';
 import extensionIconLooks from './unit/extension/icon-looks.test.ts';
 import extensionIconNames from './unit/extension/icon-names.test.ts';
 import extensionActivity from './unit/extension/activity.test.ts';
+import extensionHistory from './unit/extension/history.test.ts';
 import extensionStatus from './unit/extension/status.test.ts';
 import extensionGuardOnce from './unit/extension/guard-once.test.ts';
 import extensionOpenOptions from './unit/extension/open-options.test.ts';
@@ -122,6 +123,7 @@ run({
   extensionIconLooks,
   extensionIconNames,
   extensionActivity,
+  extensionHistory,
   extensionStatus,
   extensionGuardOnce,
   extensionOpenOptions,

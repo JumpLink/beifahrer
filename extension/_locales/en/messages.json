@@ -903,5 +903,49 @@
         "content": "$1"
       }
     }
+  },
+  "history_title": {
+    "message": "History"
+  },
+  "history_on": {
+    "message": "Keep a history"
+  },
+  "history_on_detail": {
+    "message": "Which site, when, what the agent did and whether it worked. Kept in this browser for 30 days, 500 entries at most. Off by default."
+  },
+  "history_stored_one": {
+    "message": "Off. 1 entry is still stored."
+  },
+  "history_stored_other": {
+    "message": "Off. $COUNT$ entries are still stored.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "history_empty": {
+    "message": "Nothing recorded yet"
+  },
+  "history_clear": {
+    "message": "Clear history"
+  },
+  "history_cleared": {
+    "message": "History cleared"
+  },
+  "history_no_host": {
+    "message": "A browser page"
+  },
+  "history_outcome_ok": {
+    "message": "Done"
+  },
+  "history_outcome_refused": {
+    "message": "Refused"
+  },
+  "history_outcome_failed": {
+    "message": "Failed"
+  },
+  "history_scripts_note": {
+    "message": "The history never keeps what was typed or which script ran. The activity list in the popup shows a short preview until the browser closes. To see a script before it runs, leave confirmation on."
   }
 }

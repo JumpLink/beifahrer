@@ -97,7 +97,7 @@ export async function loadActivity(): Promise<ActivitySnapshot> {
   return (await browser.runtime.sendMessage({ type: 'activity' })) as ActivitySnapshot;
 }
 
-const REASONS: Record<string, MessageKey> = {
+export const REASONS: Record<string, MessageKey> = {
   paused: 'reason_paused',
   feature_disabled: 'reason_feature_disabled',
   forbidden: 'reason_forbidden',

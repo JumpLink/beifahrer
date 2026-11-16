@@ -93,6 +93,22 @@
 
       <adw-preferences-group id="activity" data-i18n-title="activity_title"></adw-preferences-group>
 
+      <section class="stack" id="history">
+        <adw-preferences-group data-i18n-title="history_title">
+          <adw-switch-row
+            id="history-on"
+            data-i18n-title="history_on"
+            data-i18n-subtitle="history_on_detail"
+          ></adw-switch-row>
+        </adw-preferences-group>
+        <p id="history-status" class="dimmed history-note" role="status" hidden></p>
+        <p class="dimmed history-note" data-i18n="history_scripts_note"></p>
+        <div id="history-list" class="stack"></div>
+        <adw-preferences-group>
+          <adw-button-row id="history-clear" hidden data-i18n-title="history_clear"></adw-button-row>
+        </adw-preferences-group>
+      </section>
+
       <adw-preferences-group data-i18n-title="advanced_title">
         <adw-expander-row id="ports" data-i18n-title="ports_title">
           <adw-spin-row

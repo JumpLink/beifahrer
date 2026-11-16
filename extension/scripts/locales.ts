@@ -37,8 +37,9 @@ const LIMITS: Record<string, number> = { extName: 45, extDescription: 132 };
 const DYNAMIC: RegExp[] = [
   /^method_/, // i18n.ts methodWords
   /^feature_[A-Za-z]+_label$/, // i18n.ts featureLabel
-  /^(windows|tabs|close_target_window|close_target_tabs)_(one|other)$/, // i18n.ts plural
+  /^(windows|tabs|close_target_window|close_target_tabs|history_stored)_(one|other)$/, // i18n.ts plural
   /^toolbar_offline_/, // toolbar.ts titleFor
+  /^history_outcome_(ok|refused|failed)$/, // ui/history.ts outcomeWords
 ];
 
 /** Characters the UI copy does not use: dashes as punctuation, exclamation marks, curly quotes. */

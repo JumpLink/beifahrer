@@ -129,13 +129,14 @@ Nichts wird in den Storage der Bridge geschrieben, und nichts wird an einen Serv
 | temporäre Freigaben ("alle Seiten", "für diese Sitzung") | `storage.session` — nie in der gespeicherten Richtlinie, weg beim Browser-Neustart | `extension/src/grants.ts:6` |
 | das Aktivitätsprotokoll im Popup | `storage.session` wo verfügbar, sonst nur im Speicher | `extension/src/activity.ts:7-8` |
 | gespeicherte Sitzungen (deine Fenster und Tabs) | `storage.local` dieses Profils, **nie auf der Bridge** | `extension/src/sessions-store.ts:4-5`, gelesen in `extension/src/sessions-store.ts:38` |
+| der Verlauf, wenn du ihn einschaltest (standardmäßig aus) | `storage.local` dieses Profils: nur Zeit, Methode, Host, Ergebnis und Fehlercode, nie Pfad, Titel, Text oder Sitzungsname; höchstens 500 Einträge und 30 Tage; mit einem Klick gelöscht; keine Agent-Methode kann ihn lesen ([ADR 0029](../adr/0029-history-an-opt-in-log-of-what-the-agent-did.md)) | `extension/src/history.ts` |
 | das Anfrage-Protokoll, wenn eingeschaltet | im Speicher, ein Puffer pro Tab, auf 200 Zeilen gedeckelt, verworfen beim Schließen des Tabs oder nach zehn Minuten Ruhe | `extension/src/network.ts:52,73-77,89-95` |
 
 Dass gespeicherte Sitzungen im Browser liegen statt neben dem Agenten, ist eine Entscheidung mit
 eigener Begründung, [ADR 0004](../adr/0004-sessions-live-in-the-browser.md).
 
 Was das Aktivitätsprotokoll festhält: Zeit, Methode in Worten, den **Host**, das Ergebnis und eine
-gekappte Vorschau einer Eingabe. Nie Seitentext (`extension/src/activity.ts:5-6`).
+gekappte Vorschau einer Eingabe. Nie Seitentext (`extension/src/activity.ts:5-6`). Das Aktivitätsprotokoll liegt nie auf der Platte; der Verlauf oben ist die einzige Aufzeichnung, die bleibt, und nur wenn du ihn einschaltest.
 
 ## 6. Was der Agent sehen kann, und was nicht
 
