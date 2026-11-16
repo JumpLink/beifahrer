@@ -40,10 +40,13 @@ export function clip(text: string, max: number = BACKGROUND_STATUS_MAX): string 
         .trimEnd()}…`;
 }
 
-/** The rung the status page shows, as one line for the portal: an alarm says its title, ready counts. */
+/**
+ * The rung the status page shows, as one line for the portal: only a confirmed `ready` counts the
+ * sessions. Any other rung says its title, so "pause unknown" never reads as a plain "Ready" (ADR 0030).
+ */
 export function backgroundLine(view: StatusView, t: Translate): string {
   const count = view.sessions.length;
-  if (view.alarm || count === 0) return clip(view.title);
+  if (view.alarm || view.standing !== 'ready' || count === 0) return clip(view.title);
   return clip(t(count === 1 ? 'background.status.one' : 'background.status.many', { count }));
 }
 
