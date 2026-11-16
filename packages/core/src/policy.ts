@@ -185,6 +185,8 @@ export const REQUIRED_LEVEL = {
   // is the page. Requests the page made to OTHER origins come back host-and-path, without the query
   // that could carry a token (network.ts) — the same boundary as the frame work, one layer out.
   'page.network': 'read',
+  // Code the site serves to every visitor, fetched WITHOUT the person's cookies (sources.ts). `read` on the tab's site, like the request log it is built from.
+  'page.sources': 'read',
   'page.screenshot': 'read',
   // A document the page links to, fetched in the tab's own session. `read`, not `write`: it only
   // ever reads, and demanding `write` would push a bank or insurer origin up a level for the one

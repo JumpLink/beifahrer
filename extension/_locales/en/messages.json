@@ -225,6 +225,9 @@
   "method_page_network": {
     "message": "Looked at what the page requested"
   },
+  "method_page_sources": {
+    "message": "Searched the scripts of a page"
+  },
   "method_page_screenshot": {
     "message": "Took a screenshot"
   },

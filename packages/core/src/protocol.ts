@@ -30,6 +30,7 @@ import type { ScriptWorld } from './evaluate.ts';
 import type { Navigation } from './navigate.ts';
 import type { UploadFile, UploadedFile } from './upload.ts';
 import type { NetworkRow } from './network.ts';
+import type { SourceAction, SourceHit, SourceRow } from './sources.ts';
 import type { Feature } from './features.ts';
 import type { ElementQuery, MetaQuery } from './find.ts';
 import type { Level, Method } from './policy.ts';
@@ -372,6 +373,35 @@ export interface MethodMap {
       /** True when rows were dropped to hold the cap — the log is a tail, not a history. */
       truncated: boolean;
       /** Why the log is empty when the person expects it not to be (feature off, no grant). */
+      note?: string;
+    };
+  };
+  /**
+   * The scripts the tab and its workers loaded: list them, search their text, read around a hit
+   * (issue #234). Code the site serves to every visitor, fetched without the person's cookies.
+   */
+  'page.sources': {
+    params: {
+      tabId: number;
+      action: SourceAction;
+      pattern?: string;
+      literal?: boolean;
+      urlFilter?: string;
+      context?: number;
+      maxHits?: number;
+      url?: string;
+      offset?: number;
+      length?: number;
+    };
+    result: {
+      action: SourceAction;
+      scripts: SourceRow[];
+      hits: SourceHit[];
+      /** Scripts whose text was searched. */
+      searched: number;
+      /** True when hits, scripts or the time budget cut the answer short. */
+      truncated: boolean;
+      slice?: { url: string; offset: number; text: string; total: number; more: boolean };
       note?: string;
     };
   };

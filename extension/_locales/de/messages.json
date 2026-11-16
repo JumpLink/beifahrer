@@ -224,6 +224,9 @@
   "method_page_network": {
     "message": "Angesehen, was die Seite angefragt hat"
   },
+  "method_page_sources": {
+    "message": "Die Skripte einer Seite durchsucht"
+  },
   "method_page_screenshot": {
     "message": "Screenshot gemacht"
   },

@@ -63,7 +63,7 @@ export const FEATURE_INFO: Record<Feature, { label: string; detail: string }> = 
   network: {
     label: 'See what a page requests',
     detail:
-      'page_network — what the tab asked for and what came back, without query strings. The browser ' +
+      'page_network, page_sources — what the tab asked for and what came back, without query strings, and the scripts it loaded. The browser ' +
       'grants this separately, and the grant is what a request log is: your browsing, in a list',
   },
   screenshot: {
@@ -182,7 +182,10 @@ export const FEATURE_OF = {
   // A capture is a click AND a download, so it answers to both switches (handlers.ts checks the
   // second); the one named here is the one a refusal names.
   'page.capture': 'download',
+  // Rides on the request-log switch: the script list comes from the same `webRequest` grant, and a
+  // second switch would ask the person for the same permission twice.
   'page.network': 'network',
+  'page.sources': 'network',
   'page.fill': 'fill',
   'page.enterCode': 'oneTimeCodes',
   'page.readQr': 'qrCodes',
