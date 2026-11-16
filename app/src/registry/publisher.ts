@@ -9,14 +9,16 @@
  */
 
 import { rmSync } from 'node:fs';
-import { HEARTBEAT_MS, entryOf, sweepable, type BridgeStatus } from '@beifahrer/core';
+import { HEARTBEAT_MS, entryOf, sweepable, type BridgeStatus, type ReportedState } from '@beifahrer/core';
 import { ensureDir, readEntries, registryDir, removeEntry, writeEntry } from '@beifahrer/local';
 
 /** What the publisher needs of a bridge: `Bridge` satisfies it, a test passes a small fake. */
 export interface Publishable {
   status(): BridgeStatus;
-  on(event: 'connected' | 'disconnected' | 'session', listener: () => void): unknown;
-  off(event: 'connected' | 'disconnected' | 'session', listener: () => void): unknown;
+  /** What the browsers said about their pause (ADR 0030); a bridge without it reports nothing. */
+  reported?(): Map<string, ReportedState>;
+  on(event: 'connected' | 'disconnected' | 'session' | 'state', listener: () => void): unknown;
+  off(event: 'connected' | 'disconnected' | 'session' | 'state', listener: () => void): unknown;
 }
 
 export interface PublishOptions {
@@ -50,7 +52,7 @@ export function publishRegistry(bridge: Publishable, options: PublishOptions = {
   };
 
   const write = () => {
-    if (!stopped) attempt(() => writeEntry(dir, entryOf(bridge.status(), now())));
+    if (!stopped) attempt(() => writeEntry(dir, entryOf(bridge.status(), now(), bridge.reported?.())));
   };
 
   attempt(() => {
@@ -68,7 +70,7 @@ export function publishRegistry(bridge: Publishable, options: PublishOptions = {
   });
   write();
 
-  const events = ['connected', 'disconnected', 'session'] as const;
+  const events = ['connected', 'disconnected', 'session', 'state'] as const;
   for (const event of events) bridge.on(event, write);
   const timer = setInterval(write, options.heartbeatMs ?? HEARTBEAT_MS);
   // Not the reason a process stays alive: a bridge that is done must be able to exit.

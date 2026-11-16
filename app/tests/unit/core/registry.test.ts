@@ -6,6 +6,7 @@ import {
   entryOf,
   isAlive,
   parseRegistryEntry,
+  presenceOf,
   statusOf,
   sweepable,
   unregisteredPorts,
@@ -170,6 +171,40 @@ export default async () => {
     await it('is empty when everything that listens announced itself, or nothing listens', async () => {
       expect(unregisteredPorts([47813], [entry({ port: 47813 })])).toStrictEqual([]);
       expect(unregisteredPorts([], [])).toStrictEqual([]);
+    });
+  });
+
+  await describe('the pause in the entry (ADR 0030)', async () => {
+    const b = (over: Record<string, unknown>) => ({ ...entry().browsers[0]!, ...over });
+    const withBrowsers = (...browsers: unknown[]) => [
+      entry({ browsers: browsers as RegistryEntry['browsers'] }),
+    ];
+
+    await it('entryOf writes what a connection reported, and nothing for one that said nothing', async () => {
+      const e = entryOf(status, NOW, new Map([['e12cd41c', { paused: true, allSites: false }]]));
+      expect(e.browsers[0]!.paused).toBe(true);
+      expect(e.browsers[0]!.allSites).toBe(false);
+      expect('paused' in entryOf(status, NOW).browsers[0]!).toBe(false);
+    });
+    await it('round-trips the fields, drops a non-boolean, and an old entry stays unknown', async () => {
+      const e = entryOf(status, NOW, new Map([['e12cd41c', { paused: false }]]));
+      expect(parseRegistryEntry(JSON.parse(JSON.stringify(e)))).toStrictEqual(e);
+      const raw = JSON.parse(JSON.stringify(entry()));
+      raw.browsers[0].paused = 'false';
+      raw.browsers[0].allSites = 0;
+      const parsed = parseRegistryEntry(raw) as RegistryEntry;
+      expect('paused' in parsed.browsers[0]!).toBe(false);
+      expect('allSites' in parsed.browsers[0]!).toBe(false);
+    });
+    await it('presenceOf: unknown is never ready, paused outranks it', async () => {
+      const at = (e: RegistryEntry[]) => presenceOf(statusOf(e, NOW).sessions);
+      expect(at([])).toBe('no-bridge');
+      expect(at([entry({ browsers: [] })])).toBe('no-browser');
+      expect(at(withBrowsers(b({})))).toBe('ready-unknown');
+      expect(at(withBrowsers(b({ paused: false })))).toBe('ready');
+      expect(at(withBrowsers(b({ paused: true })))).toBe('paused');
+      expect(at(withBrowsers(b({ paused: false }), b({})))).toBe('ready-unknown');
+      expect(at(withBrowsers(b({ paused: false }), b({ paused: true }), b({})))).toBe('paused');
     });
   });
 };

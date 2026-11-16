@@ -431,6 +431,55 @@ export default async () => {
     });
   });
 
+  await describe('Bridge pause state (ADR 0030)', async () => {
+    const until = async (done: () => boolean) => {
+      for (let i = 0; i < 40 && !done(); i++) await new Promise((res) => setTimeout(res, 25));
+    };
+
+    await it('keeps the latest state per connection, replaced whole, and tells the registry', async () => {
+      const bridge = await startBridge();
+      let events = 0;
+      bridge.on('state', () => events++);
+      const r = await connect(bridge);
+      const id = r.welcome!.connectionId;
+      expect(bridge.reported().get(id)).toStrictEqual({});
+      r.ws.send(JSON.stringify({ type: 'state', paused: true, allSites: true }));
+      await until(() => events >= 1);
+      expect(bridge.reported().get(id)).toStrictEqual({ paused: true, allSites: true });
+      r.ws.send(JSON.stringify({ type: 'state', paused: false, allSites: 'x' }));
+      await until(() => events >= 2);
+      expect(bridge.reported().get(id)).toStrictEqual({ paused: false });
+      r.ws.close();
+      await bridge.stop();
+    });
+
+    await it('an old bridge would drop the frame; this one answers nothing and stays open', async () => {
+      const bridge = await startBridge();
+      const seen: string[] = [];
+      const r = await connect(bridge, { onFrame: (f) => seen.push(f.type) });
+      r.ws.send(JSON.stringify({ type: 'state', paused: true, allSites: false }));
+      r.ws.send(JSON.stringify({ type: 'ping' }));
+      await until(() => seen.includes('pong'));
+      expect(seen.includes('pong')).toBe(true);
+      expect(r.ws.readyState).toBe(WebSocket.OPEN);
+      r.ws.close();
+      await bridge.stop();
+    });
+
+    await it('never reaches an agent: not in status(), not in the welcome', async () => {
+      const bridge = await startBridge();
+      const r = await connect(bridge);
+      r.ws.send(JSON.stringify({ type: 'state', paused: true, allSites: true }));
+      await until(() => bridge.reported().get(r.welcome!.connectionId)?.paused === true);
+      const keys = Object.keys(bridge.status().browsers[0]!).sort().join(',');
+      expect(keys).toBe('browser,capabilities,connectedAt,extension,id');
+      expect(JSON.stringify(bridge.status())).not.toMatch(/paused|allSites/);
+      expect(Object.keys(r.welcome!).join(',')).not.toMatch(/paused|allSites/);
+      r.ws.close();
+      await bridge.stop();
+    });
+  });
+
   await describe('Bridge sessions (ADR 0007)', async () => {
     await it('names its session in the welcome, and renames it live', async () => {
       const bridge = await startBridge({ label: 'claude-code · werkstatt' });

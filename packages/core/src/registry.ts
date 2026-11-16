@@ -4,11 +4,11 @@
  * time in, and the files themselves are app/src/registry/.
  *
  * The entry carries what the bridge KNOWS and nothing the agent could not already be told: no token,
- * no URL, no tab, no argument. It cannot say "paused" or "all sites" because the bridge is never told
- * either (ADR 0015 §5); the extension's own ladder (`alarmOf`) is the only place that knows.
+ * no URL, no tab, no argument. "Paused" and "all sites" are two optional booleans the extension
+ * reports about itself (ADR 0030); absent means the browser did not say, which is never "running".
  */
 
-import type { BridgeStatus, BrowserFamily } from './protocol.ts';
+import type { BridgeStatus, BrowserFamily, ReportedState } from './protocol.ts';
 
 export const REGISTRY_VERSION = 1;
 /** How often a live bridge rewrites its entry, even when nothing changed. */
@@ -25,6 +25,9 @@ export interface RegistryBrowser {
   extensionVersion: string;
   /** ISO 8601. */
   connectedAt: string;
+  /** What the extension reported (ADR 0030). Absent = unknown: an old extension or bridge. */
+  paused?: boolean;
+  allSites?: boolean;
 }
 
 export interface RegistryEntry {
@@ -43,8 +46,15 @@ export interface RegistryEntry {
   browsers: RegistryBrowser[];
 }
 
-/** The entry for a bridge as it is now. */
-export function entryOf(status: BridgeStatus, now: Date): RegistryEntry {
+/**
+ * The entry for a bridge as it is now. `reported` is what each connection said about itself, by
+ * connection id; it is not part of `BridgeStatus` because that is what agents get (ADR 0030 §4).
+ */
+export function entryOf(
+  status: BridgeStatus,
+  now: Date,
+  reported: ReadonlyMap<string, ReportedState> = new Map(),
+): RegistryEntry {
   const { session } = status;
   return {
     v: REGISTRY_VERSION,
@@ -62,6 +72,7 @@ export function entryOf(status: BridgeStatus, now: Date): RegistryEntry {
       version: b.browser.version,
       extensionVersion: b.extension.version,
       connectedAt: b.connectedAt,
+      ...reported.get(b.id),
     })),
   };
 }
@@ -83,6 +94,8 @@ function parseBrowser(raw: unknown): RegistryBrowser | null {
     version: b.version,
     extensionVersion: b.extensionVersion,
     connectedAt: b.connectedAt,
+    ...(typeof b.paused === 'boolean' ? { paused: b.paused } : {}),
+    ...(typeof b.allSites === 'boolean' ? { allSites: b.allSites } : {}),
   };
 }
 
@@ -132,7 +145,7 @@ export function isAlive(entry: Pick<RegistryEntry, 'updatedAt'>, now: Date): boo
  *   ready        a live bridge with a browser
  *
  * The first two are alarms in the sense of ADR 0014: the reader shows the next step, not an empty
- * list. A pause is NOT a rung here; the bridge is never told (ADR 0015 §5).
+ * list. This is the coarse ladder; `presenceOf` adds what the browsers report about the pause.
  */
 export type Presence = 'no-bridge' | 'no-browser' | 'ready';
 
@@ -155,6 +168,27 @@ export function statusOf(entries: readonly RegistryEntry[], now: Date): Registry
         ? 'ready'
         : 'no-browser';
   return { presence, sessions };
+}
+
+/**
+ * The finer ladder of ADR 0030 §5, loudest first:
+ *
+ *   no-bridge, no-browser   as above
+ *   paused                  at least one connected browser reports `paused: true`
+ *   ready-unknown           connected, and at least one browser does not report its pause
+ *   ready                   every connected browser reports `paused: false`
+ *
+ * Unknown is never `ready`: a browser that says nothing (an old extension, an old bridge, a refused
+ * value) may be paused.
+ */
+export type Standing = 'no-bridge' | 'no-browser' | 'paused' | 'ready-unknown' | 'ready';
+
+export function presenceOf(sessions: readonly RegistryEntry[]): Standing {
+  if (sessions.length === 0) return 'no-bridge';
+  const browsers = sessions.flatMap((s) => s.browsers);
+  if (browsers.length === 0) return 'no-browser';
+  if (browsers.some((b) => b.paused === true)) return 'paused';
+  return browsers.every((b) => b.paused === false) ? 'ready' : 'ready-unknown';
 }
 
 /**
