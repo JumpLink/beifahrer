@@ -56,9 +56,9 @@ export default async () => {
       );
     });
 
-    await it('uses `servers` with a stdio type for VS Code and `context_servers` for Zed', async () => {
+    await it('uses `mcpServers` with a stdio type for VS Code and `context_servers` for Zed', async () => {
       expect(JSON.parse(snippetOf(agent('vscode'), readOnly))).toStrictEqual({
-        servers: { beifahrer: { type: 'stdio', command: 'beifahrer', args: ['mcp'] } },
+        mcpServers: { beifahrer: { type: 'stdio', command: 'beifahrer', args: ['mcp'] } },
       });
       expect(JSON.parse(snippetOf(agent('zed'), readOnly))).toStrictEqual({
         context_servers: { beifahrer: { command: 'beifahrer', args: ['mcp'] } },
@@ -70,7 +70,8 @@ export default async () => {
         '~/Library/Application Support/Claude/claude_desktop_config.json',
       );
       expect(userConfigPath(agent('claude-desktop'), 'linux')).toBe(null);
-      expect(userConfigPath(agent('vscode'), 'linux')).toBe(null);
+      expect(userConfigPath(agent('vscode'), 'linux')).toBe('~/.copilot/mcp-config.json');
+      expect(agent('vscode').project).toBe('.mcp.json');
       expect(userConfigPath(agent('codex'), 'freebsd')).toBe(null);
     });
 

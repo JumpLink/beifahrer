@@ -33,7 +33,8 @@ export default async () => {
     });
 
     await it('is ok when every claim still shows, through highlighter spans', async () => {
-      const body = '<code><span>"servers"</span><span>: {</span></code><span>"type": "stdio"</span> mcp.json';
+      const body =
+        '<code><span>"mcpServers"</span><span>: {</span></code><span>"type": "stdio"</span> mcp-config.json .mcp.json';
       const v = verify(claimsOf({ id: 'vscode' }), page(body));
       expect(v.status).toBe('ok');
     });
@@ -42,8 +43,8 @@ export default async () => {
       const v = verify(claimsOf({ id: 'vscode' }), page('A guided flow. Share the file as .mcp.json'));
       expect(v.status).toBe('drifted');
       if (v.status === 'drifted') {
-        expect(v.missing.length).toBe(2);
-        expect(v.missing[0]).toMatch(/servers/);
+        expect(v.missing.length).toBe(3);
+        expect(v.missing[0]).toMatch(/mcpServers/);
       }
     });
 

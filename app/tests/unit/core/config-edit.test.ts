@@ -105,7 +105,7 @@ export default async () => {
       expect(
         planConfigEdit(
           agent('vscode'),
-          '{"servers":{"beifahrer":{"type":"stdio","command":"beifahrer","args":["mcp"]}}}',
+          '{"mcpServers":{"beifahrer":{"type":"stdio","command":"beifahrer","args":["mcp"]}}}',
           server,
         ).kind,
       ).toBe('unchanged');
