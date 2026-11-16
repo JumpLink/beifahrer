@@ -23,16 +23,15 @@ export function askAutostart(parent: Gtk.Window, t: Translate): Promise<boolean>
 }
 
 /**
- * Preferences with the one switch. `change` runs the portal and resolves whether the new value is in
- * force; when it is not, the switch springs back and the person is told.
+ * The autostart switch as a group for the Preferences dialog. `change` runs the portal and resolves
+ * whether the new value is in force; when it is not, the switch springs back and the person is told.
  */
-export function showPreferences(
-  parent: Gtk.Window,
+export function autostartGroup(
   t: Translate,
   enabled: boolean,
   change: (on: boolean) => Promise<boolean>,
   toast: (title: string) => void,
-): void {
+): Adw.PreferencesGroup {
   const row = new Adw.SwitchRow({
     title: t('autostart.row.title'),
     subtitle: t('autostart.row.subtitle'),
@@ -59,9 +58,5 @@ export function showPreferences(
   });
   const group = new Adw.PreferencesGroup({ title: t('autostart.group') });
   group.add(row);
-  const page = new Adw.PreferencesPage();
-  page.add(group);
-  const dialog = new Adw.PreferencesDialog({ title: t('menu.preferences') });
-  dialog.add(page);
-  dialog.present(parent);
+  return group;
 }

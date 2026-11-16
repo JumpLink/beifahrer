@@ -195,5 +195,20 @@
   "check.refused.feature_disabled": "{browser} refused: listing tabs is switched off in its Beifahrer settings.",
   "check.refused.refused": "{browser} refused. Check what you allowed in its Beifahrer settings.",
   "check.nobrowser": "No browser answered. Open the browser with the extension and check the pairing token.",
-  "check.failed": "The check could not run: {reason}"
+  "check.failed": "The check could not run: {reason}",
+  "settings.ports.title": "Ports",
+  "settings.ports.description": "The ports agent sessions listen on. Enter the same numbers under Ports in the extension's options. A running session keeps its port.",
+  "settings.ports.env": "A BEIFAHRER_PORT variable is set in the environment and wins over these numbers.",
+  "settings.ports.reset": "Reset to defaults",
+  "settings.port.title": "First port",
+  "settings.port.subtitle": "From 1024 to 65535",
+  "settings.count.title": "Number of ports",
+  "settings.count.subtitle": "One per agent session, up to 64",
+  "settings.agent.title": "Agent page",
+  "settings.write.title": "Start with filling and clicking allowed",
+  "settings.write.subtitle": "Only decides what the Agent page's snippet starts with. What an agent may do is still your choice in the browser.",
+  "settings.language.title": "Language",
+  "settings.language.subtitle": "Applies the next time Beifahrer starts.",
+  "settings.language.system": "Same as the system",
+  "settings.failed": "The settings could not be saved. They apply until you quit."
 }

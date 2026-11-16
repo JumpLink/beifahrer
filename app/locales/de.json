@@ -195,5 +195,20 @@
   "check.refused.feature_disabled": "{browser} hat abgelehnt: Tabs auflisten ist in den Beifahrer-Einstellungen ausgeschaltet.",
   "check.refused.refused": "{browser} hat abgelehnt. Prüfe, was du in den Beifahrer-Einstellungen erlaubt hast.",
   "check.nobrowser": "Kein Browser hat geantwortet. Öffne den Browser mit der Erweiterung und prüfe das Kopplungs-Token.",
-  "check.failed": "Die Prüfung konnte nicht laufen: {reason}"
+  "check.failed": "Die Prüfung konnte nicht laufen: {reason}",
+  "settings.ports.title": "Ports",
+  "settings.ports.description": "Die Ports, auf denen Agent-Sitzungen lauschen. Gib dieselben Zahlen unter Ports in den Optionen der Erweiterung ein. Eine laufende Sitzung behält ihren Port.",
+  "settings.ports.env": "Die Umgebungsvariable BEIFAHRER_PORT ist gesetzt und gilt vor diesen Zahlen.",
+  "settings.ports.reset": "Auf Standard zurücksetzen",
+  "settings.port.title": "Erster Port",
+  "settings.port.subtitle": "Von 1024 bis 65535",
+  "settings.count.title": "Anzahl Ports",
+  "settings.count.subtitle": "Einer je Agent-Sitzung, bis zu 64",
+  "settings.agent.title": "Seite Agent",
+  "settings.write.title": "Mit erlaubtem Ausfüllen und Klicken beginnen",
+  "settings.write.subtitle": "Bestimmt nur, womit der Ausschnitt auf der Seite Agent beginnt. Was ein Agent darf, entscheidest weiterhin du im Browser.",
+  "settings.language.title": "Sprache",
+  "settings.language.subtitle": "Gilt beim nächsten Start von Beifahrer.",
+  "settings.language.system": "Wie das System",
+  "settings.failed": "Die Einstellungen konnten nicht gespeichert werden. Sie gelten, bis du beendest."
 }
