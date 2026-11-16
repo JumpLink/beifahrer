@@ -35,6 +35,7 @@ const WITH_SCHEMA = [
   'page_find',
   'page_expect',
   'page_network',
+  'page_sources',
 ];
 
 /** The tab `tab_open` really answered on 2026-09-30 — a fresh tab, nothing read yet. */
@@ -127,6 +128,13 @@ const SAMPLES: Record<string, unknown> = {
     kept: 2,
     truncated: false,
   },
+  page_sources: {
+    action: 'search',
+    scripts: [{ url: 'https://example.com/app.js', kind: 'script', size: 1200, sourceMap: 'app.js.map' }],
+    hits: [{ url: 'https://example.com/app.js', offset: 310, text: 'fetch("/api/v2/flags")' }],
+    searched: 1,
+    truncated: false,
+  },
 };
 
 const STATUS = {
@@ -160,6 +168,7 @@ function stubBridge(): BrowserAccess {
     'page.find': SAMPLES.page_find,
     'page.expect': SAMPLES.page_expect,
     'page.network': SAMPLES.page_network,
+    'page.sources': SAMPLES.page_sources,
   };
   return {
     call: ((method: Method) => Promise.resolve(results[method])) as BrowserAccess['call'],

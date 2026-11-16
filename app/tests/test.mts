@@ -23,6 +23,7 @@ import keys from './unit/core/keys.test.ts';
 import chunks from './unit/core/chunks.test.ts';
 import expectRules from './unit/core/expect.test.ts';
 import networkRules from './unit/core/network.test.ts';
+import sourcesRules from './unit/core/sources.test.ts';
 import navigate from './unit/core/navigate.test.ts';
 import wait from './unit/core/wait.test.ts';
 import refs from './unit/core/refs.test.ts';
@@ -96,6 +97,7 @@ run({
   chunks,
   expectRules,
   networkRules,
+  sourcesRules,
   navigate,
   wait,
   refs,

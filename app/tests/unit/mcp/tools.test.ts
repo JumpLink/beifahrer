@@ -20,6 +20,7 @@ const READ = [
   'page_wait',
   'page_expect',
   'page_network',
+  'page_sources',
   'recipes_list',
   'recipes_for_tab',
 ];
@@ -86,6 +87,7 @@ export default async () => {
         'page_wait',
         'page_expect',
         'page_network',
+        'page_sources',
         'recipes_for_tab',
         'recipe_run',
         ...WRITE.filter((n) => n.startsWith('tabs_') || n.startsWith('sessions_')),

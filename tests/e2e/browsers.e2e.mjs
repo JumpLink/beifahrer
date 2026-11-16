@@ -3198,6 +3198,7 @@ async function pausedChecks(browser, client) {
     ['page_wait', { tabId: 1, for: 'load' }],
     ['page_expect', { tabId: 1, role: 'button', state: 'visible' }],
     ['page_network', { tabId: 1 }],
+    ['page_sources', { tabId: 1, action: 'list' }],
     ['page_evaluate', { tabId: 1, script: 'return 1' }],
     ['page_download', { tabId: 1, url }],
     ['page_rows', { tabId: 1 }],
@@ -3336,6 +3337,8 @@ async function scenario(browser, gate) {
         // Issue #35: a request log is the furthest-reaching capability in the list, and `webRequest`
         // cannot be narrowed to a site — so it is off until the person grants the browser permission.
         ['page_network', { tabId: allowed.tabId }, 'See what a page requests'],
+        // Issue #234: the scripts ride on the same switch, so the person is never asked twice.
+        ['page_sources', { tabId: allowed.tabId, action: 'list' }, 'See what a page requests'],
         // ADR 0027: handing a file to a site is off by default, and the refusal names the switch.
         ['page_upload', { tabId: allowed.tabId, ref: 'e1', paths: ['x.pdf'] }, 'Upload files'],
       ]) {
