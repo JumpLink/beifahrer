@@ -63,7 +63,10 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PORT_BASE = Number(process.env.BEIFAHRER_E2E_PORT_BASE) || 47900;
 const FIXTURE_PORT = PORT_BASE + 1;
 /** The range the e2e bridges bind and the test browsers probe: far from the person's 47813–47822. */
-const RANGE = { base: PORT_BASE + 10, count: Number(process.env.BEIFAHRER_E2E_PORT_COUNT) || 10 };
+const RANGE = {
+  base: Number(process.env.BEIFAHRER_E2E_RANGE_BASE) || PORT_BASE + 10,
+  count: Number(process.env.BEIFAHRER_E2E_PORT_COUNT) || 10,
+};
 const DEVTOOLS_PORT = PORT_BASE + 3;
 /** Firefox's WebDriver BiDi, for the extension-page smoke (ui-pages.mjs). */
 const BIDI_PORT = PORT_BASE + 4;
