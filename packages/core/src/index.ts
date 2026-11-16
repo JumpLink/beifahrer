@@ -9,6 +9,7 @@ export * from './redact.ts';
 export * from './sessions.ts';
 export * from './toolbar.ts';
 export * from './find.ts';
+export * from './history.ts';
 export * from './recipes.ts';
 export * from './one-time-code.ts';
 export * from './upload.ts';

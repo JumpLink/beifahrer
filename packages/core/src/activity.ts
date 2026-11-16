@@ -76,6 +76,11 @@ export interface ActivityEntry {
 
 const REFUSALS = new Set(['paused', 'feature_disabled', 'forbidden', 'denied']);
 
+/** `ok`, a refusal by the person's settings, or a failure: shared with the history (ADR 0029). */
+export function outcomeOf(error?: { code: string } | null): ActivityEntry['outcome'] {
+  return !error ? 'ok' : REFUSALS.has(error.code) ? 'refused' : 'failed';
+}
+
 export function activityEntry(input: {
   at: number;
   method: Method;
@@ -90,7 +95,7 @@ export function activityEntry(input: {
     method: input.method,
     words: METHOD_WORDS[input.method] ?? input.method,
     host: hostOf(input.url),
-    outcome: !input.error ? 'ok' : REFUSALS.has(input.error.code) ? 'refused' : 'failed',
+    outcome: outcomeOf(input.error),
   };
   if (input.error) entry.reason = input.error.code;
   if (input.session) entry.session = input.session;
