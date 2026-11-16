@@ -99,6 +99,15 @@ export function redactUrl(raw: string): string {
   return bare.length > MAX_NETWORK_URL ? `${bare.slice(0, MAX_NETWORK_URL - 1)}…` : bare;
 }
 
+/**
+ * Is this a tab id the browser can be asked about? `webRequest` reports -1 for a request that belongs
+ * to no tab (a worker, a service worker, the browser itself), and `tabs.get(-1)` does not reject: Chromium
+ * throws "Value must be at least 0" at the call, where no `.catch` reaches it.
+ */
+export function isTabId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
 /** A request the extension reports, before the bounds above are applied — the shape `webRequest` gives. */
 export interface WebRequestFacts {
   requestId: string;

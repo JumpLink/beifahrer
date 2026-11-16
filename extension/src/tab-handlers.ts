@@ -15,6 +15,7 @@ import {
   decide,
   defineSession,
   hostOf,
+  isTabId,
   levelFor,
   sessionNameError,
   summarizeClosed,
@@ -65,8 +66,7 @@ const MAX_IDS = 500;
 function intArray(value: unknown, what: string): number[] {
   if (!Array.isArray(value) || value.length === 0 || value.length > MAX_IDS)
     return fail('invalid', `${what} must be a non-empty array of at most ${MAX_IDS} ids`);
-  for (const v of value)
-    if (typeof v !== 'number' || !Number.isInteger(v)) return fail('invalid', `${what} must hold integers`);
+  for (const v of value) if (!isTabId(v)) return fail('invalid', `${what} must hold integers of at least 0`);
   return value as number[];
 }
 

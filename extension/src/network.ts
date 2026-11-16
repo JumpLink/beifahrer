@@ -29,7 +29,7 @@
  */
 
 import { browser } from '@wxt-dev/browser';
-import { networkRow, type NetworkRow, type WebRequestFacts } from '@beifahrer/core';
+import { isTabId, networkRow, type NetworkRow, type WebRequestFacts } from '@beifahrer/core';
 
 import { framesOf } from './frames.ts';
 import { loadSettings } from './settings.ts';
@@ -141,9 +141,10 @@ function factsOf(details: Record<string, unknown>): WebRequestFacts {
 async function started(details: Record<string, unknown>): Promise<void> {
   if (!(await isWatching())) return;
   const facts = factsOf(details);
-  // No tab id means the browser's own request (an update check, a captive-portal probe). It is not
-  // a page's request and there is no tab to gate it on, so it is not recorded.
-  if (facts.tabId === undefined) return;
+  // No tab id (or -1: a worker or service-worker request) means the browser's own request (an update
+  // check, a captive-portal probe). It is not a page's request and there is no tab to gate it on, so it
+  // is not recorded, and `tabs.get` is never asked about it.
+  if (!isTabId(facts.tabId)) return;
   // The tab is only asked about for a FRAME: the frame table is keyed by the tab's URL, and the
   // page's own requests are frame 0 whatever the URL is. A `tabs.get` per request on a busy tab is
   // a cost the feature should not pay for a number it already knows.
@@ -167,7 +168,7 @@ async function started(details: Record<string, unknown>): Promise<void> {
 async function ended(details: Record<string, unknown>, failed: boolean): Promise<void> {
   if (!(await isWatching())) return;
   const tabId = details.tabId;
-  if (typeof tabId !== 'number') return;
+  if (!isTabId(tabId)) return;
   const log = logs.get(tabId);
   const row = log?.open.get(String(details.requestId ?? ''));
   if (!row) return;
