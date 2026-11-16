@@ -288,6 +288,20 @@ export default async () => {
       }
     });
 
+    await it('browsers_list carries no pause state, whatever the bridge was told (ADR 0030)', async () => {
+      const rec = createRecorder();
+      applyReadOnlyGate(rec.server, true);
+      registerTools(rec.server, { bridge: stubBridge() });
+      const result = await rec.invoke('browsers_list');
+      const out = result.structuredContent as { browsers: Record<string, unknown>[] };
+      for (const b of out.browsers) {
+        expect(Object.keys(b).sort().join(',')).toBe(
+          'capabilities,connectedAt,extensionVersion,family,id,label,manifestVersion,unsupported',
+        );
+      }
+      expect(JSON.stringify(result)).not.toMatch(/paused|allSites/);
+    });
+
     await it('a refusal carries no structured content — an error is not an answer', async () => {
       const rec = createRecorder();
       applyReadOnlyGate(rec.server, true);

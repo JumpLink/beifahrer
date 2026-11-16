@@ -15,6 +15,15 @@ ever builds `ws://127.0.0.1:<port>/` from a port of the range, and treats a sess
 label as untrusted text (`cleanSessionLabel`, set as text)
 ([ADR 0007](../adr/0007-one-connection-per-agent-session.md)).
 
+## Two bits for the person's window
+
+After it was welcomed, and on every change, the extension sends the bridge a `state` frame:
+`paused` and `allSites` (a wildcard grant is live), booleans only. The bridge writes them into
+its registry entry (mode 0600) for the window. They never reach an agent: not in
+`browsers_list`, the welcome, or any tool output (a test pins the keys). No frame can set or
+clear the pause. A value that is not a boolean is dropped, which reads as "unknown", never as
+"running" ([ADR 0030](../adr/0030-the-window-shows-the-pause.md)).
+
 ## Recipes are data and hold no gate
 
 The bridge runs a recipe as ordinary calls (`app/src/recipes/runner.ts`), so the

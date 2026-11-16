@@ -36,6 +36,8 @@ import {
   parseChunk,
   parseHello,
   parseResponse,
+  parseState,
+  type ReportedState,
   tokensEqual,
   type AgentSession,
   type BridgeStatus,
@@ -78,6 +80,8 @@ interface Live extends BrowserConnection {
   socket: WebSocket;
   pending: PendingCalls;
   chunks: ChunkAssembler;
+  /** What the extension said about itself (ADR 0030). Never part of `BridgeStatus`. */
+  state: ReportedState;
 }
 
 export interface BridgeOptions {
@@ -292,6 +296,14 @@ export class Bridge extends EventEmitter implements BrowserAccess {
     return [...this.#live.values()].map(({ id, hello, connectedAt }) => ({ id, hello, connectedAt }));
   }
 
+  /**
+   * What each connected browser reported about its pause, by connection id (ADR 0030). Only the
+   * registry publisher reads this; it is deliberately not in `status()`, which agents see.
+   */
+  reported(): Map<string, ReportedState> {
+    return new Map([...this.#live.values()].map((c) => [c.id, { ...c.state }]));
+  }
+
   status(): BridgeStatus {
     return {
       port: this.port,
@@ -402,6 +414,7 @@ export class Bridge extends EventEmitter implements BrowserAccess {
       socket,
       pending: new PendingCalls(),
       chunks: new ChunkAssembler(),
+      state: {},
     };
     this.#live.set(conn.id, conn);
     // A browser is here, so whatever ended the last one no longer describes this session.
@@ -433,6 +446,13 @@ export class Bridge extends EventEmitter implements BrowserAccess {
     }
     if ((raw as { type?: string } | null)?.type === 'ping') {
       conn.socket.send(JSON.stringify({ type: 'pong' }));
+      return;
+    }
+    const state = parseState(raw);
+    if (state) {
+      // Replaces the whole pair: a field that is not a boolean is unknown, not the old value.
+      conn.state = state;
+      this.emit('state', conn.id);
       return;
     }
     const chunk = parseChunk(raw);

@@ -527,7 +527,18 @@ export type Response =
   | { type: 'response'; id: number; ok: true; result: unknown }
   | { type: 'response'; id: number; ok: false; error: WireError };
 
-export type ExtensionFrame = Hello | Response | { type: 'ping' } | ChunkFrame;
+/**
+ * What the extension says about itself after it was welcomed, and again on every change (ADR 0030):
+ * two booleans for the person's window, never for the agent. `allSites` is "a wildcard grant is
+ * live". Nothing else rides along: no host, level, grant target, duration or time.
+ */
+export interface State {
+  type: 'state';
+  paused: boolean;
+  allSites: boolean;
+}
+
+export type ExtensionFrame = Hello | Response | { type: 'ping' } | ChunkFrame | State;
 export type BridgeFrame =
   | Welcome
   | Request
@@ -553,6 +564,22 @@ export function parseHello(raw: unknown): Hello | string {
     return 'bad unsupported';
   if (h.dismissed !== undefined && typeof h.dismissed !== 'string') return 'bad dismissed';
   return h as Hello;
+}
+
+/** The two bits of a `state` frame; a field that is not a boolean is absent, i.e. unknown. */
+export interface ReportedState {
+  paused?: boolean;
+  allSites?: boolean;
+}
+
+/** Validate a `state` frame (bridge side). Null when it is no state frame at all. */
+export function parseState(raw: unknown): ReportedState | null {
+  const f = raw as Partial<Record<keyof State, unknown>> | null;
+  if (!f || typeof f !== 'object' || f.type !== 'state') return null;
+  return {
+    ...(typeof f.paused === 'boolean' ? { paused: f.paused } : {}),
+    ...(typeof f.allSites === 'boolean' ? { allSites: f.allSites } : {}),
+  };
 }
 
 // --- agent sessions (ADR 0007) ---------------------------------------------------------------

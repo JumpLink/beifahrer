@@ -11,6 +11,8 @@ import {
   parseHello,
   parseMcpClient,
   parseResponse,
+  parseState,
+  parseChunk,
   parseSiblingBrowsers,
   parseWelcome,
   toTabInfo,
@@ -240,6 +242,27 @@ export default async () => {
       // is the EXTENSION closing. Confusing them would make a refusal look like a decision.
       expect(CLOSE.dismissed).not.toBe(CLOSE.personDisconnected);
       expect(CLOSE.dismissed).toBeGreaterThan(4400);
+    });
+  });
+
+  await describe('parseState (ADR 0030)', async () => {
+    await it('reads the two booleans and nothing else', async () => {
+      const raw = { type: 'state', paused: true, allSites: false, host: 'example.org', level: 'write' };
+      expect(parseState(raw)).toStrictEqual({ paused: true, allSites: false });
+    });
+    await it('drops a value that is not a boolean, so it is unknown rather than running', async () => {
+      expect(parseState({ type: 'state', paused: 'no', allSites: 1 })).toStrictEqual({});
+      expect(parseState({ type: 'state', paused: false })).toStrictEqual({ paused: false });
+    });
+    await it('is not a state frame unless it says so', async () => {
+      for (const raw of [null, 'x', 7, {}, { type: 'ping' }, { paused: true }])
+        expect(parseState(raw)).toBeNull();
+    });
+    await it('is invisible to an old bridge: parseResponse and parseChunk refuse it, no error', async () => {
+      // An old bridge runs parseChunk then parseResponse and returns on null (bridge.ts #onFrame).
+      const frame = { type: 'state', paused: true, allSites: true };
+      expect(parseResponse(frame)).toBeNull();
+      expect(parseChunk(frame)).toBeNull();
     });
   });
 };

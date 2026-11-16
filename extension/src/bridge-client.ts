@@ -37,17 +37,19 @@ import {
   parseSiblingBrowsers,
   parseWelcome,
   splitFrame,
+  wildcardGrant,
   type BridgeFrame,
   type Hello,
   type Overall,
   type PortRange,
   type Response,
   type SessionView,
+  type State,
 } from '@beifahrer/core';
 import { forgetDenials } from './access-prompt.ts';
 import { rememberDesktop } from './accent.ts';
 import { browserInfo, manifestVersion } from './browser-info.ts';
-import { endSession, liveSessions } from './grants.ts';
+import { endSession, liveSessions, loadGrants, onGrantsChange } from './grants.ts';
 import { MethodError, capabilities, runMethod, unsupportedReasons } from './handlers.ts';
 import { loadSettings } from './settings.ts';
 
@@ -107,6 +109,24 @@ export function currentStatus(): Status {
 
 function send(ws: WebSocket, frame: unknown): void {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(frame));
+}
+
+/**
+ * The two bits the person's window shows (ADR 0030): paused, and a wildcard grant is live. Read
+ * fresh each time, so the first state after a worker woke up is true.
+ */
+async function stateFrame(): Promise<State> {
+  const [{ paused }, grants] = await Promise.all([loadSettings(), loadGrants()]);
+  return { type: 'state', paused, allSites: wildcardGrant(grants, Date.now()) !== null };
+}
+
+/** Tell one welcomed socket, or (no port) every welcomed socket, how this browser stands. */
+async function reportState(only?: number): Promise<void> {
+  const frame = await stateFrame();
+  for (const [port, ws] of sockets) {
+    if (only !== undefined && port !== only) continue;
+    if (sessionIds.has(port)) send(ws, frame);
+  }
 }
 
 /** A response may be megabytes (screenshots); the bridge's socket closes at 128 KiB per message. */
@@ -249,6 +269,7 @@ function probe(port: number): void {
         setInterval(() => send(ws, { type: 'ping' }), PING_MS),
       );
       void rememberDesktop(welcome.desktop);
+      void reportState(port);
       changed();
     } else if (frame.type === 'request') {
       void serve(ws, port, frame.id, frame.method, frame.params);
@@ -353,8 +374,10 @@ export function disconnectSession(port: number): boolean {
 }
 
 export function install(): void {
+  onGrantsChange(() => void reportState());
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
+    if (changes.paused) void reportState();
     if (changes.token || changes.port || changes.portCount) void connect();
   });
   browser.alarms.onAlarm.addListener((alarm) => {
