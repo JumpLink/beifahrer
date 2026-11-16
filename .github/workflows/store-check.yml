@@ -1,0 +1,64 @@
+name: Store credentials
+
+# Checks the Chrome Web Store and Edge Add-ons credentials without a release: `webext submit
+# --dry-run` makes exactly one read call per store and never uploads. Run it before the first real
+# upload and before the Edge key's 72 days run out (docs/plan/webext-submit.md).
+#
+# Behind the same `store-release` Environment as the upload job in release.yml, so the store secrets
+# reach a runner only after the required reviewer approves. That Environment admits `main` and `v*`
+# tags only; dispatch it from one of those.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+    environment: store-release
+    steps:
+      - name: Install system prerequisites
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          git tar xz findutils gjs libsoup3 gdk-pixbuf2 librsvg2 json-glib glib2-devel
+
+      - uses: actions/checkout@v4
+
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install the toolchain (gjsify)
+        run: |
+          set -eu
+          VERSION=$(node -p "require('./app/package.json').devDependencies['@gjsify/cli']")
+          npm install -g "@gjsify/cli@$VERSION"
+          gjsify install --immutable
+
+      - name: Derive the listing kit
+        run: gjsify webext listing --stores cws,edge --out dist/listing
+
+      - name: Chrome Web Store
+        env:
+          CHROME_WEB_STORE_PUBLISHER_ID: ${{ secrets.CHROME_WEB_STORE_PUBLISHER_ID }}
+          CHROME_WEB_STORE_ITEM_ID: ${{ secrets.CHROME_WEB_STORE_ITEM_ID }}
+          CHROME_WEB_STORE_CLIENT_ID: ${{ secrets.CHROME_WEB_STORE_CLIENT_ID }}
+          CHROME_WEB_STORE_CLIENT_SECRET: ${{ secrets.CHROME_WEB_STORE_CLIENT_SECRET }}
+          CHROME_WEB_STORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEB_STORE_REFRESH_TOKEN }}
+        run: gjsify webext submit --store chrome --dry-run
+
+      # `!cancelled()`: a dead Chrome token must not hide whether the Edge key still works.
+      - name: Edge Add-ons
+        if: ${{ !cancelled() }}
+        env:
+          EDGE_ADDONS_PRODUCT_ID: ${{ secrets.EDGE_ADDONS_PRODUCT_ID }}
+          EDGE_ADDONS_CLIENT_ID: ${{ secrets.EDGE_ADDONS_CLIENT_ID }}
+          EDGE_ADDONS_API_KEY: ${{ secrets.EDGE_ADDONS_API_KEY }}
+        run: gjsify webext submit --store edge --dry-run

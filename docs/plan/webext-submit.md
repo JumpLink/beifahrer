@@ -20,9 +20,9 @@ may do.
 | S4 | Edge backend, API v1.1 | done — gjsify #2631 | — |
 | S5 | Bounded poll/retry layer | done — gjsify #2633 | — |
 | S6 | `webext submit --store … [--dry-run] [--submit]` | done — gjsify #2634, released in v0.64.45 | — |
-| S6b | **Fix: `submit` must not demand a `webext` project shape** | open — gjsify #2673, CI running | a gjsify release ≥ 0.64.46 |
+| S6b | **Fix: `submit` must not demand a `webext` project shape** | done — gjsify #2673, released in v0.64.46; a local `--dry-run` now passes preflight and stops only at the missing credentials | — |
 | S7 | Document the command for agents in gjsify's cli `AGENTS.md` | open; decided: split the webext part into its own file | the file is 32,766 B of a 32,768 B limit |
-| S8 | Beifahrer: `submit-stores` job in `release.yml` | written — Beifahrer PR #252, open | S6b, then the pin bump |
+| S8 | Beifahrer: `submit-stores` job in `release.yml` | written — Beifahrer PR #252; plus `store-check.yml`, a dispatch-only `--dry-run` of both stores behind `store-release` | the pin bump (#263) |
 | S8b | Bump Beifahrer's `@gjsify/*` pins 0.64.40 → ≥ 0.64.46 | done (0.64.46) | S6b released |
 | S9 | The first upload per store, by hand | open — Pascal | Edge: a working drag-in or extension ≥ 0.1.31 |
 
@@ -68,7 +68,7 @@ visibility change, or the API refuses `publish`.
 |---|---|---|---|---|
 | S6b | Land gjsify #2673 and cut a patch release | agent | #2673 CI green | `npm view @gjsify/cli version` ≥ 0.64.46 and that version's `submit` accepts a `listing`-only project |
 | S8b | Bump every `@gjsify/*` pin in `package.json`, `app/`, `extension/`, `gjsify-lock.json` | agent | S6b released | `gjsify upgrade --check` exits 0; `gjsify foreach -A check`, `gjsify run lint`, `oxfmt --check .`, app unit tests and `node tests/e2e/browsers.e2e.mjs all` all pass |
-| S8 | Merge PR #252 | agent | S8b merged; `webext submit --store chrome --dry-run` run locally against the real secrets | the `submit-stores` job appears in a dispatch run and stops at the `store-release` approval |
+| S8 | Merge PR #252 | agent | S8b merged; the secrets live only in GitHub, so the dry run is `store-check.yml` (needs `main` and the person's approval) | the `submit-stores` job appears in a dispatch run and stops at the `store-release` approval |
 | S7 | Document `submit` for agents | agent | S6b | the command, its env names and the 72-day trap are findable from gjsify's cli docs, and `check-agent-context-size.mjs --check` passes |
 | S9a | Chrome: upload the first package by hand, keep the item **unlisted** | Pascal | the tag's `chrome-mv3` zip; the store preview approved | the draft item holds a version and the review queue has it |
 | S9b | Edge: upload the first package | Pascal (or agent via `page_upload` once the extension is ≥ 0.1.31) | the tag's `edge-mv3` zip | the Edge product holds a package |
