@@ -2552,6 +2552,27 @@ async function growingRows(browser, client) {
     `${count} rows`,
   );
   await tool(client, 'tabs_close', { tabIds: [tabId] });
+
+  const lazy = await tool(client, 'tab_open', { url: `${ALLOWED}/lazy-rows`, active: false });
+  const lazyTab = lazy.error ? null : JSON.parse(lazy.text).tab?.tabId;
+  if (lazyTab == null) {
+    check(browser, 'the lazy-rows tab opened', false, lazy.text.slice(0, 200));
+    return;
+  }
+  await tool(client, 'page_wait', { tabId: lazyTab, for: 'load' });
+  const lazyRows = await tool(client, 'page_rows', { tabId: lazyTab, maxRows: 200 });
+  const lazyList = lazyRows.error ? [] : JSON.parse(lazyRows.text).rows.map((r) => r.text);
+  const lazyCount = lazyRows.error ? -1 : lazyList.length;
+  const lazyMissing = Array.from({ length: 40 }, (_, i) => `Lazy row ${i + 1}`).filter(
+    (t) => !lazyList.includes(t),
+  );
+  check(
+    browser,
+    'page_rows waits for a virtual-scroll list that renders after scrolling paused (issue #143)',
+    lazyCount === 40,
+    `${lazyCount} rows, missing: ${lazyMissing.join(', ')}`,
+  );
+  await tool(client, 'tabs_close', { tabIds: [lazyTab] });
 }
 
 async function framesAndOrigins(browser, client, allowed) {
@@ -3820,6 +3841,34 @@ const GROWING_ROWS_FIXTURE = `<!doctype html><html><head><title>Growing rows</ti
     if (!pending && n < 60 && window.scrollY + innerHeight >= document.documentElement.scrollHeight - 4) { pending = true; setTimeout(add, 500); }
   }, 100);
 </script></body></html>`;
+// Issue #143: a virtual-scroll list in a nested scroller. It recycles ten rows and renders them only
+// once scrolling has paused for 300 ms, longer than a fixed per-step wait; the spacer never grows.
+const LAZY_ROWS_FIXTURE = `<!doctype html><html><head><title>Lazy rows</title></head><body style="margin:0">
+<div id="scroller" style="height:400px;overflow:auto;position:relative">
+  <div id="spacer" style="height:1600px;position:relative"></div>
+</div>
+<script>
+  const scroller = document.getElementById('scroller');
+  const spacer = document.getElementById('spacer');
+  const render = () => {
+    spacer.textContent = '';
+    const first = Math.floor(scroller.scrollTop / 40);
+    for (let i = first; i < Math.min(first + 10, 40); i++) {
+      const li = document.createElement('li');
+      li.style.cssText = 'position:absolute;left:0;height:40px;list-style:none;top:' + i * 40 + 'px';
+      li.textContent = 'Lazy row ' + (i + 1);
+      spacer.appendChild(li);
+    }
+  };
+  let timer;
+  // Polled, not driven by scroll events: a tab in the background gets none.
+  let seen = 0, since = 0;
+  setInterval(() => {
+    if (scroller.scrollTop !== seen) { seen = scroller.scrollTop; since = Date.now(); }
+    else if (since && Date.now() - since >= 300) { since = 0; render(); }
+  }, 50);
+  render();
+</script></body></html>`;
 const ELSEWHERE_FIXTURE = `<!doctype html><html><head><title>Elsewhere</title></head><body>
 <h1>Second document</h1>
 <p>Text that only this page has.</p>
@@ -3912,21 +3961,23 @@ const page = (req) =>
       ? UPLOAD_FIXTURE
       : req.url?.startsWith('/growing-rows')
         ? GROWING_ROWS_FIXTURE
-        : req.url?.startsWith('/link')
-          ? LINK_FIXTURE
-          : req.url?.startsWith('/saves')
-            ? SAVES_FIXTURE(
-                req.url.includes('v=revoke') ? 'revoke' : req.url.includes('v=native') ? 'native' : 'keep',
-              )
-            : req.url?.startsWith('/elsewhere')
-              ? ELSEWHERE_FIXTURE
-              : req.url?.startsWith('/openproject')
-                ? OP_FIXTURE
-                : req.url?.startsWith('/frame-foreign')
-                  ? FOREIGN_FRAME_FIXTURE
-                  : req.url?.startsWith('/frame')
-                    ? FRAME_FIXTURE
-                    : FIXTURE;
+        : req.url?.startsWith('/lazy-rows')
+          ? LAZY_ROWS_FIXTURE
+          : req.url?.startsWith('/link')
+            ? LINK_FIXTURE
+            : req.url?.startsWith('/saves')
+              ? SAVES_FIXTURE(
+                  req.url.includes('v=revoke') ? 'revoke' : req.url.includes('v=native') ? 'native' : 'keep',
+                )
+              : req.url?.startsWith('/elsewhere')
+                ? ELSEWHERE_FIXTURE
+                : req.url?.startsWith('/openproject')
+                  ? OP_FIXTURE
+                  : req.url?.startsWith('/frame-foreign')
+                    ? FOREIGN_FRAME_FIXTURE
+                    : req.url?.startsWith('/frame')
+                      ? FRAME_FIXTURE
+                      : FIXTURE;
 const fixture = createServer((req, res) => {
   // Issue #35: the two API paths, before anything is HTML. `/api/submit` answers 500 on purpose —
   // a failing POST with a status is the row an agent is looking for, and a page that answered 200

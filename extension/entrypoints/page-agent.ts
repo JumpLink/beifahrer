@@ -1563,6 +1563,22 @@ function scrollerOf(el: Element | undefined): HTMLElement {
 }
 
 const ROWS_BUDGET_MS = 20_000;
+/** How long a scroll step may take to show other rows; background tabs run timers about 1 s apart. */
+const ROWS_SETTLE_MS = 3_000;
+/** Once rows changed, how long they must stay the same before the next step. */
+const ROWS_QUIET_MS = 250;
+
+/** Does a row reach the bottom edge of what the person sees? If not, the list has yet to render this part. */
+function filled(scroller: HTMLElement, root: HTMLElement): boolean {
+  const bottom = scroller === root ? innerHeight : scroller.getBoundingClientRect().bottom;
+  return collectRows().some((el) => el.getBoundingClientRect().bottom >= bottom - 1);
+}
+
+function rowsSignature(): string {
+  return collectRows()
+    .map((el) => clip(textOf(el), 40))
+    .join('\n');
+}
 
 /**
  * The rows of the list in front of the person, scrolled through from the top.
@@ -1710,7 +1726,30 @@ async function rows(match: string | undefined, maxRows: number): Promise<PageRes
     const before = scroller.scrollTop;
     const heightBefore = scroller.scrollHeight;
     scroller.scrollTop = before + Math.max(scroller.clientHeight * 0.8, 100);
+    // A list may render or grow only after scrolling paused, later than any fixed pause. So wait until
+    // rows or height CHANGE, take them at every change (a virtual list recycles its elements), and go
+    // on once they have been quiet. No change inside the window means the step brought nothing; the
+    // window is longest at the end, where a load-more fires. Bounded by ROWS_BUDGET_MS in any case.
+    const atEnd = scroller.scrollTop + scroller.clientHeight >= heightBefore - 4;
+    const window = atEnd ? GROW_WAIT_MS : filled(scroller, root) ? 300 : ROWS_SETTLE_MS;
+    const signature = (): string => `${scroller.scrollHeight}|${rowsSignature()}`;
+    let last = signature();
+    let changedAt = 0;
+    const settleStart = Date.now();
     await new Promise((r) => setTimeout(r, 120));
+    let done = false;
+    while (!done && Date.now() - settleStart < window && Date.now() - started < ROWS_BUDGET_MS) {
+      const now = signature();
+      if (now !== last) {
+        last = now;
+        changedAt = Date.now();
+        done = take();
+      } else if (changedAt && Date.now() - changedAt >= ROWS_QUIET_MS) {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    if (done) break;
     if (scroller.scrollTop === before) {
       // The chosen element does not move: the page itself may be the scroller (issue #143).
       if (scroller !== root) {
@@ -1719,13 +1758,6 @@ async function rows(match: string | undefined, maxRows: number): Promise<PageRes
       }
       take();
       break;
-    }
-    const atEnd = scroller.scrollTop + scroller.clientHeight >= heightBefore - 4;
-    if (atEnd) {
-      const until = Date.now() + GROW_WAIT_MS;
-      while (scroller.scrollHeight <= heightBefore && Date.now() < until) {
-        await new Promise((r) => setTimeout(r, 100));
-      }
     }
   }
   if (!hit) scroller.scrollTop = origin;
