@@ -19,7 +19,7 @@ green check — never an agent's report.
 | C | The "how it works" band in the generator | not started | design it (C1) |
 | D | GNOME Web (Epiphany) on GNOME 51 | **done, verdict: not supported** | nothing; D4 does not happen |
 | E | Agent comfort (#143, #153, #154, #210) | done, all four closed 2026-11-16 | — |
-| F | The store listing kit and preview | F1/F2 done in gjsify #2628; F3 open | retire `docs/store/listing.md` (F3) |
+| F | The store listing kit and preview | F1–F3 done (F3: `docs/store/listing.md` retired to the questionnaires) | — |
 | G | The way into the stores | accounts and secrets exist; uploads pending | the first upload per store, by hand |
 | H | **New: the metainfo's dark screenshots pair wrong** | open, and it is a live bug | add the missing dark window shots (H1) |
 
@@ -156,7 +156,7 @@ A6 bump Beifahrer ─▶ A7 page rebuild
 B2 frame ─▶ B3 hero ─▶ B4 chat ─▶ B5 variants ─▶ B6 put them on the website
 C1 design band ─▶ C2 build band ─▶ C3 band tests ─▶ C4 release ─▶ C5 wire Beifahrer
 H1 dark window shots ─▶ H2 metainfo order
-F3 retire listing.md
+F3 retire listing.md (done)
 G1 store preview ─▶ G2 first uploads ─▶ G3 draft run ─▶ G4 public
 ```
 
@@ -246,11 +246,11 @@ developer tool and is never published** — it does not go on the website and is
 
 | # | Step | Owner | Precondition | Done when |
 |---|---|---|---|---|
-| F3 | Retire `docs/store/listing.md` | agent | A6 (the pinned CLI must be the one that writes the kit) | the generated output replaces the hand-written copy; what stays in [`listing.md`](../store/listing.md) is only what no tool can derive, the `<verify>` markers survive, [`docs/store/README.md`](../store/README.md) and [`docs/README.md`](../README.md) point at the generator; `node tools/check-doc-links.mjs` and `gjsify webext listing --check` pass |
+| F3 | Retire `docs/store/listing.md` — **done** | agent | A6 (the pinned CLI must be the one that writes the kit) | the generated output replaces the hand-written copy; what stays in [`listing.md`](../store/listing.md) is only what no tool can derive, the `<verify>` markers survive, [`docs/store/README.md`](../store/README.md) and [`docs/README.md`](../README.md) point at the generator; `node tools/check-doc-links.mjs` and `gjsify webext listing --check` pass |
 
-`docs/store/README.md` still says the release workflow "deliberately has no store step" and that
-nobody has decided whether CI holds the store secrets. Both are now false — PR #252 adds the step
-and the secrets are set. F3 fixes that sentence too.
+`docs/store/README.md` used to say the release workflow "deliberately has no store step" and that
+nobody had decided whether CI holds the store secrets. PR #252 added the step and the secrets are
+set; F3 rewrote that sentence.
 
 ## Stream G — the way into the stores
 
