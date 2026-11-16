@@ -567,7 +567,14 @@ not been launched on their own OS.
 Bump first with `node tools/version.mjs set X.Y.Z` and commit `chore: bump to X.Y.Z`: the extension,
 the CLI, core and the root share ONE version, and the release fails before building anything if the
 tag is not `vX.Y.Z` of exactly that. Then `git tag vX.Y.Z && git push --tags` runs the whole of CI — tests, type check, lint — and, if it
-passes, builds and attaches every installable format to the tag's GitHub release:
+passes, builds and attaches every installable format to the tag's GitHub release.
+
+Before tagging, run `npm run catalog:check` (or the "Agent catalog" workflow, which also runs weekly).
+It fetches each agent's docs page once and greps for the key the catalog claims
+(`packages/core/src/agent-claims.ts`). Exit 1 means a format drifted: re-read that agent's docs and
+fix `agents.ts` and `CHECKED`. Exit 2 means a page was unreachable, which is *unverified*, not fine:
+rerun it. It is not part of the PR gate because it needs third-party sites. The release then
+attaches:
 
 - browser extension zips (Firefox + Chromium)
 - the signed Firefox `.xpi` and `updates.json`, signed on AMO by a job that runs after the release

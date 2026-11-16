@@ -1,0 +1,27 @@
+name: Agent catalog
+
+# Re-reads each coding agent's own docs page and checks that the format the catalog
+# (packages/core/src/agents.ts) claims still appears there. It needs third-party sites, so it is
+# NOT a PR check: weekly, and by hand before a release. Exit 1 = drift, 2 = a page could not be
+# read (unverified, never a pass). It only reports; nothing is filed anywhere.
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Check the catalog against the agents' docs
+        run: node tools/check-agent-catalog.mjs
