@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Records the native window (docs/images/desktop-*.png) headless against a synthetic registry entry,
 # so no real session label, port or browser version shows. Needs `gjsify workspace beifahrer-app build`.
+#
+# The entry below is the app's half of ONE story: the same agent session (`claude-code · my-project`)
+# and the same browser the composed pictures show through the extension's own options page, which is
+# captured in Chromium (tests/e2e/browsers.e2e.mjs). Two halves naming two different browsers would
+# be a picture of something that never happened — so the family and name here follow that capture.
 # Usage: tools/desktop-shots.sh [outdir]   (default docs/images; run from the beifahrer checkout)
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -14,7 +19,7 @@ node -e '
 const now = new Date().toISOString();
 const e = { v: 1, instance: "demo", label: "claude-code · my-project", pid: process.pid, port: 51813,
   startedAt: now, updatedAt: new Date(Date.now() + 3600e3).toISOString(), bridgeVersion: "0.1.4",
-  browsers: [{ id: "b0", family: "firefox", name: "Firefox", version: "145.0", extensionVersion: "0.1.4", connectedAt: now, paused: false }] };
+  browsers: [{ id: "b0", family: "chromium", name: "Chromium", version: "149.0", extensionVersion: "0.1.4", connectedAt: now, paused: false }] };
 require("fs").writeFileSync(process.argv[1] + "/demo.json", JSON.stringify(e) + "\n", { mode: 0o600 });
 ' "$tmp/reg"
 for lang in en de; do

@@ -1,0 +1,14 @@
+{
+  "tabTitle": "Beispiel-Seite",
+  "host": "example.org",
+
+  "assistantName": "Dein KI-Assistent",
+  "ask": "Schau auf das Ticket-Board, das ich offen habe, und sag mir, welche Tickets noch niemand übernommen hat.",
+  "reply1": "Ich komme an den Browser, in dem du angemeldet bist. Ich lese ihn gerade.",
+  "callTabs": "3 Tabs, example.org im Vordergrund",
+  "callRead1": "example.org, das Ticket-Board",
+  "callClick": "example.org, der Filter \"Nicht zugewiesen\"",
+  "callRead2": "example.org, 4 Zeilen übrig",
+  "reply2": "Vier Tickets hat niemand übernommen: 184, 187, 191 und 203. Das älteste wartet seit Montag. Ich habe das Board in dem Browser gelesen, in dem du schon angemeldet bist, also ohne zweite Anmeldung und ohne Export.",
+  "composer": "Frag nach etwas anderem"
+}

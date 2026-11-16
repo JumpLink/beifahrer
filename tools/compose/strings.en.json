@@ -1,0 +1,14 @@
+{
+  "tabTitle": "Example Domain",
+  "host": "example.org",
+
+  "assistantName": "Your AI assistant",
+  "ask": "Look at the ticket board I have open and tell me which tickets still have nobody on them.",
+  "reply1": "I can reach the browser you are signed in to. Reading it now.",
+  "callTabs": "3 tabs, example.org in front",
+  "callRead1": "example.org, the ticket board",
+  "callClick": "example.org, the filter \"Unassigned\"",
+  "callRead2": "example.org, 4 rows left",
+  "reply2": "Four tickets have nobody on them: 184, 187, 191 and 203. The oldest has been waiting since Monday. I read the board in the browser you are already signed in to, so there was no second login and no export.",
+  "composer": "Ask for something else"
+}

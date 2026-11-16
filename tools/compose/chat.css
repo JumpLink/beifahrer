@@ -1,0 +1,173 @@
+/*
+ * The agent chat (B4), on the same stage and in the same box as the hero's browser frame.
+ *
+ * FICTIONAL AND UNBRANDED, for the same reason the browser frame is: no assistant's name, logo,
+ * colour or wordmark anywhere. The window calls its occupant "your AI assistant"
+ * (tools/compose/strings.*.json) because Beifahrer works with whichever one the person already
+ * uses, and a picture naming one would be both a claim and somebody else's trademark.
+ *
+ * What is NOT invented here is the wire: the four call rows are Beifahrer's real method names out
+ * of packages/core/src/activity.ts (`tabs.list`, `page.read`, `page.click`), in the order a reading
+ * task actually produces them. A screenshot that shows a method the product does not have is a
+ * promise the product cannot keep.
+ *
+ * Geometry is deliberately the hero's: the window stands at the same place and the same size, so
+ * the two pictures read as one pair rather than two layouts. frame.css owns that box (.browser) and
+ * the stage; this file only fills it.
+ */
+
+/* The conversation, inside the shared .browser box. */
+.chat {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.chat .titlebar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 14px;
+  border-bottom: 1px solid rgba(32, 22, 44, 0.1);
+  background: #f6f4f8;
+  color: #2d2635;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* The assistant's picture, as a neutral placeholder square — the same device the frame's favicon
+   uses, and for the same reason: a real avatar would name a real product. */
+.chat .avatar {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: #cac4d2;
+}
+
+.chat .wincontrols {
+  margin-bottom: 0;
+}
+
+/* The messages. They start at the top, the way a conversation two turns old really looks. */
+.chat .thread {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px 26px;
+  overflow: hidden;
+}
+
+.chat .ask {
+  max-width: 68%;
+  align-self: flex-end;
+  padding: 12px 16px;
+  border-radius: 16px 16px 4px 16px;
+  /* The app's own branding colour again (metainfo <branding>, light primary #d9c2f0). */
+  background: #e7d6f7;
+  color: #2a1f36;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.chat .say {
+  max-width: 88%;
+  color: #221c2a;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/*
+ * The tool calls, as a log and not as a bubble: this is the part a person is asked to trust, so it
+ * is laid out like something recorded rather than something said. The same four lines appear in
+ * the extension's own activity list, which is the point of showing them.
+ */
+.chat .calls {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-width: 88%;
+  padding: 13px 16px;
+  border: 1px solid rgba(32, 22, 44, 0.12);
+  border-radius: 12px;
+  background: #faf8fc;
+}
+
+.chat .call {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13.5px;
+}
+
+.chat .call .method {
+  flex: none;
+  min-width: 96px;
+  color: #4a4056;
+  font-family: 'Adwaita Mono', 'Noto Sans Mono', 'Liberation Mono', monospace;
+}
+
+.chat .call .detail {
+  color: #7a7184;
+}
+
+/* Where the next question would go. No send button: the app window overlaps this corner. */
+.chat .composer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 46px;
+  margin: 0 26px 22px;
+  padding: 0 20px;
+  border: 1px solid rgba(32, 22, 44, 0.16);
+  border-radius: 23px;
+  color: #8a8194;
+  font-size: 14.5px;
+}
+
+/* ── dark ───────────────────────────────────────────────────────────────────────────────── */
+
+[data-scheme='dark'] .chat {
+  background: #241d2b;
+}
+
+[data-scheme='dark'] .chat .titlebar {
+  border-bottom-color: rgba(255, 255, 255, 0.09);
+  background: #322a3a;
+  color: #ece7f2;
+}
+
+[data-scheme='dark'] .chat .avatar {
+  background: #5c5268;
+}
+
+[data-scheme='dark'] .chat .ask {
+  /* The branding colour's dark primary, #613583, lightened only as far as the text needs. */
+  background: #4b2d6b;
+  color: #f4edfa;
+}
+
+[data-scheme='dark'] .chat .say {
+  color: #ece7f2;
+}
+
+[data-scheme='dark'] .chat .calls {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #1d1721;
+}
+
+[data-scheme='dark'] .chat .call .method {
+  color: #cdc2d9;
+}
+
+[data-scheme='dark'] .chat .call .detail {
+  color: #9b90a7;
+}
+
+[data-scheme='dark'] .chat .composer {
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #9b90a7;
+}
