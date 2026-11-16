@@ -38,9 +38,10 @@ export const CLAIMS: Record<string, Claim[]> = {
   'gemini-cli': [mcpServers],
   cursor: [mcpServers],
   vscode: [
-    { what: 'the `servers` key', needle: /"servers":\s*\{/ },
+    { what: 'the `mcpServers` key', needle: /"mcpServers":\s*\{/ },
     { what: 'a `"type": "stdio"` server', needle: /"type":\s*"stdio"/ },
-    { what: 'the `mcp.json` file', needle: 'mcp.json' },
+    { what: 'the user `mcp-config.json` file', needle: 'mcp-config.json' },
+    { what: 'the workspace-root `.mcp.json` file', needle: '.mcp.json' },
   ],
   'claude-desktop': [
     mcpServers,

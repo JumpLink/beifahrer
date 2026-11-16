@@ -9,7 +9,7 @@
  * `docs` is the link a person follows when the snippet no longer works.
  */
 
-export const CHECKED = '2026-11-03';
+export const CHECKED = '2026-11-16';
 
 /** The Flatpak app id of the one package (`gjsify.ship.appId`): `flatpak run <id> mcp` is the bridge. */
 export const FLATPAK_ID = 'eu.jumplink.beifahrer';
@@ -82,8 +82,8 @@ type Shape =
   | 'opencode'
   /** `[mcp_servers.name]` in TOML */
   | 'codex'
-  /** `{"servers": {name: {type: "stdio", command, args}}}` */
-  | 'vscode'
+  /** `{"mcpServers": {name: {type: "stdio", command, args}}}`: the Copilot harness (VS Code) */
+  | 'copilot'
   /** `{"context_servers": {name: {command, args}}}` */
   | 'zed';
 
@@ -184,13 +184,18 @@ export const AGENTS: readonly AgentEntry[] = [
   {
     id: 'vscode',
     name: 'VS Code',
-    shape: 'vscode',
+    shape: 'copilot',
     group: 'coding',
     guide: null,
-    docs: 'https://code.visualstudio.com/docs/agent-customization/mcp-servers',
-    // The user-level file is opened by the "MCP: Open User Configuration" command, not by a path the docs fix.
-    user: { linux: null, darwin: null, win32: null },
-    project: '.vscode/mcp.json',
+    docs: 'https://code.visualstudio.com/docs/copilot/reference/mcp-configuration',
+    // The Copilot harness reads these two; `.vscode/mcp.json` and the profile `mcp.json` belong to the
+    // deprecated Local harness (removed February 2027). `$COPILOT_HOME` replaces `~/.copilot` when set.
+    user: {
+      linux: '~/.copilot/mcp-config.json',
+      darwin: '~/.copilot/mcp-config.json',
+      win32: '~/.copilot/mcp-config.json',
+    },
+    project: '.mcp.json',
     cli: null,
   },
   {
@@ -324,8 +329,8 @@ export function snippetOf(agent: AgentEntry, server: ServerSpec): string {
         $schema: 'https://opencode.ai/config.json',
         mcp: { [name]: { type: 'local', command: [command, ...args] } },
       });
-    case 'vscode':
-      return json({ servers: { [name]: { type: 'stdio', command, args } } });
+    case 'copilot':
+      return json({ mcpServers: { [name]: { type: 'stdio', command, args } } });
     case 'zed':
       return json({ context_servers: { [name]: { command, args } } });
     case 'codex':
@@ -373,7 +378,7 @@ export function commandInConfig(agent: AgentEntry, text: string): string | null 
   } catch {
     return null;
   }
-  const key = { mcpServers: 'mcpServers', opencode: 'mcp', vscode: 'servers', zed: 'context_servers' }[
+  const key = { mcpServers: 'mcpServers', opencode: 'mcp', copilot: 'mcpServers', zed: 'context_servers' }[
     agent.shape
   ];
   const entry = ((doc as Record<string, unknown> | null)?.[key] as Record<string, unknown> | undefined)?.[

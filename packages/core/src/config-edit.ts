@@ -33,7 +33,7 @@ function jsonEntry(agent: AgentEntry, server: ServerSpec): Record<string, unknow
   switch (agent.shape) {
     case 'opencode':
       return { type: 'local', command: [command, ...args] };
-    case 'vscode':
+    case 'copilot':
       return { type: 'stdio', command, args };
     default:
       return { command, args };
@@ -43,7 +43,7 @@ function jsonEntry(agent: AgentEntry, server: ServerSpec): Record<string, unknow
 const JSON_KEY: Record<string, string> = {
   mcpServers: 'mcpServers',
   opencode: 'mcp',
-  vscode: 'servers',
+  copilot: 'mcpServers',
   zed: 'context_servers',
 };
 
