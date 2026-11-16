@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Beifahrer — the hero (B3)</title>
+    <link rel="stylesheet" href="/tools/compose/frame.css" />
+  </head>
+  <body>
+    <!-- B3: the same frame, with the REAL captures in it. Both <img> sources are committed PNGs
+         produced by the reproducible capture paths (tests/e2e/ui-pages.mjs and tools/desktop-shots.sh);
+         neither is redrawn, retouched or recoloured here. The options page goes in at its natural
+         CSS width (the PNG is 2×, the page area is 800 CSS px), so no resampling happens at all. -->
+    <div class="stage">
+      <div class="browser">
+        <div data-chrome></div>
+        <div class="viewport">
+          <img id="page" class="page" src="/docs/images/options-light.png" alt="" />
+        </div>
+      </div>
+      <img class="app" src="/docs/images/desktop-light.png" alt="" />
+    </div>
+    <script src="/tools/compose/chrome.js"></script>
+  </body>
+</html>

@@ -1,0 +1,231 @@
+/*
+ * The fictional browser frame, the stage it stands on, and the geometry both pictures share.
+ *
+ * NEUTRAL BUT PLAUSIBLE: this is a browser nobody ships. No vendor's chrome proportions, no
+ * vendor's colour, no vendor's logo, no vendor's name, no profile avatar — only the shapes every
+ * desktop browser has had for twenty years (a tab strip, a back/forward/reload row, an address
+ * pill, a menu) drawn in neutral greys. The ONE mark in here is Beifahrer's own toolbar icon,
+ * which has to be recognisable: that is the point of the picture.
+ *
+ * The geometry lives here and not in a template, so the empty frame of B2 stands at exactly the
+ * place and size the hero of B3 puts it at — what is approved at the checkpoint is then what
+ * ships, rather than something that merely looked like it.
+ *
+ * Everything that could render differently between two runs is pinned rather than hoped for: no
+ * animation, no transition, no system-dependent colour, and no `prefers-color-scheme` query — the
+ * dark variants of B5 get their own stylesheet instead of a query the renderer answers for itself.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  /* A half-finished animation is the classic way a "reproducible" shot stops being one. */
+  animation: none !important;
+  transition: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 1280px;
+  height: 800px;
+  overflow: hidden;
+  font-family: 'Adwaita Sans', 'Cantarell', 'DejaVu Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The canvas every picture is composed on: 1280×800 CSS, captured at deviceScaleFactor 2. */
+.stage {
+  position: relative;
+  width: 1280px;
+  height: 800px;
+  /* The app's own branding colour (metainfo <branding>, light primary #d9c2f0), not a mood. */
+  background: radial-gradient(118% 94% at 15% 4%, #f8f2fd 0%, #e4d2f5 46%, #c9ace7 100%);
+}
+
+/* ── the window ─────────────────────────────────────────────────────────────────────────── */
+
+/*
+ * The window's width is NOT a taste decision: the page area is exactly 800 CSS px, because the
+ * options capture is 1600 physical px wide and the canvas renders at deviceScaleFactor 2. One
+ * image pixel per device pixel, so the capture inside the frame is neither resampled nor softened
+ * — and the single largest source of a non-reproducible render (Chromium re-rasterising a scaled
+ * image after the first paint) is gone rather than merely waited out.
+ */
+.browser {
+  position: absolute;
+  top: 40px;
+  left: 24px;
+  overflow: hidden;
+  /* 1 + 800 page area + 1 = 802 wide; 1 + 40 tab strip + 46 toolbar + 628 page area + 1 = 716. */
+  width: 802px;
+  height: 716px;
+  border: 1px solid rgba(32, 22, 44, 0.16);
+  border-radius: 14px;
+  background: #e9e6ed;
+  box-shadow:
+    0 2px 5px rgba(32, 22, 44, 0.1),
+    0 26px 60px rgba(32, 22, 44, 0.28);
+}
+
+.tabstrip {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  height: 40px;
+  padding: 0 12px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 250px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 9px 9px 0 0;
+  background: #fff;
+  color: #2d2635;
+  font-size: 12.5px;
+}
+
+/* A page's icon, as a neutral placeholder square: a real favicon would name a real site. */
+.tab .favicon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: #cac4d2;
+}
+
+.newtab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-bottom: 3px;
+  border-radius: 7px;
+  color: #5d5467;
+}
+
+/* Generic window buttons: three neutral discs. No vendor's colours, no vendor's glyphs. */
+.wincontrols {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  margin-bottom: 11px;
+  margin-left: auto;
+}
+
+.wincontrols i {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #c3bcca;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 46px;
+  padding: 0 13px;
+  border-bottom: 1px solid rgba(32, 22, 44, 0.1);
+  background: #fff;
+  color: #5d5467;
+}
+
+.toolbar .icon {
+  display: block;
+  flex: none;
+}
+
+/* The address pill. */
+.address {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 15px;
+  background: #f2f0f4;
+  font-size: 13px;
+}
+
+.address .scheme {
+  color: #7a7184;
+}
+
+.address .host {
+  color: #1f1a27;
+}
+
+/* Beifahrer's own toolbar button: the real app icon, and the status light it is in the product. */
+.ext {
+  position: relative;
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+
+.ext img {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+/* Connected and idle. Colour never speaks alone in the product, and it does not here either: the
+   options page inside the frame and the app window beside it both say "connected" in words. */
+.ext .dot {
+  position: absolute;
+  right: -2px;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid #fff;
+  border-radius: 50%;
+  background: #2ec27e;
+}
+
+/* ── the page area ──────────────────────────────────────────────────────────────────────── */
+
+/* The page area. The white is what B2's EMPTY frame shows; in B3 the capture covers all of it. */
+.viewport {
+  overflow: hidden;
+  height: 628px;
+  background: #fff;
+}
+
+/*
+ * The capture goes in at its natural size — 1600 physical px into 800 CSS px at deviceScaleFactor
+ * 2 — and is CLIPPED at the bottom, the way a browser shows the top of a long page. Not scaled,
+ * so not enlarged either: the store rule about enlarging a screenshot beyond 2× cannot be tripped
+ * from here (plan, Risk 6).
+ */
+.viewport img.page {
+  display: block;
+  width: 800px;
+}
+
+/* ── the app window beside it ───────────────────────────────────────────────────────────── */
+
+/*
+ * The native window capture, overlapping the frame's bottom-right corner for depth. It carries its
+ * own shadow and rounded corners in its alpha channel (headless-run's --window-shot), so it gets no
+ * box-shadow and no border-radius of ours on top — a second shadow over a matted one reads as a
+ * halo. The overlap is kept to ~50 px, over the page's right margin and not over its controls.
+ */
+.app {
+  position: absolute;
+  right: 24px;
+  bottom: 36px;
+  display: block;
+  width: 480px;
+}
