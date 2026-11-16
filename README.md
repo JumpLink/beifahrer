@@ -12,7 +12,56 @@ Beifahrer is a WebExtension for **Firefox and Chromium-based browsers** plus a s
 find an element by name, wait for a page, take a screenshot, fill a field, click, open a URL, run
 a recipe, and, if you allow it, sort, pin, close, save and reopen your tabs. **You decide, site by site, what it may do.**
 
-> **Status: early (0.1).** Works end-to-end in Chromium and Firefox. Not yet on the add-on stores.
+> **Status: early (0.1).** Works end-to-end in Chromium and Firefox. Not yet on the Chrome, Edge or
+> Firefox add-on stores: you install the extension from the release page.
+
+## Install
+
+Everything is on the [latest release](https://github.com/JumpLink/beifahrer/releases/latest)
+(file names carry the version, so look for the ending). Beifahrer is two pieces, and you need both:
+the **app** on your computer, and the **extension** in your browser.
+
+### 1. The app
+
+| System | Download | Notes |
+|---|---|---|
+| **macOS** | `.dmg` for Apple silicon (`arm64`) or Intel (`x86_64`); the `.zip` holds the same app | Signed and notarised, so it opens without a workaround. Move **Beifahrer** to Applications. |
+| **Windows** | `.msi` (x64), or the `windows.x64.zip` to run without installing | **Not signed yet.** Windows SmartScreen warns "Windows protected your PC": choose **More info → Run anyway**. |
+| **Linux** | `.flatpak`, `.deb` or `.rpm` | Flatpak: `flatpak install --user <file>.flatpak`. The `.deb` and `.rpm` put `beifahrer` on your `PATH`. |
+
+### 2. The browser extension
+
+- **Firefox:** open `beifahrer.xpi` from the release in Firefox. Mozilla has signed it, and it
+  updates itself.
+- **Chrome, Brave and other Chromium browsers:** unzip `beifahrer-<version>-chrome-mv3.zip`, open
+  `chrome://extensions`, switch on *Developer mode* and choose *Load unpacked*.
+- **Edge:** the same with `beifahrer-<version>-edge-mv3.zip` at `edge://extensions`.
+
+### 3. Connect your agent
+
+Open the app and follow the setup assistant. It picks your coding agent, shows the change to its
+config before writing it (after a backup of the old file, and only once you confirm), shows the
+extension link for your browser and walks you through pasting the pairing token. Nothing leaves your
+computer. Run it again any time: a config that is already right is reported and left alone.
+
+Prefer to do it by hand? `beifahrer config <agent>` prints the snippet for your agent (Claude Code,
+opencode, Codex CLI, Gemini CLI, Cursor, VS Code, Claude Desktop, Zed) and the file it goes in.
+On Linux with the `.deb` or `.rpm` it looks like this (drop `--allow-write` if the agent may only
+read):
+
+```json
+{
+  "mcpServers": {
+    "beifahrer": {
+      "command": "beifahrer",
+      "args": ["mcp", "--allow-write"]
+    }
+  }
+}
+```
+
+Then open a site, click the Beifahrer toolbar button, and pick a level. Details, the token and
+troubleshooting: [Pair it](#pair-it). Building from a checkout: [From source](#from-source).
 
 ## How it works
 
@@ -376,26 +425,13 @@ Page text is written by whoever runs the site, and an agent reading it can be st
 (prompt injection). That is the reason for the per-site levels: keep your bank at *Read*, and an
 injected instruction has nothing to write with.
 
-## Install
+## Setup details
 
-Ready-made downloads for Linux, macOS and Windows are on the
-[Beifahrer page](https://jumplink.eu/beifahrer/), which offers the right one for the system you
-are on. Beifahrer is two pieces, installed in this order:
-
-1. **The app** — one package per system: a window that shows which agent sessions run, which
-   browsers hang on them and the token to paste, and the MCP server your coding agent connects to.
-   Every setup needs it. Deb, RPM and a Flatpak bundle on Linux, an app on macOS, an installer or a
-   portable zip on Windows. Started without arguments (double-click, applications menu) it opens
-   the window; with a subcommand (`beifahrer mcp`) it is the command-line bridge.
-2. **Browser extension** — Beifahrer's half inside the browser. The stores do not carry it yet, so
-   the page offers the signed Firefox `.xpi` (one click, updates itself through `updates.json`) and
-   the Chromium zip from the release directly.
-
-Then open the app and follow the setup assistant: it picks your coding agent, shows the change to
-its config before writing it (after a backup of the old file, and only once you confirm), shows the
-extension link for your browser and walks you through pasting the token. Nothing leaves your
-computer. Run it again any time: a config that is already right is reported and left alone. The
-manual way is [Pair it](#pair-it) below.
+The app is one package per system: a window that shows which agent sessions run, which browsers
+hang on them and the token to paste, and the MCP server your coding agent connects to. Started
+without arguments (double-click, applications menu) it opens the window; with a subcommand
+(`beifahrer mcp`) it is the command-line bridge. The Firefox `.xpi` updates itself through
+`updates.json`. Ready-made downloads are also on the [Beifahrer page](https://jumplink.eu/beifahrer/).
 
 ### From source
 
@@ -439,7 +475,8 @@ gjsify run app/dist/gjs/beifahrer.mjs token   # from a checkout
 Either prints the token; paste it in the extension's options.
 
 Register the MCP server with your agent. It needs `mcp`, and `--allow-write` if the agent may
-fill and click at all (the extension's per-site level and its confirmations still apply):
+fill and click at all (the extension's per-site level and its confirmations still apply). From a
+checkout the command is `gjsify`:
 
 ```json
 {
@@ -471,16 +508,13 @@ symlink that leaves it, the call is refused before the browser is asked. At most
 20 MiB together. The content never comes back to the agent; you switch on *Upload files* in the browser
 and see the file names before each upload ([ADR 0027](docs/adr/0027-uploading-local-files.md)).
 
-`beifahrer config <agent>` prints this snippet in the format of your agent (Claude Code, opencode,
-Codex CLI, Gemini CLI, Cursor, VS Code, Claude Desktop, Zed) and the file it goes in. The command is the one that
-works on the host it runs on: `beifahrer` for the deb/rpm (on `PATH`), the absolute path of the
+`beifahrer config <agent>` prints the snippet in the format of your agent and the file it goes in.
+The command is the one that works on the host it runs on: `beifahrer` for the deb/rpm (on `PATH`), the absolute path of the
 launcher for the macOS app (`/Applications/Beifahrer.app/Contents/MacOS/beifahrer`) and the Windows
 program directory (`%ProgramFiles%\Beifahrer\beifahrer.exe`), and `flatpak run
 eu.jumplink.beifahrer mcp` inside the Flatpak. From a checkout, put the `gjsify run …` form
 above in its place. `beifahrer doctor` checks that the command in your agents' config files still
 resolves.
-
-Then open a site, click the Beifahrer toolbar button, and pick a level.
 
 If the browser says it is not connected, `beifahrer doctor` says why: no free port in the range, a
 listener on a port that no session announced, no token or two different ones, no agent session, no
