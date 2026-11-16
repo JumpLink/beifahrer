@@ -19,12 +19,12 @@ Chrome also needs two images that are not screenshots: the 128×128 icon inside 
 **mandatory** 440×280 small promo tile.
 
 The icon is 128×128, rendered from `data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg` by
-`extension/scripts/icons.ts` — but it does **not** yet meet Chrome's padding rule, and the docs must
-not say it does. The bus spans 108 × 93 of the 128 × 128 canvas (x 10–118, y 15–108 in the SVG),
-where Chrome wants 96×96 of artwork centred in 128×128, so the artwork has to shrink by about a
-tenth on the long axis. This is a change to the app icon (or a wrapper canvas around it), and it is
-a **product** change, not one these docs may make. It is a decision for a person: shrink the
-artwork, or keep the icon and accept that Chrome downscales it.
+`extension/scripts/icons.ts`. Chrome wants 96×96 of artwork centred in 128×128, and the app icon
+fills nearly the whole canvas, so the **Chrome package alone** gets a padded `active-128.png`: the
+same artwork drawn at 96×96 on a transparent 128×128 canvas (decided 2026-11-16, see
+[the plan](../plan/extension-page-and-stores.md)). The app icon and the Edge, Firefox and Safari
+packages keep the full-bleed artwork. The separate store icon that `gjsify webext listing` renders
+is not padded yet: that needs a per-store option in gjsify.
 
 The promo tile is artwork nobody has made yet.
 
@@ -184,6 +184,6 @@ Edge's **Duplicate** action copies a screenshot into the other languages, so upl
    language, not per theme. A person decides which is the store's and which stays in the repository.
 5. **Whether the in-page pill shot needs a real person in the frame.** Nothing in the extension
    requires one, and inventing a face for a store listing is a decision, not a task.
-6. **The icon's padding.** The artwork is 121 × 107 px inside 128 × 128, not the 96 × 96 Chrome asks
-   for. Shrinking it is a change to the app icon — product work, and the one item
-   here that touches the shipped extension rather than the store material.
+6. **The icon's padding.** Decided 2026-11-16: the Chrome package gets a padded 128 px icon, the app
+   icon stays as it is. Still open: the same padding for the store icon `gjsify webext listing`
+   renders, which needs gjsify.

@@ -148,7 +148,7 @@ Package: `beifahrer-0.1.0-chrome-mv3.zip` from the release.
 | Privacy policy URL | *a URL that must resolve*, serving [privacy.md](privacy.md) | — |
 | Single purpose | see below | — |
 | Language | English (United States); German available | `_locales/` carries `en` and `de` |
-| Icon | 128×128 PNG in the zip, 96×96 artwork with 16 px transparent padding | the store's rule is in [supplying images](https://developer.chrome.com/docs/webstore/images). The icon sizes come from `extension/manifest.ts:48`; the artwork is **not** yet inside 96×96 — measured 121 × 107 px of opaque pixels with margins L7 R0 T5 B16, see [screenshots.md](screenshots.md) |
+| Icon | 128×128 PNG in the zip, 96×96 artwork with 16 px transparent padding | the store's rule is in [supplying images](https://developer.chrome.com/docs/webstore/images). The icon sizes come from `extension/manifest.ts:48`; the Chrome package's `active-128.png` is the artwork at 96×96 on a transparent 128×128 canvas (`hasPaddedStoreIcon` in `extension/scripts/icon-looks.ts`), see [screenshots.md](screenshots.md) |
 | Small promo tile (mandatory) | 440×280 | [supplying images](https://developer.chrome.com/docs/webstore/images) |
 | Screenshots | 1–5, see [screenshots.md](screenshots.md) | [supplying images](https://developer.chrome.com/docs/webstore/images) |
 
