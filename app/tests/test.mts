@@ -62,6 +62,7 @@ import registryPublisher from './unit/registry/publisher.test.ts';
 import configCommand from './unit/registry/config.test.ts';
 import doctorCommand from './unit/registry/doctor.test.ts';
 import i18n from './unit/window/i18n.test.ts';
+import catalogParity from './unit/window/catalog-parity.test.ts';
 import windowAgentsModel from './unit/window/agents-model.test.ts';
 import windowPairingModel from './unit/window/pairing-model.test.ts';
 import windowStatusModel from './unit/window/status-model.test.ts';
@@ -138,6 +139,7 @@ run({
   configCommand,
   doctorCommand,
   i18n,
+  catalogParity,
   windowAgentsModel,
   windowPairingModel,
   windowStatusModel,
