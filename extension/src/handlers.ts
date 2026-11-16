@@ -33,6 +33,10 @@ import {
   levelFor,
   withheldFrameLine,
   parseNetwork,
+  parseSources,
+  compilePattern,
+  sliceText,
+  sourceUrl,
   parseElementQuery,
   parseExpect,
   parseKeySpec,
@@ -71,6 +75,7 @@ import { correctFrame, frameByIndex, framesOf, isWebUrl, type FrameRow } from '.
 import { fetchDocument } from './fetch-document.ts';
 import { loadGrants, settle } from './grants.ts';
 import { networkAvailable, rowsOf } from './network.ts';
+import { listSources, searchSources, sourcesAvailable, textOf } from './sources.ts';
 import { savesAvailable, watchSaves, type Save } from './saves.ts';
 import { askPage, inject } from './inject.ts';
 import { decodeQr, type QrCandidate } from './qr.ts';
@@ -1564,6 +1569,48 @@ const handlers: { [M in Method]: Handler<M> } = {
       truncated,
       ...(note ? { note } : rows.length === 0 ? { note: 'no requests recorded for this tab yet' } : {}),
     } as unknown as Result<'page.network'>;
+  },
+
+  /**
+   * The scripts the tab loaded (workers too), searched or sliced (issue #234). The gate is the
+   * tab's site at `read`; the text is fetched without cookies (sources.ts), so only code the site
+   * serves to every visitor is ever returned.
+   */
+  async 'page.sources'(params, policy, ctx) {
+    const tabId = tabIdOf(params);
+    const { tabId: _t, browser: _b, ...rest } = params as unknown as Record<string, unknown>;
+    const req = parseSources(rest);
+    if (typeof req === 'string') return fail('invalid', req);
+    const tab = await getTab(tabId);
+    await gate('page.sources', tab.url, policy, ctx);
+    const base = { action: req.action, scripts: [], hits: [], searched: 0, truncated: false };
+    const note = sourcesAvailable()
+      ? undefined
+      : 'the browser has not granted Beifahrer its webRequest permission, so it cannot see which scripts loaded';
+    if (req.action === 'list') {
+      const scripts = listSources(tabId, req.urlFilter);
+      return {
+        ...base,
+        scripts,
+        ...(note
+          ? { note }
+          : scripts.length === 0
+            ? { note: 'no scripts recorded for this tab yet; reload it after switching the request log on' }
+            : {}),
+      } as unknown as Result<'page.sources'>;
+    }
+    if (req.action === 'search') {
+      const re = compilePattern(req.pattern!, req.literal);
+      if (typeof re === 'string') return fail('invalid', re);
+      const found = await searchSources(tabId, re, req);
+      return { ...base, ...found, ...(note ? { note } : {}) } as unknown as Result<'page.sources'>;
+    }
+    const got = await textOf(tabId, req.url!);
+    if (got.text === undefined) return fail('not_found', got.error ?? 'unreadable');
+    return {
+      ...base,
+      slice: { url: sourceUrl(req.url!), ...sliceText(got.text, req.offset, req.length) },
+    } as unknown as Result<'page.sources'>;
   },
 
   async 'page.press'(params, policy, ctx) {
