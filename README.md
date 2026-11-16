@@ -623,8 +623,10 @@ The macOS `.dmg` and `.zip` are Developer-ID signed, notarized and stapled (sinc
 Gatekeeper opens them without a workaround. The Windows packages (`.zip`, `.msi`) are still
 unsigned, which is a legitimate deliverable rather than a placeholder (gjsify ADR 0024 § A13); see
 the comment below the "Attach everything to the release" step in
-[release.yml](.github/workflows/release.yml) for where `--sign` would attach. What is NOT
-in the release: any store submission — documented in the same file.
+[release.yml](.github/workflows/release.yml) for where `--sign` would attach. The store
+listing text is not hand-written: `gjsify webext listing` derives it from the AppStream metainfo
+([docs/store/](docs/store/README.md)). After a release, the `submit-stores` job uploads a Chrome and
+Edge **draft** behind the `store-release` approval; a person submits it for review.
 
 ## License
 

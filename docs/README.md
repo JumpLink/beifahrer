@@ -9,7 +9,7 @@ Reference material for Beifahrer. The rules an agent needs on nearly every task 
 | [security/](security/README.md) | The hard rules that keep the person in control: policy enforcement, `page.evaluate`, frames, access control, data handling |
 | [conventions.md](conventions.md) | Commits, versioning, licences, docs language, and PR screenshot workflow |
 | [adr/](adr/) | The design decisions, one file each, numbered and immutable once accepted. A rule in `AGENTS.md` that names an ADR points here |
-| [store/](store/) | Store submissions: listing text, privacy policy, screenshots, and what is still undecided ([index](store/README.md)) |
+| [store/](store/) | Store submissions: what the listing generator (`gjsify webext listing`) does not write, privacy policy, screenshots, and what is still undecided ([index](store/README.md)) |
 | [macos-run.md](macos-run.md) | Running this repository on an Apple-silicon MacBook: prerequisites, build, run, and the failures that only look like Beifahrer bugs |
 | [traps-browser-platform.md](traps-browser-platform.md) | Engine facts paid for: Safari's dead worker, the MV3 CSP that forbids `eval`, `permissions.remove` subtracting by coverage, synthetic input, headless drivers |
 | [traps-extension-code.md](traps-extension-code.md) | Code facts paid for: `decide()`'s union, the three layers of a frame's identity, the loop that measured the gap instead of the work |
