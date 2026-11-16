@@ -92,6 +92,12 @@
       <caption xml:lang="de">Bestätigung vor einer Aktion ohne Vorab-Freigabe</caption>
     </screenshot>
     <screenshot environment="gnome:dark">
+      <image type="source">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/desktop-dark.png</image>
+      <image type="source" xml:lang="de">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/desktop-de-dark.png</image>
+      <caption>The window lists agent sessions and the browsers connected to them</caption>
+      <caption xml:lang="de">Das Fenster zeigt die Agent-Sitzungen und die damit verbundenen Browser</caption>
+    </screenshot>
+    <screenshot environment="gnome:dark">
       <image type="source">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/popup-dark.png</image>
       <image type="source" xml:lang="de">https://raw.githubusercontent.com/JumpLink/beifahrer/main/docs/images/popup-de-dark.png</image>
       <caption>The toolbar popup shows the policy for the current site</caption>
