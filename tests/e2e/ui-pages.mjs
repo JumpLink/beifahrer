@@ -379,7 +379,17 @@ export async function firefoxPages(check, bidiPort, shotsDir) {
       win,
       "WebExtensionPolicy.getByID('beifahrer@jumplink.eu')?.mozExtensionHostname ?? ''",
     );
-    check('firefox', 'ui: the extension is installed', !!host, String(host));
+    let seen = '';
+    if (!host) {
+      const raw = await c.send('script.evaluate', {
+        target: { context: win },
+        awaitPromise: true,
+        expression:
+          'JSON.stringify({ version: Services.appinfo.version, policies: WebExtensionPolicy.getActiveExtensions().map((p) => ({ id: p.id, host: p.mozExtensionHostname, active: p.active })) })',
+      });
+      seen = JSON.stringify({ chromeTree, evaluated: raw });
+    }
+    check('firefox', 'ui: the extension is installed', !!host, host ? String(host) : seen);
     if (!host) return;
     for (const page of PAGES) {
       const url = `moz-extension://${host}/${page}.html${HASH[page] ?? ''}`;

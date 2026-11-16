@@ -585,7 +585,14 @@ async function launch(browser, profile) {
       '--start-url',
       `${FORBIDDEN}/fixture`,
     ],
-    { stdio: ['ignore', 'pipe', 'pipe'], detached: true, shell: webExt.shell },
+    {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: true,
+      shell: webExt.shell,
+      // Firefox 159 dropped the `-remote-allow-system-access` flag (gone from --help) and reads only
+      // this variable; older builds read the flag. Both are passed, so chrome-scope BiDi works on either.
+      env: { ...process.env, MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: '1' },
+    },
   );
   captureOutput(started);
   return started;
