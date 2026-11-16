@@ -58,6 +58,12 @@ export function registerFindTools(server: McpServer, call: Call): void {
     matches: z.array(foundElement).describe('Each ref works in page_fill / page_click / page_expect'),
     count: z.number().int().describe('How many matched; for a meta check, how many there are'),
     truncated: z.boolean().describe('True when more matched than maxResults'),
+    withheld: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'One line per frame the person did not allow (origin and levels, never content): matches inside it were not searched',
+      ),
   });
 
   server.registerTool(

@@ -346,6 +346,31 @@ function framesAtLevel(rows: FrameRow[], policy: Policy, ctx: CallContext, level
   return rows.filter((row) => atLeast(levelFor(policy, row.url, accessOf(ctx)), level));
 }
 
+/**
+ * The frames the policy left out get ONE line per origin, naming origin and level, never content
+ * (issue #153): silence reads as "this page embeds nothing".
+ */
+function withheldFrames(
+  rows: FrameRow[],
+  policy: Policy,
+  ctx: CallContext,
+  level: Level,
+): { frame: number; line: string }[] {
+  const kept = new Set(framesAtLevel(rows, policy, ctx, level));
+  const named = new Set<string>();
+  const out: { frame: number; line: string }[] = [];
+  for (const row of rows) {
+    const origin = originOf(row.url);
+    if (kept.has(row) || !isWebUrl(row.url) || !origin || named.has(origin)) continue;
+    named.add(origin);
+    out.push({
+      frame: row.index,
+      line: withheldFrameLine(origin, levelFor(policy, row.url, accessOf(ctx)), level),
+    });
+  }
+  return out;
+}
+
 /** The heading that separates one document from the next, in a read and in an outline alike. */
 const FRAME_MARK = '— frame: ';
 
@@ -424,18 +449,16 @@ async function readAcrossFrames(
         : { frame: row.index, data: { unreadable: moved ?? ('err' in answer ? answer.err : 'unknown') } },
     );
   }
-  // The frames the policy left out get ONE line per origin, naming origin and level, never content
-  // (issue #153): silence reads as "this page embeds nothing".
-  const kept = new Set(framesAtLevel(rows, policy, ctx, level));
-  const named = new Set<string>();
-  for (const row of rows) {
-    const origin = originOf(row.url);
-    if (kept.has(row) || !isWebUrl(row.url) || !origin || named.has(origin)) continue;
-    named.add(origin);
-    const have = levelFor(policy, row.url, accessOf(ctx));
-    out.push({ frame: row.index, data: { withheld: withheldFrameLine(origin, have, level) } });
+  for (const line of withheldFrames(rows, policy, ctx, level)) {
+    out.push({ frame: line.frame, data: { withheld: line.line } });
   }
   return out;
+}
+
+/** The `withheld` lines of a walk, as the field a result carries; nothing when none. */
+function withheldOf(parts: { data: Record<string, unknown> }[]): { withheld?: string[] } {
+  const lines = parts.flatMap((part) => (typeof part.data.withheld === 'string' ? [part.data.withheld] : []));
+  return lines.length ? { withheld: lines } : {};
 }
 
 /** The frames' text under their URLs, for a read. */
@@ -991,7 +1014,16 @@ const handlers: { [M in Method]: Handler<M> } = {
     const raw = params as unknown as Record<string, unknown>;
     const match = typeof raw.match === 'string' && raw.match.trim() ? raw.match.slice(0, 200) : undefined;
     const maxRows = Math.min(Math.max(Number(raw.maxRows) || 200, 1), 1_000);
-    return (await page(tabId, ctx, { beifahrer: 'rows', match, maxRows })) as unknown as Result<'page.rows'>;
+    const result = (await page(tabId, ctx, {
+      beifahrer: 'rows',
+      match,
+      maxRows,
+    })) as unknown as Result<'page.rows'>;
+    // Rows are read from the top document only; say which frames the policy keeps out (issue #153).
+    await inject(tabId, true).catch(() => undefined);
+    const rows = await locateFrames(tabId, tab.url ?? '');
+    const lines = withheldFrames(rows, policy, ctx, 'read').map((w) => w.line);
+    return lines.length ? { ...result, withheld: lines } : result;
   },
 
   /**
@@ -1128,6 +1160,7 @@ const handlers: { [M in Method]: Handler<M> } = {
       matches: wanted.slice(0, maxResults),
       count: wanted.length,
       truncated: wanted.length > maxResults,
+      ...withheldOf(frames),
     } as Result<'page.find'>;
   },
 
