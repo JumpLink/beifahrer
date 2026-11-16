@@ -9,6 +9,7 @@ import { GRANTS_MESSAGE, handleGrantsMessage } from '../src/grants-messages.ts';
 import { installGrants } from '../src/grants.ts';
 import { installFrameCleanup, noteFrame } from '../src/frames.ts';
 import { installNetworkCleanup, installNetworkWatch } from '../src/network.ts';
+import { installSourcesWatch } from '../src/sources.ts';
 import { installAutosave } from '../src/sessions-store.ts';
 import { installToolbar } from '../src/toolbar.ts';
 import { DISCONNECT_MESSAGE } from '../src/ui/sessions.ts';
@@ -26,6 +27,7 @@ installNetworkCleanup();
 // At LOAD, not when the feature is switched on: a `webRequest` listener added later is not reliably
 // delivered, and an MV3 worker that sleeps and wakes has to find its listeners again (network.ts).
 installNetworkWatch();
+installSourcesWatch();
 browser.windows.onRemoved.addListener(onWindowRemoved);
 browser.runtime.onMessage.addListener((message: unknown, sender) => {
   // The one exception to "our own pages only": the Stop button of the in-page pill, which lives in

@@ -28,6 +28,7 @@ export const METHOD_WORDS: Record<Method, string> = {
   'page.wait': 'waited for a page',
   'page.expect': 'asserted a state',
   'page.network': 'looked at what the page requested',
+  'page.sources': 'searched the scripts of a page',
   'page.screenshot': 'took a screenshot',
   'page.download': 'downloaded a document',
   'page.rows': 'listed the rows of a page',

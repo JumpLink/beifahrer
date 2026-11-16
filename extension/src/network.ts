@@ -115,7 +115,7 @@ function webrequest(): WebRequestApi | null {
 
 /** Is the person watching? Cached for a moment, because this runs per request event. */
 let watching: { on: boolean; at: number } = { on: false, at: 0 };
-async function isWatching(): Promise<boolean> {
+export async function isWatching(): Promise<boolean> {
   const now = Date.now();
   if (now - watching.at < 1_000) return watching.on;
   const { features } = await loadSettings();

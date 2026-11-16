@@ -13,6 +13,11 @@ import {
   FEATURES,
   MAX_NETWORK_LIMIT,
   MAX_RESULT_CHARS,
+  MAX_SOURCE_CONTEXT,
+  MAX_SOURCE_HITS,
+  MAX_SOURCE_PATTERN,
+  MAX_SOURCE_SLICE,
+  SOURCE_ACTIONS,
   WORLDS,
   outdatedExtensionNote,
   type BrowserFamily,
@@ -526,6 +531,110 @@ export function registerTools(
     async ({ tabId, limit, since, browser }) => {
       try {
         return networkAnswer.result(await call('page.network', { tabId, limit, since }, browser));
+      } catch (err) {
+        return failure(err);
+      }
+    },
+  );
+
+  const sourcesAnswer = answer({
+    action: z.enum(SOURCE_ACTIONS),
+    scripts: z
+      .array(
+        loose({
+          url: z.string().describe('Without query and fragment'),
+          kind: z.enum(['script', 'fetched']),
+          size: z.number().int().optional().describe('Characters read, once the text was fetched'),
+          sourceMap: z.string().optional().describe('The //# sourceMappingURL= it names; not resolved'),
+          error: z.string().optional().describe('Why the text could not be read'),
+        }),
+      )
+      .describe('The scripts the tab loaded (list), or the ones that matched (search)'),
+    hits: z
+      .array(
+        loose({
+          url: z.string(),
+          offset: z.number().int().describe('Character offset of the match, for a slice'),
+          text: z.string().describe('The match with its context'),
+        }),
+      )
+      .describe('Search matches'),
+    searched: z.number().int().describe('How many scripts were searched'),
+    truncated: z
+      .boolean()
+      .describe('True when the hit cap, the script cap or the time budget cut the answer short'),
+    slice: z
+      .object({
+        url: z.string(),
+        offset: z.number().int(),
+        text: z.string(),
+        total: z.number().int(),
+        more: z.boolean(),
+      })
+      .optional(),
+    note: z.string().optional().describe('Why the answer is empty when the person expects it not to be'),
+  });
+
+  server.registerTool(
+    'page_sources',
+    {
+      title: "The tab's scripts",
+      description:
+        'List the scripts the tab and its workers loaded, search their text, and read around a hit. ' +
+        'action="list" names them (URL, kind, size, the source map they point to); ' +
+        'action="search" finds a pattern in all of them (regular expression, or literal text with literal=true) and returns up to maxHits matches with context characters each side; ' +
+        'action="slice" reads length characters of one script from offset, the way to read around a hit. ' +
+        'This is where an endpoint, a feature flag or an error string that is not in the DOM is found, including in a web worker. ' +
+        "It reads only code the site serves to every visitor: the browser fetches it again WITHOUT the person's cookies, so nothing behind a login and no page state, storage or variable is reachable. " +
+        'URLs come without query and fragment. A source map is reported (`sourceMap`), not resolved. ' +
+        'A script on a private-network address (loopback, RFC 1918, link-local, `.local`, `.internal`) is listed with an error and never fetched, unless the tab itself is on such an address. ' +
+        "Verified in Firefox and Chromium: both list a dedicated worker's script and what it imports via importScripts(). " +
+        'Hard caps: ' +
+        `${MAX_SOURCE_HITS} hits, ${MAX_SOURCE_CONTEXT} characters of context, ${MAX_SOURCE_SLICE} characters per slice, ${MAX_SOURCE_PATTERN} characters of pattern; ` +
+        '`truncated` says a cap cut the answer. ' +
+        'Like page_network it only knows scripts requested while the person has "See page requests" on AND the browser grants it; a `note` says which of those it was. ' +
+        POLICY_NOTE,
+      inputSchema: {
+        tabId: tabIdParam,
+        action: z.enum(SOURCE_ACTIONS).describe('list, search or slice'),
+        pattern: z
+          .string()
+          .max(MAX_SOURCE_PATTERN)
+          .optional()
+          .describe('search: what to find (case-insensitive regular expression unless literal)'),
+        literal: z.boolean().optional().describe('search: treat pattern as plain text'),
+        urlFilter: z.string().optional().describe('list/search: only scripts whose URL contains this'),
+        context: z
+          .number()
+          .int()
+          .min(0)
+          .max(MAX_SOURCE_CONTEXT)
+          .optional()
+          .describe('search: characters either side of a match (default 80)'),
+        maxHits: z
+          .number()
+          .int()
+          .min(1)
+          .max(MAX_SOURCE_HITS)
+          .optional()
+          .describe('search: how many matches at most (default 20)'),
+        url: z.string().optional().describe('slice: the script, as `url` from list or a hit'),
+        offset: z.number().int().min(0).optional().describe('slice: first character (default 0)'),
+        length: z
+          .number()
+          .int()
+          .min(1)
+          .max(MAX_SOURCE_SLICE)
+          .optional()
+          .describe('slice: how many characters (default 2000)'),
+        browser: browserParam,
+      },
+      outputSchema: sourcesAnswer.schema,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async ({ browser, ...params }) => {
+      try {
+        return sourcesAnswer.result(await call('page.sources', params, browser));
       } catch (err) {
         return failure(err);
       }
