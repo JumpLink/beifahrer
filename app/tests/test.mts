@@ -30,6 +30,7 @@ import refs from './unit/core/refs.test.ts';
 import toolbar from './unit/core/toolbar.test.ts';
 import shortcut from './unit/core/shortcut.test.ts';
 import agents from './unit/core/agents.test.ts';
+import agentClaims from './unit/core/agent-claims.test.ts';
 import doctor from './unit/core/doctor.test.ts';
 import registry from './unit/core/registry.test.ts';
 import bridge from './unit/bridge/bridge.test.ts';
@@ -104,6 +105,7 @@ run({
   toolbar,
   shortcut,
   agents,
+  agentClaims,
   doctor,
   registry,
   bridge,
