@@ -206,6 +206,18 @@ export default async () => {
       expect(schemaOf(rec, 'page_expect').safeParse({ ...EXPECT_SEEN, frames: 2 }).success).toBe(true);
     });
 
+    await it('page_find carries the withheld-frame lines, and still validates without them (issue #153)', async () => {
+      const rec = recorded();
+      const line = '— frame withheld: https://ads.example (level none, needs read)';
+      expect(
+        schemaOf(rec, 'page_find').safeParse({ ...(SAMPLES.page_find as object), withheld: [line] }).success,
+      ).toBe(true);
+      expect(
+        schemaOf(rec, 'page_find').safeParse({ ...(SAMPLES.page_find as object), withheld: 'x' }).success,
+      ).toBe(false);
+      expect(schemaOf(rec, 'page_find').safeParse(SAMPLES.page_find).success).toBe(true);
+    });
+
     await it('still refuses an answer that is not the one it promised', async () => {
       const rec = recorded();
       expect(schemaOf(rec, 'tab_open').safeParse({}).success).toBe(false);

@@ -193,7 +193,14 @@ export interface MethodMap {
      * as `page.outline`. With `meta`, a `<meta>` check instead: answers a count only.
      */
     params: { tabId: number; maxResults?: number; meta?: MetaQuery } & ElementQuery;
-    result: { url: string; matches: FoundElement[]; count: number; truncated: boolean };
+    result: {
+      url: string;
+      matches: FoundElement[];
+      count: number;
+      truncated: boolean;
+      /** One line per cross-origin frame the policy kept out of the walk (issue #153). */
+      withheld?: string[];
+    };
   };
   'page.wait': {
     /** Until the document has loaded, or until an element matching the query is there. */
@@ -253,7 +260,14 @@ export interface MethodMap {
    */
   'page.rows': {
     params: { tabId: number; match?: string; maxRows?: number };
-    result: { rows: PageRow[]; count: number; truncated: boolean; ref?: string };
+    result: {
+      rows: PageRow[];
+      count: number;
+      truncated: boolean;
+      ref?: string;
+      /** One line per frame the policy keeps out; rows come from the top document only (issue #153). */
+      withheld?: string[];
+    };
   };
   /**
    * Click something that hands over a document, and get the document (ADR 0018). The page does the
