@@ -29,7 +29,7 @@ export function t(key: MessageKey, ...substitutions: (string | number)[]): strin
 
 /** "1 tab" / "3 tabs". getMessage has no plural rules; one/other covers en and de. */
 export function plural(
-  base: 'windows' | 'tabs' | 'close_target_window' | 'close_target_tabs',
+  base: 'windows' | 'tabs' | 'close_target_window' | 'close_target_tabs' | 'history_stored',
   count: number,
 ): string {
   return count === 1 ? t(`${base}_one`) : t(`${base}_other`, count);

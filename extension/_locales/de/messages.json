@@ -902,5 +902,49 @@
         "content": "$1"
       }
     }
+  },
+  "history_title": {
+    "message": "Verlauf"
+  },
+  "history_on": {
+    "message": "Verlauf führen"
+  },
+  "history_on_detail": {
+    "message": "Welche Website, wann, was der Agent getan hat und ob es geklappt hat. Bleibt in diesem Browser, höchstens 30 Tage und 500 Einträge. Standardmäßig aus."
+  },
+  "history_stored_one": {
+    "message": "Aus. 1 Eintrag ist noch gespeichert."
+  },
+  "history_stored_other": {
+    "message": "Aus. $COUNT$ Einträge sind noch gespeichert.",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "history_empty": {
+    "message": "Noch nichts aufgezeichnet"
+  },
+  "history_clear": {
+    "message": "Verlauf löschen"
+  },
+  "history_cleared": {
+    "message": "Verlauf gelöscht"
+  },
+  "history_no_host": {
+    "message": "Eine Browserseite"
+  },
+  "history_outcome_ok": {
+    "message": "Erledigt"
+  },
+  "history_outcome_refused": {
+    "message": "Abgelehnt"
+  },
+  "history_outcome_failed": {
+    "message": "Fehlgeschlagen"
+  },
+  "history_scripts_note": {
+    "message": "Der Verlauf behält nie, was getippt wurde oder welches Skript lief. Die Aktivitätsliste im Popup zeigt bis zum Schließen des Browsers eine kurze Vorschau. Um ein Skript vor dem Start zu sehen, lass die Rückfrage an."
   }
 }

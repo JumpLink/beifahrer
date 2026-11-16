@@ -79,8 +79,8 @@ The listing fields below are the ones that page names.
 >
 > **Nothing leaves your machine.** There is no account, no telemetry and no server. The extension
 > talks to a small local program you run yourself, over a connection that only accepts this
-> extension. What it stores — your policy, your switches, your saved sessions — stays in your
-> browser profile.
+> extension. What it stores — your policy, your switches, your saved sessions and, only if you switch it on,
+> a history of host, time and outcome — stays in your browser profile.
 >
 > Beifahrer is an MCP client for your coding agent. It works with the agent you already use; it does
 > not bring one.
@@ -201,7 +201,7 @@ Drafts, each naming the feature it serves:
 | Permission | Justification to paste |
 |---|---|
 | `tabs` | List the user's open tabs, their URLs and their titles, so the agent can address the page the user is looking at. Used by the "See tabs" switch. |
-| `storage` | Store the user's own settings in the extension's local storage: the per-site access policy, the feature switches, the pause state, the saved sessions and the pairing token. Nothing is read from another extension's storage and nothing is sent anywhere. |
+| `storage` | Store the user's own settings in the extension's local storage: the per-site access policy, the feature switches, the pause state, the saved sessions, the pairing token and, only if the user switches it on, a history of host, time, method and outcome (500 entries, 30 days, clearable). Nothing is read from another extension's storage and nothing is sent anywhere. |
 | `alarms` | Wake the background periodically to look for a local bridge on the configured port range, and to end a temporary access grant when it expires. |
 | `sessions` | Read and restore the browser's recently-closed list, so a window the agent closed by mistake — or the user closed by mistake — comes back. Behind the "Saved sessions" switch, which is off by default. |
 | `tabGroups` | Name and colour tab groups. Behind the "Manage tabs and windows" switch, off by default. |

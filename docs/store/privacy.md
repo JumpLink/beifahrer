@@ -120,13 +120,14 @@ is written to the bridge's storage, and nothing is sent to a server.
 | temporary grants ("all sites", "for this session") | `storage.session` — never in the stored policy, gone when the browser restarts | `extension/src/grants.ts:6` |
 | the activity log you see in the popup | `storage.session` where the browser has it, otherwise memory only | `extension/src/activity.ts:7-8` |
 | saved sessions (your windows and tabs) | `storage.local` of this profile, **never on the bridge** | `extension/src/sessions-store.ts:4-5`, read at `extension/src/sessions-store.ts:38` |
+| the history, when you switch it on (off by default) | `storage.local` of this profile: time, method, host, outcome and error code only, never a path, title, text or session label; at most 500 entries and 30 days; cleared by one click; no agent method can read it ([ADR 0029](../adr/0029-history-an-opt-in-log-of-what-the-agent-did.md)) | `extension/src/history.ts` |
 | the request log, when you switch it on | in memory, one buffer per tab, capped at 200 rows, dropped when the tab closes or has been quiet for ten minutes | `extension/src/network.ts:52,73-77,89-95` |
 
 Saved sessions living in the browser rather than beside the agent is a decision with its own
 rationale, [ADR 0004](../adr/0004-sessions-live-in-the-browser.md).
 
 What the activity log holds: the time, the method in words, the **host**, the outcome, and a capped
-preview of a fill. Never page text (`extension/src/activity.ts:5-6`).
+preview of a fill. Never page text (`extension/src/activity.ts:5-6`). The activity log is never on disk; the history above is the one record that persists, and only if you switch it on.
 
 ## 6. What the agent can see, and what it cannot
 

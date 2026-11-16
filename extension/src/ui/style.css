@@ -127,6 +127,25 @@ adw-toast-overlay#toasts .adw-toast-overlay-toasts {
   position: fixed;
 }
 
+.history-note {
+  margin: 0;
+  padding: 0 var(--spacing-s);
+}
+
+.history-outcome-refused,
+.history-outcome-failed {
+  color: var(--warning-color);
+}
+
+/* At phone width the suffix drops below the title and subtitle instead of squeezing them. */
+#history-list adw-action-row {
+  flex-wrap: wrap;
+}
+
+#history-list adw-action-row .adw-action-row-text {
+  flex: 1 1 10em;
+}
+
 .activity-reason {
   color: var(--warning-color);
 }

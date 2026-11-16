@@ -18,6 +18,8 @@ import {
   type Method,
 } from '@beifahrer/core';
 
+import { recordCall } from './history.ts';
+
 const KEY = 'activity';
 
 export interface SessionArea {
@@ -117,6 +119,8 @@ export async function track<T>(
     await load();
     log = pushActivity(log, activityEntry({ at: lastActivityAt, method, params, url, error, session }));
     await persist(sessionArea(), log);
+    // ADR 0029: only these three inputs, never params or the session label; a no-op unless switched on.
+    await recordCall({ method, url, error });
     changed();
   }
 }

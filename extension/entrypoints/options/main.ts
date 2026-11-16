@@ -39,6 +39,7 @@ import {
   setFeature,
   setQuietly,
 } from '../../src/ui/features.ts';
+import { setupHistory } from '../../src/ui/history.ts';
 import { scriptQuietControl } from '../../src/ui/script-quiet.ts';
 import { Diagram, diagramOf } from '../../src/ui/diagram.ts';
 import { browserInfo } from '../../src/browser-info.ts';
@@ -604,6 +605,7 @@ async function main(): Promise<void> {
     guarded('renderState', renderState),
     guarded('renderSites', renderSites),
     guarded('setupTabs', setupTabs),
+    guarded('setupHistory', async () => setupHistory()),
     guarded('renderFeatures', () => renderFeatures(features, onChange)),
     guarded('renderShotsWarning', renderShotsWarning),
     guarded('renderNetWarning', renderNetWarning),
