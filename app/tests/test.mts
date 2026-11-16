@@ -76,6 +76,8 @@ import windowSetupApply from './unit/window/setup-apply.test.ts';
 import windowSetupModel from './unit/window/setup-model.test.ts';
 import windowBrowserModel from './unit/window/browser-model.test.ts';
 import windowSafariModel from './unit/window/safari-model.test.ts';
+import windowCheckModel from './unit/window/check-model.test.ts';
+import windowCheckRun from './unit/window/check-run.test.ts';
 import dispatch from './unit/dispatch.test.ts';
 import statusCommand from './unit/registry/status.test.ts';
 
@@ -154,5 +156,7 @@ run({
   windowSetupModel,
   windowBrowserModel,
   windowSafariModel,
+  windowCheckModel,
+  windowCheckRun,
   dispatch,
 });

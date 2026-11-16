@@ -3,7 +3,7 @@ import Gio from 'gi://Gio?version=2.0';
 import system from 'system';
 import { AdwaitaApp, runApplication } from '@gjsify/adwaita-app';
 import { parsePortRange, portsOf, statusOf, unregisteredPorts } from '@beifahrer/core';
-import { pairingInfo, probePorts, readEntries, registryDir } from '@beifahrer/local';
+import { loadOrCreateToken, pairingInfo, probePorts, readEntries, registryDir } from '@beifahrer/local';
 
 import { createTranslate, pickLocale } from './i18n.ts';
 import { viewOf } from './status-model.ts';
@@ -30,6 +30,10 @@ import { createBackgroundPortal } from './background-portal.ts';
 import { installAboutAction } from './about.ts';
 import { helperPathOf, SAFARI_EXTENSION_ID, safariView } from './safari-model.ts';
 import { openSafariSettings, readSafariState } from './safari-runner.ts';
+import { listenInRange } from '../bridge/bridge.ts';
+import { VERSION } from '../version.ts';
+import { checkView, type CheckState } from './check-model.ts';
+import { runCheck } from './check-run.ts';
 import { createWindow } from './window.ts';
 
 const locale = pickLocale([...GLib.get_language_names()]);
@@ -58,9 +62,39 @@ const application = new AdwaitaApp({
   applicationId: 'eu.jumplink.beifahrer',
   createWindow: (app) => {
     installAboutAction(app, t, locale);
-    const ui = createWindow(app, t, showSwitch(backend), setupDone, markSetupDone, () => {
-      if (safariHelper) openSafariSettings(safariHelper, SAFARI_EXTENSION_ID);
-    });
+    const ui = createWindow(
+      app,
+      t,
+      showSwitch(backend),
+      setupDone,
+      markSetupDone,
+      () => {
+        if (safariHelper) openSafariSettings(safariHelper, SAFARI_EXTENSION_ID);
+      },
+      () => void check(),
+    );
+    let checking = false;
+    const showCheck = (state: CheckState) => ui.showCheck(checkView(state, t));
+    // Its own short session on the same range as any agent: not announced in the registry, ended when done.
+    const check = async () => {
+      if (checking) return;
+      checking = true;
+      showCheck({ kind: 'running' });
+      try {
+        showCheck(
+          await runCheck(async () =>
+            listenInRange(parsePortRange(process.env.BEIFAHRER_PORT, process.env.BEIFAHRER_PORT_COUNT), {
+              token: loadOrCreateToken().token,
+              version: VERSION,
+              label: 'beifahrer · check',
+            }),
+          ),
+        );
+      } finally {
+        checking = false;
+      }
+    };
+    showCheck({ kind: 'idle' });
     let safariState: 'enabled' | 'disabled' | 'unknown' = 'unknown';
     let safariReading = false;
     const probeSafari = () => {
@@ -81,7 +115,8 @@ const application = new AdwaitaApp({
     let unregistered: number[] = [];
     let probing = false;
     const probe = () => {
-      if (probing) return;
+      // The check's own session is on that range, unannounced: it would show up as a stranger.
+      if (probing || checking) return;
       probing = true;
       probePorts(ports)
         .then((listening) => {
