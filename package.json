@@ -30,6 +30,12 @@
   },
   "gjsify": {
     "webext": {
+      "targets": [
+        "chrome-mv3",
+        "edge-mv3",
+        "firefox-mv2",
+        "safari-mv3"
+      ],
       "listing": {
         "metainfo": "data/eu.jumplink.beifahrer.metainfo.xml",
         "languages": [

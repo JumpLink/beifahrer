@@ -35,6 +35,11 @@ on:
         required: false
         default: false
         type: boolean
+      submit_for_review:
+        description: "Store uploads: also ask Chrome and Edge for review (the first submission is a person's decision)"
+        required: false
+        default: false
+        type: boolean
 
 # Two tags pushed seconds apart would otherwise run twice against one release and
 # upload in whichever order finished last. Queued rather than cancelled: a
@@ -201,24 +206,8 @@ jobs:
       # that holds the identity.
 
       # -----------------------------------------------------------------------------------------
-      # STORE SUBMISSIONS GO HERE, and are deliberately absent: each one needs an account in a
-      # store nobody can be created for from CI, plus a secret this repository does not hold and
-      # this workflow must not need. A step per store, once a person has decided to submit:
-      #
-      #   Chrome Web Store  — API v2, addressed by publisher and item:
-      #                       $CHROME_WEB_STORE_PUBLISHER_ID, $CHROME_WEB_STORE_ITEM_ID,
-      #                       $CHROME_WEB_STORE_CLIENT_ID, $CHROME_WEB_STORE_CLIENT_SECRET,
-      #                       $CHROME_WEB_STORE_REFRESH_TOKEN  (Google Cloud OAuth client; the
-      #                       item must exist, the API cannot create it)
-      #   Edge Add-ons      — API v1.1 (`Authorization: ApiKey` + `X-ClientID`):
-      #                       $EDGE_ADDONS_PRODUCT_ID, $EDGE_ADDONS_CLIENT_ID,
-      #                       $EDGE_ADDONS_API_KEY  (Partner Center → Edge → Publish API; the
-      #                       key expires and must be renewed by a person)
-      #
-      # Both are asynchronous and neither changes the listing text, so a step is
-      # `gjsify webext submit --store <chrome|edge>` (plan: docs/plan/webext-submit.md): it uploads
-      # a draft by default, `--submit` only on a tag, and the step sits behind a GitHub Environment
-      # with a required reviewer.
+      # STORE UPLOADS are the `submit-stores` job at the end of this file, not a step here: they
+      # need secrets and a person's approval, and a store outage must leave this release intact.
       #   Safari            — none of these help: a macOS Safari App Extension is signed by Xcode
       #                       against a provisioning profile and uploaded through App Store
       #                       Connect by a person. It stays a manual step, and `safari-mv3` ships
@@ -314,3 +303,83 @@ jobs:
           ls -la extension/.output/signed
           gh release upload "$TAG" extension/.output/signed/*.xpi extension/.output/signed/updates.json
           gh release view "$TAG" --json assets --jq '.assets[].name'
+
+  # The store uploads (docs/plan/webext-submit.md): `gjsify webext submit` puts the zip of THIS tag
+  # into the Chrome Web Store and Edge Add-ons as a DRAFT. A job of its own, after `release`, so a
+  # store outage or an expired key leaves the release intact, and behind the `store-release`
+  # Environment, whose required reviewer is the only way the store secrets reach a runner.
+  #
+  # It never asks a store for review on its own: that is the person's first submission. A person who
+  # has looked at the draft re-runs the workflow by hand (`submit_for_review`) from the tag.
+  # Idempotent: a version a store already has is a success, not a failure.
+  #
+  # The Edge API key expires after 72 days; a 401 in the Edge step means "renew it in Partner Center
+  # and update EDGE_ADDONS_API_KEY", not a broken workflow.
+  submit-stores:
+    needs: release
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || (inputs.publish && inputs.tag != '') }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+    environment: store-release
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Install system prerequisites
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          git tar xz findutils gjs libsoup3 gdk-pixbuf2 librsvg2 json-glib glib2-devel gh
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install the toolchain (gjsify)
+        run: |
+          set -eu
+          VERSION=$(node -p "require('./app/package.json').devDependencies['@gjsify/cli']")
+          npm install -g "@gjsify/cli@$VERSION"
+          gjsify install --immutable
+
+      # The zips are the ones attached to the release, i.e. the ones CI built and tested; nothing is
+      # rebuilt here. `webext submit` looks for `<outDir>/<name>-<version>-<target>.zip`.
+      - name: Fetch the zips of this release
+        run: |
+          set -eu
+          mkdir -p .output
+          gh release download "$TAG" --dir .output --pattern '*-chrome-mv3.zip' --pattern '*-edge-mv3.zip'
+          ls -la .output
+
+      # `store.json` is the preflight `webext submit` reads before any network call.
+      - name: Derive the listing kit
+        run: gjsify webext listing --stores cws,edge --out dist/listing
+
+      - name: Chrome Web Store
+        env:
+          CHROME_WEB_STORE_PUBLISHER_ID: ${{ secrets.CHROME_WEB_STORE_PUBLISHER_ID }}
+          CHROME_WEB_STORE_ITEM_ID: ${{ secrets.CHROME_WEB_STORE_ITEM_ID }}
+          CHROME_WEB_STORE_CLIENT_ID: ${{ secrets.CHROME_WEB_STORE_CLIENT_ID }}
+          CHROME_WEB_STORE_CLIENT_SECRET: ${{ secrets.CHROME_WEB_STORE_CLIENT_SECRET }}
+          CHROME_WEB_STORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEB_STORE_REFRESH_TOKEN }}
+        run: gjsify webext submit --store chrome ${{ inputs.submit_for_review && '--submit' || '' }}
+
+      # Its own step with `!cancelled()`: a failure at Chrome must not hide whether Edge works.
+      - name: Edge Add-ons
+        if: ${{ !cancelled() }}
+        env:
+          EDGE_ADDONS_PRODUCT_ID: ${{ secrets.EDGE_ADDONS_PRODUCT_ID }}
+          EDGE_ADDONS_CLIENT_ID: ${{ secrets.EDGE_ADDONS_CLIENT_ID }}
+          EDGE_ADDONS_API_KEY: ${{ secrets.EDGE_ADDONS_API_KEY }}
+        run: gjsify webext submit --store edge ${{ inputs.submit_for_review && '--submit' || '' }}
