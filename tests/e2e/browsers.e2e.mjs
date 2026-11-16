@@ -85,6 +85,14 @@ const LOGS = process.env.BEIFAHRER_E2E_LOGS;
 const logTo = (name) => (LOGS ? createWriteStream(join(LOGS, name)) : null);
 /** Set BEIFAHRER_E2E_LANG=de to run Chromium in another UI language (for localized screenshots). */
 const LANG = process.env.BEIFAHRER_E2E_LANG;
+/**
+ * The MCP client name the run connects under. It is not cosmetic: with no BEIFAHRER_SESSION_LABEL
+ * the bridge builds the session label from it, so it is the text the options page and the app
+ * window show for the agent — and a screenshot run (BEIFAHRER_E2E_SCREENSHOTS) must not publish
+ * the name of a test. Set BEIFAHRER_E2E_CLIENT=claude-code for a picture; the label assertion
+ * below reads the same constant, so the two cannot drift apart.
+ */
+const CLIENT = process.env.BEIFAHRER_E2E_CLIENT || 'beifahrer-e2e';
 
 /**
  * Which runtime starts the bridge: `gjsify run` on GJS (the default, and what Linux ships) or
@@ -657,7 +665,7 @@ async function startMcp(tokenFile, logName, env = {}) {
     },
     stderr: LOGS ? 'pipe' : 'ignore',
   });
-  const client = new Client({ name: 'beifahrer-e2e', version: '0' });
+  const client = new Client({ name: CLIENT, version: '0' });
   await client.connect(transport);
   const log = logTo(logName);
   if (log) transport.stderr?.pipe(log);
@@ -815,8 +823,7 @@ async function multiSession(browser) {
     check(
       name,
       'labels: BEIFAHRER_SESSION_LABEL, else MCP client name · directory',
-      sa.session?.label === 'e2e session A' &&
-        sb.session?.label === `beifahrer-e2e · ${basename(process.cwd())}`,
+      sa.session?.label === 'e2e session A' && sb.session?.label === `${CLIENT} · ${basename(process.cwd())}`,
       `${sa.session?.label} | ${sb.session?.label}`,
     );
 
