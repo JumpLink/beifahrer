@@ -21,7 +21,7 @@ may do.
 | S5 | Bounded poll/retry layer | done — gjsify #2633 | — |
 | S6 | `webext submit --store … [--dry-run] [--submit]` | done — gjsify #2634, released in v0.64.45 | — |
 | S6b | **Fix: `submit` must not demand a `webext` project shape** | open — gjsify #2673, CI running | a gjsify release ≥ 0.64.46 |
-| S7 | Document the command for agents in gjsify's cli `AGENTS.md` | open, needs a decision | the file is 32,766 B of a 32,768 B limit |
+| S7 | Document the command for agents in gjsify's cli `AGENTS.md` | open; decided: split the webext part into its own file | the file is 32,766 B of a 32,768 B limit |
 | S8 | Beifahrer: `submit-stores` job in `release.yml` | written — Beifahrer PR #252, open | S6b, then the pin bump |
 | S8b | Bump Beifahrer's `@gjsify/*` pins 0.64.40 → ≥ 0.64.46 | open | S6b released |
 | S9 | The first upload per store, by hand | open — Pascal | Edge: a working drag-in or extension ≥ 0.1.31 |
@@ -69,17 +69,17 @@ visibility change, or the API refuses `publish`.
 | S6b | Land gjsify #2673 and cut a patch release | agent | #2673 CI green | `npm view @gjsify/cli version` ≥ 0.64.46 and that version's `submit` accepts a `listing`-only project |
 | S8b | Bump every `@gjsify/*` pin in `package.json`, `app/`, `extension/`, `gjsify-lock.json` | agent | S6b released | `gjsify upgrade --check` exits 0; `gjsify foreach -A check`, `gjsify run lint`, `oxfmt --check .`, app unit tests and `node tests/e2e/browsers.e2e.mjs all` all pass |
 | S8 | Merge PR #252 | agent | S8b merged; `webext submit --store chrome --dry-run` run locally against the real secrets | the `submit-stores` job appears in a dispatch run and stops at the `store-release` approval |
-| S7 | Document `submit` for agents | agent, after Pascal decides where | S6b | the command, its env names and the 72-day trap are findable from gjsify's cli docs, and `check-agent-context-size.mjs --check` passes |
+| S7 | Document `submit` for agents | agent | S6b | the command, its env names and the 72-day trap are findable from gjsify's cli docs, and `check-agent-context-size.mjs --check` passes |
 | S9a | Chrome: upload the first package by hand, keep the item **unlisted** | Pascal | the tag's `chrome-mv3` zip; the store preview approved | the draft item holds a version and the review queue has it |
 | S9b | Edge: upload the first package | Pascal (or agent via `page_upload` once the extension is ≥ 0.1.31) | the tag's `edge-mv3` zip | the Edge product holds a package |
 | S9c | A dispatch run with `submit_for_review` off, to prove the draft upload path | agent | S8 merged, S9a/S9b done | both stores show a new draft version, nothing submitted |
 
-**S7 needs a decision, not more text.** gjsify's cli `AGENTS.md` is 2 bytes under
+**S7 — decided 2026-11-16: split.** gjsify's cli `AGENTS.md` is 2 bytes under
 `project_doc_max_bytes` (32 KiB), past which Codex truncates the tail without saying so. Three ways
 out: trim something stale from that file and add a short section; add one pointer line there and put
 the detail in a README (gjsify's `packages/infra/site/README.md` already describes the listing and
-submission flow); or split the webext part of `AGENTS.md` into its own file. The last is the
-cheapest to keep true — Pascal decides.
+submission flow); or split the webext part of `AGENTS.md` into its own file. The last was chosen on 2026-11-16 (see the main plan, "Decided"): it is the
+cheapest to keep true.
 
 **The Edge upload trap:** Partner Center's file field lives inside a shadow root, and the installed
 extension 0.1.30 cannot reach it, so the upload fails silently. Extension 0.1.31+ carries the fix;

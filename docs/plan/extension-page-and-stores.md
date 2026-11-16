@@ -190,7 +190,7 @@ waiting on it.
 | B3 | The hero: frame + real options page + real app window | agent (`paid-opus`) | B2 | `docs/images/hero-light.png` at 2560×1600; the options page inside it is the unretouched content of `docs/images/options-light.png`; every status in both halves reads connected; a re-run writes the same file |
 | B4 | The agent chat | agent (`paid-opus`) | B3 approved | `docs/images/agent-chat-light.png` at 2560×1600; the assistant is unbranded; the tool-call lines are real method names and English; a re-run is byte-stable |
 | B5 | All eight variants | agent | B3, B4 | the eight files exist, each 2560×1600; a byte-compare proves the `-de-` ones differ from the English ones in chat text and UI capture, not only in name |
-| B6 | Put them on the website — **not in the metainfo** | agent | B5, and a decision on the mechanism (see the questions) | the extension page and the app page show the hero and the chat picture in DE and EN, light and dark, nothing clipped at 390 px; `data/eu.jumplink.beifahrer.metainfo.xml` is unchanged by this step |
+| B6 | Put them on the website — **not in the metainfo** | agent | B5 and C (decided: the hero rides in the "how it works" band) | the extension page and the app page show the hero and the chat picture in DE and EN, light and dark, nothing clipped at 390 px; `data/eu.jumplink.beifahrer.metainfo.xml` is unchanged by this step |
 | B7 | One PR carrying the pictures | agent | B6 | the PR body embeds the four light/dark heroes over `raw.githubusercontent.com` plus a 390 px capture of the rendered page; the full Beifahrer gate including e2e is green |
 
 **Checkpoint:** after B3, stop and show Pascal the first hero before the other seven variants exist.
@@ -340,25 +340,24 @@ The main session stops at these points and does not proceed without a word back:
    — but only because composed images stay off the metainfo (Decision 2) and nobody crops the output
    later.
 
-## Questions only Pascal can answer
+## Decided 2026-11-16 (by the agent, on Pascal's standing instruction: usability first, then security)
 
-1. **How does a composed hero reach the page?** The generator has no hero slot, and Decision 2 keeps
-   composed images out of the metainfo — so B6 has no mechanism yet. Options: a new optional
-   `gjsify.site.hero` in the generator (another core change plus a release), or fold the hero into
-   the "how it works" band from Stream C (one change instead of two, but it couples the two
-   decisions). **Recommendation: fold it into the band.**
-2. **Store categories.** `Developer Tools` (Chrome) and `Developer tools` (Edge) are configured in
-   `package.json` today. For a product aimed at people who are not developers, is that still right,
-   or `Productivity`?
-3. **The Chrome icon padding.** The bus spans 108×93 of the 128×128 canvas; Chrome wants 96×96 of
-   artwork centred. Shrink the app icon, wrap it in a padded canvas for Chrome only, or accept the
-   downscale? This is a product change, and the docs may not make it.
-4. **Where `webext submit` is documented for agents**, given that gjsify's cli `AGENTS.md` is 2 bytes
-   under its size limit — see [webext-submit.md](webext-submit.md) S7.
-5. **The agent's name in the second picture.** A generic label ("your AI assistant") or an invented
-   neutral product name? This plan assumes generic.
-6. **How the fictional browser should read.** Neutral-but-plausible, or deliberately stylised so
-   nobody mistakes it for a real product? This plan assumes neutral-but-plausible.
+1. **The composed hero rides in the "how it works" band (Stream C).** One generator change instead of
+   two; B6 becomes part of C. *Why:* a separate `gjsify.site.hero` costs another core change and
+   release for one picture, and the band is where the picture explains something.
+2. **Store category: `Productivity`** on Chrome and Edge, replacing `Developer Tools`. *Why:* the
+   pages and listings are written for people who are not developers; the category is editable later
+   without a new item.
+3. **Chrome icon: a padded canvas for Chrome only** (96×96 artwork centred in 128×128). The app icon
+   stays as it is. *Why:* it meets Chrome's rule without changing the product's identity elsewhere.
+4. **`webext submit` for agents:** move the webext part of gjsify's cli `AGENTS.md` into its own linked
+   file and add the `submit` section there (S7). *Why:* the file is 2 bytes under the 32 KiB limit, and
+   a split is the cheapest to keep true.
+5. **The agent in the second picture is generic** ("your AI assistant"), no invented product name.
+6. **The fictional browser is neutral but plausible** — no real product's chrome, logo or name.
+
+## Still open
+
 7. **Two unverified listing details to confirm before the first submission:** the AMO listing name's
    capitalisation ("Beifahrer") and a reported host-permission mismatch on AMO. Both only matter if
    Firefox is ever listed rather than self-distributed.
