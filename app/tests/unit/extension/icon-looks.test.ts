@@ -3,7 +3,14 @@ import { describe, expect, it } from '@gjsify/unit';
 import { CONNECTED, LOOK_COLOUR, TOOLBAR_INK } from '@beifahrer/core';
 
 import { ICON_VARIANTS } from '../../../../extension/manifest.ts';
-import { MIN_OPAQUE_SHARE, opaqueShare, variantSvg } from '../../../../extension/scripts/icon-looks.ts';
+import {
+  MIN_OPAQUE_SHARE,
+  STORE_ICON_ART,
+  STORE_ICON_SIZE,
+  hasPaddedStoreIcon,
+  opaqueShare,
+  variantSvg,
+} from '../../../../extension/scripts/icon-looks.ts';
 
 const SRC = '<svg viewBox="0 0 16 16"><g fill="#241f31"><rect/></g></svg>';
 
@@ -36,6 +43,13 @@ export default async () => {
       expect(variantSvg(colour, SRC, 'idle', 'light').includes(`fill="${TOOLBAR_INK.light}"`)).toBe(true);
       expect(variantSvg(colour, SRC, 'idle', 'light').includes(TOOLBAR_INK.dark)).toBe(false);
       expect(variantSvg(colour, SRC, 'active', 'light')).toBe(variantSvg(colour, SRC, 'active', 'dark'));
+    });
+
+    await it('pads the 128 px icon for Chrome only: 96 px of artwork, 16 px margin per side', async () => {
+      expect((STORE_ICON_SIZE - STORE_ICON_ART) / 2).toBe(16);
+      expect(hasPaddedStoreIcon('chrome-mv3')).toBe(true);
+      for (const target of ['edge-mv3', 'firefox-mv2', 'safari-mv3'])
+        expect(hasPaddedStoreIcon(target)).toBe(false);
     });
   });
 };

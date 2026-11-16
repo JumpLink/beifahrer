@@ -65,3 +65,15 @@ export function opaqueShare(rgba: Uint8Array, channels: number): number {
   for (let i = 3; i < rgba.length; i += 4) if (rgba[i] >= 128) opaque++;
   return opaque / (rgba.length / 4);
 }
+
+/**
+ * Chrome's rule for the 128 px store icon: 96x96 of artwork centred in the 128x128 canvas, 16 px of
+ * transparent margin on each side. Only the Chrome package gets it: the manifest stays identical to
+ * Edge's, and `copyIcons` swaps the bytes of `active-128.png` (the manifest's `icons` entry), so
+ * Edge, Firefox, Safari and the other sizes keep the full-bleed artwork.
+ */
+export const STORE_ICON_SIZE = 128;
+export const STORE_ICON_ART = 96;
+
+/** Whether a target's 128 px manifest icon is the padded one. */
+export const hasPaddedStoreIcon = (target: string): boolean => target === 'chrome-mv3';
