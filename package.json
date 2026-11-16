@@ -25,8 +25,8 @@
     "test": "gjsify workspace beifahrer-app test"
   },
   "devDependencies": {
-    "@gjsify/cli": "0.64.40",
-    "@gjsify/site": "0.64.40"
+    "@gjsify/cli": "0.64.46",
+    "@gjsify/site": "0.64.46"
   },
   "gjsify": {
     "webext": {

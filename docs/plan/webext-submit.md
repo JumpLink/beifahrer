@@ -23,7 +23,7 @@ may do.
 | S6b | **Fix: `submit` must not demand a `webext` project shape** | open — gjsify #2673, CI running | a gjsify release ≥ 0.64.46 |
 | S7 | Document the command for agents in gjsify's cli `AGENTS.md` | open; decided: split the webext part into its own file | the file is 32,766 B of a 32,768 B limit |
 | S8 | Beifahrer: `submit-stores` job in `release.yml` | written — Beifahrer PR #252, open | S6b, then the pin bump |
-| S8b | Bump Beifahrer's `@gjsify/*` pins 0.64.40 → ≥ 0.64.46 | open | S6b released |
+| S8b | Bump Beifahrer's `@gjsify/*` pins 0.64.40 → ≥ 0.64.46 | done (0.64.46) | S6b released |
 | S9 | The first upload per store, by hand | open — Pascal | Edge: a working drag-in or extension ≥ 0.1.31 |
 
 **Why S6b blocks everything:** `resolveSubmitProject` required a project to declare

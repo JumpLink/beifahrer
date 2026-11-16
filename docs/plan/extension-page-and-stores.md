@@ -34,7 +34,7 @@ Checked in the tree and against the two repositories' PRs on 2026-11-16.
 | The render tests for the extension card and the scoped download widget exist | gjsify #2616 |
 | `webext listing` writes every store at once (`--stores`), a `store.json` per store with every form field and its limit, promo tiles at 440×280 and 1400×560 from the icon and tagline, and a `preview.html` per store (light/dark, EN/DE, usable at 390 px) | gjsify #2628, ADR 0135 |
 | `webext submit` uploads a version to Chrome and Edge, released in gjsify v0.64.45 | gjsify #2631, #2633, #2634 |
-| gjsify's newest release is **v0.64.45**; Beifahrer pins `@gjsify/*` at **0.64.40** | `package.json`, `app/package.json`, `extension/package.json`, `gjsify-lock.json` |
+| gjsify's newest release is **v0.64.46**; Beifahrer pins `@gjsify/*` at **0.64.46** | `package.json`, `app/package.json`, `extension/package.json`, `gjsify-lock.json` |
 | The `<description>` is written for a non-developer: the chain in order, "sends nothing out", the per-site levels, temporary access, confirmations, pause, and what stays off | `data/eu.jumplink.beifahrer.metainfo.xml`, landed in #220 |
 | That prose is the one source for the app page, the extension page, Flathub and all four store listings | `gjsify.site.metainfo`, `gjsify.webext.listing.metainfo` |
 | `gjsify.webext.targets` is `chrome-mv3`, `edge-mv3`, `firefox-mv2`, `safari-mv3` — the same four as `extension/manifest.ts` | `package.json` (added in PR #252), `extension/manifest.ts:16` |

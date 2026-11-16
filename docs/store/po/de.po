@@ -44,3 +44,18 @@ msgstr "Optional. Der Zugriff auf eine Website wird pro Host angefragt, wenn die
 
 msgid "Optional. Needed only for screenshots, because the browser's capture call accepts nothing narrower; requested when the person switches screenshots on."
 msgstr "Optional. Nur für Screenshots nötig, weil der Aufnahmeaufruf des Browsers nichts Engeres akzeptiert; wird angefragt, wenn die Person Screenshots einschaltet."
+
+msgid "browser"
+msgstr "Browser"
+
+msgid "AI"
+msgstr "KI"
+
+msgid "MCP"
+msgstr "MCP"
+
+msgid "agent"
+msgstr "Agent"
+
+msgid "automation"
+msgstr "Automatisierung"
