@@ -51,6 +51,8 @@
   "about.support": "Support",
   "about.privacy": "Privacy",
   "about.legal": "Legal Notice",
+  "about.source": "Source code",
+  "about.docs": "Documentation",
   "menu.setup": "Run setup again",
   "setup.cancel": "Cancel",
   "setup.progress": "Step {n} of {total}",

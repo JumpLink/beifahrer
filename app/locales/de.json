@@ -51,6 +51,8 @@
   "about.support": "Unterstützen",
   "about.privacy": "Datenschutz",
   "about.legal": "Impressum",
+  "about.source": "Quellcode",
+  "about.docs": "Dokumentation",
   "menu.setup": "Einrichtung erneut ausführen",
   "setup.cancel": "Abbrechen",
   "setup.progress": "Schritt {n} von {total}",
