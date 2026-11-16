@@ -5,6 +5,7 @@ import { createTranslate } from '../../../src/window/i18n.ts';
 import { viewOf } from '../../../src/window/status-model.ts';
 
 const NOW = new Date('2026-10-04T12:00:00.000Z');
+type Reported = Record<string, { paused?: boolean; allSites?: boolean }>;
 const bridge = (instance: string, browsers: string[]): BridgeStatus => ({
   port: 47813,
   version: '0.1.4',
@@ -22,10 +23,11 @@ const view = (
   skipped = 0,
   locale: 'en' | 'de' = 'en',
   unregistered: number[] = [],
+  reported: Reported = {},
 ) =>
   viewOf(
     statusOf(
-      statuses.map((s) => entryOf(s, NOW)),
+      statuses.map((s) => entryOf(s, NOW, new Map(Object.entries(reported)))),
       NOW,
     ),
     skipped,
@@ -55,7 +57,10 @@ export default async () => {
     });
 
     await it('a session with a browser is the quiet state', async () => {
-      const v = view([bridge('a', ['Firefox', 'Chromium'])]);
+      const v = view([bridge('a', ['Firefox', 'Chromium'])], 0, 'en', [], {
+        b0: { paused: false },
+        b1: { paused: false },
+      });
       expect(v.alarm).toBe(false);
       expect(v.title).toBe('Ready');
       expect(v.sessions[0]!.title).toBe('agent-a');
@@ -85,6 +90,40 @@ export default async () => {
       expect(view([], 0, 'de').title).toBe('Keine Agent-Sitzung aktiv');
     });
 
+    await it('a paused browser is an alarm that names it and says who resumes', async () => {
+      const v = view([bridge('a', ['Firefox'])], 0, 'en', [], { b0: { paused: true } });
+      expect(v.alarm).toBe(true);
+      expect(v.standing).toBe('paused');
+      expect(v.title).toBe('Paused');
+      expect(v.description).toMatch(/Paused in Firefox/);
+      expect(v.sessions[0]!.subtitle).toMatch(/\(paused\)/);
+      expect(view([bridge('a', ['Firefox'])], 0, 'de', [], { b0: { paused: true } }).title).toBe('Pausiert');
+    });
+
+    await it('a browser that reported nothing is never shown as running', async () => {
+      const v = view([bridge('a', ['Firefox'])]);
+      expect(v.standing).toBe('ready-unknown');
+      expect(v.title).toBe('Ready, pause unknown');
+      expect(v.sessions[0]!.subtitle).toMatch(/pause unknown/);
+    });
+
+    await it('a browser that reported it is running is plain Ready, and all sites gets a badge', async () => {
+      const ok = view([bridge('a', ['Firefox'])], 0, 'en', [], { b0: { paused: false } });
+      expect(ok.title).toBe('Ready');
+      expect(ok.badge).toBe(null);
+      const open = view([bridge('a', ['Firefox'])], 0, 'de', [], { b0: { paused: false, allSites: true } });
+      expect(open.badge).toBe('Alle Websites sind vorerst offen');
+    });
+
+    await it('with several browsers the worst rung wins', async () => {
+      const v = view([bridge('a', ['Firefox', 'Chromium'])], 0, 'en', [], {
+        b0: { paused: false },
+        b1: { paused: true },
+      });
+      expect(v.standing).toBe('paused');
+      expect(v.description).toMatch(/Chromium/);
+    });
+
     await it("never offers an action on the browser's policy: the view has no field for one", async () => {
       // ADR 0005: only the person pauses or resumes, in the browser. A view that grew a
       // pause/resume/level field would be the first step to a button for it.
@@ -92,7 +131,7 @@ export default async () => {
         Object.keys(view([bridge('a', ['Firefox'])]))
           .sort()
           .join(),
-      ).toBe('alarm,description,note,presence,sessions,title,warnings');
+      ).toBe('alarm,badge,description,note,presence,sessions,standing,title,warnings');
     });
   });
 };

@@ -15,6 +15,7 @@ import { CATALOGS, type Locale } from '../../../src/window/i18n.ts';
 const SHARED: Record<string, string> = {
   'app.title': 'extName',
   'status.ready.title': 'state_ready',
+  'status.paused.title': 'state_paused',
   'pairing.title': 'token_title',
   'about.privacy': 'privacy_link',
   'about.legal': 'legal_link',

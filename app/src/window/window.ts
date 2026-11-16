@@ -70,8 +70,14 @@ function createStatusPage(t: Translate, onAction: (id: DiagramAction) => void, o
   const heading = new Gtk.Label({ wrap: true, justify: Gtk.Justification.CENTER });
   heading.add_css_class('title-1');
   const body = new Gtk.Label({ wrap: true, justify: Gtk.Justification.CENTER });
+  // "All sites are open": an icon plus words, never a control (ADR 0030).
+  const badgeText = new Gtk.Label({ wrap: true });
+  const badge = new Gtk.Box({ spacing: 6, halign: Gtk.Align.CENTER, visible: false });
+  badge.add_css_class('warning');
+  badge.append(new Gtk.Image({ iconName: 'dialog-warning-symbolic' }));
+  badge.append(badgeText);
   const status = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 });
-  for (const w of [heading, body, diagram.widget, diagram.fix]) status.append(w);
+  for (const w of [heading, body, badge, diagram.widget, diagram.fix]) status.append(w);
   const group = new Adw.PreferencesGroup({ title: t('sessions.title') });
   const warnings = new Adw.PreferencesGroup({ visible: false });
   const note = new Gtk.Label({ wrap: true, xalign: 0, visible: false });
@@ -104,6 +110,8 @@ function createStatusPage(t: Translate, onAction: (id: DiagramAction) => void, o
       // The fix sentence already says what to do; the page's own sentence would say it twice.
       body.set_label(view.description);
       body.set_visible(picture.fix === null);
+      badgeText.set_label(view.badge ?? '');
+      badge.set_visible(view.badge !== null);
       for (const row of rows) group.remove(row);
       rows = view.sessions.map(
         (s) => new Adw.ActionRow({ title: s.title, subtitle: s.subtitle, focusable: false }),
