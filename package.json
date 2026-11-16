@@ -54,8 +54,8 @@
           "<all_urls>": "Optional. Needed only for screenshots, because the browser's capture call accepts nothing narrower; requested when the person switches screenshots on."
         },
         "category": {
-          "cws": "Developer Tools",
-          "edge": "Developer tools"
+          "cws": "Workflow & Planning",
+          "edge": "Productivity"
         }
       }
     },
