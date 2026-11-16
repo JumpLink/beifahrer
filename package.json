@@ -17,6 +17,7 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "docs:links": "node tools/check-doc-links.mjs",
+    "catalog:check": "node tools/check-agent-catalog.mjs",
     "version:check": "node tools/version.mjs check",
     "version:set": "node tools/version.mjs set",
     "build": "gjsify workspace beifahrer-app build && gjsify workspace beifahrer-extension build",
