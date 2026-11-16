@@ -115,7 +115,8 @@ const application = new AdwaitaApp({
     let unregistered: number[] = [];
     let probing = false;
     const probe = () => {
-      if (probing) return;
+      // The check's own session is on that range, unannounced: it would show up as a stranger.
+      if (probing || checking) return;
       probing = true;
       probePorts(ports)
         .then((listening) => {
