@@ -78,6 +78,7 @@ import windowBrowserModel from './unit/window/browser-model.test.ts';
 import windowSafariModel from './unit/window/safari-model.test.ts';
 import windowCheckModel from './unit/window/check-model.test.ts';
 import windowCheckRun from './unit/window/check-run.test.ts';
+import settingsModel from './unit/settings/settings-model.test.ts';
 import dispatch from './unit/dispatch.test.ts';
 import statusCommand from './unit/registry/status.test.ts';
 
@@ -158,5 +159,6 @@ run({
   windowSafariModel,
   windowCheckModel,
   windowCheckRun,
+  settingsModel,
   dispatch,
 });
