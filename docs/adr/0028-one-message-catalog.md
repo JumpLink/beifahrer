@@ -1,6 +1,6 @@
 # 0028: One message catalog for the extension and the window
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-11-16
 - **Refs:** [#90](https://github.com/JumpLink/beifahrer/issues/90)
 - **Relates to:** [0008](0008-ui-on-adwaita-web.md) (extension catalog), [0017](0017-native-desktop-app.md) § 5 (the window has its own catalog)
@@ -58,7 +58,7 @@ A cannot avoid a window-only namespace in the extension file without the filter,
 exact complexity ADR 0017 § 5 declined. B solves it but replaces the WebExtension catalog that the stores
 and `browser.i18n` read, for 18 duplicated strings.
 
-## Proposed decision
+## Decision
 
 Take **C now**, defer A and B until the numbers justify them.
 
@@ -80,7 +80,7 @@ Take **C now**, defer A and B until the numbers justify them.
 - The test reads the extension files from `app/`, a new cross-package path, kept in the test only.
 - No build, bundle or runtime change; the extension's `locales.ts` checks stay as they are.
 
-## Open for the person
+## Decided
 
-1. Is C an acceptable answer to #90, or should the issue stay open for A/B?
-2. Keep ADR 0017 § 5 (separate catalogs) as the long-term rule?
+Accepted on 2026-11-16 by the owner's standing instruction (usability first, security second, sense
+third): C answers #90, and ADR 0017 § 5 stays the long-term rule. The parity test lands in its own PR.
