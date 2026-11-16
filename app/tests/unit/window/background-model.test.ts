@@ -18,12 +18,20 @@ const bridge = (instance: string, browsers: string[]): BridgeStatus => ({
     connectedAt: '2026-10-04T11:05:00.000Z',
   })),
 });
-const line = (statuses: BridgeStatus[], locale: 'en' | 'de' = 'en') => {
+type Pause = boolean | 'unreported';
+/** Every connection reports the same pause; `'unreported'` is an extension that sends nothing (ADR 0030). */
+const line = (statuses: BridgeStatus[], locale: 'en' | 'de' = 'en', pause: Pause = false) => {
   const t = createTranslate(locale);
   return backgroundLine(
     viewOf(
       statusOf(
-        statuses.map((s) => entryOf(s, NOW)),
+        statuses.map((s) =>
+          entryOf(
+            s,
+            NOW,
+            pause === 'unreported' ? new Map() : new Map(s.browsers.map((b) => [b.id, { paused: pause }])),
+          ),
+        ),
         NOW,
       ),
       0,
@@ -74,6 +82,14 @@ export default async () => {
       expect(line([bridge('a', ['Firefox'])])).toBe('Ready: 1 agent session');
       expect(line([bridge('a', ['Firefox']), bridge('b', ['Firefox'])])).toBe('Ready: 2 agent sessions');
       expect(line([bridge('a', ['Firefox'])], 'de')).toBe('Bereit: 1 Agentensitzung');
+    });
+    await it('says "paused" instead of counting when a browser is paused', async () => {
+      expect(line([bridge('a', ['Firefox'])], 'en', true)).toBe('Paused');
+      expect(line([bridge('a', ['Firefox'])], 'de', true)).toBe('Pausiert');
+    });
+    await it('never says plain "Ready" when a browser does not report its pause', async () => {
+      expect(line([bridge('a', ['Firefox'])], 'en', 'unreported')).toBe('Ready, pause unknown');
+      expect(line([bridge('a', ['Firefox'])], 'de', 'unreported')).toBe('Bereit, Pause unbekannt');
     });
     await it('never passes the portal limit', async () => {
       expect([...line([bridge('a', ['Firefox'])])].length <= 96).toBe(true);
