@@ -587,6 +587,8 @@ export function registerTools(
         'This is where an endpoint, a feature flag or an error string that is not in the DOM is found, including in a web worker. ' +
         "It reads only code the site serves to every visitor: the browser fetches it again WITHOUT the person's cookies, so nothing behind a login and no page state, storage or variable is reachable. " +
         'URLs come without query and fragment. A source map is reported (`sourceMap`), not resolved. ' +
+        'A script on a private-network address (loopback, RFC 1918, link-local, `.local`, `.internal`) is listed with an error and never fetched, unless the tab itself is on such an address. ' +
+        "Verified in Firefox and Chromium: both list a dedicated worker's script and what it imports via importScripts(). " +
         'Hard caps: ' +
         `${MAX_SOURCE_HITS} hits, ${MAX_SOURCE_CONTEXT} characters of context, ${MAX_SOURCE_SLICE} characters per slice, ${MAX_SOURCE_PATTERN} characters of pattern; ` +
         '`truncated` says a cap cut the answer. ' +

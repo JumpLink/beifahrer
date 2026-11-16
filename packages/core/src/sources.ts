@@ -200,3 +200,71 @@ export function sourceKind(type: string | undefined, rawUrl: string): SourceKind
   }
   return null;
 }
+
+/** Why a script on the person's own network is listed but never fetched. */
+export const PRIVATE_NETWORK_ERROR = 'a private-network address, not fetched';
+
+/**
+ * Is this host the person's own machine or network: loopback, RFC 1918, link-local, unique-local,
+ * `localhost`, `*.local`, `*.internal`, or a dotless name? IPv6 may come bracketed.
+ *
+ * The extension fetches with host permissions and no CORS, so a hostile page that names
+ * `http://192.168.1.1/x.js` in a `<script>` would otherwise make the agent's search read the intranet.
+ */
+export function isPrivateHost(host: string): boolean {
+  let h = host.trim().toLowerCase();
+  if (h.startsWith('[') && h.endsWith(']')) h = h.slice(1, -1);
+  if (h.endsWith('.')) h = h.slice(0, -1);
+  if (h === '') return true;
+  if (h.includes(':')) {
+    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(h);
+    if (mapped) return isPrivateHost(mapped[1]!);
+    if (h === '::' || h === '::1') return true;
+    const first = h.split(':')[0] ?? '';
+    const n = first === '' ? 0 : parseInt(first, 16);
+    if (Number.isNaN(n)) return true;
+    return (n & 0xfe00) === 0xfc00 || (n & 0xffc0) === 0xfe80;
+  }
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  if (v4) {
+    const a = Number(v4[1]);
+    const b = Number(v4[2]);
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 100 && b >= 64 && b <= 127)
+    );
+  }
+  if (/^[0-9x.]+$/.test(h)) return true;
+  return (
+    h === 'localhost' ||
+    h.endsWith('.localhost') ||
+    h.endsWith('.local') ||
+    h.endsWith('.internal') ||
+    !h.includes('.')
+  );
+}
+
+const hostOf = (url: string): string | null => {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * May the extension fetch this script for a tab on `tabUrl`? A public tab may not pull private
+ * addresses; a tab that is itself on the private network (a developer on localhost) may.
+ */
+export function mayFetchScript(scriptUrl: string, tabUrl: string | undefined): boolean {
+  const host = hostOf(scriptUrl);
+  if (host === null) return false;
+  if (!isPrivateHost(host)) return true;
+  const tabHost = tabUrl ? hostOf(tabUrl) : null;
+  return tabHost !== null && isPrivateHost(tabHost);
+}

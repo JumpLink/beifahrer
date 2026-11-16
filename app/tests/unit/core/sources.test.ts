@@ -5,6 +5,8 @@ import {
   MAX_SOURCE_PATTERN,
   MAX_SOURCE_SLICE,
   compilePattern,
+  isPrivateHost,
+  mayFetchScript,
   matchesFilter,
   parseSources,
   searchText,
@@ -124,6 +126,55 @@ export default async () => {
       expect(matchesFilter('https://example.org/Vendor.js', 'vendor')).toBe(true);
       expect(matchesFilter('https://example.org/a.js', 'vendor')).toBe(false);
       expect(matchesFilter('https://example.org/a.js')).toBe(true);
+    });
+  });
+
+  await describe('isPrivateHost', async () => {
+    await it('knows loopback, RFC 1918, link-local and unique-local IPv4', async () => {
+      for (const h of [
+        '127.0.0.1',
+        '10.1.2.3',
+        '172.16.0.1',
+        '172.31.255.1',
+        '192.168.1.1',
+        '169.254.169.254',
+        '0.0.0.0',
+      ])
+        expect(isPrivateHost(h)).toBe(true);
+      for (const h of ['172.15.0.1', '172.32.0.1', '8.8.8.8', '192.169.0.1'])
+        expect(isPrivateHost(h)).toBe(false);
+    });
+
+    await it('knows IPv6, bracketed or not', async () => {
+      for (const h of ['[::1]', '::1', '[fe80::1]', 'fd00::1', '[fc00::2]', '::ffff:192.168.0.1'])
+        expect(isPrivateHost(h)).toBe(true);
+      for (const h of ['[2001:db8::1]', '2606:4700::1111']) expect(isPrivateHost(h)).toBe(false);
+    });
+
+    await it('knows local names and treats a dotless name as private', async () => {
+      for (const h of ['localhost', 'app.localhost', 'printer.local', 'wiki.internal', 'nas', 'LOCALHOST.'])
+        expect(isPrivateHost(h)).toBe(true);
+      for (const h of ['example.org', 'cdn.example.net', 'local.example.org'])
+        expect(isPrivateHost(h)).toBe(false);
+    });
+  });
+
+  await describe('mayFetchScript', async () => {
+    await it('lets a public tab load public scripts only', async () => {
+      expect(mayFetchScript('https://cdn.example.net/a.js', 'https://example.org/')).toBe(true);
+      expect(mayFetchScript('http://192.168.1.1/a.js', 'https://example.org/')).toBe(false);
+      expect(mayFetchScript('http://localhost:8080/a.js', 'https://example.org/')).toBe(false);
+      expect(mayFetchScript('http://[::1]/a.js', 'https://example.org/')).toBe(false);
+      expect(mayFetchScript('http://x.local/a.js', undefined)).toBe(false);
+    });
+
+    await it('lets a tab on the private network load from it (a developer on localhost)', async () => {
+      expect(mayFetchScript('http://127.0.0.1:3000/a.js', 'http://localhost:3000/')).toBe(true);
+      expect(mayFetchScript('http://192.168.1.5/a.js', 'http://192.168.1.9/')).toBe(true);
+    });
+
+    await it('refuses what is not a URL', async () => {
+      expect(mayFetchScript('not a url', 'https://example.org/')).toBe(false);
     });
   });
 };

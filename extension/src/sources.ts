@@ -17,8 +17,10 @@ import {
   MAX_SOURCE_BYTES,
   MAX_SOURCE_CACHE_BYTES,
   MAX_SOURCE_SCRIPTS,
+  PRIVATE_NETWORK_ERROR,
   SOURCE_SEARCH_BUDGET_MS,
   matchesFilter,
+  mayFetchScript,
   searchText,
   sourceKind,
   sourceMapOf,
@@ -39,6 +41,7 @@ interface Script {
 }
 
 interface TabScripts {
+  tabId: number;
   /** Keyed by the URL without query, so the agent's `url` argument finds it. */
   byUrl: Map<string, Script>;
   at: number;
@@ -59,7 +62,7 @@ function scriptsOf(tabId: number): TabScripts {
     existing.at = now;
     return existing;
   }
-  const fresh: TabScripts = { byUrl: new Map(), at: now };
+  const fresh: TabScripts = { tabId, byUrl: new Map(), at: now };
   tabs.set(tabId, fresh);
   return fresh;
 }
@@ -75,7 +78,15 @@ async function seen(details: Record<string, unknown>): Promise<void> {
   if (url === '') return;
   const log = scriptsOf(tabId);
   if (log.byUrl.has(url) || log.byUrl.size >= MAX_SOURCE_SCRIPTS) return;
-  log.byUrl.set(url, { full, kind });
+  const tabUrl = await browser.tabs
+    .get(tabId)
+    .then((t: { url?: string }) => t.url)
+    .catch(() => undefined);
+  log.byUrl.set(url, {
+    full,
+    kind,
+    ...(mayFetchScript(full, tabUrl) ? {} : { error: PRIVATE_NETWORK_ERROR }),
+  });
 }
 
 export function installSourcesWatch(): void {
@@ -107,8 +118,20 @@ async function load(log: TabScripts, script: Script): Promise<void> {
     script.error = 'the per-tab cache is full';
     return;
   }
+  const tabUrl = await browser.tabs
+    .get(log.tabId)
+    .then((t: { url?: string }) => t.url)
+    .catch(() => undefined);
+  if (!mayFetchScript(script.full, tabUrl)) {
+    script.error = PRIVATE_NETWORK_ERROR;
+    return;
+  }
   try {
     const res = await fetch(script.full, { credentials: 'omit', redirect: 'follow', cache: 'force-cache' });
+    if (res.url && !mayFetchScript(res.url, tabUrl)) {
+      script.error = PRIVATE_NETWORK_ERROR;
+      return;
+    }
     if (!res.ok) {
       script.error = `the site answered ${res.status}`;
       return;
