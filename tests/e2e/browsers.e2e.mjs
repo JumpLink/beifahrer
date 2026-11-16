@@ -63,7 +63,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const PORT_BASE = Number(process.env.BEIFAHRER_E2E_PORT_BASE) || 47900;
 const FIXTURE_PORT = PORT_BASE + 1;
 /** The range the e2e bridges bind and the test browsers probe: far from the person's 47813–47822. */
-const RANGE = { base: PORT_BASE + 10, count: 10 };
+const RANGE = { base: PORT_BASE + 10, count: Number(process.env.BEIFAHRER_E2E_PORT_COUNT) || 10 };
 const DEVTOOLS_PORT = PORT_BASE + 3;
 /** Firefox's WebDriver BiDi, for the extension-page smoke (ui-pages.mjs). */
 const BIDI_PORT = PORT_BASE + 4;
@@ -2115,6 +2115,125 @@ async function assertions(browser, client, allowed, _ref) {
 }
 
 /**
+ * `page_sources` (issue #234): the scripts a tab loaded, a dedicated worker's included.
+ *
+ * The fixture loads a plain `<script src>` (with a query the answer must not carry) and starts a
+ * Worker whose script `importScripts()` a second file. The token below exists ONLY in that imported
+ * file, so finding it proves the list saw a script the page itself never requested. What each browser
+ * really surfaces is asserted as measured, not as hoped.
+ */
+const SOURCES_TOKEN = 'E2E_WORKER_IMPORTED_TOKEN_7f3a91';
+const SOURCES_FILES = {
+  '/src/page.js': `// page script\nconst w = new Worker('/src/worker.js');\nw.onmessage = (e) => { document.getElementById('worker-says').textContent = e.data; };\n`,
+  '/src/worker.js': `// worker script\nimportScripts('/src/imported.js');\npostMessage('worker:' + typeof importedValue);\n`,
+  '/src/imported.js': `// imported by the worker\nvar importedValue = '${SOURCES_TOKEN}';\n//# sourceMappingURL=imported.js.map\n`,
+};
+const SOURCES_FIXTURE = `<!doctype html><html><head><title>Sources</title></head><body>
+<p id="worker-says">waiting</p>
+<script src="/src/page.js?v=e2e-secret"></script>
+</body></html>`;
+
+async function sources(browser, client) {
+  const ask = async (label, args) => {
+    const r = await tool(client, 'page_sources', args);
+    console.log(
+      `  · [${browser}] sources ${label} → error=${r.error} ${r.text.replace(/\s+/g, ' ').slice(0, 500)}`,
+    );
+    return r;
+  };
+  const json = (r) => {
+    try {
+      return JSON.parse(r.text);
+    } catch {
+      return {};
+    }
+  };
+  const opened = await tool(client, 'tab_open', { url: `${ALLOWED}/sources` });
+  const tabId = opened.error ? -1 : JSON.parse(opened.text).tab.tabId;
+  await tool(client, 'page_wait', { tabId, for: 'load' });
+  await sleep(1500);
+
+  const list = await ask('list', { tabId, action: 'list' });
+  const scripts = json(list).scripts ?? [];
+  const urls = scripts.map((x) => x.url);
+  const has = (name) => urls.some((u) => u.endsWith(name));
+  console.log(`  · [${browser}] scripts seen: ${urls.join(' | ')}`);
+  check(
+    browser,
+    'page_sources list names the page script',
+    !list.error && has('/src/page.js'),
+    urls.join(' | '),
+  );
+  check(
+    browser,
+    'and the query of that script is NOT in the answer',
+    urls.length > 0 && !list.text.includes('e2e-secret') && urls.every((u) => !u.includes('?')),
+    list.text.slice(0, 200),
+  );
+  const workerSeen = has('/src/worker.js');
+  const importedSeen = has('/src/imported.js');
+  // Measured per browser: whether the worker's own request carries the tab. Asserted as it is, so a
+  // browser that cannot see worker scripts is reported by name instead of passing by accident.
+  console.log(
+    `  · [${browser}] worker script seen=${workerSeen}, worker-imported script seen=${importedSeen}`,
+  );
+  check(
+    browser,
+    `page_sources sees the worker script (${workerSeen ? 'yes' : 'NO'}) and what it imported (${importedSeen ? 'yes' : 'NO'})`,
+    workerSeen && importedSeen,
+    urls.join(' | '),
+  );
+
+  const found = await ask('search', { tabId, action: 'search', pattern: SOURCES_TOKEN, literal: true });
+  const hits = json(found).hits ?? [];
+  const hit = hits.find((h) => h.url.endsWith('/src/imported.js'));
+  check(
+    browser,
+    `search finds a token that only the worker-imported file holds (${hit ? 'found' : 'NOT found'})`,
+    !!hit && hit.text.includes(SOURCES_TOKEN),
+    JSON.stringify(hits).slice(0, 300),
+  );
+  const map =
+    json(await ask('list after search', { tabId, action: 'list', urlFilter: 'imported' })).scripts ?? [];
+  check(
+    browser,
+    'a source map the file names is reported, not resolved',
+    !hit || map.some((x) => x.sourceMap === 'imported.js.map'),
+    JSON.stringify(map).slice(0, 200),
+  );
+
+  const slice = await ask('slice', {
+    tabId,
+    action: 'slice',
+    url: `${ALLOWED}/src/page.js`,
+    offset: 0,
+    length: 40,
+  });
+  check(
+    browser,
+    'slice returns text of the page script',
+    !slice.error && /page script/.test(json(slice).slice?.text ?? ''),
+    slice.text.slice(0, 200),
+  );
+  const never = await ask('a script the tab never loaded', {
+    tabId,
+    action: 'slice',
+    url: `${ALLOWED}/src/never-loaded.js`,
+  });
+  check(
+    browser,
+    'a URL the tab never loaded is not_found',
+    never.error && never.text.startsWith('not_found:'),
+    never.text,
+  );
+
+  const noText = await ask('search without a pattern', { tabId, action: 'search' });
+  check(browser, 'a search without a pattern is refused', noText.error, noText.text.slice(0, 200));
+
+  await tool(client, 'tabs_close', { tabIds: [tabId] }).catch(() => undefined);
+}
+
+/**
  * `page_network` (issue #35): what an agent has instead of a page's console, which no extension can
  * read at all.
  *
@@ -3553,6 +3672,7 @@ async function scenario(browser, gate) {
     await keys(browser, client, allowed, ref);
     await assertions(browser, client, allowed, ref);
     await requests(browser, client, allowed, forbidden, ref);
+    await sources(browser, client);
     // Issue #27: the state that gates a call is the person's, and none of it was visible before the
     // call. So ask it, and check all three shapes an agent meets: a read that would be served, a
     // write with the confirmation this build's site rule has, and a site nobody allowed, which must
@@ -3658,7 +3778,7 @@ async function reconnectScenario(browser) {
 
 const which = process.argv[2] ?? 'all';
 const browsers = which === 'all' ? ['chromium', 'firefox'] : [which];
-/** BEIFAHRER_E2E_ONLY=reconnect, =saves or =upload runs just that scenario (one build, no fixture scenarios). */
+/** BEIFAHRER_E2E_ONLY=reconnect, =saves, =upload or =sources runs just that scenario (one build, no fixture scenarios). */
 const ONLY = process.env.BEIFAHRER_E2E_ONLY;
 
 const FRAME_FIXTURE = `<!doctype html><html><head><title>Frame document</title></head><body>
@@ -3786,29 +3906,37 @@ const LINK_FIXTURE = `<!doctype html><html><head><title>Link</title></head><body
 <a id="file" href="/file.bin">Get file</a>
 </body></html>`;
 const page = (req) =>
-  req.url?.startsWith('/upload-page')
-    ? UPLOAD_FIXTURE
-    : req.url?.startsWith('/growing-rows')
-      ? GROWING_ROWS_FIXTURE
-      : req.url?.startsWith('/link')
-        ? LINK_FIXTURE
-        : req.url?.startsWith('/saves')
-          ? SAVES_FIXTURE(
-              req.url.includes('v=revoke') ? 'revoke' : req.url.includes('v=native') ? 'native' : 'keep',
-            )
-          : req.url?.startsWith('/elsewhere')
-            ? ELSEWHERE_FIXTURE
-            : req.url?.startsWith('/openproject')
-              ? OP_FIXTURE
-              : req.url?.startsWith('/frame-foreign')
-                ? FOREIGN_FRAME_FIXTURE
-                : req.url?.startsWith('/frame')
-                  ? FRAME_FIXTURE
-                  : FIXTURE;
+  req.url?.startsWith('/sources')
+    ? SOURCES_FIXTURE
+    : req.url?.startsWith('/upload-page')
+      ? UPLOAD_FIXTURE
+      : req.url?.startsWith('/growing-rows')
+        ? GROWING_ROWS_FIXTURE
+        : req.url?.startsWith('/link')
+          ? LINK_FIXTURE
+          : req.url?.startsWith('/saves')
+            ? SAVES_FIXTURE(
+                req.url.includes('v=revoke') ? 'revoke' : req.url.includes('v=native') ? 'native' : 'keep',
+              )
+            : req.url?.startsWith('/elsewhere')
+              ? ELSEWHERE_FIXTURE
+              : req.url?.startsWith('/openproject')
+                ? OP_FIXTURE
+                : req.url?.startsWith('/frame-foreign')
+                  ? FOREIGN_FRAME_FIXTURE
+                  : req.url?.startsWith('/frame')
+                    ? FRAME_FIXTURE
+                    : FIXTURE;
 const fixture = createServer((req, res) => {
   // Issue #35: the two API paths, before anything is HTML. `/api/submit` answers 500 on purpose —
   // a failing POST with a status is the row an agent is looking for, and a page that answered 200
   // everywhere could not tell "the request went out" from "the request worked".
+  const srcFile = SOURCES_FILES[req.url?.split('?')[0] ?? ''];
+  if (srcFile) {
+    res.writeHead(200, { 'content-type': 'text/javascript' });
+    res.end(srcFile);
+    return;
+  }
   if (req.url?.startsWith('/api/ping')) {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end('{"ok":true}');
@@ -3935,7 +4063,8 @@ const BUILDS = {
   },
 };
 for (const [gate, build] of Object.entries(BUILDS)) {
-  if (ONLY && gate !== (ONLY === 'saves' || ONLY === 'upload' ? ONLY : 'off')) continue;
+  if (ONLY && gate !== (ONLY === 'saves' || ONLY === 'upload' ? ONLY : ONLY === 'sources' ? 'on' : 'off'))
+    continue;
   buildExtension(build);
   for (const b of browsers) {
     if (gate === 'access' || gate === 'confirm' || gate === 'saves' || gate === 'upload') {
@@ -3968,7 +4097,7 @@ for (const [gate, build] of Object.entries(BUILDS)) {
     } catch (err) {
       check(b, `scenario ran (${label})`, false, err.stack ?? String(err));
     }
-    if (gate !== 'on') continue;
+    if (gate !== 'on' || ONLY === 'sources') continue;
     console.log(`\n${b} (several agent sessions)`);
     try {
       await multiSession(b);
