@@ -345,9 +345,10 @@ The main session stops at these points and does not proceed without a word back:
 1. **The composed hero rides in the "how it works" band (Stream C).** One generator change instead of
    two; B6 becomes part of C. *Why:* a separate `gjsify.site.hero` costs another core change and
    release for one picture, and the band is where the picture explains something.
-2. **Store category: `Productivity`** on Chrome and Edge, replacing `Developer Tools`. *Why:* the
-   pages and listings are written for people who are not developers; the category is editable later
-   without a new item.
+2. **Store category: Chrome `Workflow & Planning` (in Chrome's "Productivity" group), Edge
+   `Productivity`**, replacing `Developer Tools`. *Why:* the pages and listings are written for people
+   who are not developers; Chrome has no plain "Productivity" category, only the group. The category
+   is editable later without a new item.
 3. **Chrome icon: a padded canvas for Chrome only** (96×96 artwork centred in 128×128). The app icon
    stays as it is. *Why:* it meets Chrome's rule without changing the product's identity elsewhere.
 4. **`webext submit` for agents:** move the webext part of gjsify's cli `AGENTS.md` into its own linked
