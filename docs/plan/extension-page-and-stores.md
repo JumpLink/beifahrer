@@ -87,8 +87,8 @@ variables (librsvg reads neither), so labels are rendered *beside* it as the num
 ### 2. The pictures are composed from real captures, by a script in this repository
 
 ```
-tests/e2e/ui-pages.mjs  ──▶  options-*.png, popup-*.png   (real extension pages, reproducible)
-app, under headless-run ──▶  desktop-*.png                 (real app window)
+tools/page-shots.sh     ──▶  options-*.png, popup-*.png   (real extension pages, reproducible)
+tools/desktop-shots.sh  ──▶  desktop-*.png                 (real app window, under headless-run)
                                  │
                  tools/compose-shots.mjs  ──▶  hero-*.png, agent-chat-*.png   (1280×800 CSS at 2×)
                                  │
@@ -119,7 +119,7 @@ app wants one — note that trigger in the script's header comment, do not pre-p
 | Part | Source | Rule |
 |---|---|---|
 | Browser frame, tab strip, address bar, toolbar | drawn in CSS | **fictional and neutral**: no vendor shape, colour or logo. One tab, a synthetic `example.org` address, no profile avatar |
-| The Beifahrer toolbar icon in that frame | the real `data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg` | the product's own mark, and it must be recognisable |
+| The Beifahrer toolbar icon in that frame | the built `extension/.output/chrome-mv3/icons/idle-48.png` (`idle-light-48.png` on dark) | the product's own mark, and it must be the one a **toolbar** really gets: monochrome ink with the green connected dot drawn in. Corrected 2026-11-16 — the first hero used the colourful app icon with a CSS dot on top, two marks the product never shows together |
 | The extension's options page inside the window | a real capture from `ui-pages.mjs` | never redrawn |
 | The app window beside it | a real capture under `./scripts/headless-run` | never redrawn |
 | Page content behind the extension UI | the e2e's synthetic fixture page | never a real site |

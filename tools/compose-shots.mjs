@@ -2,10 +2,15 @@
 /**
  * Composes the product pictures from the REAL captures this repository already produces.
  *
- *   tests/e2e/ui-pages.mjs   ──▶  docs/images/options-*.png   (the extension's own pages)
+ *   tools/page-shots.sh      ──▶  docs/images/options-*.png   (the extension's own pages)
  *   tools/desktop-shots.sh   ──▶  docs/images/desktop-*.png   (the native window, headless)
  *                                       │
- *                            this script ──▶  docs/images/frame-light.png, hero-light.png
+ *                            this script ──▶  docs/images/{hero,agent-chat}-[de-]{light,dark}.png
+ *                                             plus frame-light.png, the B2 checkpoint
+ *
+ * Those two capture scripts tell ONE story on purpose — one agent (`claude-code`), one session
+ * label, one connected browser — so the options page inside a hero and the app window beside it are
+ * two views of the same run rather than two unrelated screenshots.
  *
  * Nothing in the output is drawn by hand or by a generator: the captures go in as the files they
  * are, unretouched and never enlarged, and only the browser around them is CSS (tools/compose/).
@@ -16,8 +21,13 @@
  * Composed pictures go on the WEBSITE only. They never enter `data/*.metainfo.xml`: a metainfo
  * screenshot is a rendition of the app, and a frame drawn around it is marketing (plan § Decision 2).
  *
- * Usage:  node tools/compose-shots.mjs [frame|hero|all] [--out DIR] [--keep-browser]
+ * Usage:  node tools/compose-shots.mjs [frame|hero|agent-chat|all] [--out DIR]
  *         node tools/compose-shots.mjs --help
+ *
+ * Each picture is composed in every language and scheme it ships in (`LANGS` × `SCHEMES` below).
+ * The variant travels to the template in the URL — `?lang=de&scheme=dark` — and the template
+ * resolves BOTH its words and its captures from it, so a German hero cannot end up with the
+ * English options page inside its frame.
  *
  * Output is 1280 × 800 CSS px at deviceScaleFactor 2 → 2560 × 1600, the store size at 2×, so
  * nothing has to be re-composed for a store later.
@@ -58,15 +68,50 @@ import { chromiumBinary } from '../extension/scripts/platform.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** One entry per picture: the template, the file it writes, and what it must not be missing. */
+/** The languages and the schemes every shipped picture exists in. */
+const LANGS = ['en', 'de'];
+const SCHEMES = ['light', 'dark'];
+
+/**
+ * The built toolbar icons, which the fictional frame shows as the extension's button. They come out
+ * of the extension build (`cd extension && gjsify run build`) and are therefore gitignored: a
+ * picture composed without them would have a hole where the one recognisable mark belongs, so they
+ * are a `needs` entry like any capture.
+ */
+const TOOLBAR_ICONS = ['idle-48', 'idle-light-48'].map((n) => `extension/.output/chrome-mv3/icons/${n}.png`);
+
+/** `options`, 'de', 'dark' → docs/images/options-de-dark.png: how the captures are named. */
+const shot = (name, lang, scheme) => `docs/images/${name}${lang === 'en' ? '' : `-${lang}`}-${scheme}.png`;
+
+/**
+ * One entry per picture: the template, whether it exists in every language and scheme, and the
+ * committed files that variant is composed FROM — checked before a browser is started, so a missing
+ * capture is a sentence naming it rather than a picture with a gap in it.
+ */
 const PICTURES = {
-  frame: { template: 'tools/compose/frame.html', out: 'frame-light.png', needs: [] },
+  // The empty frame: one picture, light and English. It is the B2 checkpoint, not a shipped
+  // screenshot, and it exists so the geometry that was approved is the geometry the hero uses.
+  frame: { template: 'tools/compose/frame.html', variants: false, needs: () => TOOLBAR_ICONS },
   hero: {
     template: 'tools/compose/hero.html',
-    out: 'hero-light.png',
-    needs: ['docs/images/options-light.png', 'docs/images/desktop-light.png'],
+    variants: true,
+    needs: (lang, scheme) => [...TOOLBAR_ICONS, shot('options', lang, scheme), shot('desktop', lang, scheme)],
+  },
+  // The agent's side of the same story. It has no browser frame, so it needs no toolbar icon.
+  'agent-chat': {
+    template: 'tools/compose/agent-chat.html',
+    variants: true,
+    needs: (lang, scheme) => [shot('desktop', lang, scheme)],
   },
 };
+
+/** Every variant a picture ships in, as `{ lang, scheme, out }`. */
+function variantsOf(name) {
+  const combos = PICTURES[name].variants
+    ? LANGS.flatMap((lang) => SCHEMES.map((scheme) => ({ lang, scheme })))
+    : [{ lang: 'en', scheme: 'light' }];
+  return combos.map((v) => ({ ...v, out: `${name}${v.lang === 'en' ? '' : `-${v.lang}`}-${v.scheme}.png` }));
+}
 
 /** The canvas, and the scale that turns it into the store's 2560 × 1600. */
 const CANVAS = { width: 1280, height: 800, scale: 2 };
@@ -284,26 +329,32 @@ async function main() {
   const which = args.find((a) => a in PICTURES) ?? 'all';
   const wanted = which === 'all' ? Object.keys(PICTURES) : [which];
 
-  for (const name of wanted)
-    for (const need of PICTURES[name].needs)
+  // Every source of every variant, before a browser exists: a run that is going to fail for want of
+  // a capture should say which one while nothing has been written, not after four of eight files.
+  const jobs = wanted.flatMap((name) => variantsOf(name).map((v) => ({ name, ...v })));
+  for (const job of jobs)
+    for (const need of PICTURES[job.name].needs(job.lang, job.scheme))
       if (!existsSync(join(ROOT, need)))
-        throw new Error(`${name} needs ${need} — produce it first (see this file's header)`);
+        throw new Error(`${job.out} needs ${need} — produce it first (see this file's header)`);
 
   mkdirSync(outDir, { recursive: true });
   const server = await serveRepo();
   const origin = `http://127.0.0.1:${server.address().port}`;
   const browser = await startBrowser(origin);
   try {
-    for (const name of wanted) {
-      const { template, out } = PICTURES[name];
-      const file = join(outDir, out);
-      const png = await capture(browser.page, `${origin}/${template}`, file);
+    for (const job of jobs) {
+      const { template } = PICTURES[job.name];
+      const file = join(outDir, job.out);
+      // The language and the scheme travel in the URL, never in the renderer's environment: the
+      // page then holds what was asked for rather than what this machine happens to prefer.
+      const url = `${origin}/${template}?lang=${job.lang}&scheme=${job.scheme}`;
+      const png = await capture(browser.page, url, file);
       const { width, height } = pngSize(png);
       if (width !== CANVAS.width * CANVAS.scale || height !== CANVAS.height * CANVAS.scale)
         throw new Error(
-          `${out} is ${width}×${height}, not ${CANVAS.width * CANVAS.scale}×${CANVAS.height * CANVAS.scale}`,
+          `${job.out} is ${width}×${height}, not ${CANVAS.width * CANVAS.scale}×${CANVAS.height * CANVAS.scale}`,
         );
-      console.log(`${out}  ${width}×${height}  sha256:${createHash('sha256').update(png).digest('hex')}`);
+      console.log(`${job.out}  ${width}×${height}  sha256:${createHash('sha256').update(png).digest('hex')}`);
     }
   } finally {
     browser.page.close();

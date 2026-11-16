@@ -21,6 +21,23 @@ const GLYPH = {
   menu: 'M4 6h12M4 10h12M4 14h12',
 };
 
+/**
+ * Beifahrer's toolbar button, as a browser really paints it: the BUILT icon out of
+ * `extension/.output/`, not the colourful app icon from `data/icons/`. Those are two different
+ * marks — the app icon is the bus in full colour, the toolbar look is monochrome ink with the
+ * green connected dot already drawn into it (extension/scripts/icon-looks.ts, LOOK.idle). A
+ * picture of the extension in a toolbar has to show the one the toolbar gets, and these PNGs are
+ * literally the bytes it is handed. `-light-` is the ink for a dark chrome, so B5's dark variants
+ * pick it up by scheme; `48` at a 24 px box is one image pixel per device pixel at scale 2.
+ *
+ * The composer lists this file under `needs`, so a missing extension build fails with a sentence
+ * saying so rather than a picture with a hole in it.
+ */
+const TOOLBAR_ICON = {
+  light: '/extension/.output/chrome-mv3/icons/idle-48.png',
+  dark: '/extension/.output/chrome-mv3/icons/idle-light-48.png',
+};
+
 const icon = (name) =>
   `<svg class="icon" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">` +
   `<path d="${GLYPH[name]}" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -33,7 +50,7 @@ const icon = (name) =>
  * Nothing else: no profile avatar, no account, no sync, no bookmarks bar, no vendor glyph, no
  * product name. What a person should recognise here is "a browser", not "their browser".
  */
-function renderChrome(host) {
+function renderChrome(host, scheme) {
   host.innerHTML =
     `<div class="tabstrip">` +
     `<div class="tab"><span class="favicon"></span><span data-s="tabTitle"></span></div>` +
@@ -45,20 +62,44 @@ function renderChrome(host) {
     icon('forward') +
     icon('reload') +
     `<div class="address"><span class="scheme">https://</span><span class="host" data-s="host"></span></div>` +
-    `<span class="ext"><img src="/data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg" alt=""><span class="dot"></span></span>` +
+    `<span class="ext"><img src="${TOOLBAR_ICON[scheme]}" alt=""></span>` +
     icon('menu') +
     `</div>`;
 }
 
-/** The chrome's few words, from one JSON per language, so B5 adds `strings.de.json` beside it. */
+/**
+ * Every word in a composed picture, from one JSON per language. A string that is missing in a
+ * language is left EMPTY rather than falling back to English: a gap in the picture is visible and
+ * gets fixed, whereas an English sentence in the German hero is a bug that ships looking fine.
+ */
 async function fillStrings(lang) {
   const strings = await fetch(`/tools/compose/strings.${lang}.json`).then((r) => r.json());
   for (const el of document.querySelectorAll('[data-s]')) el.textContent = strings[el.dataset.s] ?? '';
 }
 
+/**
+ * The real captures a template shows, picked for the variant being composed: `data-shot="options"`
+ * in the German dark hero becomes `/docs/images/options-de-dark.png`.
+ *
+ * The template therefore names WHICH capture it shows, never which file — eight variants out of one
+ * template, and the German hero cannot quietly keep the English page inside its frame because the
+ * `src` was copied along with the markup.
+ */
+function fillShots(lang, scheme) {
+  for (const img of document.querySelectorAll('img[data-shot]'))
+    img.src = `/docs/images/${img.dataset.shot}${lang === 'en' ? '' : `-${lang}`}-${scheme}.png`;
+}
+
 async function ready() {
-  const lang = new URLSearchParams(location.search).get('lang') ?? 'en';
-  for (const host of document.querySelectorAll('[data-chrome]')) renderChrome(host);
+  const params = new URLSearchParams(location.search);
+  const lang = params.get('lang') ?? 'en';
+  // The scheme is told to the page, never asked of the renderer: `prefers-color-scheme` answers
+  // from the machine the run happens on, which is the one input a reproducible picture may not have.
+  const scheme = params.get('scheme') === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.scheme = scheme;
+  document.documentElement.lang = lang;
+  for (const host of document.querySelectorAll('[data-chrome]')) renderChrome(host, scheme);
+  fillShots(lang, scheme);
   await fillStrings(lang);
   await Promise.all([...document.images].map((img) => img.decode().catch(() => undefined)));
   await document.fonts.ready;

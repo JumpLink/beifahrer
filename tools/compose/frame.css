@@ -12,8 +12,10 @@
  * ships, rather than something that merely looked like it.
  *
  * Everything that could render differently between two runs is pinned rather than hoped for: no
- * animation, no transition, no system-dependent colour, and no `prefers-color-scheme` query — the
- * dark variants of B5 get their own stylesheet instead of a query the renderer answers for itself.
+ * animation, no transition, no system-dependent colour, and no `prefers-color-scheme` query. Dark
+ * is reached through `html[data-scheme="dark"]`, which chrome.js sets from the URL the composer
+ * asked for: a media query would be answered by the machine the run happens on, and then which
+ * variant a file holds would depend on whose session rendered it.
  */
 
 *,
@@ -167,9 +169,18 @@ body {
   color: #1f1a27;
 }
 
-/* Beifahrer's own toolbar button: the real app icon, and the status light it is in the product. */
+/*
+ * Beifahrer's own toolbar button. Nothing is drawn here: the <img> is the BUILT toolbar icon
+ * (chrome.js, TOOLBAR_ICON), which already carries the monochrome ink and the green connected dot
+ * exactly as the extension hands them to a browser. The dot used to be a CSS circle on top of the
+ * colourful app icon — two marks the product never shows together, and a status light whose colour
+ * and size were this stylesheet's invention rather than the product's.
+ *
+ * 48 source px in a 24 px box is one image pixel per device pixel at deviceScaleFactor 2, so the
+ * icon is not resampled. Colour never speaks alone: the options page inside the frame and the app
+ * window beside it both say "connected" in words.
+ */
 .ext {
-  position: relative;
   flex: none;
   width: 24px;
   height: 24px;
@@ -179,19 +190,6 @@ body {
   display: block;
   width: 24px;
   height: 24px;
-}
-
-/* Connected and idle. Colour never speaks alone in the product, and it does not here either: the
-   options page inside the frame and the app window beside it both say "connected" in words. */
-.ext .dot {
-  position: absolute;
-  right: -2px;
-  bottom: -1px;
-  width: 9px;
-  height: 9px;
-  border: 1.5px solid #fff;
-  border-radius: 50%;
-  background: #2ec27e;
 }
 
 /* ── the page area ──────────────────────────────────────────────────────────────────────── */
@@ -228,4 +226,66 @@ body {
   bottom: 36px;
   display: block;
   width: 480px;
+}
+
+/* ── dark ───────────────────────────────────────────────────────────────────────────────── */
+
+/*
+ * The same geometry in the dark variant: only colour changes below, never a size, so the dark hero
+ * and the light one put every edge in the same place and the pair can be swapped by a page's colour
+ * scheme without anything moving.
+ *
+ * The stage keeps using the app's own branding colour, the dark primary `#613583` this time, and
+ * the chrome stays in neutral greys — a dark browser nobody ships, exactly as the light one is.
+ */
+[data-scheme='dark'] .stage {
+  background: radial-gradient(118% 94% at 15% 4%, #3b2050 0%, #2a1739 48%, #190f22 100%);
+}
+
+[data-scheme='dark'] .browser {
+  border-color: rgba(255, 255, 255, 0.11);
+  background: #241d2b;
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.34),
+    0 26px 60px rgba(0, 0, 0, 0.52);
+}
+
+[data-scheme='dark'] .tab {
+  background: #322a3a;
+  color: #ece7f2;
+}
+
+[data-scheme='dark'] .tab .favicon {
+  background: #5c5268;
+}
+
+[data-scheme='dark'] .newtab {
+  color: #b6acc1;
+}
+
+[data-scheme='dark'] .wincontrols i {
+  background: #574d63;
+}
+
+[data-scheme='dark'] .toolbar {
+  border-bottom-color: rgba(255, 255, 255, 0.09);
+  background: #322a3a;
+  color: #b6acc1;
+}
+
+[data-scheme='dark'] .address {
+  background: #241d2b;
+}
+
+[data-scheme='dark'] .address .scheme {
+  color: #9b90a7;
+}
+
+[data-scheme='dark'] .address .host {
+  color: #f2eef6;
+}
+
+/* The page area behind a capture that has not decoded yet: dark, so no white frame can flash. */
+[data-scheme='dark'] .viewport {
+  background: #1d1721;
 }

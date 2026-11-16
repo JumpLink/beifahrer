@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Beifahrer — the agent chat (B4)</title>
+    <link rel="stylesheet" href="/tools/compose/frame.css" />
+    <link rel="stylesheet" href="/tools/compose/chat.css" />
+  </head>
+  <body>
+    <!-- B4: the agent's side of the same run the hero shows. The window is a fictional, unbranded
+         assistant (chat.css explains why), and every word in it comes from strings.<lang>.json, so
+         the German variant is translated rather than merely renamed. The method names in the call
+         rows are Beifahrer's real ones (packages/core/src/activity.ts).
+
+         The only unretouched capture here is the app window, via `data-shot` — the same file the
+         hero puts beside its browser, in the same place, so the pair matches. -->
+    <div class="stage">
+      <div class="browser chat">
+        <div class="titlebar">
+          <span class="avatar"></span>
+          <span data-s="assistantName"></span>
+          <span class="wincontrols"><i></i><i></i><i></i></span>
+        </div>
+        <div class="thread">
+          <div class="ask" data-s="ask"></div>
+          <div class="say" data-s="reply1"></div>
+          <div class="calls">
+            <div class="call">
+              <span class="method">tabs.list</span><span class="detail" data-s="callTabs"></span>
+            </div>
+            <div class="call">
+              <span class="method">page.read</span><span class="detail" data-s="callRead1"></span>
+            </div>
+            <div class="call">
+              <span class="method">page.click</span><span class="detail" data-s="callClick"></span>
+            </div>
+            <div class="call">
+              <span class="method">page.read</span><span class="detail" data-s="callRead2"></span>
+            </div>
+          </div>
+          <div class="say" data-s="reply2"></div>
+        </div>
+        <div class="composer" data-s="composer"></div>
+      </div>
+      <img class="app" data-shot="desktop" alt="" />
+    </div>
+    <script src="/tools/compose/chrome.js"></script>
+  </body>
+</html>
