@@ -57,6 +57,30 @@ session. It changes no policy and reads none: a pause, a switched-off feature or
 as the browser's refusal and is shown as that answer, with no button to lift it (§ 2, ADR 0005). It is
 the one place the window talks to a browser, and only at the person's click.
 
+**8. Settings are the bridge's own, in `settings.json`, read by the window and by `beifahrer`.** The
+dialog (`Adw.PreferencesDialog`, from the primary menu, `Ctrl+,`) holds the port range, whether the Agent
+page's snippet starts with `--allow-write`, and a language override (plus the autostart switch of
+[ADR 0024](0024-the-window-stays-in-the-background.md) where the system has one). Rules:
+
+- **Where.** `settings.json` in `configDir()`, beside the pairing token, not in `window.json`: that file
+  holds the window's own memory (autostart, setup), and `beifahrer` must read these values without
+  knowing the window. It holds no secret and no policy; losing it costs the defaults, so it is not a
+  `secret` or `state` file and needs no backup entry. Written whole, atomically, mode 0600, only when
+  the person changes a value, and minimal: a value equal to the default is stored as "not set", so a
+  later default change is followed.
+- **One range for both.** `beifahrer` resolves the range as flag, then `BEIFAHRER_PORT*`, then
+  `settings.json`, then the defaults, so a range chosen in the window is the one an agent session binds.
+  The extension still has its own "Ports" field (the browser cannot read this file); the dialog says
+  the numbers must match. A running session keeps its port.
+- **Validation, fail closed field by field.** A missing, unparseable or non-object file is the defaults.
+  A field of the wrong type or outside what `parsePortRange` accepts (port 1024 to 65535, count 1 to 64,
+  range ending at 65535) is "not set" and the other fields are kept; a malformed value never widens the
+  range. The dialog clamps instead of failing: a count that would run past 65535 is shortened.
+- **The default of a snippet is not a grant.** `allowWrite` only pre-selects the switch on the Agent page.
+  What an agent may do is decided in the browser (ADR 0005); the dialog has no field for a pause, a
+  feature or a site level, and a test pins the field list.
+- **Language** applies at the next start; the system's list is the default.
+
 ## Consequences
 
 - The window shows what the BRIDGES know. Whether Beifahrer is paused is visible in the browser's

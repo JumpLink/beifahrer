@@ -15,9 +15,15 @@ import { clamped } from './window.ts';
 
 export interface AgentsPage {
   widget: Gtk.Widget;
+  /** The Settings dialog changed the default: the switch follows it (it only pre-selects a snippet). */
+  setWriteDefault(on: boolean): void;
 }
 
-export function createAgentsPage(t: Translate, toast: (title: string) => void): AgentsPage {
+export function createAgentsPage(
+  t: Translate,
+  toast: (title: string) => void,
+  writeDefault = false,
+): AgentsPage {
   const choices = agentChoices(process.platform);
   const pick = new Adw.ComboRow({
     title: t('agents.agent'),
@@ -26,6 +32,7 @@ export function createAgentsPage(t: Translate, toast: (title: string) => void): 
   const write = new Adw.SwitchRow({
     title: t('agents.write.title'),
     subtitle: t('agents.write.subtitle'),
+    active: writeDefault,
   });
   const choose = new Adw.PreferencesGroup({
     title: t('agents.title'),
@@ -99,5 +106,5 @@ export function createAgentsPage(t: Translate, toast: (title: string) => void): 
   });
   render();
 
-  return { widget: clamped(column) };
+  return { widget: clamped(column), setWriteDefault: (on) => write.set_active(on) };
 }

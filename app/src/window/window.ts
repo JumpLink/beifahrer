@@ -36,6 +36,8 @@ export interface DesktopWindow {
   showPairing(view: PairingView): void;
   showBrowsers(rows: readonly BrowserRow[]): void;
   showSafari(view: SafariView): void;
+  /** The Agent page's `--allow-write` default changed in Settings. */
+  setWriteDefault(on: boolean): void;
   /** Setup is finished: remember it (once) and show the tabs. */
   onSetupFinished(): void;
   /** A message in the window's toast overlay. */
@@ -122,11 +124,9 @@ function createStatusPage(t: Translate, onAction: (id: DiagramAction) => void, o
   };
 }
 
-/** `preferences`: the menu offers Preferences; only where there is a setting in them (autostart). */
 export function createWindow(
   app: Adw.Application,
   t: Translate,
-  preferences = false,
   /** The stored flag; `markDone` stores it. */
   setupDone = false,
   markDone: () => void = () => {},
@@ -134,13 +134,15 @@ export function createWindow(
   onOpenSafariSettings: () => void = () => {},
   /** Starts a connection check (ADR 0017 § 7); the outcome comes back through `showCheck`. */
   onCheck: () => void = () => {},
+  /** The stored default of the Agent page's "Allow filling and clicking" switch (ADR 0017 § 8). */
+  writeDefault = false,
 ): DesktopWindow {
   const overlay = new Adw.ToastOverlay();
   let onDiagramAction: (id: DiagramAction) => void = () => {};
   const statusPage = createStatusPage(t, (id) => onDiagramAction(id), onCheck);
   const toast = (title: string, timeout = 2) => overlay.add_toast(new Adw.Toast({ title, timeout }));
   const pairingPage = createPairingPage(t, toast, onOpenSafariSettings);
-  const agentsPage = createAgentsPage(t, toast);
+  const agentsPage = createAgentsPage(t, toast, writeDefault);
 
   const stack = new Adw.ViewStack();
   // A page without an icon name is drawn with `image-missing` in the switcher, so each one names one.
@@ -205,7 +207,7 @@ export function createWindow(
 
   const menu = new Gio.Menu();
   menu.append(t('menu.setup'), 'app.setup');
-  if (preferences) menu.append(t('menu.preferences'), 'app.preferences');
+  menu.append(t('menu.preferences'), 'app.preferences');
   menu.append(t('menu.about'), 'app.about');
   menu.append(t('menu.quit'), 'app.quit');
   header.pack_end(new Gtk.MenuButton({ iconName: 'open-menu-symbolic', menuModel: menu, primary: true }));
@@ -261,6 +263,7 @@ export function createWindow(
       setupPage.showBrowsers(rows);
     },
     showSafari: pairingPage.showSafari,
+    setWriteDefault: agentsPage.setWriteDefault,
     onSetupFinished() {
       if (finished) return;
       finished = true;

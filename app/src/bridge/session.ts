@@ -13,6 +13,9 @@ import {
   type PortRange,
 } from '@beifahrer/core';
 
+import { rawRange } from '../settings/settings-model.ts';
+import { loadSettings } from '../settings/settings-store.ts';
+
 export interface RangeArgs {
   port?: number;
   'port-count'?: number;
@@ -31,10 +34,9 @@ export const rangeOptions = {
 } as const;
 
 export function rangeOf(argv: RangeArgs): PortRange {
-  return parsePortRange(
-    argv.port ?? process.env.BEIFAHRER_PORT,
-    argv['port-count'] ?? process.env.BEIFAHRER_PORT_COUNT,
-  );
+  // Flag, then environment, then the window's settings file (ADR 0017 § 8), then the defaults.
+  const raw = rawRange({ port: argv.port, count: argv['port-count'] }, process.env, loadSettings());
+  return parsePortRange(raw.port, raw.count);
 }
 
 /** `BEIFAHRER_SESSION_LABEL`, if the person set one that has something printable in it. */

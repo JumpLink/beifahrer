@@ -31,6 +31,8 @@ const SHARED: Record<string, string> = {
   'browser.state.connected': 'pairing_connected',
   'browser.state.not-connected': 'state_offline',
   'safari.state.disabled': 'reason_feature_disabled',
+  'settings.port.title': 'port_title',
+  'settings.count.title': 'port_count_title',
 };
 
 const LOCALES: readonly Locale[] = ['en', 'de'];

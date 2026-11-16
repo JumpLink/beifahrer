@@ -22,7 +22,10 @@ import {
   startsHidden,
   withoutFlag,
 } from './autostart-model.ts';
-import { askAutostart, showPreferences } from './autostart-page.ts';
+import { askAutostart, autostartGroup } from './autostart-page.ts';
+import { localeCandidates, overriddenByEnvironment, rawRange } from '../settings/settings-model.ts';
+import { loadSettings, saveSettings } from '../settings/settings-store.ts';
+import { showSettings } from '../settings/settings-page.ts';
 import { loadAutostart, saveAutostart } from './autostart-store.ts';
 import { loadSetupDone, saveSetupDone } from './setup-store.ts';
 import { shouldMarkDone } from './setup-state-model.ts';
@@ -36,10 +39,15 @@ import { checkView, type CheckState } from './check-model.ts';
 import { runCheck } from './check-run.ts';
 import { createWindow } from './window.ts';
 
-const locale = pickLocale([...GLib.get_language_names()]);
+// The language override applies from the next start; the range is read again for every probe and session.
+let settings = loadSettings();
+const locale = pickLocale(localeCandidates(settings.language, [...GLib.get_language_names()]));
 const t = createTranslate(locale);
 const dir = registryDir();
-const ports = portsOf(parsePortRange(process.env.BEIFAHRER_PORT, process.env.BEIFAHRER_PORT_COUNT));
+const rangeNow = () => {
+  const raw = rawRange({}, process.env, settings);
+  return parsePortRange(raw.port, raw.count);
+};
 
 // The autostart entry starts the window with a flag GApplication does not know, so it is taken out here.
 const { requested: hiddenRequested, rest: args } = withoutFlag(system.programArgs);
@@ -65,13 +73,13 @@ const application = new AdwaitaApp({
     const ui = createWindow(
       app,
       t,
-      showSwitch(backend),
       setupDone,
       markSetupDone,
       () => {
         if (safariHelper) openSafariSettings(safariHelper, SAFARI_EXTENSION_ID);
       },
       () => void check(),
+      settings.allowWrite,
     );
     let checking = false;
     const showCheck = (state: CheckState) => ui.showCheck(checkView(state, t));
@@ -83,7 +91,7 @@ const application = new AdwaitaApp({
       try {
         showCheck(
           await runCheck(async () =>
-            listenInRange(parsePortRange(process.env.BEIFAHRER_PORT, process.env.BEIFAHRER_PORT_COUNT), {
+            listenInRange(rangeNow(), {
               token: loadOrCreateToken().token,
               version: VERSION,
               label: 'beifahrer · check',
@@ -118,7 +126,7 @@ const application = new AdwaitaApp({
       // The check's own session is on that range, unannounced: it would show up as a stranger.
       if (probing || checking) return;
       probing = true;
-      probePorts(ports)
+      probePorts(portsOf(rangeNow()))
         .then((listening) => {
           const sessions = statusOf(
             readEntries(dir).entries.map((e) => e.entry),
@@ -229,29 +237,37 @@ const application = new AdwaitaApp({
       if (held) app.release();
       held = false;
     });
-    if (showSwitch(backend)) {
-      const action = new Gio.SimpleAction({ name: 'preferences' });
-      action.connect('activate', () =>
-        showPreferences(
-          ui.window,
-          t,
-          autostart.enabled,
-          async (on) => {
-            const state = await setAutostart(on);
-            // Turning it off always counts as done; turning it on only when the portal granted it.
-            const ok = on ? state.enabled : true;
-            if (ok) {
-              autostart = { ...state, asked: true };
-              saveAutostart(autostart);
-            }
-            return ok;
-          },
-          ui.toast,
-        ),
-      );
-      app.add_action(action);
-      app.set_accels_for_action('app.preferences', ['<primary>comma']);
-    }
+    const action = new Gio.SimpleAction({ name: 'preferences' });
+    action.connect('activate', () =>
+      showSettings(ui.window, t, {
+        settings,
+        envOverride: overriddenByEnvironment(process.env),
+        save: (next) => {
+          settings = next;
+          ui.setWriteDefault(next.allowWrite);
+          return saveSettings(next);
+        },
+        autostart: showSwitch(backend)
+          ? autostartGroup(
+              t,
+              autostart.enabled,
+              async (on) => {
+                const state = await setAutostart(on);
+                // Turning it off always counts as done; turning it on only when the portal granted it.
+                const ok = on ? state.enabled : true;
+                if (ok) {
+                  autostart = { ...state, asked: true };
+                  saveAutostart(autostart);
+                }
+                return ok;
+              },
+              ui.toast,
+            )
+          : null,
+      }),
+    );
+    app.add_action(action);
+    app.set_accels_for_action('app.preferences', ['<primary>comma']);
     const hide = () => {
       if (!held) {
         app.hold();
