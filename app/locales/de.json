@@ -183,5 +183,17 @@
   "safari.state.disabled": "Aus",
   "safari.state.unknown": "Unbekannt",
   "safari.open": "Safari-Einstellungen öffnen",
-  "safari.hint": "Die Erweiterung ist bei Beifahrer schon dabei. Schalte sie in den Safari-Einstellungen ein, wenn du Safari nutzen willst, und koppele sie dann mit dem Token auf dieser Seite."
+  "safari.hint": "Die Erweiterung ist bei Beifahrer schon dabei. Schalte sie in den Safari-Einstellungen ein, wenn du Safari nutzen willst, und koppele sie dann mit dem Token auf dieser Seite.",
+  "check.title": "Verbindung prüfen",
+  "check.button": "Prüfen",
+  "check.again": "Erneut prüfen",
+  "check.idle": "Fragt den verbundenen Browser nach seinen offenen Tabs, so wie es ein Agent täte.",
+  "check.running": "Warte auf die Antwort eines Browsers.",
+  "check.answered.one": "{browser} hat geantwortet: 1 offener Tab.",
+  "check.answered.many": "{browser} hat geantwortet: {count} offene Tabs.",
+  "check.refused.paused": "{browser} hat abgelehnt: Beifahrer ist dort pausiert. Nur du kannst es im Browser wieder aufnehmen.",
+  "check.refused.feature_disabled": "{browser} hat abgelehnt: Tabs auflisten ist in den Beifahrer-Einstellungen ausgeschaltet.",
+  "check.refused.refused": "{browser} hat abgelehnt. Prüfe, was du in den Beifahrer-Einstellungen erlaubt hast.",
+  "check.nobrowser": "Kein Browser hat geantwortet. Öffne den Browser mit der Erweiterung und prüfe das Kopplungs-Token.",
+  "check.failed": "Die Prüfung konnte nicht laufen: {reason}"
 }

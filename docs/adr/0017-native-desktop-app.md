@@ -50,6 +50,13 @@ own project with its own application id. The window is the product a person look
 takes the short id, `eu.jumplink.beifahrer`; the CLI is `eu.jumplink.beifahrer.Cli`. A Flatpak id can
 be held once, which is why the two cannot share one. A person installs either or both. Packaging is not part of this decision.
 
+**7. "Check connection" is a read through the normal gates, not a back door.** The Status page has a
+button that starts a short session of its own (the same bridge, port range and token as any agent
+session, not announced in the registry), asks each connected browser for `tabs.list` and ends the
+session. It changes no policy and reads none: a pause, a switched-off feature or a site level comes back
+as the browser's refusal and is shown as that answer, with no button to lift it (§ 2, ADR 0005). It is
+the one place the window talks to a browser, and only at the person's click.
+
 ## Consequences
 
 - The window shows what the BRIDGES know. Whether Beifahrer is paused is visible in the browser's

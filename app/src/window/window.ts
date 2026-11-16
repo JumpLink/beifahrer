@@ -16,6 +16,8 @@ import Gtk from 'gi://Gtk?version=4.0';
 
 import { agentCommands } from '../frontends/cli/install.ts';
 import { createAgentsPage } from './agents-page.ts';
+import { createCheckRow } from './check-row.ts';
+import type { CheckView } from './check-model.ts';
 import { createDiagram } from './diagram-widget.ts';
 import type { DiagramAction, DiagramView } from './diagram-model.ts';
 import type { Translate } from './i18n.ts';
@@ -30,6 +32,7 @@ import type { StatusView } from './status-model.ts';
 export interface DesktopWindow {
   window: Adw.ApplicationWindow;
   showStatus(view: StatusView, diagram: DiagramView): void;
+  showCheck(view: CheckView): void;
   showPairing(view: PairingView): void;
   showBrowsers(rows: readonly BrowserRow[]): void;
   showSafari(view: SafariView): void;
@@ -55,7 +58,8 @@ export function clamped(child: Gtk.Widget): Gtk.Widget {
   return scroller;
 }
 
-function createStatusPage(t: Translate, onAction: (id: DiagramAction) => void) {
+function createStatusPage(t: Translate, onAction: (id: DiagramAction) => void, onCheck: () => void) {
+  const check = createCheckRow(t('check.title'), onCheck);
   const diagram = createDiagram(t, onAction);
   // Text first, so it is read before the picture and says what the picture is for; the diagram gets
   // air on both sides (24 margin + 12 spacing = 36 px) instead of sitting against the sentence.
@@ -73,6 +77,7 @@ function createStatusPage(t: Translate, onAction: (id: DiagramAction) => void) {
 
   const column = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 24 });
   column.append(status);
+  column.append(check.widget);
   column.append(warnings);
   column.append(group);
   column.append(note);
@@ -82,6 +87,7 @@ function createStatusPage(t: Translate, onAction: (id: DiagramAction) => void) {
   let warningRows: Adw.ActionRow[] = [];
   return {
     widget,
+    showCheck: check.show,
     setVertical(vertical: boolean) {
       diagram.setVertical(vertical);
       // After the new arrangement is measured: the old scroll offset belongs to the other one.
@@ -126,10 +132,12 @@ export function createWindow(
   markDone: () => void = () => {},
   /** Must only ever run from the Safari row's own button click (ADR 0026 § 4). */
   onOpenSafariSettings: () => void = () => {},
+  /** Starts a connection check (ADR 0017 § 7); the outcome comes back through `showCheck`. */
+  onCheck: () => void = () => {},
 ): DesktopWindow {
   const overlay = new Adw.ToastOverlay();
   let onDiagramAction: (id: DiagramAction) => void = () => {};
-  const statusPage = createStatusPage(t, (id) => onDiagramAction(id));
+  const statusPage = createStatusPage(t, (id) => onDiagramAction(id), onCheck);
   const toast = (title: string, timeout = 2) => overlay.add_toast(new Adw.Toast({ title, timeout }));
   const pairingPage = createPairingPage(t, toast, onOpenSafariSettings);
   const agentsPage = createAgentsPage(t, toast);
@@ -243,6 +251,7 @@ export function createWindow(
   return {
     window,
     showStatus: statusPage.show,
+    showCheck: statusPage.showCheck,
     showPairing(view) {
       pairingPage.show(view);
       setupPage.showPairing(view);

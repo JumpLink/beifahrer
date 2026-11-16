@@ -183,5 +183,17 @@
   "safari.state.disabled": "Off",
   "safari.state.unknown": "Unknown",
   "safari.open": "Open Safari Settings",
-  "safari.hint": "The extension comes with Beifahrer. Turn it on in Safari's Settings if you want to use Safari, then pair it with the token on this page."
+  "safari.hint": "The extension comes with Beifahrer. Turn it on in Safari's Settings if you want to use Safari, then pair it with the token on this page.",
+  "check.title": "Check connection",
+  "check.button": "Check",
+  "check.again": "Check again",
+  "check.idle": "Asks the connected browser for its open tabs, the way an agent would.",
+  "check.running": "Waiting for a browser to answer.",
+  "check.answered.one": "{browser} answered: 1 open tab.",
+  "check.answered.many": "{browser} answered: {count} open tabs.",
+  "check.refused.paused": "{browser} refused: Beifahrer is paused there. Only you can resume it, in the browser.",
+  "check.refused.feature_disabled": "{browser} refused: listing tabs is switched off in its Beifahrer settings.",
+  "check.refused.refused": "{browser} refused. Check what you allowed in its Beifahrer settings.",
+  "check.nobrowser": "No browser answered. Open the browser with the extension and check the pairing token.",
+  "check.failed": "The check could not run: {reason}"
 }
