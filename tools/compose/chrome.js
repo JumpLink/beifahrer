@@ -47,13 +47,17 @@ const icon = (name) =>
  * row, an address pill on the synthetic `example.org` (RFC 2606 — the repository's rule that
  * fixtures stay synthetic holds for a picture too), Beifahrer's toolbar button, a menu.
  *
+ * A template may name another tab title, address scheme or address with `data-title`,
+ * `data-proto` and `data-host` on the `data-chrome` element (the store scenes do), and mark the extension's button pressed with `data-pressed`; without them
+ * the markup is exactly what the hero has always had.
+ *
  * Nothing else: no profile avatar, no account, no sync, no bookmarks bar, no vendor glyph, no
  * product name. What a person should recognise here is "a browser", not "their browser".
  */
 function renderChrome(host, scheme) {
   host.innerHTML =
     `<div class="tabstrip">` +
-    `<div class="tab"><span class="favicon"></span><span data-s="tabTitle"></span></div>` +
+    `<div class="tab"><span class="favicon"></span><span data-s="${host.dataset.title ?? 'tabTitle'}"></span></div>` +
     `<div class="newtab">${icon('plus')}</div>` +
     `<div class="wincontrols"><i></i><i></i><i></i></div>` +
     `</div>` +
@@ -61,8 +65,9 @@ function renderChrome(host, scheme) {
     icon('back') +
     icon('forward') +
     icon('reload') +
-    `<div class="address"><span class="scheme">https://</span><span class="host" data-s="host"></span></div>` +
-    `<span class="ext"><img src="${TOOLBAR_ICON[scheme]}" alt=""></span>` +
+    `<div class="address"><span class="scheme">${host.dataset.proto ?? 'https://'}</span>` +
+    `<span class="host" data-s="${host.dataset.host ?? 'host'}"></span></div>` +
+    `<span class="ext${host.dataset.pressed === undefined ? '' : ' pressed'}"><img src="${TOOLBAR_ICON[scheme]}" alt=""></span>` +
     icon('menu') +
     `</div>`;
 }

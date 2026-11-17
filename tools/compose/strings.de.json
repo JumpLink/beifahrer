@@ -2,6 +2,13 @@
   "tabTitle": "Beispiel-Seite",
   "host": "example.org",
 
+  "ticketTab": "Ticket 3279",
+  "ticketsHost": "tickets.example",
+  "localHost": "localhost:47901",
+  "optionsTab": "Beifahrer-Einstellungen",
+  "confirmTitle": "Beifahrer",
+  "optionsHost": "beifahrer/options.html",
+
   "assistantName": "Dein KI-Assistent",
   "ask": "Schau auf das Ticket-Board, das ich offen habe, und sag mir, welche Tickets noch niemand übernommen hat.",
   "reply1": "Ich komme an den Browser, in dem du angemeldet bist. Ich lese ihn gerade.",
