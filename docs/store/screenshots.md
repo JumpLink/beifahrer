@@ -74,6 +74,25 @@ these are 360 px wide. The three shots therefore need one thing a person does wi
 or a small script: capture at the store's aspect ratio with the browser window around it. Until then
 they are the *content* of the store shots, and the plan is to compose them, not to re-invent them.
 
+## The composed store screenshots
+
+`node tools/compose-shots.mjs store` writes five 2560×1600 scenes (1280×800 CSS at 2×) per language to
+`docs/store/screenshots/<lang>/0N-<name>.png`, light scheme, from the committed captures in
+`docs/images/`. The captures go in unretouched and at natural size; only the fictional browser around
+them is CSS (see the header of the script). Run it twice: the bytes match.
+
+| Scene | What it shows |
+|---|---|
+| 01 hero | the options page in the frame, the app window beside it |
+| 02 popup | the popup hung as a dropdown under the pressed toolbar button, over a synthetic ticket page |
+| 03 options | the options page at natural size, cropped to the viewport at the Features list (the top is a header and a connection diagram; the switches carry the "off by default" claim) |
+| 04 confirm | `confirm.html` as the small popup window it really is (`browser.windows.create`, `type: popup`), over the ticket page |
+| 05 agent chat | the agent's side of the same run |
+
+The scenes never enter `data/*.metainfo.xml`. To make `gjsify webext listing` read them, set
+`gjsify.webext.listing.screenshots` to `docs/store/screenshots` in `package.json` (once the gjsify
+release that reads it is pinned).
+
 ## The production plan
 
 Run the e2e once with a screenshots directory and a language:

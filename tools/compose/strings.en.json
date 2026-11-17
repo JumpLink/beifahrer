@@ -2,6 +2,13 @@
   "tabTitle": "Example Domain",
   "host": "example.org",
 
+  "ticketTab": "Ticket 3279",
+  "ticketsHost": "tickets.example",
+  "localHost": "localhost:47901",
+  "optionsTab": "Beifahrer settings",
+  "confirmTitle": "Beifahrer",
+  "optionsHost": "beifahrer/options.html",
+
   "assistantName": "Your AI assistant",
   "ask": "Look at the ticket board I have open and tell me which tickets still have nobody on them.",
   "reply1": "I can reach the browser you are signed in to. Reading it now.",

@@ -21,7 +21,16 @@
  * Composed pictures go on the WEBSITE only. They never enter `data/*.metainfo.xml`: a metainfo
  * screenshot is a rendition of the app, and a frame drawn around it is marketing (plan § Decision 2).
  *
- * Usage:  node tools/compose-shots.mjs [frame|hero|agent-chat|all] [--out DIR]
+ * STORE SCREENSHOTS: `node tools/compose-shots.mjs store [--out DIR]` writes the five store scenes,
+ * light and in every language, to `docs/store/screenshots/<lang>/0N-<name>.png` (the layout
+ * `gjsify.webext.listing.screenshots` reads: one dir, optional `<lang>/` subdirs). Each scene shows
+ * the extension as it really appears: 01 hero, 02 popup as a dropdown under the pressed toolbar
+ * button, 03 options at natural size cropped to the viewport (store.css says where), 04 confirm
+ * as the small window it is (extension/src/confirm.ts: browser.windows.create type popup),
+ * 05 agent chat. Same rules: real captures, unretouched, never enlarged. Not part of `all`, and
+ * never listed in the metainfo.
+ *
+ * Usage:  node tools/compose-shots.mjs [frame|hero|agent-chat|store|all] [--out DIR]
  *         node tools/compose-shots.mjs --help
  *
  * Each picture is composed in every language and scheme it ships in (`LANGS` × `SCHEMES` below).
@@ -104,6 +113,38 @@ const PICTURES = {
     needs: (lang, scheme) => [shot('desktop', lang, scheme)],
   },
 };
+
+/**
+ * The store scenes, in store order. Light only: a store listing is one set per language.
+ * `needs` are the captures each one is composed from, checked up front like any other picture.
+ */
+const STORE = [
+  {
+    n: '01-hero',
+    template: 'tools/compose/hero.html',
+    needs: (l) => [...TOOLBAR_ICONS, shot('options', l, 'light'), shot('desktop', l, 'light')],
+  },
+  {
+    n: '02-popup',
+    template: 'tools/compose/store-popup.html',
+    needs: (l) => [...TOOLBAR_ICONS, shot('popup', l, 'light')],
+  },
+  {
+    n: '03-options',
+    template: 'tools/compose/store-options.html',
+    needs: (l) => [...TOOLBAR_ICONS, shot('options', l, 'light')],
+  },
+  {
+    n: '04-confirm',
+    template: 'tools/compose/store-confirm.html',
+    needs: (l) => [...TOOLBAR_ICONS, shot('confirm', l, 'light')],
+  },
+  {
+    n: '05-agent-chat',
+    template: 'tools/compose/agent-chat.html',
+    needs: (l) => [shot('desktop', l, 'light')],
+  },
+];
 
 /** Every variant a picture ships in, as `{ lang, scheme, out }`. */
 function variantsOf(name) {
@@ -325,25 +366,38 @@ async function main() {
   const args = process.argv.slice(2);
   if (args.includes('--help') || args.includes('-h')) return usage();
   const outFlag = args.indexOf('--out');
-  const outDir = outFlag === -1 ? join(ROOT, 'docs/images') : resolve(args[outFlag + 1]);
+  const given = outFlag === -1 ? null : resolve(args[outFlag + 1]);
+  const isStore = args.includes('store');
+  const outDir = given ?? join(ROOT, isStore ? 'docs/store/screenshots' : 'docs/images');
   const which = args.find((a) => a in PICTURES) ?? 'all';
-  const wanted = which === 'all' ? Object.keys(PICTURES) : [which];
+  const wanted = isStore ? [] : which === 'all' ? Object.keys(PICTURES) : [which];
 
   // Every source of every variant, before a browser exists: a run that is going to fail for want of
   // a capture should say which one while nothing has been written, not after four of eight files.
   const jobs = wanted.flatMap((name) => variantsOf(name).map((v) => ({ name, ...v })));
+  if (isStore)
+    for (const lang of LANGS)
+      for (const sc of STORE)
+        jobs.push({
+          name: sc.n,
+          lang,
+          scheme: 'light',
+          out: `${lang}/${sc.n}.png`,
+          template: sc.template,
+          needs: sc.needs(lang),
+        });
   for (const job of jobs)
-    for (const need of PICTURES[job.name].needs(job.lang, job.scheme))
+    for (const need of job.needs ?? PICTURES[job.name].needs(job.lang, job.scheme))
       if (!existsSync(join(ROOT, need)))
         throw new Error(`${job.out} needs ${need} — produce it first (see this file's header)`);
 
-  mkdirSync(outDir, { recursive: true });
+  for (const job of jobs) mkdirSync(dirname(join(outDir, job.out)), { recursive: true });
   const server = await serveRepo();
   const origin = `http://127.0.0.1:${server.address().port}`;
   const browser = await startBrowser(origin);
   try {
     for (const job of jobs) {
-      const { template } = PICTURES[job.name];
+      const template = job.template ?? PICTURES[job.name].template;
       const file = join(outDir, job.out);
       // The language and the scheme travel in the URL, never in the renderer's environment: the
       // page then holds what was asked for rather than what this machine happens to prefer.

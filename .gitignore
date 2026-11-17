@@ -32,6 +32,8 @@ token
 *.captured.html
 captures/
 screenshots/
+# The composed store scenes are synthetic (tools/compose-shots.mjs store) and are committed.
+!docs/store/screenshots/
 
 # Editor / OS
 .DS_Store

@@ -1,0 +1,163 @@
+/*
+ * The store scenes: the same fictional browser as the hero, drawn WIDE so a capture can stand in
+ * it at its natural size (1 image pixel per device pixel, never enlarged) next to something.
+ *
+ * `.wide` keeps every frame.css rule and changes only the box: 1232 × 768 CSS, 16 px above and
+ * below on the stage. The page area is 680 px tall — the height the options scene crops to and the
+ * popup scene's dropdown fills (664 px of popup + a 6 px gap under the toolbar).
+ *
+ * The ticket page is a SYNTHETIC page (the e2e fixture's shape: heading, text, a comment box). It
+ * is English in every language on purpose: the captures that stand over it name "Comment" and
+ * "tickets.example", and a German page under an English confirmation window would contradict them.
+ */
+.browser.wide {
+  top: 16px;
+  left: 24px;
+  width: 1232px;
+  height: 768px;
+}
+
+.wide .viewport {
+  position: relative;
+  height: 680px;
+}
+
+.site {
+  max-width: 740px;
+  padding: 48px 56px;
+  color: #2d2635;
+}
+
+.site h1 {
+  margin: 0 0 12px;
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.site .meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 22px;
+  color: #7a7184;
+  font-size: 14px;
+}
+
+.site .chip {
+  padding: 3px 10px;
+  border-radius: 11px;
+  background: #e8f3ec;
+  color: #1f6b3b;
+  font-size: 13px;
+}
+
+.site p.body {
+  margin: 0 0 30px;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.site .label {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.site .field {
+  height: 96px;
+  border: 1px solid #cac4d2;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.site .send {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 9px 20px;
+  border-radius: 8px;
+  background: #5d5467;
+  color: #fff;
+  font-size: 14px;
+}
+
+/* Beifahrer's button while its popup is open: the highlight a browser puts behind it. */
+.ext.pressed {
+  border-radius: 6px;
+  background: rgba(32, 22, 44, 0.13);
+  box-shadow: 0 0 0 4px rgba(32, 22, 44, 0.13);
+}
+
+/*
+ * The popup as a dropdown: hung under the button, its right edge on the button's, cropped at the
+ * page area's height. The crop is a bottom edge, not a scale — the capture is 360 px wide at 2× and
+ * stays 360 CSS px. It is cut below the Activity card, above the "Settings" row.
+ */
+.dropdown {
+  position: absolute;
+  top: 93px;
+  right: 30px;
+  width: 360px;
+  height: 664px;
+  overflow: hidden;
+  border: 1px solid rgba(32, 22, 44, 0.16);
+  border-radius: 12px;
+  box-shadow:
+    0 2px 6px rgba(32, 22, 44, 0.12),
+    0 18px 44px rgba(32, 22, 44, 0.26);
+}
+
+.dropdown img {
+  display: block;
+  width: 360px;
+  margin: -1px 0 0 -1px;
+}
+
+/* The options page at natural size, scrolled so its top edge is OFFSET px up. */
+.viewport.options {
+  background: #fafafb;
+}
+
+.viewport.options img.page {
+  width: 800px;
+  margin: -520px auto 0;
+}
+
+/* The confirmation as the separate small window it really is (browser.windows.create, type popup). */
+.win {
+  position: absolute;
+  left: 400px;
+  top: 330px;
+  width: 522px;
+  overflow: hidden;
+  border: 1px solid rgba(32, 22, 44, 0.2);
+  border-radius: 12px;
+  background: #fafafb;
+  box-shadow:
+    0 3px 8px rgba(32, 22, 44, 0.16),
+    0 30px 70px rgba(32, 22, 44, 0.4);
+}
+
+.win .titlebar {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  background: #e9e6ed;
+  color: #2d2635;
+  font-size: 12.5px;
+}
+
+.win .titlebar span {
+  flex: 1;
+  text-align: center;
+}
+
+.win .titlebar .wincontrols {
+  flex: none;
+  margin: 0;
+}
+
+.win img {
+  display: block;
+  width: 520px;
+}
