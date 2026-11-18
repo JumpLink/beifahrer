@@ -102,6 +102,8 @@ async function ready() {
   // from the machine the run happens on, which is the one input a reproducible picture may not have.
   const scheme = params.get('scheme') === 'dark' ? 'dark' : 'light';
   document.documentElement.dataset.scheme = scheme;
+  // `set=store`: the dark store twins, whose backdrop meets the site's masthead (frame.css).
+  if (params.get('set') === 'store') document.documentElement.dataset.set = 'store';
   document.documentElement.lang = lang;
   for (const host of document.querySelectorAll('[data-chrome]')) renderChrome(host, scheme);
   fillShots(lang, scheme);

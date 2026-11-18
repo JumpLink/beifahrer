@@ -161,3 +161,58 @@
   display: block;
   width: 520px;
 }
+
+/* ── dark ───────────────────────────────────────────────────────────────────────────────── */
+
+/* Colour only, never a size: the dark twin puts every edge where the light scene does. */
+[data-scheme='dark'] .site {
+  color: #ece7f2;
+}
+
+[data-scheme='dark'] .site .meta {
+  color: #a79db3;
+}
+
+[data-scheme='dark'] .site .chip {
+  background: #1f3a2a;
+  color: #8fd6a8;
+}
+
+[data-scheme='dark'] .site .field {
+  border-color: #4a4155;
+  background: #15101a;
+}
+
+[data-scheme='dark'] .site .send {
+  background: #7d6e8c;
+  color: #fff;
+}
+
+[data-scheme='dark'] .ext.pressed {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.14);
+}
+
+[data-scheme='dark'] .dropdown {
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    0 18px 44px rgba(0, 0, 0, 0.6);
+}
+
+[data-scheme='dark'] .viewport.options {
+  background: #1d1721;
+}
+
+[data-scheme='dark'] .win {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #1d1721;
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.45),
+    0 30px 70px rgba(0, 0, 0, 0.65);
+}
+
+[data-scheme='dark'] .win .titlebar {
+  background: #322a3a;
+  color: #ece7f2;
+}
