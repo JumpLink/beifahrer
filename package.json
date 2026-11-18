@@ -25,8 +25,8 @@
     "test": "gjsify workspace beifahrer-app test"
   },
   "devDependencies": {
-    "@gjsify/cli": "0.64.47",
-    "@gjsify/site": "0.64.47"
+    "@gjsify/cli": "0.64.48",
+    "@gjsify/site": "0.64.48"
   },
   "gjsify": {
     "webext": {
@@ -43,6 +43,7 @@
           "de"
         ],
         "translations": "docs/store/po",
+        "screenshots": "docs/store/screenshots",
         "icon": "data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg",
         "singlePurpose": "Lets the person's own AI agent use their own browser, under a per-site policy that the person sets and can pause at any time.",
         "permissions": {
