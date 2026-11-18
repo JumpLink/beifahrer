@@ -22,8 +22,11 @@
  * screenshot is a rendition of the app, and a frame drawn around it is marketing (plan § Decision 2).
  *
  * STORE SCREENSHOTS: `node tools/compose-shots.mjs store [--out DIR]` writes the five store scenes,
- * light and in every language, to `docs/store/screenshots/<lang>/0N-<name>.png` (the layout
- * `gjsify.webext.listing.screenshots` reads: one dir, optional `<lang>/` subdirs). Each scene shows
+ * in every language, to `docs/store/screenshots/<lang>/0N-<name>.png` (the layout
+ * `gjsify.webext.listing.screenshots` reads: one dir, optional `<lang>/` subdirs). The same scenes
+ * are also composed dark, with the dark captures, to `docs/store/screenshots-dark/<lang>/` under
+ * the same file names (`DIR-dark` with `--out DIR`): twins for the WEBSITE only, which a store
+ * listing never receives (`gjsify.webext.listing.screenshotsDark`). Each scene shows
  * the extension as it really appears: 01 hero, 02 popup as a dropdown under the pressed toolbar
  * button, 03 options at natural size cropped to the viewport (store.css says where), 04 confirm
  * as the small window it is (extension/src/confirm.ts: browser.windows.create type popup),
@@ -115,34 +118,35 @@ const PICTURES = {
 };
 
 /**
- * The store scenes, in store order. Light only: a store listing is one set per language.
- * `needs` are the captures each one is composed from, checked up front like any other picture.
+ * The store scenes, in store order. `needs` are the captures each one is composed from for a
+ * language and scheme, checked up front like any other picture. A store listing is one light set
+ * per language; the dark set is the website's twin of it.
  */
 const STORE = [
   {
     n: '01-hero',
     template: 'tools/compose/hero.html',
-    needs: (l) => [...TOOLBAR_ICONS, shot('options', l, 'light'), shot('desktop', l, 'light')],
+    needs: (l, sc) => [...TOOLBAR_ICONS, shot('options', l, sc), shot('desktop', l, sc)],
   },
   {
     n: '02-popup',
     template: 'tools/compose/store-popup.html',
-    needs: (l) => [...TOOLBAR_ICONS, shot('popup', l, 'light')],
+    needs: (l, sc) => [...TOOLBAR_ICONS, shot('popup', l, sc)],
   },
   {
     n: '03-options',
     template: 'tools/compose/store-options.html',
-    needs: (l) => [...TOOLBAR_ICONS, shot('options', l, 'light')],
+    needs: (l, sc) => [...TOOLBAR_ICONS, shot('options', l, sc)],
   },
   {
     n: '04-confirm',
     template: 'tools/compose/store-confirm.html',
-    needs: (l) => [...TOOLBAR_ICONS, shot('confirm', l, 'light')],
+    needs: (l, sc) => [...TOOLBAR_ICONS, shot('confirm', l, sc)],
   },
   {
     n: '05-agent-chat',
     template: 'tools/compose/agent-chat.html',
-    needs: (l) => [shot('desktop', l, 'light')],
+    needs: (l, sc) => [shot('desktop', l, sc)],
   },
 ];
 
@@ -376,39 +380,45 @@ async function main() {
   // a capture should say which one while nothing has been written, not after four of eight files.
   const jobs = wanted.flatMap((name) => variantsOf(name).map((v) => ({ name, ...v })));
   if (isStore)
-    for (const lang of LANGS)
-      for (const sc of STORE)
-        jobs.push({
-          name: sc.n,
-          lang,
-          scheme: 'light',
-          out: `${lang}/${sc.n}.png`,
-          template: sc.template,
-          needs: sc.needs(lang),
-        });
+    for (const scheme of SCHEMES)
+      for (const lang of LANGS)
+        for (const sc of STORE)
+          jobs.push({
+            name: sc.n,
+            lang,
+            scheme,
+            // The dark twins sit beside the store set, never inside it: the listing reads one directory.
+            dir: scheme === 'dark' ? `${outDir}-dark` : outDir,
+            out: `${lang}/${sc.n}.png`,
+            template: sc.template,
+            needs: sc.needs(lang, scheme),
+            store: true,
+          });
   for (const job of jobs)
     for (const need of job.needs ?? PICTURES[job.name].needs(job.lang, job.scheme))
       if (!existsSync(join(ROOT, need)))
         throw new Error(`${job.out} needs ${need} — produce it first (see this file's header)`);
 
-  for (const job of jobs) mkdirSync(dirname(join(outDir, job.out)), { recursive: true });
+  for (const job of jobs) mkdirSync(dirname(join(job.dir ?? outDir, job.out)), { recursive: true });
   const server = await serveRepo();
   const origin = `http://127.0.0.1:${server.address().port}`;
   const browser = await startBrowser(origin);
   try {
     for (const job of jobs) {
       const template = job.template ?? PICTURES[job.name].template;
-      const file = join(outDir, job.out);
+      const file = join(job.dir ?? outDir, job.out);
       // The language and the scheme travel in the URL, never in the renderer's environment: the
       // page then holds what was asked for rather than what this machine happens to prefer.
-      const url = `${origin}/${template}?lang=${job.lang}&scheme=${job.scheme}`;
+      const url = `${origin}/${template}?lang=${job.lang}&scheme=${job.scheme}${job.store && job.scheme === 'dark' ? '&set=store' : ''}`;
       const png = await capture(browser.page, url, file);
       const { width, height } = pngSize(png);
       if (width !== CANVAS.width * CANVAS.scale || height !== CANVAS.height * CANVAS.scale)
         throw new Error(
           `${job.out} is ${width}×${height}, not ${CANVAS.width * CANVAS.scale}×${CANVAS.height * CANVAS.scale}`,
         );
-      console.log(`${job.out}  ${width}×${height}  sha256:${createHash('sha256').update(png).digest('hex')}`);
+      console.log(
+        `${job.dir && job.scheme === 'dark' ? 'dark/' : ''}${job.out}  ${width}×${height}  sha256:${createHash('sha256').update(png).digest('hex')}`,
+      );
     }
   } finally {
     browser.page.close();

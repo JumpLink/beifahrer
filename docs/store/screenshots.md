@@ -89,6 +89,14 @@ them is CSS (see the header of the script). Run it twice: the bytes match.
 | 04 confirm | `confirm.html` as the small popup window it really is (`browser.windows.create`, `type: popup`), over the ticket page |
 | 05 agent chat | the agent's side of the same run |
 
+The same command also writes dark twins of all ten files, composed from the dark captures
+(`docs/images/*-dark.png`) on a dark-purple backdrop that meets the site's dark masthead, to
+`docs/store/screenshots-dark/<lang>/` under the same file names. They are for the website only: the
+extension pages show the twin in dark mode, so the backdrop fits the header. They are never
+uploaded and never count against a store's limit, so no workflow reads that directory and
+`gjsify.webext.listing.screenshots` must keep pointing at the light set. Once the pinned gjsify knows
+`gjsify.webext.listing.screenshotsDark`, set it to `docs/store/screenshots-dark`.
+
 The scenes never enter `data/*.metainfo.xml`. To make `gjsify webext listing` read them, set
 `gjsify.webext.listing.screenshots` to `docs/store/screenshots` in `package.json` (once the gjsify
 release that reads it is pinned).

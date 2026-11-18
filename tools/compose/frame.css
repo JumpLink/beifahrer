@@ -242,6 +242,17 @@ body {
   background: radial-gradient(118% 94% at 15% 4%, #3b2050 0%, #2a1739 48%, #190f22 100%);
 }
 
+/*
+ * The dark STORE twins (website only, docs/store/screenshots-dark) sit in the generated site's
+ * screenshot band, which is the masthead's own colour: the app's dark primary #613583 (metainfo
+ * <branding>). The light store set does the same with the light primary #d9c2f0, so this gradient
+ * brackets #613583 the way the light one brackets #d9c2f0, and the picture's edge dissolves into the
+ * band instead of showing a darker slab.
+ */
+[data-scheme='dark'][data-set='store'] .stage {
+  background: radial-gradient(118% 94% at 15% 4%, #7d4ca6 0%, #613583 46%, #482563 100%);
+}
+
 [data-scheme='dark'] .browser {
   border-color: rgba(255, 255, 255, 0.11);
   background: #241d2b;
