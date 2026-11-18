@@ -1,7 +1,10 @@
 # 0031: Rules that cover sub-domains
 
-- **Status:** proposed — the person decides whether this is built
+- **Status:** accepted; to be built after the store launch
 - **Date:** 2026-11-18
+- **Decided by:** the person, 2026-11-18, on [PR #268](https://github.com/JumpLink/beifahrer/pull/268):
+  the apex stays out, the ICANN list gets bundled, a pattern never writes quietly, no toolbar
+  signal — and the agent must be able to ask for a pattern itself (§7).
 - **Refs:** [#153](https://github.com/JumpLink/beifahrer/issues/153) (the withheld line, and the
   wildcard hint at the end of it)
 - **Relates to:** [0010](0010-temporary-access-and-asking-on-demand.md) (the only wider scope
@@ -158,6 +161,66 @@ domain, a public suffix, or anything the list cannot resolve, there is no hint a
 it is today. `access.check` carries the same suggestion in `reason` and in a field beside it. This
 reveals nothing new: the agent could already ask `access.check` for any URL (#153).
 
+Where the person may be asked (`askable`), both say the agent may ask for the pattern itself (§7);
+where they may not — paused, a feature off, *Ask for other sites* off, a block, a Deny already
+given — both say to ask the person, as they do today. The hint never says which of those it was
+beyond what `access.check` already answers.
+
+### 7. The agent asks for a pattern
+
+A hint the agent cannot act on is a detour with better wording. So the agent may ask — through
+ADR 0010 §B's path, under exactly its conditions: not paused, the feature on, *Ask for other
+sites* on, and the session not already denied this pattern.
+
+**How it asks: an explicit method, `access.request({ pattern, level, reason? })`** (`access_request`
+over MCP), not a prompt the gate opens by itself. The gate's own prompt fires when a call is
+refused, and the case this ADR exists for is not a refusal: the walk *succeeds* and leaves a
+withheld line. A window raised from inside a successful read is a window the person did not ask
+for, and one sibling host per blade would make it a series of them. A pattern is also wider than
+the call that prompted it — inferring one from a single frame means the extension guessing how far
+the person meant to go, which is the guess §1 and §3 exist to avoid. An explicit method puts the
+pattern in the agent's own words, where the person can read it. `pattern` may be given as a URL
+instead, which the extension narrows to the hint of §6 and never further.
+
+The answer has the gate's three shapes and no others: allowed (with the level given), `forbidden`
+(Deny, a closed window, a guard), or the confirm timeout, which is `forbidden` too. Nothing in the
+answer says what else the policy holds.
+
+**The confirm window** names the pattern literally and says what it covers in one line —
+"`https://*.reactblade.portal.azure.net`: every sub-domain, for example
+`sandbox-4.reactblade.portal.azure.net`. Not `reactblade.portal.azure.net` itself." — with the
+level asked for, the session asking, and the agent's `reason` where it gave one, marked as the
+agent's words. Where the person has blocked hosts under the pattern, it says how many stay
+blocked. The choices are **Allow once**, **For this session**, **Always** and **Deny**, nothing
+preselected and never Always by default: this window widens more than ADR 0010's, so its quietest
+answer must be the one the person picks last. *Always* writes the persistent pattern rule of §1.
+*For this session* and *Allow once* become a **pattern-scoped `Grant`** — `Grant.scope` grows from
+`'*' | origin` to `'*' | origin | pattern`, parsed by `parseGrants` with the same guard as a rule,
+and ranked in `accessFor` where a pattern rule ranks, below any exact rule. *Allow once* stores
+nothing and gives its host access back after the call, as it does today.
+
+**Guards**, all of them before any window opens:
+
+- The §3 PSL guard runs first. An invalid pattern, a public suffix, a bare registrable domain or a
+  suffix the bundled list cannot resolve is `forbidden` with no window — the person is not asked a
+  question whose answer would be refused anyway.
+- A wider pattern may be asked for while a narrower rule exists; §2 then decides, and the narrower
+  rule keeps winning where it matches.
+- **A pattern never loosens an explicit `none`.** A blocked host under a granted pattern stays
+  blocked (§2), and a `none` pattern cannot be asked around. One blocked host does not veto the
+  request — that would let a single old block hide a whole portal — it simply stays blocked, and
+  the window says so.
+- After a Deny, the session may not ask again for that pattern **or for any pattern covering it**,
+  until it reconnects. Asking for `*.azure.net` after `*.portal.azure.net` was denied is the same
+  question, larger.
+- **Rate limit:** one window at a time, at most one request per minute and five per session.
+  Over either, the answer is `forbidden` without a window. Unlike the gate's prompt, this one has
+  no refused call behind it, so nothing but the limit bounds how often an agent could knock.
+- The level is capped at what the work needs: `read` unless the session has a write feature on, and
+  the window never offers more than was asked for.
+- Writes under a pattern grant confirm per §5 — a grant may not be quiet either, for the same
+  reason a pattern rule may not.
+
 ## Consequences
 
 The work, so this can become an issue:
@@ -167,14 +230,26 @@ The work, so this can become an issue:
 - `packages/core/src/suffix.ts` (new) — the bundled PSL and the lookup; `tools/` refresh script;
   `download.ts` keeps or drops its table.
 - `packages/core/src/withheld.ts`, `access-check.ts` — the hint and the `reason` text.
+- `packages/core/src/policy.ts` again for §7 — `Grant.scope` with a pattern, `parseGrants`,
+  `REQUIRED_LEVEL['access.request']` (`null`, like `access.check`: asking is not doing).
+- The method: wire name in `protocol.ts`, `app/` MCP tool `access_request`, the per-session Deny
+  and rate-limit state beside the prompt's own (`extension/src/access-prompt.ts`).
 - `extension/src/settings.ts` (`originPattern` for a pattern key), `grants.ts` (hold and release),
   `handlers.ts` (the confirm window names the host).
-- Options page (*Patterns* section), popup (the source line), `_locales/en` + `de`.
-- Tests: the precedence table exhaustively, the guard against a list of suffixes, the Chromium
-  release behaviour in e2e where it can be seeded.
+- Confirm window: the pattern line, the covers/does-not-cover example, the blocked count, four
+  choices with nothing preselected.
+- Options page (*Patterns* section), popup (the source line), `_locales/en` + `de` — including
+  `method_access_request`.
+- Tests: the precedence table exhaustively, the guard against a list of suffixes, the Deny-covers-
+  wider rule, the rate limit, the Chromium release behaviour in e2e where it can be seeded.
 - `docs/security/access.md` and `policy.md`.
 
 What it costs, stated plainly: one pattern at `read` makes every present and future host under a
-base readable to a connected agent, including hosts that do not exist yet. That is the point of it,
-and it is why the guard, the apex exclusion and the no-quiet-writes rule are in the decision rather
-than in the backlog.
+base readable to a connected agent, including hosts that do not exist yet — and with §7 the agent
+can be the one who raises the question. That is the point of it, and it is why the guard, the apex
+exclusion, the no-quiet-writes rule and §7's limits are in the decision rather than in the backlog.
+The person still answers every one of those windows, and the quietest answer is never the preselected
+one.
+
+**Order of work:** after the store launch. The withheld line of #153 already ships and is what makes
+the gap visible; nothing here is urgent enough to sit in front of a submission.
