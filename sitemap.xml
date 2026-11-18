@@ -37,6 +37,54 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/extension/"/>
   </url>
   <url>
+    <loc>https://jumplink.eu/beifahrer/en/extension/chromium/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/extension/chromium/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/extension/chromium/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/extension/chromium/"/>
+  </url>
+  <url>
+    <loc>https://jumplink.eu/beifahrer/de/extension/chromium/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/extension/chromium/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/extension/chromium/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/extension/chromium/"/>
+  </url>
+  <url>
+    <loc>https://jumplink.eu/beifahrer/en/extension/firefox/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/extension/firefox/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/extension/firefox/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/extension/firefox/"/>
+  </url>
+  <url>
+    <loc>https://jumplink.eu/beifahrer/de/extension/firefox/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/extension/firefox/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/extension/firefox/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/extension/firefox/"/>
+  </url>
+  <url>
+    <loc>https://jumplink.eu/beifahrer/en/extension/edge/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/extension/edge/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/extension/edge/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/extension/edge/"/>
+  </url>
+  <url>
+    <loc>https://jumplink.eu/beifahrer/de/extension/edge/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/extension/edge/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/extension/edge/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/extension/edge/"/>
+  </url>
+  <url>
+    <loc>https://jumplink.eu/beifahrer/en/extension/safari/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/extension/safari/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/extension/safari/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/extension/safari/"/>
+  </url>
+  <url>
+    <loc>https://jumplink.eu/beifahrer/de/extension/safari/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/extension/safari/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/extension/safari/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/extension/safari/"/>
+  </url>
+  <url>
     <loc>https://jumplink.eu/beifahrer/en/privacy/</loc>
     <xhtml:link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/privacy/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/privacy/"/>

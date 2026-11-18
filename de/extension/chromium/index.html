@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Browser-Erweiterung für Chrome – Beifahrer</title>
+<meta name="description" content="Lass einen KI-Agenten diesen Browser nutzen. Du legst für jede Seite fest, was er lesen und ändern darf.">
+<link rel="canonical" href="https://jumplink.eu/beifahrer/de/extension/chromium/">
+<link rel="alternate" hreflang="en" href="https://jumplink.eu/beifahrer/en/extension/chromium/">
+<link rel="alternate" hreflang="de" href="https://jumplink.eu/beifahrer/de/extension/chromium/">
+<link rel="alternate" hreflang="x-default" href="https://jumplink.eu/beifahrer/en/extension/chromium/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Browser-Erweiterung für Chrome – Beifahrer">
+<meta property="og:description" content="Lass einen KI-Agenten diesen Browser nutzen. Du legst für jede Seite fest, was er lesen und ändern darf.">
+<meta property="og:url" content="https://jumplink.eu/beifahrer/de/extension/chromium/">
+<meta property="og:site_name" content="Beifahrer">
+<meta property="og:locale" content="de_DE">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:image" content="https://jumplink.eu/beifahrer/og-de.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Browser-Erweiterung für Chrome – Beifahrer">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Browser-Erweiterung für Chrome – Beifahrer">
+<meta name="twitter:description" content="Lass einen KI-Agenten diesen Browser nutzen. Du legst für jede Seite fest, was er lesen und ändern darf.">
+<meta name="twitter:image" content="https://jumplink.eu/beifahrer/og-de.png">
+<meta name="theme-color" content="#d9c2f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#613583" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/svg+xml" href="/beifahrer/eu.jumplink.beifahrer.svg">
+
+
+<style>:root{--brand-light:#d9c2f0;--band-fg-light:#10233b;--brand-dark:#613583;--band-fg-dark:#ffffff}</style>
+<link rel="stylesheet" href="/beifahrer/assets/site-bdc2b862.css">
+<script type="module" src="/beifahrer/assets/site-57b8cae1.js"></script>
+</head>
+<body>
+<div class="topbar">
+<div class="bar-inner">
+<a class="bar-brand" href="/beifahrer/de/">
+<img src="/beifahrer/eu.jumplink.beifahrer.svg" alt="" width="24" height="24">
+<span>Beifahrer</span>
+</a>
+<div class="bar-end">
+
+<nav class="bar-languages" aria-label="Sprache"><ul><li><a href="/beifahrer/en/extension/chromium/" hreflang="en" lang="en">EN</a></li><li><span aria-current="true">DE</span></li></ul></nav>
+<a class="bar-link" href="https://github.com/JumpLink/beifahrer"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M5.6 11.8 2 8l3.6-3.8M10.4 4.2 14 8l-3.6 3.8M9.4 2.6 6.6 13.4"/></svg><span>GitHub</span></a>
+</div>
+</div>
+</div>
+<header class="masthead ext-masthead">
+<div class="hero-inner">
+<div class="hero-icon" style="--icon-url:url(/beifahrer/eu.jumplink.beifahrer.svg)"><img src="/beifahrer/eu.jumplink.beifahrer.svg" alt="" width="128" height="128"></div>
+<div class="hero-text">
+<h1>Beifahrer</h1>
+<p class="hero-by">von <a href="https://jumplink.eu/">Pascal Garber</a></p>
+<p class="ext-short">Lass einen KI-Agenten diesen Browser nutzen. Du legst für jede Seite fest, was er lesen und ändern darf.</p>
+</div>
+<app-download class="download">
+<div class="download-split">
+<a class="button download-cta" href="https://github.com/JumpLink/beifahrer/releases/download/v0.1.32/beifahrer-0.1.32-chrome-mv3.zip" data-os="chromium" data-arch="noarch"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.9v7.6M4.8 6.4 8 9.6l3.2-3.2M2.4 13.3h11.2"/></g></svg><span class="download-label">Für Chrome installieren</span></a>
+<a class="button download-toggle" href="#all-downloads" aria-label="Alle Download-Optionen"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="m4.2 6.2 3.8 3.8 3.8-3.8"/></svg></a>
+</div>
+<dialog id="all-downloads" class="download-dialog" aria-labelledby="all-downloads-title">
+<div class="dialog-head">
+<h2 id="all-downloads-title">Alle Download-Optionen</h2>
+<button class="dialog-close" type="button" aria-label="Schließen" hidden><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="m3.8 3.8 8.4 8.4M12.2 3.8 3.8 12.2"/></svg></button>
+</div>
+<div class="components">
+<section class="component" data-component="extension">
+
+<div class="os-tabs" role="tablist" aria-label="Browser" hidden><button class="os-tab" type="button" role="tab" id="os-tab-extension-chromium" aria-controls="os-group-extension-chromium" data-os="chromium" aria-selected="true"><svg class="icon icon-brand icon-chromium" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path class="b1" d="M2.01 3.16A7.7 7.7 0 0 1 13.99 3.16L11.25 4.74A4.6 4.6 0 0 0 4.75 4.74Z"/><path class="b2" d="M15.19 5.24A7.7 7.7 0 0 1 9.2 15.61L9.2 12.44A4.6 4.6 0 0 0 12.45 6.82Z"/><path class="b3" d="M6.8 15.61A7.7 7.7 0 0 1 .81 5.24L3.55 6.82A4.6 4.6 0 0 0 6.8 12.44Z"/><circle class="b4" cx="8" cy="8" r="3.4"/></svg><span>Chrome</span></button></div>
+<div class="os-groups">
+<section class="os-group" id="os-group-extension-chromium" role="tabpanel" aria-labelledby="os-tab-extension-chromium" data-os="chromium">
+<h3 class="os-title"><svg class="icon icon-brand icon-chromium" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path class="b1" d="M2.01 3.16A7.7 7.7 0 0 1 13.99 3.16L11.25 4.74A4.6 4.6 0 0 0 4.75 4.74Z"/><path class="b2" d="M15.19 5.24A7.7 7.7 0 0 1 9.2 15.61L9.2 12.44A4.6 4.6 0 0 0 12.45 6.82Z"/><path class="b3" d="M6.8 15.61A7.7 7.7 0 0 1 .81 5.24L3.55 6.82A4.6 4.6 0 0 0 6.8 12.44Z"/><circle class="b4" cx="8" cy="8" r="3.4"/></svg><span>Chrome</span></h3>
+<ul>
+<li class="target" data-os="chromium" data-arch="noarch" data-unavailable data-format="store">
+<span class="target-link">
+<span class="target-icon"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.6 14 4.5v7L8 14.4l-6-2.9v-7L8 1.6Z"/><path d="m2 4.5 6 2.9 6-2.9M8 7.4v7"/></g></svg></span>
+<span class="target-text"><span class="target-name">Chrome Web Store</span><span class="target-meta">Noch nicht verfügbar</span></span>
+
+</span>
+</li>
+<li class="target" data-os="chromium" data-arch="noarch" data-recommended data-cta="Für Chrome installieren" data-format="zip" data-size="0,5 MB">
+<a href="https://github.com/JumpLink/beifahrer/releases/download/v0.1.32/beifahrer-0.1.32-chrome-mv3.zip">
+<span class="target-icon"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.9v7.6M4.8 6.4 8 9.6l3.2-3.2M2.4 13.3h11.2"/></g></svg></span>
+<span class="target-text"><span class="target-name">Chrome-Erweiterung</span><span class="target-meta">Empfohlen</span></span>
+<span class="target-size">0,5 MB</span>
+</a>
+</li>
+<li class="target" data-os="chromium" data-arch="noarch" data-cta="Aus dem Quellcode bauen" data-format="source">
+<a href="https://github.com/JumpLink/beifahrer#from-source">
+<span class="target-icon"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.9v7.6M4.8 6.4 8 9.6l3.2-3.2M2.4 13.3h11.2"/></g></svg></span>
+<span class="target-text"><span class="target-name">Aus dem Quellcode bauen</span></span>
+
+</a>
+</li>
+</ul>
+
+
+
+</section>
+</div>
+</section>
+</div>
+<p class="dialog-foot"><a href="https://github.com/JumpLink/beifahrer/releases">Alle Versionen auf GitHub<svg class="icon link-external" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9.2 2.2h4.6v4.6M13.4 2.6 7.6 8.4"/><path d="M12 9.6v2.8c0 .8-.6 1.4-1.4 1.4H4c-.8 0-1.4-.6-1.4-1.4V5.8c0-.8.6-1.4 1.4-1.4h2.8"/></g></svg></a></p>
+</dialog>
+</app-download>
+</div>
+<section class="band" aria-label="Bildschirmfotos">
+<screenshot-carousel class="carousel" role="group" aria-roledescription="Karussell" aria-label="Bildschirmfotos">
+<button class="carousel-arrow carousel-prev" type="button" aria-label="Vorheriges Bildschirmfoto" hidden><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M9.8 3 4.8 8l5 5"/></svg></button>
+<ul class="carousel-track" aria-label="Bildschirmfotos">
+<li class="slide" role="group" aria-roledescription="Folie" aria-label="1 von 5">
+<figure>
+<picture data-frame="none" style="--shot-w:1280px"><source type="image/avif" srcset="/beifahrer/img/docs-store-screenshots-de-01-hero-640.avif 640w, /beifahrer/img/docs-store-screenshots-de-01-hero-1280.avif 1280w, /beifahrer/img/docs-store-screenshots-de-01-hero-2560.avif 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600"><source type="image/webp" srcset="/beifahrer/img/docs-store-screenshots-de-01-hero-640.webp 640w, /beifahrer/img/docs-store-screenshots-de-01-hero-1280.webp 1280w, /beifahrer/img/docs-store-screenshots-de-01-hero-2560.webp 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600"><img src="/beifahrer/img/docs-store-screenshots-de-01-hero-2560.png" srcset="/beifahrer/img/docs-store-screenshots-de-01-hero-640.png 640w, /beifahrer/img/docs-store-screenshots-de-01-hero-1280.png 1280w, /beifahrer/img/docs-store-screenshots-de-01-hero-2560.png 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600" alt="Bildschirmfoto 1" decoding="async"></picture>
+
+<button class="slide-expand" type="button" aria-label="Vollbild anzeigen" hidden><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M6 1.9H1.9V6M10 1.9h4.1V6M10 14.1h4.1V10M6 14.1H1.9V10"/></svg></button>
+</figure>
+</li>
+<li class="slide" role="group" aria-roledescription="Folie" aria-label="2 von 5">
+<figure>
+<picture data-frame="none" style="--shot-w:1280px"><source type="image/avif" srcset="/beifahrer/img/docs-store-screenshots-de-02-popup-640.avif 640w, /beifahrer/img/docs-store-screenshots-de-02-popup-1280.avif 1280w, /beifahrer/img/docs-store-screenshots-de-02-popup-2560.avif 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600"><source type="image/webp" srcset="/beifahrer/img/docs-store-screenshots-de-02-popup-640.webp 640w, /beifahrer/img/docs-store-screenshots-de-02-popup-1280.webp 1280w, /beifahrer/img/docs-store-screenshots-de-02-popup-2560.webp 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600"><img src="/beifahrer/img/docs-store-screenshots-de-02-popup-2560.png" srcset="/beifahrer/img/docs-store-screenshots-de-02-popup-640.png 640w, /beifahrer/img/docs-store-screenshots-de-02-popup-1280.png 1280w, /beifahrer/img/docs-store-screenshots-de-02-popup-2560.png 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600" alt="Bildschirmfoto 2" loading="lazy" decoding="async"></picture>
+
+<button class="slide-expand" type="button" aria-label="Vollbild anzeigen" hidden><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M6 1.9H1.9V6M10 1.9h4.1V6M10 14.1h4.1V10M6 14.1H1.9V10"/></svg></button>
+</figure>
+</li>
+<li class="slide" role="group" aria-roledescription="Folie" aria-label="3 von 5">
+<figure>
+<picture data-frame="none" style="--shot-w:1280px"><source type="image/avif" srcset="/beifahrer/img/docs-store-screenshots-de-03-options-640.avif 640w, /beifahrer/img/docs-store-screenshots-de-03-options-1280.avif 1280w, /beifahrer/img/docs-store-screenshots-de-03-options-2560.avif 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600"><source type="image/webp" srcset="/beifahrer/img/docs-store-screenshots-de-03-options-640.webp 640w, /beifahrer/img/docs-store-screenshots-de-03-options-1280.webp 1280w, /beifahrer/img/docs-store-screenshots-de-03-options-2560.webp 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600"><img src="/beifahrer/img/docs-store-screenshots-de-03-options-2560.png" srcset="/beifahrer/img/docs-store-screenshots-de-03-options-640.png 640w, /beifahrer/img/docs-store-screenshots-de-03-options-1280.png 1280w, /beifahrer/img/docs-store-screenshots-de-03-options-2560.png 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600" alt="Bildschirmfoto 3" loading="lazy" decoding="async"></picture>
+
+<button class="slide-expand" type="button" aria-label="Vollbild anzeigen" hidden><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M6 1.9H1.9V6M10 1.9h4.1V6M10 14.1h4.1V10M6 14.1H1.9V10"/></svg></button>
+</figure>
+</li>
+<li class="slide" role="group" aria-roledescription="Folie" aria-label="4 von 5">
+<figure>
+<picture data-frame="none" style="--shot-w:1280px"><source type="image/avif" srcset="/beifahrer/img/docs-store-screenshots-de-04-confirm-640.avif 640w, /beifahrer/img/docs-store-screenshots-de-04-confirm-1280.avif 1280w, /beifahrer/img/docs-store-screenshots-de-04-confirm-2560.avif 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600"><source type="image/webp" srcset="/beifahrer/img/docs-store-screenshots-de-04-confirm-640.webp 640w, /beifahrer/img/docs-store-screenshots-de-04-confirm-1280.webp 1280w, /beifahrer/img/docs-store-screenshots-de-04-confirm-2560.webp 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600"><img src="/beifahrer/img/docs-store-screenshots-de-04-confirm-2560.png" srcset="/beifahrer/img/docs-store-screenshots-de-04-confirm-640.png 640w, /beifahrer/img/docs-store-screenshots-de-04-confirm-1280.png 1280w, /beifahrer/img/docs-store-screenshots-de-04-confirm-2560.png 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600" alt="Bildschirmfoto 4" loading="lazy" decoding="async"></picture>
+
+<button class="slide-expand" type="button" aria-label="Vollbild anzeigen" hidden><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M6 1.9H1.9V6M10 1.9h4.1V6M10 14.1h4.1V10M6 14.1H1.9V10"/></svg></button>
+</figure>
+</li>
+<li class="slide" role="group" aria-roledescription="Folie" aria-label="5 von 5">
+<figure>
+<picture data-frame="none" style="--shot-w:1280px"><source type="image/avif" srcset="/beifahrer/img/docs-store-screenshots-de-05-agent-chat-640.avif 640w, /beifahrer/img/docs-store-screenshots-de-05-agent-chat-1280.avif 1280w, /beifahrer/img/docs-store-screenshots-de-05-agent-chat-2560.avif 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600"><source type="image/webp" srcset="/beifahrer/img/docs-store-screenshots-de-05-agent-chat-640.webp 640w, /beifahrer/img/docs-store-screenshots-de-05-agent-chat-1280.webp 1280w, /beifahrer/img/docs-store-screenshots-de-05-agent-chat-2560.webp 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600"><img src="/beifahrer/img/docs-store-screenshots-de-05-agent-chat-2560.png" srcset="/beifahrer/img/docs-store-screenshots-de-05-agent-chat-640.png 640w, /beifahrer/img/docs-store-screenshots-de-05-agent-chat-1280.png 1280w, /beifahrer/img/docs-store-screenshots-de-05-agent-chat-2560.png 2560w" sizes="(max-width: 600px) 92vw, min(86vw, 1280px)" width="2560" height="1600" alt="Bildschirmfoto 5" loading="lazy" decoding="async"></picture>
+
+<button class="slide-expand" type="button" aria-label="Vollbild anzeigen" hidden><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M6 1.9H1.9V6M10 1.9h4.1V6M10 14.1h4.1V10M6 14.1H1.9V10"/></svg></button>
+</figure>
+</li>
+</ul>
+<button class="carousel-arrow carousel-next" type="button" aria-label="Nächstes Bildschirmfoto" hidden><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="m6.2 3 5 5-5 5"/></svg></button>
+<ol class="carousel-dots" hidden><li><button class="carousel-dot" type="button" aria-label="Bildschirmfoto 1"></button></li><li><button class="carousel-dot" type="button" aria-label="Bildschirmfoto 2"></button></li><li><button class="carousel-dot" type="button" aria-label="Bildschirmfoto 3"></button></li><li><button class="carousel-dot" type="button" aria-label="Bildschirmfoto 4"></button></li><li><button class="carousel-dot" type="button" aria-label="Bildschirmfoto 5"></button></li></ol>
+<dialog class="lightbox" aria-label="Bildschirmfotos">
+<button class="dialog-close" type="button" aria-label="Schließen" hidden><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="m3.8 3.8 8.4 8.4M12.2 3.8 3.8 12.2"/></svg></button>
+<figure></figure>
+</dialog>
+</screenshot-carousel>
+</section>
+</header>
+<nav class="column ext-stores" aria-label="Browser">
+<extension-stores>
+<ul>
+<li><a href="/beifahrer/de/extension/"><span>Alle Browser</span><small class="ext-suggest" hidden>Dein Browser</small></a></li>
+<li><a href="/beifahrer/de/extension/chromium/" aria-current="page" data-store="chromium"><svg class="icon icon-brand icon-chromium" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path class="b1" d="M2.01 3.16A7.7 7.7 0 0 1 13.99 3.16L11.25 4.74A4.6 4.6 0 0 0 4.75 4.74Z"/><path class="b2" d="M15.19 5.24A7.7 7.7 0 0 1 9.2 15.61L9.2 12.44A4.6 4.6 0 0 0 12.45 6.82Z"/><path class="b3" d="M6.8 15.61A7.7 7.7 0 0 1 .81 5.24L3.55 6.82A4.6 4.6 0 0 0 6.8 12.44Z"/><circle class="b4" cx="8" cy="8" r="3.4"/></svg><span>Chrome</span><small class="ext-suggest" hidden>Dein Browser</small></a></li>
+<li><a href="/beifahrer/de/extension/firefox/" data-store="firefox"><svg class="icon icon-brand icon-firefox" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><circle class="b2" cx="8" cy="8.3" r="6.6"/><path class="b1" d="M7.98 15.68l-0.11 0c-1.62 0-3.13-0.5-4.37-1.35l0.02 0.02c-1.27-0.86-2.27-2.07-2.89-3.47l-0.02-0.06c-0.36-0.83-0.56-1.73-0.59-2.64l0-0.02c-0.06-1.01 0.02-2.02 0.24-3.01l-0.01 0.07c0.21-0.98 0.55-1.93 1.01-2.82l-0.03 0.06c0.39-0.8 0.93-1.53 1.58-2.14l0 0-0.1 2.48q0.1-0.12 0.6-0.13t0.62 0.13c0.33-0.54 0.82-0.96 1.4-1.21l0.02-0.01c0.64-0.32 1.35-0.5 2.07-0.52h0.01c-0.41 0.38-0.76 0.81-1.05 1.29l-0.01 0.03c-0.32 0.41-0.5 0.91-0.52 1.44v0c0.16 0.05 0.34 0.09 0.54 0.12l0.01 0q0.34 0.05 0.56 0.07t0.6 0.03 0.45 0.03q0.13 0.04 0.08 0.4c-0.03 0.24-0.12 0.47-0.27 0.67l0 0c-0.04 0.06-0.09 0.11-0.14 0.16l0 0c-0.15 0.12-0.32 0.22-0.49 0.31l-0.01 0c-0.28 0.15-0.57 0.25-0.88 0.3l-0.02 0.01 0.14 1.67-1.23-0.59c-0.1 0.23-0.13 0.48-0.06 0.73l-0.01-0.01c0.07 0.23 0.18 0.42 0.32 0.59l0 0c0.16 0.16 0.35 0.29 0.57 0.36l0.01 0c0.23 0.08 0.48 0.1 0.73 0.06l-0.01 0c0.32-0.06 0.61-0.17 0.88-0.31l-0.01 0q0.41-0.22 0.73-0.39c0.2-0.12 0.43-0.17 0.66-0.16h-0.01 0.02c0.3 0 0.57 0.11 0.78 0.3l-0.01-0.01c0.17 0.15 0.23 0.37 0.18 0.58l0 0q-0.01 0.02-0.02 0.05c-0.03 0.04-0.05 0.07-0.08 0.11l0 0c-0.04 0.05-0.1 0.1-0.16 0.13l0 0c-0.08 0.05-0.18 0.08-0.27 0.1l-0.01 0c-0.13 0.02-0.28 0.03-0.41 0.01l0 0c-0.3 0.5-0.74 0.92-1.26 1.19l-0.02 0c-0.44 0.2-0.92 0.3-1.4 0.29q-0.24 0-0.47-0.03l0.02 0.01c0.41 0.34 0.89 0.59 1.41 0.72l0.03 0c0.49 0.13 1.01 0.15 1.51 0.05l-0.02 0.01c0.48-0.1 0.95-0.26 1.39-0.48l-0.03 0.02c0.42-0.2 0.8-0.47 1.14-0.78l0 0c0.28-0.26 0.51-0.56 0.7-0.9l0.01-0.02c0.25-0.53 0.37-1.12 0.34-1.71v0.01c-0.02-0.59-0.13-1.16-0.34-1.7l0.01 0.03c-0.14-0.42-0.38-0.8-0.69-1.1l-0.01 0c0.47 0.19 0.87 0.43 1.23 0.71l-0.01-0.01c0.3 0.26 0.53 0.6 0.67 0.98l0.01 0.02c0.14-2.12-0.73-4.18-2.36-5.54l-0.01-0.01c1.46 0.39 2.74 1.25 3.64 2.46l0.01 0.01c0.92 1.35 1.39 2.96 1.33 4.59v-0.01l0 0.08c0 0.78-0.13 1.52-0.37 2.22l0.02-0.05c-0.26 0.76-0.63 1.48-1.11 2.13l0.01-0.02c-0.47 0.64-1.03 1.22-1.65 1.72l-0.02 0.01c-1.35 1.06-3.02 1.64-4.74 1.64h0z"/></svg><span>Firefox</span><small class="ext-suggest" hidden>Dein Browser</small></a></li>
+<li><a href="/beifahrer/de/extension/edge/" data-store="edge"><svg class="icon icon-brand icon-edge" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path class="b1" d="M3.75 1.17c1.28-0.79 2.74-1.19 4.22-1.17 5.25 0 8.03 3.87 8.03 6.86 0 1.02-0.41 2-1.12 2.72-0.72 0.73-1.69 1.14-2.71 1.16-2.35 0-2.86-0.72-2.86-1 0-0.12 0.04-0.19 0.15-0.29l0.03-0.04 0.01-0.05c0.33-0.36 0.5-0.82 0.5-1.3 0-2.46-2.57-4.46-5.75-4.46-1.17-0.01-2.33 0.28-3.36 0.84 0.84-1.8 2.58-3.05 2.85-3.24 0.03-0.02 0.01-0.03 0.01-0.03z"/><path class="b2" d="M4.24 11.11c-0.04 0.94 0.14 1.87 0.51 2.72 0.43 0.83 1.03 1.6 1.77 2.17-1.86-0.36-3.49-1.37-4.67-2.79-1.19-1.45-1.85-3.26-1.85-5.15 0-1.6 1.95-2.95 4.25-2.95 1.14-0.02 2.26 0.34 3.18 1.02l-0.11 0.04c-1.61 0.55-3.08 2.83-3.08 4.94"/><path class="b3" d="M14.68 12.5l-0.02 0c-0.37 0.59-0.81 1.1-1.32 1.55-0.96 0.88-2.13 1.42-3.4 1.56-0.58 0.01-1.15-0.1-1.68-0.36-0.8-0.32-1.47-0.93-1.93-1.65-0.45-0.75-0.66-1.62-0.59-2.49-0.02-0.63 0.17-1.26 0.47-1.82 0.43 1.04 1.17 1.92 2.11 2.53s2.05 0.92 3.17 0.89c0.97 0.01 1.94-0.21 2.82-0.64l0.06-0.03c0.12-0.07 0.24-0.12 0.36 0 0.14 0.15 0.06 0.29-0.04 0.44 0 0-0.01 0.01-0.01 0.02"/></svg><span>Edge</span><small class="ext-suggest" hidden>Dein Browser</small></a></li>
+<li><a href="/beifahrer/de/extension/safari/" data-store="safari"><svg class="icon icon-brand icon-safari" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path class="b1" fill-rule="evenodd" d="M8 .3A7.7 7.7 0 1 1 8 15.7 7.7 7.7 0 0 1 8 .3Zm0 1.2A6.5 6.5 0 1 0 8 14.5 6.5 6.5 0 0 0 8 1.5ZM7.7 2.2h.6v1.2h-.6ZM12.6 7.7h1.2v.6h-1.2ZM7.7 12.6h.6v1.2h-.6ZM2.2 7.7h1.2v.6H2.2Z"/><path class="b2" d="M11.25 4.75 8.96 8.74 7.26 7.05Z"/><path class="b3" d="M4.75 11.25 7.05 7.26 8.74 8.96Z"/></svg><span>Safari</span><small class="ext-suggest" hidden>Dein Browser</small></a></li>
+</ul>
+</extension-stores>
+</nav>
+<main>
+<div class="column ext-layout">
+<aside class="ext-facts" aria-label="Details">
+<h2>Details</h2>
+<dl>
+<div class="ext-fact"><dt>Version</dt><dd><span>0.1.32</span></dd></div>
+<div class="ext-fact"><dt>Aktualisiert</dt><dd><span>14. November 2026</span></dd></div>
+<div class="ext-fact"><dt>Größe</dt><dd><span>0,5 MB</span></dd></div>
+<div class="ext-fact"><dt>Sprachen</dt><dd><span>Deutsch, Englisch</span></dd></div>
+<div class="ext-fact"><dt>Manifest</dt><dd><span>V3</span></dd></div>
+
+<div class="ext-fact"><dt>Lizenz</dt><dd><span>AGPL-3.0-or-later</span></dd></div>
+<div class="ext-fact"><dt>Links</dt><dd><span><a href="https://jumplink.eu/beifahrer/">Webseite</a></span><span><a href="/beifahrer/de/support/">Unterstützen</a></span><span><a href="/beifahrer/de/privacy/">Datenschutz</a></span><span><a href="https://github.com/JumpLink/beifahrer">Quellcode</a></span></dd></div>
+</dl>
+</aside>
+<div class="ext-main">
+<section class="pair">
+<a class="card" href="/beifahrer/de/">
+<img class="related-icon" src="/beifahrer/eu.jumplink.beifahrer.svg" alt="" width="48" height="48">
+<span class="related-text"><span class="related-name">Braucht die App Beifahrer</span><span class="related-summary">KI nutzt deinen Browser</span></span>
+<svg class="icon link-external" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="m6.2 3 5 5-5 5"/></svg>
+</a>
+</section>
+
+<section class="ext-section about">
+<h2>Über</h2>
+<p>Beifahrer lässt einen KI-Agenten in dem Browser arbeiten, den du ohnehin benutzt, mit deinen Tabs und den Seiten, bei denen du angemeldet bist, statt in einem zweiten Browser, den er selbst startet.</p>
+<p>Vier Teile, in dieser Reihenfolge:</p>
+<ul><li>Dein Agent fragt nach etwas, zum Beispiel danach, die Seite zu lesen, die du gerade ansiehst.</li><li>Die Beifahrer-App auf deinem Rechner nimmt diese Anfrage entgegen. Die App ist die Brücke zwischen deinem Agenten und deinem Browser, und nur mit ihr spricht dein Agent.</li><li>Die Beifahrer-Erweiterung in deinem Browser prüft die Anfrage gegen die Regeln, die du gesetzt hast, und lehnt alles ab, was sie nicht abdecken.</li><li>Der Browser führt sie aus, und du siehst dabei zu.</li></ul>
+<p>Beifahrer sendet nichts nach außen. Kein Konto, keine Telemetrie, kein Server im Internet. App und Erweiterung sprechen miteinander auf deinem eigenen Rechner und sonst nirgends.</p>
+<p>Du sagst, was der Agent darf, und nimmst es zurück, wann immer du willst:</p>
+<ul><li>Stelle jede Website auf Nichts, Lesen oder Bearbeiten. Bei einer Website, die auf Nichts steht, sieht der Agent den Hostnamen und sonst nichts, nicht den Titel und nicht den Rest der Adresse.</li><li>Brauchst du für eine Weile mehr? Gib alle Websites frei, für eine Stunde, bis der Browser schließt oder für diese eine Agenten-Sitzung. Keine befristete Freigabe übersteht einen Neustart des Browsers.</li><li>Vor einer Änderung fragt Beifahrer nach. Bei einem ausgefüllten Feld oder einem Klick nennt ein Fenster die Website und das, was gleich passiert. Bevor Tabs geschlossen werden, listet ein Fenster sie auf. Bei einer Website, der du traust, kannst du das Nachfragen ausschalten.</li><li>Pausieren hält alles an, bis hin zum Auflisten deiner offenen Tabs. Nur du startest wieder, in der Erweiterung oder per Tastenkürzel.</li><li>Du siehst den Agenten arbeiten. Das Symbol in der Symbolleiste ändert sich, in der Seite erscheint ein kleines Feld mit einer Stopp-Schaltfläche, und die Erweiterung listet auf, was der Agent getan hat.</li><li>Was du nicht eingeschaltet hast, bleibt aus: Screenshots, Downloads, gespeicherte Sitzungen, Tabverwaltung, das Anfragenprotokoll und das Ausführen von eigenem Code des Agenten in einer Seite.</li></ul>
+<p>Funktioniert in Firefox und in Chromium-basierten Browsern.</p>
+</section>
+<section class="ext-section ext-permissions">
+<h2>Berechtigungen</h2>
+<h3>Beim Installieren angefragt</h3>
+<ul class="ext-perms">
+<li class="ext-perm">
+<code>tabs</code>
+<span class="ext-perm-text">Adresse und Titel deiner Tabs sehen</span>
+
+
+</li>
+<li class="ext-perm">
+<code>storage</code>
+<span class="ext-perm-text">Eigene Einstellungen und Daten speichern</span>
+
+
+</li>
+<li class="ext-perm">
+<code>alarms</code>
+<span class="ext-perm-text">Aufgaben für später oder regelmäßig planen</span>
+
+
+</li>
+<li class="ext-perm">
+<code>sessions</code>
+<span class="ext-perm-text">Zuletzt geschlossene Tabs und Fenster lesen und wiederherstellen</span>
+
+
+</li>
+<li class="ext-perm">
+<code>tabGroups</code>
+<span class="ext-perm-text">Deine Tab-Gruppen lesen und ändern</span>
+
+
+</li>
+<li class="ext-perm">
+<code>scripting</code>
+<span class="ext-perm-text">Code auf Seiten ausführen, für die du es erlaubst</span>
+
+
+</li>
+<li class="ext-perm">
+<code>offscreen</code>
+<span class="ext-perm-text">Eine versteckte Seite für Hintergrundarbeit ausführen</span>
+
+
+</li>
+</ul>
+<h3>Nur bei Bedarf angefragt</h3>
+<p class="ext-note">Der Browser fragt dich vorher, wenn eine Funktion es braucht. Du kannst ablehnen.</p>
+<ul class="ext-perms">
+<li class="ext-perm">
+<code>webRequest</code>
+<span class="ext-perm-text">Anfragen von Seiten sehen und bearbeiten</span>
+
+
+</li>
+<li class="ext-perm">
+<code>downloads</code>
+<span class="ext-perm-text">Deine Downloads verwalten</span>
+
+
+</li>
+<li class="ext-perm">
+<code>http://*/*</code>
+<span class="ext-perm-text">Deine Daten auf allen Websites lesen und ändern</span>
+
+
+</li>
+<li class="ext-perm">
+<code>https://*/*</code>
+<span class="ext-perm-text">Deine Daten auf allen Websites lesen und ändern</span>
+
+
+</li>
+<li class="ext-perm">
+<code>&lt;all_urls&gt;</code>
+<span class="ext-perm-text">Deine Daten auf allen Websites lesen und ändern</span>
+
+
+</li>
+</ul>
+</section>
+<section class="ext-section ext-data">
+<h2>Daten</h2>
+<p>Die Erweiterung erklärt, dass sie keine Daten erhebt. <a href="/beifahrer/de/privacy/">Datenschutzerklärung lesen</a></p>
+</section>
+
+</div>
+</div>
+</main>
+<footer class="footer">
+<div class="footer-inner">
+<nav class="footer-languages" aria-label="Sprache"><ul><li><a href="/beifahrer/en/extension/chromium/" hreflang="en" lang="en">English</a></li><li><span aria-current="true">Deutsch</span></li></ul></nav>
+<p class="footer-source"><a href="https://github.com/JumpLink/beifahrer"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M5.6 11.8 2 8l3.6-3.8M10.4 4.2 14 8l-3.6 3.8M9.4 2.6 6.6 13.4"/></svg><span>Quellcode</span></a></p>
+<p class="footer-license">Beifahrer steht unter der Lizenz AGPL-3.0-or-later. Diese Seite gibt Texte unter der Lizenz CC0-1.0 wieder.</p>
+<p class="footer-made"><a href="https://github.com/gjsify/gjsify">Gemacht mit gjsify</a></p>
+<ul class="footer-legal"><li><a href="/beifahrer/de/legal-notice/">Impressum</a></li><li><a href="/beifahrer/de/privacy/">Datenschutz</a></li></ul>
+</div>
+</footer>
+</body>
+</html>
