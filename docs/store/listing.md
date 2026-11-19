@@ -65,7 +65,7 @@ paragraph is not decorative. Beifahrer's bundle is a real build, and the reposit
 
 - Automated validation runs first, and signing "can take up to 24 hours … or longer if your
   submission is selected for manual review" ([signing and distribution](https://extensionworkshop.com/documentation/publish/signing-and-distribution-overview/)). All add-ons, listed or unlisted, are subject to manual review at any time. So the schedule is *unknown*, not *one day* — do not promise a date.
-- The listed path exists in parallel with the unlisted one already scripted in [`extension/scripts/sign.sh`](../../extension/scripts/sign.sh). Unlisted needs only the AMO API key; listed needs the listing fields above.
+- A version number exists once across BOTH channels ([addons-server API](https://mozilla.github.io/addons-server/topics/api/addons.html): "unique across all channels, and for listed versions, higher than all previously signed versions"). So listed REPLACES the unlisted path in [`extension/scripts/sign.sh`](../../extension/scripts/sign.sh) rather than running beside it: 0.1.34 was the last unlisted version, and the first listed one is the next. The upload is `beifahrer-<version>-firefox-amo.zip`, which drops `update_url` because AMO refuses it on a listed version (MANIFEST_UPDATE_URL).
 
 Whether listing on AMO costs anything is `<verify>`: read
 [developer-accounts](https://extensionworkshop.com/documentation/publish/developer-accounts/) and

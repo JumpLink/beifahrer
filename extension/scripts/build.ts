@@ -193,6 +193,15 @@ for (const target of TARGETS) {
     const file = join(OUT, `beifahrer-${pkg.version}-${target}.zip`);
     writeFileSync(file, zipSync(collect(dir)));
     console.log(`zipped ${file}`);
+    if (target === 'firefox-mv2') {
+      // The same build for AMO's listed channel: only the manifest differs (manifest.ts, amoListed).
+      const listed = manifestFor(target, { version: pkg.version, amoListed: true });
+      const amo = join(OUT, `beifahrer-${pkg.version}-firefox-amo.zip`);
+      const entries = collect(dir);
+      entries['manifest.json'] = new TextEncoder().encode(`${JSON.stringify(listed, null, 2)}\n`);
+      writeFileSync(amo, zipSync(entries));
+      console.log(`zipped ${amo}`);
+    }
   }
   console.log(`built ${dir}`);
 }

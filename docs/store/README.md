@@ -17,8 +17,14 @@ listing` derives them from `data/eu.jumplink.beifahrer.metainfo.xml`, the German
   and uploads nothing. Run it before the first upload and before the Edge key expires.
 - **The first submission for review, and any switch to public, stay with the person.** The job never
   does either.
-- **Firefox** is self-distributed: `sign-firefox` signs the `.xpi`, and the listed AMO route is by
-  hand.
+- **Firefox** has ONE channel per version, because AMO accepts a version number once across listed
+  and unlisted. Until the public listing exists, `sign-firefox` signs unlisted. Once it does, the
+  repo variable `FIREFOX_CHANNEL=listed` switches the same job to AMO's listed channel. It uploads
+  the `firefox-amo` zip (the build without `update_url`, see `manifest.ts`), which only validates
+  it. With `submit_for_review` (or `FIREFOX_AUTO_SUBMIT=true`), it creates the version and sends it
+  to review. After approval, `extension/scripts/amo-listed.sh` attaches AMO's signed file and an
+  `updates.json` to the release. GitHub installs take that update and from then on update from AMO.
+  The first listed version is submitted by hand in the Developer Hub.
 - **Safari** is manual: Xcode and App Store Connect.
 
 ## What each store wants, and which file answers it

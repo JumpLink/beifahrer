@@ -117,11 +117,17 @@ export interface ManifestInput {
    * for the refusal is the build that does NOT have it.
    */
   e2eApiPermissions?: string[];
+  /**
+   * Firefox only: the copy AMO hosts as a LISTED add-on. AMO refuses a listed version that names
+   * its own update source (MANIFEST_UPDATE_URL), and Firefox then asks AMO for updates by id, so
+   * this build drops `update_url` and nothing else. The self-hosted XPI keeps it (see UPDATE_URL).
+   */
+  amoListed?: boolean;
 }
 
 export function manifestFor(
   target: Target,
-  { version, e2eHosts = [], e2eApiPermissions = [] }: ManifestInput,
+  { version, e2eHosts = [], e2eApiPermissions = [], amoListed = false }: ManifestInput,
 ): Record<string, unknown> {
   // Safari takes the Chromium flavour: MV3, a service worker, `scripting`. What it lacks
   // (tab groups, the recently-closed list, per-origin optional hosts) is feature-detected at
@@ -203,7 +209,7 @@ export function manifestFor(
               // Nothing leaves the device: the only channel is the loopback socket to the bridge the
               // person runs themselves. Mozilla's category for that is "none".
               data_collection_permissions: { required: ['none'] },
-              update_url: UPDATE_URL,
+              ...(amoListed ? {} : { update_url: UPDATE_URL }),
             },
             // Firefox for Android reads `data_collection_permissions` only from 142 on, so an older
             // one would install the add-on without its declaration. AMO's linter warns otherwise.

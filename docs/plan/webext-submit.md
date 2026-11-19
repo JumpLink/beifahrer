@@ -119,6 +119,6 @@ writes the answer back into this table and into gjsify's cli docs.
 ## Out of scope
 
 Safari (Xcode and App Store Connect — [ADR 0026](../adr/0026-safari-extension-ships-inside-the-desktop-app.md)),
-AMO as a `submit` backend (signing already runs in
-[`release.yml`](../../.github/workflows/release.yml)'s `sign-firefox` job and Firefox is
-self-distributed), creating a product, and changing listing text through an API.
+creating a product, and changing listing text through an API. AMO came later than this plan: the
+listed channel runs in `release.yml`'s `sign-firefox` job behind `FIREFOX_CHANNEL=listed`
+([store/README.md](../store/README.md)).
