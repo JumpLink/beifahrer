@@ -496,7 +496,8 @@ function controlOf(el: Element): string | undefined {
     controlText({
       tag,
       type: tag === 'INPUT' ? (field.type ?? '').toLowerCase() : '',
-      value: tag === 'SELECT' ? '' : (field.value ?? ''),
+      // A password value is never even read: what is not read cannot leak through a later change.
+      value: tag === 'SELECT' || (field.type ?? '').toLowerCase() === 'password' ? '' : (field.value ?? ''),
       checked: field.checked === true,
       selected:
         tag === 'SELECT' ? [...field.selectedOptions].map((o) => o.textContent?.trim() ?? '').join(', ') : '',
