@@ -26,6 +26,7 @@
 
 import { browser } from '@wxt-dev/browser';
 import { browserInfo } from './browser-info.ts';
+import { installChooserHook } from './chooser-hook.ts';
 import type { PageRequest, PageResponse } from './page-messages.ts';
 
 const FILE = '/page-agent.js';
@@ -123,4 +124,22 @@ export async function tellPage(tabId: number, req: PageRequest): Promise<void> {
     return;
   }
   await browser.tabs.sendMessage(tabId, req).catch(() => undefined);
+}
+
+/**
+ * Install the file-chooser hook (chooser-hook.ts) in the page's own world, where a button's
+ * `input.click()` happens. Only where `scripting` can target `MAIN` (Chromium, Safari); Firefox's
+ * page agent installs it through `wrappedJSObject`. A refusal is not an error: the upload then falls
+ * back to a drop.
+ */
+export async function installChooserHookInPage(tabId: number, frame: number): Promise<void> {
+  const scripting = (browser as unknown as { scripting?: typeof browser.scripting }).scripting;
+  if (!scripting?.executeScript) return;
+  await scripting
+    .executeScript({
+      target: { tabId, frameIds: [frame] },
+      world: 'MAIN',
+      func: installChooserHook,
+    } as never)
+    .catch(() => undefined);
 }
