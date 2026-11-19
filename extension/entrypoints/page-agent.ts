@@ -924,29 +924,44 @@ function enterCode(ref: string, raw: string): PageResponse {
   return { ok: true, data: { ref, length: parsed.code.length } };
 }
 
+/** Every file field under `root`, open shadow roots included (a design system keeps its input there). */
+function fileInputsUnder(root: ParentNode, depth = 0): HTMLInputElement[] {
+  const found = [...root.querySelectorAll<HTMLInputElement>('input[type="file"]')];
+  if (depth >= MAX_SHADOW_DEPTH) return found;
+  for (const node of root.querySelectorAll('*'))
+    if (node.shadowRoot) found.push(...fileInputsUnder(node.shadowRoot, depth + 1));
+  return found;
+}
+
 /**
  * The file field a ref stands for: the field itself, the one a label points at, or the only one
  * near a button that opens it. A page that hides its `<input type=file>` behind a styled button
  * leaves no formal link, so the nearest ancestor holding exactly one is the answer; two of them is
  * a guess nobody should make for the person, so that is refused instead.
+ *
+ * It tells "no file field belongs to this" (a drop zone: the page makes its input on click, or has
+ * none) from "several might".
  */
-function fileInputFor(el: Element): HTMLInputElement | null {
+function fileInputLookup(el: Element): { input: HTMLInputElement | null; ambiguous: boolean } {
   const isFile = (e: Element | null | undefined): e is HTMLInputElement =>
     e instanceof HTMLInputElement && e.type === 'file';
-  if (isFile(el)) return el;
-  if (el instanceof HTMLLabelElement && isFile(el.control)) return el.control;
+  if (isFile(el)) return { input: el, ambiguous: false };
+  if (el instanceof HTMLLabelElement && isFile(el.control)) return { input: el.control, ambiguous: false };
   const wrapping = el.closest('label');
-  if (wrapping && isFile(wrapping.control)) return wrapping.control;
+  if (wrapping && isFile(wrapping.control)) return { input: wrapping.control, ambiguous: false };
   // A button inside an open shadow root (a design system's `<x-button>`) has no parent element at
   // the root of its shadow tree; the walk steps out through the host instead of stopping there.
   const up = (e: Element): Element | null => e.parentElement ?? (e.getRootNode() as ShadowRoot).host ?? null;
   let at: Element | null = el;
   for (let i = 0; at && i < 4; i++, at = at ? up(at) : null) {
-    const found = at.querySelectorAll('input[type="file"]');
-    if (found.length === 1) return found[0] as HTMLInputElement;
-    if (found.length > 1) return null;
+    // The whole document is not "near" anything: stopping here is what lets a drop zone, which owns
+    // no field, be told from a button whose field sits beside it.
+    if (at === document.body || at === document.documentElement) break;
+    const found = fileInputsUnder(at);
+    if (found.length === 1) return { input: found[0]!, ambiguous: false };
+    if (found.length > 1) return { input: null, ambiguous: true };
   }
-  return null;
+  return { input: null, ambiguous: false };
 }
 
 /** Does the file match an `accept` attribute: `.pdf`, `image/*`, `application/pdf`? Empty accepts all. */
@@ -970,15 +985,16 @@ function accepts(accept: string, name: string, mime: string): boolean {
 function upload(ref: string, files: UploadFile[]): PageResponse {
   const el = byRef(ref);
   if (!el) return notFound(ref);
-  const input = fileInputFor(el);
-  if (!input)
+  const { input, ambiguous } = fileInputLookup(el);
+  if (ambiguous)
     return {
       ok: false,
       code: 'invalid',
       message: `${ref} is not a file field, and no single file field belongs to it`,
     };
-  if (input.disabled) return { ok: false, code: 'invalid', message: 'the file field is disabled' };
   if (files.length === 0) return { ok: false, code: 'invalid', message: 'no files given' };
+  if (!input) return dropFiles(el, ref, files);
+  if (input.disabled) return { ok: false, code: 'invalid', message: 'the file field is disabled' };
   if (files.length > 1 && !input.multiple)
     return { ok: false, code: 'invalid', message: 'the file field takes one file, not several' };
   const refused = files.find((f) => !accepts(input.accept, f.name, f.mime));
@@ -989,12 +1005,7 @@ function upload(ref: string, files: UploadFile[]): PageResponse {
       message: `the file field accepts ${input.accept}, so "${refused.name}" is not allowed`,
     };
   const transfer = new DataTransfer();
-  for (const f of files) {
-    const binary = atob(f.base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    transfer.items.add(new File([bytes], f.name, { type: f.mime }));
-  }
+  for (const f of buildFiles(files)) transfer.items.add(f);
   input.files = transfer.files;
   input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
   input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1003,6 +1014,7 @@ function upload(ref: string, files: UploadFile[]): PageResponse {
     ok: true,
     data: {
       ref,
+      via: 'input',
       files: held.map((f) => ({ name: f.name, mime: f.type, size: f.size })),
       accepted: held.length === files.length,
     },
@@ -1028,6 +1040,85 @@ function pressLikePointer(el: Element): void {
   el.dispatchEvent(new MouseEvent('mousedown', { ...at, buttons: 1 }));
   el.dispatchEvent(new PointerEvent('pointerup', at));
   el.dispatchEvent(new MouseEvent('mouseup', at));
+}
+
+function buildFiles(files: UploadFile[]): File[] {
+  return files.map((f) => {
+    const binary = atob(f.base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], f.name, { type: f.mime });
+  });
+}
+
+/**
+ * A drop zone with no file field to fill: deliver the files the way dragging them in would, as
+ * dragenter, dragover and drop on the element, with a DataTransfer that holds the File objects.
+ *
+ * What `accepted` means here is weaker than for a field, and the answer says so with `via: "drop"`:
+ * a page cannot be asked whether it kept the files, only whether it took the drop, which a drop
+ * handler says by cancelling the event (`preventDefault`). A page that reads `event.dataTransfer`
+ * and does not cancel looks refused here though it took the files.
+ *
+ * Firefox: a File or DataTransfer built here carries the extension's principal, and the page's
+ * `dataTransfer.files` silently filters those out (the listener runs, the list is empty). So on
+ * Firefox the bytes, the Files, the DataTransfer and the events are built in the PAGE's compartment
+ * through `window.wrappedJSObject`, with `cloneInto` for what crosses. Chromium's isolated world
+ * needs none of that.
+ */
+function dropFiles(el: Element, ref: string, files: UploadFile[]): PageResponse {
+  const built = buildFiles(files);
+  type Ctor = new (...args: unknown[]) => unknown;
+  const world = (window as unknown as { wrappedJSObject?: Record<string, Ctor> }).wrappedJSObject;
+  const clone = (globalThis as unknown as { cloneInto?: (v: unknown, w: unknown, o?: unknown) => unknown })
+    .cloneInto;
+  const inPage = world && clone;
+  let transfer: DataTransfer;
+  if (inPage) {
+    transfer = new world.DataTransfer!() as DataTransfer;
+    for (const f of files) {
+      const binary = atob(f.base64);
+      const bytes = new world.Uint8Array!(binary.length) as unknown as Uint8Array;
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const parts = new world.Array!() as unknown as unknown[];
+      parts.push(bytes);
+      const opts = new world.Object!() as unknown as { type: string };
+      opts.type = f.mime;
+      const file = new world.File!(parts, f.name, opts);
+      transfer.items.add(file as File);
+    }
+  } else {
+    transfer = new DataTransfer();
+    for (const f of built) transfer.items.add(f);
+  }
+  (el as HTMLElement).scrollIntoView?.({ block: 'center', inline: 'center' });
+  const rect = el.getBoundingClientRect();
+  const at = { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+  const fire = (type: 'dragenter' | 'dragover' | 'drop'): boolean => {
+    const init = { bubbles: true, cancelable: true, composed: true, dataTransfer: transfer, ...at };
+    let event: DragEvent;
+    if (inPage) {
+      // Built field by field in the page's compartment: a content-script object handed to the
+      // page's constructor is unreadable there ("Permission denied to access property").
+      const pageInit = new world.Object!() as unknown as Record<string, unknown>;
+      for (const [key, value] of Object.entries(init)) pageInit[key] = value;
+      event = new world.DragEvent!(type, pageInit) as unknown as DragEvent;
+    } else event = new DragEvent(type, init);
+    el.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+  fire('dragenter');
+  fire('dragover');
+  const taken = fire('drop');
+  return {
+    ok: true,
+    data: {
+      ref,
+      via: 'drop',
+      files: built.map((f) => ({ name: f.name, mime: f.type, size: f.size })),
+      accepted: taken,
+    },
+  };
 }
 
 function click(ref: string): PageResponse {
