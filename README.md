@@ -27,7 +27,7 @@ the **app** on your computer, and the **extension** in your browser.
 |---|---|---|
 | **macOS** | `.dmg` for Apple silicon (`arm64`) or Intel (`x86_64`); the `.zip` holds the same app | Signed and notarised, so it opens without a workaround. Move **Beifahrer** to Applications. |
 | **Windows** | `.msi` (x64), or the `windows.x64.zip` to run without installing | **Not signed yet.** Windows SmartScreen warns "Windows protected your PC": choose **More info → Run anyway**. |
-| **Linux** | `.flatpak`, `.deb` or `.rpm` | Flatpak: `flatpak install --user <file>.flatpak`. The `.deb` and `.rpm` put `beifahrer` on your `PATH`. |
+| **Linux** | [FlatPark](https://flatpark.org/apps/eu.jumplink.beifahrer/), or `.flatpak`, `.deb` or `.rpm` | FlatPark: `flatpak install flatpark eu.jumplink.beifahrer`, which also brings updates (setup on the FlatPark page). The `.flatpak` from the release: `flatpak install --user <file>.flatpak`. The `.deb` and `.rpm` put `beifahrer` on your `PATH`. |
 
 ### 2. The browser extension
 
