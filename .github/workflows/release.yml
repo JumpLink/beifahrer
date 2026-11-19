@@ -223,6 +223,22 @@ jobs:
       # host manifest no package registers yet (issue #44).
       # -----------------------------------------------------------------------------------------
 
+  # Tells FlatPark the release is live, so its package picks up the new `-linux-x86_64-flatpak.tar.gz`
+  # within minutes instead of at the twice-daily sweep. A job of its own, AFTER `release`, because the
+  # release is created by THIS workflow with the default token: GitHub starts no `on: release` run for
+  # that, and FlatPark needs a published release that already carries the tarball. No secret is
+  # involved, and `continue-on-error` keeps a FlatPark hiccup from failing a release that is complete.
+  flatpark:
+    needs: release
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || (inputs.publish && inputs.tag != '') }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: flatpark/publish-action@v1
+        with:
+          app-id: eu.jumplink.beifahrer
+          tag: ${{ inputs.tag || github.ref_name }}
+
   # The signed Firefox build and `updates.json` (issue #3), as release assets. A job of its own,
   # AFTER `release`: the release already carries every other asset by then, so an AMO outage or a
   # rejected signing leaves this job red and the release intact. `updates.json` must keep its exact
