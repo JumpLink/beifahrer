@@ -88,6 +88,27 @@ export default async () => {
         gecko_android: { strict_min_version: '142.0' },
       });
 
+      // AMO's listed copy: the same manifest without update_url, which AMO refuses on a listed
+      // version; Firefox then updates it from AMO by id.
+      const listed = manifestFor('firefox-mv2', { version: '1.2.3', amoListed: true }) as unknown as Manifest;
+      const { update_url: _dropped, ...gecko } = (
+        ff.browser_specific_settings as { gecko: Record<string, unknown> }
+      ).gecko;
+      sameJson(listed.browser_specific_settings, {
+        gecko,
+        gecko_android: { strict_min_version: '142.0' },
+      });
+      sameJson(
+        { ...listed, browser_specific_settings: null, version: null },
+        {
+          ...ff,
+          browser_specific_settings: null,
+          version: null,
+        },
+      );
+      // Chromium ignores the flag: it has no update_url to drop.
+      sameJson(manifestFor('chrome-mv3', { version: '1.2.3', amoListed: true }), at('chrome-mv3'));
+
       // Safari alone: MV3 but a background PAGE.
       expect(at('safari-mv3').manifest_version).toBe(3);
       sameJson(at('safari-mv3').background, {

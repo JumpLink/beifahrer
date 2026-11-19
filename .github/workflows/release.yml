@@ -131,6 +131,7 @@ jobs:
             "zips/beifahrer-${version}-chrome-mv3.zip" \
             "zips/beifahrer-${version}-edge-mv3.zip" \
             "zips/beifahrer-${version}-firefox-mv2.zip" \
+            "zips/beifahrer-${version}-firefox-amo.zip" \
             "zips/beifahrer-${version}-safari-mv3.zip" \
             "packages/beifahrer_${version}-1_all.deb" \
             "packages/beifahrer-${version}-1.noarch.rpm" \
@@ -305,7 +306,7 @@ jobs:
           gjsify install --immutable
 
       - name: Sign on AMO and attach
-        if: steps.have.outputs.skip == 'false'
+        if: steps.have.outputs.skip == 'false' && vars.FIREFOX_CHANNEL != 'listed'
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_WEB_EXT_API_KEY }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_WEB_EXT_API_SECRET }}
@@ -317,6 +318,55 @@ jobs:
           # updates.json keeps pointing at the original.
           cp "$(ls -1t extension/.output/signed/*.xpi | head -1)" extension/.output/signed/beifahrer.xpi
           ls -la extension/.output/signed
+          gh release upload "$TAG" extension/.output/signed/*.xpi extension/.output/signed/updates.json
+          gh release view "$TAG" --json assets --jq '.assets[].name'
+
+      # The LISTED channel (repo variable FIREFOX_CHANNEL=listed, set once the public AMO listing
+      # exists). AMO accepts a version number once across both channels, so a listed release is NOT
+      # also signed unlisted: the release carries the file AMO signs for the listing
+      # (extension/scripts/amo-listed.sh says how the GitHub installs follow it).
+      #
+      # Like Chrome and Edge, the upload alone asks for no review: without `--submit` AMO only
+      # validates the zip. `submit_for_review` (or FIREFOX_AUTO_SUBMIT=true) creates the version,
+      # which is what puts it into review. A version AMO already has is a success, so a re-run only
+      # fetches the signed file.
+      - name: Submit to AMO (listed)
+        if: steps.have.outputs.skip == 'false' && vars.FIREFOX_CHANNEL == 'listed'
+        env:
+          AMO_ADDON_ID: ${{ secrets.AMO_ADDON_ID }}
+          AMO_WEB_EXT_API_KEY: ${{ secrets.AMO_WEB_EXT_API_KEY }}
+          AMO_WEB_EXT_API_SECRET: ${{ secrets.AMO_WEB_EXT_API_SECRET }}
+          SUBMIT: ${{ (inputs.submit_for_review || vars.FIREFOX_AUTO_SUBMIT == 'true') && '--submit' || '' }}
+        run: |
+          set -eu
+          version="${TAG#v}"
+          mkdir -p .output
+          gh release download "$TAG" --dir .output --pattern "*-${version}-firefox-amo.zip" --clobber
+          # The reviewers' copy of the source: the bundles are built, so AMO asks for it. It goes onto
+          # the version, which only `--submit` creates.
+          source=""
+          if [ -n "$SUBMIT" ]; then
+            git archive --format=zip -o .output/source.zip HEAD
+            source="--source .output/source.zip"
+          fi
+          gjsify webext listing --stores amo --out dist/listing
+          gjsify webext submit --store amo --zip ".output/beifahrer-${version}-firefox-amo.zip" $source $SUBMIT
+
+      # Waits only after a submission: without one, the version is public already (a re-run after
+      # the review) or it is not, and then there is nothing to wait for.
+      - name: Attach the listed build once AMO signed it
+        if: steps.have.outputs.skip == 'false' && vars.FIREFOX_CHANNEL == 'listed'
+        env:
+          MINUTES: ${{ (inputs.submit_for_review || vars.FIREFOX_AUTO_SUBMIT == 'true') && '40' || '0' }}
+        run: |
+          set -eu
+          rc=0
+          sh extension/scripts/amo-listed.sh "$TAG" "$MINUTES" || rc=$?
+          if [ "$rc" = 3 ]; then
+            echo "::notice::$TAG is not public on AMO yet; re-run this workflow for $TAG (publish) once it is"
+            exit 0
+          fi
+          [ "$rc" = 0 ] || exit "$rc"
           gh release upload "$TAG" extension/.output/signed/*.xpi extension/.output/signed/updates.json
           gh release view "$TAG" --json assets --jq '.assets[].name'
 

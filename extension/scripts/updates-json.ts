@@ -132,10 +132,11 @@ if (isMain) {
   if (gecko?.id !== GECKO_ID) {
     throw new Error(`the signed build carries gecko id ${gecko?.id}, expected ${GECKO_ID}`);
   }
-  if (gecko.update_url !== UPDATE_URL) {
-    throw new Error(
-      'the signed build carries no matching update_url — manifest.ts and this script must agree',
-    );
+  // AMO's listed build carries none (manifest.ts, amoListed): Firefox updates it from AMO by id, and
+  // this file only carries the copies installed from GitHub over to it. Any OTHER url is a build
+  // from somewhere else.
+  if (gecko.update_url !== undefined && gecko.update_url !== UPDATE_URL) {
+    throw new Error('the signed build carries a foreign update_url — manifest.ts and this script must agree');
   }
   const json = `${JSON.stringify(
     updatesJson({
