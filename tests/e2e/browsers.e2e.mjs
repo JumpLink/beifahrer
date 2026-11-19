@@ -2781,6 +2781,63 @@ async function framesAndOrigins(browser, client, allowed) {
   );
 }
 
+async function readText(browser, client) {
+  const opened = await tool(client, 'tab_open', { url: `${ALLOWED}/readtext`, active: false });
+  const tabId = opened.error ? null : JSON.parse(opened.text).tab?.tabId;
+  if (tabId == null) {
+    check(browser, 'the read-text tab opened', false, opened.text.slice(0, 200));
+    return;
+  }
+  await tool(client, 'page_wait', { tabId, for: 'load' });
+  const read = await tool(client, 'page_read', { tabId });
+  let t = read.text;
+  try {
+    t = JSON.parse(read.text).text;
+  } catch {
+    // keep the raw output; the checks below then fail with it shown
+  }
+  check(
+    browser,
+    'page_read shows headings and form labels past large inline scripts',
+    /Produktdetails/.test(t) && /Kategorie/.test(t) && /Beschreibung/.test(t),
+    t.slice(0, 200),
+  );
+  check(
+    browser,
+    'page_read shows select and textarea values',
+    /Produktivität/.test(t) && /Ein hilfreiches Add-on/.test(t),
+    t.slice(0, 300),
+  );
+  check(
+    browser,
+    'page_read has no script, style, template, noscript or svg text',
+    !/junkCodeToken|wiz_progress|_\.td|template-text|noscript-text|svg-inner-text|shadow-script-text|margin:0/.test(
+      t,
+    ),
+    t.slice(0, 200),
+  );
+  check(
+    browser,
+    'page_read leaves out hidden nodes',
+    !/display-none-text|visibility-hidden-text|hidden-attr-text|aria-hidden-text/.test(t),
+    t.slice(0, 300),
+  );
+  check(browser, 'page_read never carries a password value', !/hunter2/.test(t), t.slice(0, 300));
+  check(
+    browser,
+    'page_read separates neighbouring blocks and components',
+    /Dashboard\s+Entwickler/.test(t) && /Schatten\s+Titel/.test(t),
+    t.slice(0, 300),
+  );
+  check(
+    browser,
+    'and a small page is not truncated',
+    !read.text.includes('"truncated": true') && t.length < 2000,
+    `${t.length} chars`,
+  );
+  await tool(client, 'tabs_close', { tabIds: [tabId] });
+}
+
 async function shadowDom(browser, client, allowed) {
   const found = await tool(client, 'page_find', {
     tabId: allowed.tabId,
@@ -3783,6 +3840,7 @@ async function scenario(browser, gate) {
     await shadowDom(browser, client, allowed);
     await framesAndOrigins(browser, client, allowed);
     await growingRows(browser, client);
+    await readText(browser, client);
     await keys(browser, client, allowed, ref);
     await listboxOptions(browser, client, allowed);
     await assertions(browser, client, allowed, ref);
@@ -4044,6 +4102,31 @@ function parseMultipart(buf, boundary) {
   return parts;
 }
 // Point 2 of the download gaps: how often does the SERVER see a file that one click asked for?
+// page_read must return what a person SEES: big inline code and hidden nodes must not eat the
+// budget or appear, the form and an open shadow root must, and neighbours must not run together.
+const READ_FIXTURE = `<!doctype html><html><head><title>Read text</title>
+<style>.vh{visibility:hidden}.gone{display:none}${'.pad{color:red}'.repeat(400)}</style>
+<script>window.wiz_progress=function(){${'var junkCodeToken=1;'.repeat(1500)}};</script></head><body>
+<script>_.td=function(a,b,c){${'return junkCodeToken2;'.repeat(1500)}};</script>
+<style>.more{margin:0}</style>
+<header><div>Dashboard</div><div>Entwickler</div></header>
+<h2>Produktdetails</h2>
+<div class="gone">display-none-text</div><div class="vh">visibility-hidden-text</div>
+<div hidden>hidden-attr-text</div><div aria-hidden="true">aria-hidden-text</div>
+<noscript>noscript-text</noscript><template>template-text</template>
+<svg width="10" height="10"><text>svg-inner-text</text></svg>
+<div><label for="cat">Kategorie</label><select id="cat"><option>Werkzeuge</option><option selected>Produktivität</option></select></div>
+<div><label for="desc">Beschreibung</label><textarea id="desc">Ein hilfreiches Add-on</textarea></div>
+<div><label for="pw">Passwort</label><input id="pw" type="password" value="hunter2-secret"></div>
+<mat-card-demo></mat-card-demo>
+<script>
+  customElements.define('mat-card-demo', class extends HTMLElement {
+    connectedCallback() {
+      this.attachShadow({ mode: 'open' }).innerHTML =
+        '<span>Schatten</span><span>Titel</span><script>shadow-script-text<\\/script>';
+    }
+  });
+</script></body></html>`;
 const FILE_HITS = { count: 0 };
 const LINK_FIXTURE = `<!doctype html><html><head><title>Link</title></head><body>
 <a id="file" href="/file.bin">Get file</a>
@@ -4051,27 +4134,33 @@ const LINK_FIXTURE = `<!doctype html><html><head><title>Link</title></head><body
 const page = (req) =>
   req.url?.startsWith('/sources')
     ? SOURCES_FIXTURE
-    : req.url?.startsWith('/upload-page')
-      ? UPLOAD_FIXTURE
-      : req.url?.startsWith('/growing-rows')
-        ? GROWING_ROWS_FIXTURE
-        : req.url?.startsWith('/lazy-rows')
-          ? LAZY_ROWS_FIXTURE
-          : req.url?.startsWith('/link')
-            ? LINK_FIXTURE
-            : req.url?.startsWith('/saves')
-              ? SAVES_FIXTURE(
-                  req.url.includes('v=revoke') ? 'revoke' : req.url.includes('v=native') ? 'native' : 'keep',
-                )
-              : req.url?.startsWith('/elsewhere')
-                ? ELSEWHERE_FIXTURE
-                : req.url?.startsWith('/openproject')
-                  ? OP_FIXTURE
-                  : req.url?.startsWith('/frame-foreign')
-                    ? FOREIGN_FRAME_FIXTURE
-                    : req.url?.startsWith('/frame')
-                      ? FRAME_FIXTURE
-                      : FIXTURE;
+    : req.url?.startsWith('/readtext')
+      ? READ_FIXTURE
+      : req.url?.startsWith('/upload-page')
+        ? UPLOAD_FIXTURE
+        : req.url?.startsWith('/growing-rows')
+          ? GROWING_ROWS_FIXTURE
+          : req.url?.startsWith('/lazy-rows')
+            ? LAZY_ROWS_FIXTURE
+            : req.url?.startsWith('/link')
+              ? LINK_FIXTURE
+              : req.url?.startsWith('/saves')
+                ? SAVES_FIXTURE(
+                    req.url.includes('v=revoke')
+                      ? 'revoke'
+                      : req.url.includes('v=native')
+                        ? 'native'
+                        : 'keep',
+                  )
+                : req.url?.startsWith('/elsewhere')
+                  ? ELSEWHERE_FIXTURE
+                  : req.url?.startsWith('/openproject')
+                    ? OP_FIXTURE
+                    : req.url?.startsWith('/frame-foreign')
+                      ? FOREIGN_FRAME_FIXTURE
+                      : req.url?.startsWith('/frame')
+                        ? FRAME_FIXTURE
+                        : FIXTURE;
 const fixture = createServer((req, res) => {
   // Issue #35: the two API paths, before anything is HTML. `/api/submit` answers 500 on purpose —
   // a failing POST with a status is the row an agent is looking for, and a page that answered 200

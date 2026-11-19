@@ -10,6 +10,7 @@ import versions from './unit/core/versions.test.ts';
 import withheld from './unit/core/withheld.test.ts';
 import oneTimeCode from './unit/core/one-time-code.test.ts';
 import find from './unit/core/find.test.ts';
+import pageText from './unit/core/page-text.test.ts';
 import recipes from './unit/core/recipes.test.ts';
 import policy from './unit/core/policy.test.ts';
 import protocol from './unit/core/protocol.test.ts';
@@ -90,6 +91,7 @@ run({
   versions,
   withheld,
   find,
+  pageText,
   oneTimeCode,
   recipes,
   policy,

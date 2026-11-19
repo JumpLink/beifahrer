@@ -14,6 +14,7 @@
 import { browser } from '@wxt-dev/browser';
 import {
   clipText,
+  controlText,
   downloadFilename,
   EXPECT_STATES,
   expectationOf,
@@ -29,6 +30,9 @@ import {
   queryMatches,
   resolveDownloadTarget,
   scriptError,
+  separatorOf,
+  TEXT_SKIPPED_TAGS,
+  TextBuilder,
   type ElementQuery,
   type ExpectRequest,
   type FoundElement,
@@ -421,75 +425,91 @@ function textOf(el: Element): string {
 }
 
 /**
- * The text of a page, in the order a person meets it.
+ * The text of a page, as a person reads it (issue: page_read returned script text, not the form).
  *
- * `body.innerText` stops at the shadow boundary, so a page built from web components would be read
- * as its own chrome with the interface missing. Each top-level block contributes its own text and
- * then whatever open shadow roots it hosts — a reader meets a block's text and the things that block
- * renders together. Only the roots' OWN children are taken: slotted content lives in the host's light
- * DOM, is already part of the block's text, and would otherwise be counted twice. A closed root
- * contributes nothing, for the same reason the walk cannot see it (issue #4).
+ * The old version took `textContent` of each top-level block. That is the DOM's text: inline
+ * `<script>` and `<style>` bodies count, so a Wiz/Angular page spent the whole `maxChars` budget on
+ * code before reaching the first heading, and neighbouring blocks were glued into one word. This walks
+ * the rendered tree instead and stops as soon as the budget is spent, so a huge page costs what the
+ * answer costs, not what the page weighs.
+ *
+ * Open shadow roots are entered where their host is; a closed root has no `shadowRoot` and stays
+ * closed (issue #4). Slotted light-DOM content is met through its `<slot>`, so it is counted once.
+ * Frames are not walked here: the background asks each frame and stitches the answers (issue #32).
  */
-function visibleText(): string {
-  const parts: string[] = [];
-  // One document per agent, so there is no marker here: the background introduces each frame's text
-  // when it stitches the answers, because two frames side by side produce two texts that are
-  // visually adjacent and not one text — running them together destroys the arrangement AND invents
-  // an order the page never had (issue #30).
-  for (const entry of documents()) parts.push(...documentText(entry.doc));
-  return parts
-    .filter((part) => part.trim())
-    .join('\n\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+function visibleText(maxChars: number): string {
+  const out = new TextBuilder(maxChars);
+  for (const entry of documents()) {
+    if (entry.doc.body) walkText(entry.doc.body, out, 0);
+  }
+  return out.toString();
 }
 
-/** The text of one document: its own blocks, and what its open shadow roots render. */
-function documentText(doc: Document): string[] {
-  const parts: string[] = [];
-  for (const node of doc.body?.childNodes ?? []) {
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as Element;
-      if (!visible(el)) continue;
-      parts.push(textOf(el));
-      for (const shadow of openRootsIn(el, 0)) {
-        for (const child of shadow.children) {
-          if (visible(child)) parts.push(textOf(child));
-        }
-      }
-    } else if (node.textContent?.trim()) {
-      parts.push(node.textContent);
-    }
+const MAX_TEXT_DEPTH = 500;
+
+function walkText(node: Node, out: TextBuilder, depth: number): void {
+  if (out.full || depth > MAX_TEXT_DEPTH) return;
+  if (node.nodeType === Node.TEXT_NODE) {
+    out.text(node.nodeValue ?? '');
+    return;
   }
-  return parts;
+  if (node.nodeType !== Node.ELEMENT_NODE) return;
+  const el = node as Element;
+  if (TEXT_SKIPPED_TAGS.has(el.tagName.toUpperCase())) return;
+  if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') return;
+  const style = getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden') return;
+
+  if (el.localName === 'br') {
+    out.block();
+    return;
+  }
+  const sep = separatorOf(style.display, el.localName.includes('-'), el.localName);
+  out.boundary(sep);
+  const control = controlOf(el);
+  if (control !== undefined) {
+    out.boundary('space');
+    if (control) out.text(control);
+    out.boundary('space');
+  } else {
+    for (const child of childrenToRead(el)) walkText(child, out, depth + 1);
+  }
+  out.boundary(sep);
 }
 
-/**
- * The open shadow roots inside a light-DOM subtree, INCLUDING the subtree's own element, in document
- * order.
- *
- * The element itself first, because that is the common case and the one `querySelectorAll('*')`
- * cannot answer: a host's shadow root is not a DESCENDANT in the light DOM, so searching only among
- * the children misses the root of the very element you started from — the one case that is not a
- * nested component at all.
- */
-function* openRootsIn(el: Element | ShadowRoot | Document, depth: number): Generator<ShadowRoot> {
-  if (depth >= MAX_SHADOW_DEPTH) return;
-  const host = 'shadowRoot' in el ? el : null;
-  if (host?.shadowRoot) {
-    yield host.shadowRoot;
-    yield* openRootsIn(host.shadowRoot, depth + 1);
+/** What is rendered inside an element: a host's shadow tree, a slot's assigned nodes, else its children. */
+function childrenToRead(el: Element): Node[] {
+  if (el.shadowRoot) return [...el.shadowRoot.childNodes];
+  if (el.localName === 'slot') {
+    const assigned = (el as HTMLSlotElement).assignedNodes({ flatten: true });
+    if (assigned.length) return assigned;
   }
-  for (const node of el.querySelectorAll('*')) {
-    const shadow = node.shadowRoot;
-    if (!shadow) continue;
-    yield shadow;
-    yield* openRootsIn(shadow, depth + 1);
-  }
+  return [...el.childNodes];
+}
+
+/** A form control's shown text ('' for none worth reading), or undefined when `el` is no control. */
+function controlOf(el: Element): string | undefined {
+  const tag = el.tagName.toUpperCase();
+  if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return undefined;
+  const field = el as HTMLInputElement & HTMLSelectElement;
+  return (
+    controlText({
+      tag,
+      type: tag === 'INPUT' ? (field.type ?? '').toLowerCase() : '',
+      // A password value is never even read: what is not read cannot leak through a later change.
+      value: tag === 'SELECT' || (field.type ?? '').toLowerCase() === 'password' ? '' : (field.value ?? ''),
+      checked: field.checked === true,
+      selected:
+        tag === 'SELECT' ? [...field.selectedOptions].map((o) => o.textContent?.trim() ?? '').join(', ') : '',
+      placeholder: el.getAttribute('placeholder') ?? '',
+      // A visible <label> already names the control; repeating aria-label would say it twice.
+      ariaLabel: field.labels?.length ? '' : (el.getAttribute('aria-label') ?? ''),
+    }) ?? ''
+  );
 }
 
 function read(maxChars: number): PageResponse {
-  const text = visibleText();
+  const text = visibleText(maxChars);
   const selection = window.getSelection()?.toString().trim() ?? '';
   return {
     ok: true,
