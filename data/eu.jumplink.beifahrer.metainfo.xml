@@ -117,6 +117,15 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="0.1.34" date="2026-11-19">
+      <description>
+        <ul>
+          <li>Agents can upload files on pages that open the file picker only on click</li>
+          <li>Page outlines list open dialogs first and name more buttons and fields</li>
+          <li>Agents can pick radio buttons whose circle is hidden behind a label</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.1.33" date="2026-11-19">
       <description>
         <ul>
