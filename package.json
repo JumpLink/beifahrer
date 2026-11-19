@@ -76,6 +76,7 @@
       ],
       "defaultLanguage": "en",
       "repository": "JumpLink/beifahrer",
+      "flatpark": "eu.jumplink.beifahrer",
       "icon": "data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg",
       "releaseAssets": true,
       "pageTranslations": "site/po",
