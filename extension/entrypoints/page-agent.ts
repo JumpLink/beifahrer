@@ -135,7 +135,9 @@ type Kind =
         | 'combobox'
         | 'file'
         | 'tab'
-        | 'menuitem';
+        | 'menuitem'
+        | 'listbox'
+        | 'option';
     };
 
 function kindOf(el: Element): Kind | null {
@@ -164,6 +166,8 @@ function kindOf(el: Element): Kind | null {
   if (role === 'checkbox') return { role: 'checkbox' };
   if (role === 'tab') return { role: 'tab' };
   if (role === 'menuitem') return { role: 'menuitem' };
+  if (role === 'listbox') return { role: 'listbox' };
+  if (role === 'option') return { role: 'option' };
   if (role === 'link') return { role: 'link' };
   return null;
 }
@@ -280,7 +284,15 @@ function describe(el: Element, kind: Kind): string {
     case 'combobox': {
       const select = el as HTMLSelectElement;
       const selected = select.selectedOptions?.[0]?.textContent ?? '';
-      return `combobox "${name}"${selected ? ` = "${clip(selected, 60)}"` : ''}`;
+      // An open ARIA combobox (mat-select and friends) keeps its options in an overlay elsewhere;
+      // saying so tells the agent to look for `option` lines rather than for a <select>.
+      const open = el.getAttribute('aria-expanded') === 'true' ? ' [expanded: see the option lines]' : '';
+      return `combobox "${name}"${selected ? ` = "${clip(selected, 60)}"` : ''}${open}`;
+    }
+    case 'option': {
+      const selected = el.getAttribute('aria-selected') === 'true' ? ' [selected]' : '';
+      const disabled = el.getAttribute('aria-disabled') === 'true' ? ' [disabled]' : '';
+      return `option "${name}"${selected}${disabled}`;
     }
     case 'file': {
       const input = el as HTMLInputElement;
@@ -977,11 +989,33 @@ function upload(ref: string, files: UploadFile[]): PageResponse {
   };
 }
 
+/**
+ * The press a pointer produces before the click. An option of a dropdown built from divs often acts
+ * on pointerdown/mousedown (Angular Material selects on mousedown, then click), so `click()` alone
+ * leaves it untouched.
+ */
+function pressLikePointer(el: Element): void {
+  const rect = el.getBoundingClientRect();
+  const at = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    clientX: rect.x + rect.width / 2,
+    clientY: rect.y + rect.height / 2,
+    button: 0,
+  };
+  el.dispatchEvent(new PointerEvent('pointerdown', { ...at, buttons: 1 }));
+  el.dispatchEvent(new MouseEvent('mousedown', { ...at, buttons: 1 }));
+  el.dispatchEvent(new PointerEvent('pointerup', at));
+  el.dispatchEvent(new MouseEvent('mouseup', at));
+}
+
 function click(ref: string): PageResponse {
   const el = byRef(ref);
   if (!el) return notFound(ref);
   (el as HTMLElement).scrollIntoView({ block: 'center', inline: 'center' });
   (el as HTMLElement).focus?.();
+  if (el.getAttribute('role') === 'option') pressLikePointer(el);
   (el as HTMLElement).click();
   return { ok: true, data: { ref } };
 }
@@ -1353,7 +1387,7 @@ function select(ref: string, values: string[], add: boolean): PageResponse {
       message:
         `${ref} is not a <select>, so it has no options to set. ` +
         (names ? `Its choices are: ${names}. ` : '') +
-        'Use page_click on the option — a dropdown built from divs changes only when it is clicked.',
+        'Click the combobox with page_click, then page_click the option (page_find role "option") — a dropdown built from divs changes only when it is clicked.',
     };
   }
   const wanted: HTMLOptionElement[] = [];

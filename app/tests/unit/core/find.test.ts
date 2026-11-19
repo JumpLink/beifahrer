@@ -162,6 +162,17 @@ export default async () => {
     });
   });
 
+  await describe('listbox roles', async () => {
+    await it('accepts option and listbox as roles and matches an option by name', async () => {
+      expect(typeof parseElementQuery({ role: 'option', name: 'Alpha' })).toBe('object');
+      expect(typeof parseElementQuery({ role: 'listbox' })).toBe('object');
+      expect(
+        queryMatches({ role: 'option', name: 'alp' }, { role: 'option', name: 'Alpha', text: 'Alpha' }),
+      ).toBe(true);
+      expect(queryMatches({ role: 'option' }, { role: 'button', name: 'Alpha', text: '' })).toBe(false);
+    });
+  });
+
   await describe('helpers', async () => {
     await it('normalizeText and describeQuery', async () => {
       expect(normalizeText('  A\n\tB  ')).toBe('a b');
