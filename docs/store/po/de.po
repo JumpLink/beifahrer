@@ -59,3 +59,18 @@ msgstr "Agent"
 
 msgid "automation"
 msgstr "Automatisierung"
+
+msgid "Beifahrer next to the page your agent works on"
+msgstr "Beifahrer neben der Seite, auf der dein Agent arbeitet"
+
+msgid "The toolbar popup shows the policy for the current site"
+msgstr "Das Popup zeigt die Richtlinie der aktuellen Website"
+
+msgid "Per-site policy in the options page"
+msgstr "Richtlinie pro Website in den Einstellungen"
+
+msgid "Confirmation before an action the policy does not pre-approve"
+msgstr "Bestätigung vor einer Aktion ohne Vorab-Freigabe"
+
+msgid "Your agent reads and acts on the page through Beifahrer"
+msgstr "Dein Agent liest und handelt über Beifahrer auf der Seite"

@@ -5,7 +5,7 @@
   "license": "AGPL-3.0-or-later",
   "homepage": "https://jumplink.eu/beifahrer/",
   "type": "module",
-  "description": "Beifahrer \u2014 let an AI agent ride along in the browser you already use (Firefox, Chromium), under a per-site policy you control. A WebExtension plus an MCP server that runs on GJS via gjsify.",
+  "description": "Beifahrer — let an AI agent ride along in the browser you already use (Firefox, Chromium), under a per-site policy you control. A WebExtension plus an MCP server that runs on GJS via gjsify.",
   "workspaces": [
     "packages/*",
     "app",
@@ -44,6 +44,14 @@
         ],
         "translations": "docs/store/po",
         "screenshots": "docs/store/screenshots",
+        "screenshotsDark": "docs/store/screenshots-dark",
+        "captions": {
+          "01-hero.png": "Beifahrer next to the page your agent works on",
+          "02-popup.png": "The toolbar popup shows the policy for the current site",
+          "03-options.png": "Per-site policy in the options page",
+          "04-confirm.png": "Confirmation before an action the policy does not pre-approve",
+          "05-agent-chat.png": "Your agent reads and acts on the page through Beifahrer"
+        },
         "icon": "data/icons/hicolor/scalable/apps/eu.jumplink.beifahrer.svg",
         "singlePurpose": "Lets the person's own AI agent use their own browser, under a per-site policy that the person sets and can pause at any time.",
         "permissions": {
@@ -63,7 +71,10 @@
         "category": {
           "cws": "Workflow & Planning",
           "edge": "Productivity"
-        }
+        },
+        "omit": [
+          "Works in Firefox and in Chromium-based browsers."
+        ]
       }
     },
     "site": {
