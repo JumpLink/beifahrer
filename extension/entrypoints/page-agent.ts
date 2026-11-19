@@ -41,6 +41,13 @@ import {
   type UploadFile,
 } from '@beifahrer/core';
 import { FRAME_HELLO } from '@beifahrer/core';
+import {
+  CHOOSER_ARMED,
+  CHOOSER_BOX,
+  CHOOSER_MARK,
+  installChooserHook,
+  type HookWindow,
+} from '../src/chooser-hook.ts';
 import { afterRepaint, hideNow, keepShown, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
@@ -73,11 +80,29 @@ const TEXT_INPUTS = new Set([
 
 const clip = clipText;
 
-function visible(el: Element): boolean {
-  if (el.closest('[aria-hidden="true"], [hidden]')) return false;
+function rendered(el: Element): boolean {
   if (el.getClientRects().length === 0) return false;
   const style = getComputedStyle(el);
   return style.visibility !== 'hidden' && style.display !== 'none';
+}
+
+/**
+ * Is this element on screen for a person? `inert` counts as hidden: an SPA that parks the previous
+ * view behind `inert` (or `aria-hidden`) leaves its DOM in place, and listing it would hand the
+ * agent controls nobody can use.
+ *
+ * A checkbox or radio is the one exception to "no box, not there": design systems (Fluent
+ * ChoiceGroup, Material) hide the real `<input>` with `display: none` or a zero box and draw a
+ * label in its place. The control is then as visible as its label is, and the label names it.
+ */
+function visible(el: Element): boolean {
+  if (el.closest('[aria-hidden="true"], [hidden], [inert]')) return false;
+  if (rendered(el)) return true;
+  return (
+    el instanceof HTMLInputElement &&
+    (el.type === 'radio' || el.type === 'checkbox') &&
+    Array.from(el.labels ?? []).some(rendered)
+  );
 }
 
 /**
@@ -123,7 +148,21 @@ function labelFor(el: Element): string {
   if (placeholder) return placeholder;
   const text = (el as HTMLElement).innerText;
   if (text?.trim()) return text;
-  return el.getAttribute('title') ?? el.getAttribute('name') ?? el.getAttribute('alt') ?? '';
+  const title = el.getAttribute('title');
+  if (title?.trim()) return title;
+  // An icon button: the words live in a visually-hidden span (`innerText` can come back empty for
+  // clipped text), an <img alt>, an SVG <title> or a child's aria-label. Fluent UI toolbars are
+  // built like this, and the result was `button ""`.
+  const inner = el.textContent?.trim();
+  if (inner) return inner;
+  const hint = el.querySelector('[aria-label], img[alt], svg title, [title]');
+  const hinted =
+    hint?.getAttribute('aria-label') ??
+    hint?.getAttribute('alt') ??
+    hint?.getAttribute('title') ??
+    hint?.textContent;
+  if (hinted?.trim()) return hinted;
+  return el.getAttribute('name') ?? el.getAttribute('alt') ?? '';
 }
 
 type Kind =
@@ -167,7 +206,8 @@ function kindOf(el: Element): Kind | null {
   if (html.isContentEditable && !html.parentElement?.isContentEditable) return { role: 'richtext' };
   if (tag === 'TEXTAREA' || role === 'textbox') return { role: 'textbox' };
   if (tag === 'SELECT' || role === 'combobox') return { role: 'combobox' };
-  if (role === 'checkbox') return { role: 'checkbox' };
+  if (role === 'checkbox' || role === 'switch') return { role: 'checkbox' };
+  if (role === 'radio') return { role: 'radio' };
   if (role === 'tab') return { role: 'tab' };
   if (role === 'menuitem') return { role: 'menuitem' };
   if (role === 'listbox') return { role: 'listbox' };
@@ -351,14 +391,47 @@ function* documents(): Generator<Doc> {
   yield { doc: document, depth: 0 };
 }
 
+/**
+ * The open modal dialog of a document, if any: the last visible `dialog[open]`, `role=dialog`,
+ * `role=alertdialog` or `aria-modal` element. Fluent UI and friends render it in a layer host at
+ * the END of `<body>`, so in document order it came last and, with a long page, past the item cap.
+ */
+function openModal(doc: Document): Element | null {
+  let found: Element | null = null;
+  for (const el of doc.querySelectorAll(
+    'dialog[open], [role="dialog"], [role="alertdialog"], [aria-modal="true"]',
+  ))
+    if (visible(el)) found = el;
+  return found;
+}
+
+function modalName(modal: Element): string {
+  const heading = modal.querySelector('h1, h2, h3, [role="heading"]')?.textContent?.trim();
+  const own = modal.getAttribute('aria-label') ?? '';
+  const by = modal.getAttribute('aria-labelledby') ? labelFor(modal) : '';
+  return clip((own || by || heading || '').trim().replace(/\s+/g, ' '), 80);
+}
+
+/** An open modal's controls first, then the rest of the page, each element once. */
+function* inDocument(doc: Document): Generator<{ el: Element; kind: Kind }> {
+  const modal = openModal(doc);
+  const seen = new Set<Element>();
+  if (modal)
+    for (const item of inTree(modal, doc, 0)) {
+      seen.add(item.el);
+      yield item;
+    }
+  for (const item of inTree(doc.body ?? doc.documentElement, doc, 0)) if (!seen.has(item.el)) yield item;
+}
+
 function* elements(): Generator<{ el: Element; kind: Kind }> {
-  for (const { doc } of documents()) yield* inTree(doc.body ?? doc.documentElement, doc, 0);
+  for (const { doc } of documents()) yield* inDocument(doc);
 }
 
 /** As `elements`, but each element with the document it lives in — what `outline` and `read` need. */
 function* elementsByDocument(): Generator<{ entry: Doc; el: Element; kind: Kind }> {
   for (const entry of documents()) {
-    for (const { el, kind } of inTree(entry.doc.body ?? entry.doc.documentElement, entry.doc, 0)) {
+    for (const { el, kind } of inDocument(entry.doc)) {
       yield { entry, el, kind };
     }
   }
@@ -380,6 +453,8 @@ function* inTree(root: ParentNode, doc: Document, depth: number): Generator<{ el
 function outline(maxItems: number): PageResponse {
   const lines: string[] = [];
   let truncated = false;
+  const modal = openModal(document);
+  if (modal) lines.push(`dialog "${modalName(modal)}" [modal: its controls are listed first]`);
   // One section per document, headed by the frame's URL rather than running the texts together. A
   // reader cannot see where one embedded document ends and the next begins, and with two frames side
   // by side there is nothing in the text that says which content belongs to which — so every ref in
@@ -456,7 +531,8 @@ function walkText(node: Node, out: TextBuilder, depth: number): void {
   if (node.nodeType !== Node.ELEMENT_NODE) return;
   const el = node as Element;
   if (TEXT_SKIPPED_TAGS.has(el.tagName.toUpperCase())) return;
-  if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') return;
+  if (el.hasAttribute('hidden') || el.hasAttribute('inert') || el.getAttribute('aria-hidden') === 'true')
+    return;
   const style = getComputedStyle(el);
   if (style.display === 'none' || style.visibility === 'hidden') return;
 
@@ -982,7 +1058,7 @@ function accepts(accept: string, name: string, mime: string): boolean {
  * set, then `input` and `change`. The bytes arrive from the bridge (ADR 0027) and are never
  * returned; the answer is name, size and type per file, as the PAGE now holds them.
  */
-function upload(ref: string, files: UploadFile[]): PageResponse {
+async function upload(ref: string, files: UploadFile[]): Promise<PageResponse> {
   const el = byRef(ref);
   if (!el) return notFound(ref);
   const { input, ambiguous } = fileInputLookup(el);
@@ -993,7 +1069,46 @@ function upload(ref: string, files: UploadFile[]): PageResponse {
       message: `${ref} is not a file field, and no single file field belongs to it`,
     };
   if (files.length === 0) return { ok: false, code: 'invalid', message: 'no files given' };
-  if (!input) return dropFiles(el, ref, files);
+  if (!input) {
+    const lazy = await openChooser(el);
+    if (!lazy) return dropFiles(el, ref, files);
+    try {
+      return fillInput(lazy, ref, files);
+    } finally {
+      lazy.removeAttribute(CHOOSER_MARK);
+      if (lazy.parentElement?.hasAttribute(CHOOSER_BOX)) lazy.parentElement.remove();
+    }
+  }
+  return fillInput(input, ref, files);
+}
+
+/**
+ * A button whose handler makes a file input on the spot and calls `input.click()` on it owns no field
+ * we could find. The page-world hook (chooser-hook.ts) keeps such a click from opening a chooser and
+ * parks the input in the DOM while the document is armed; this clicks the button and takes it.
+ * Chromium's hook is installed by the background (`world: MAIN`); Firefox's here, through the page's
+ * compartment. Null when the click produced no file input: then the element is a drop zone.
+ */
+async function openChooser(el: Element): Promise<HTMLInputElement | null> {
+  const page = (window as unknown as { wrappedJSObject?: unknown }).wrappedJSObject;
+  if (page) installChooserHook(page as HookWindow);
+  const root = document.documentElement;
+  root.setAttribute(CHOOSER_ARMED, '');
+  try {
+    (el as HTMLElement).scrollIntoView?.({ block: 'center', inline: 'center' });
+    (el as HTMLElement).click();
+    for (let i = 0; i < 6; i++) {
+      const got = document.querySelector<HTMLInputElement>(`input[type="file"][${CHOOSER_MARK}]`);
+      if (got) return got;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    return null;
+  } finally {
+    root.removeAttribute(CHOOSER_ARMED);
+  }
+}
+
+function fillInput(input: HTMLInputElement, ref: string, files: UploadFile[]): PageResponse {
   if (input.disabled) return { ok: false, code: 'invalid', message: 'the file field is disabled' };
   if (files.length > 1 && !input.multiple)
     return { ok: false, code: 'invalid', message: 'the file field takes one file, not several' };

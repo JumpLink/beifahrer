@@ -77,7 +77,7 @@ import { loadGrants, settle } from './grants.ts';
 import { networkAvailable, rowsOf } from './network.ts';
 import { listSources, searchSources, sourcesAvailable, textOf } from './sources.ts';
 import { savesAvailable, watchSaves, type Save } from './saves.ts';
-import { askPage, inject } from './inject.ts';
+import { askPage, inject, installChooserHookInPage } from './inject.ts';
 import { decodeQr, type QrCandidate } from './qr.ts';
 import { loadSettings, originPattern, saveSettings } from './settings.ts';
 import type { PageRequest } from './page-messages.ts';
@@ -1446,6 +1446,7 @@ const handlers: { [M in Method]: Handler<M> } = {
       const list = files.map((f) => `${f.name} (${Math.ceil(f.size / 1024)} KiB)`).join('\n');
       await confirmWrite(ctx, tabId, route.origin, 'upload', route.ref, list);
     }
+    await installChooserHookInPage(tabId, route.frame);
     return (await page(
       tabId,
       ctx,

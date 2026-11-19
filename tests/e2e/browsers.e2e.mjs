@@ -1413,6 +1413,51 @@ async function uploadScenario(browser) {
       !viaDrop.error && /"via":\s*"drop"/.test(viaDrop.text) && /"accepted":\s*true/.test(viaDrop.text),
       viaDrop.text.slice(0, 300),
     );
+    const lazyBtn = ref('button "Add Image"');
+    const viaLazy = lazyBtn ? await put(lazyBtn, ['d.pdf']) : { error: true, text: 'no Add Image button' };
+    check(
+      name,
+      'a button that makes its file input on click is filled as "input", not dropped',
+      !viaLazy.error && /"via":\s*"input"/.test(viaLazy.text) && /"accepted":\s*true/.test(viaLazy.text),
+      viaLazy.text.slice(0, 300),
+    );
+    check(
+      name,
+      'the page saw the lazy input change, and the chooser stub left nothing in the DOM',
+      /lazy:d\.pdf/.test(await events()),
+      (await events()).slice(-300),
+    );
+    const lines = outline.text.split('\n');
+    const dialogAt = lines.findIndex((l) => l.startsWith('dialog "Draft saved successfully"'));
+    check(
+      name,
+      'an open modal dialog is listed first, marked as dialog, with its buttons findable by name',
+      dialogAt > 0 &&
+        dialogAt < lines.findIndex((l) => /file "Single file"/.test(l)) &&
+        /button "Proceed anyway"/.test(outline.text) &&
+        /button "Close dialog"/.test(outline.text) &&
+        /button "Publish now"/.test(outline.text),
+      outline.text.slice(0, 500),
+    );
+    check(
+      name,
+      'radios whose input is display:none are found, named by their label',
+      /radio "Fluent choice A"/.test(outline.text) && /radio "Fluent choice B"/.test(outline.text),
+      outline.text.slice(0, 600),
+    );
+    const radios = await tool(a.client, 'page_find', { tabId, role: 'radio' });
+    check(
+      name,
+      'page_find role=radio returns them',
+      /Fluent choice A/.test(radios.text),
+      radios.text.slice(0, 300),
+    );
+    check(
+      name,
+      'an inert subtree is left out of the outline',
+      !/Old view button/.test(outline.text),
+      outline.text.slice(0, 300),
+    );
     const viaInput = /"via":\s*"input"/.test(viaShadow.text);
     check(
       name,
@@ -2841,7 +2886,7 @@ async function readText(browser, client) {
   check(
     browser,
     'page_read leaves out hidden nodes',
-    !/display-none-text|visibility-hidden-text|hidden-attr-text|aria-hidden-text/.test(t),
+    !/display-none-text|visibility-hidden-text|hidden-attr-text|inert-text|aria-hidden-text/.test(t),
     t.slice(0, 300),
   );
   check(browser, 'page_read never carries a password value', !/hunter2/.test(t), t.slice(0, 300));
@@ -4073,6 +4118,18 @@ const UPLOAD_FIXTURE = `<!doctype html><html><head><title>Upload</title></head><
 <button type="submit">Send upload</button>
 </form>
 <div id="zone" role="button" tabindex="0" style="border:1px dashed #888;padding:12px">Drop image here</div>
+<button type="button" id="lazy">Add Image</button>
+<fieldset><legend>Pick one</legend>
+<label for="ra" style="display:inline-block">Fluent choice A</label><input type="radio" name="fc" id="ra" style="display:none">
+<label for="rb" style="display:inline-block">Fluent choice B</label><input type="radio" name="fc" id="rb" style="display:none">
+</fieldset>
+<div id="old-view" inert><button type="button">Old view button</button><p>old-view-text</p></div>
+<div class="ms-Layer"><div role="alertdialog" aria-modal="true" aria-labelledby="dlg-title" id="dlg">
+<h2 id="dlg-title">Draft saved successfully</h2>
+<button type="button"><span id="lbl-proceed">Proceed anyway</span></button>
+<button type="button" aria-labelledby="lbl-close"><i></i></button><span id="lbl-close" hidden>Close dialog</span>
+<button type="button"><svg width="8" height="8"><title>Publish now</title></svg></button>
+</div></div>
 <p id="events"></p>
 <p id="result"></p>
 <script>
@@ -4093,6 +4150,15 @@ const UPLOAD_FIXTURE = `<!doctype html><html><head><title>Upload</title></head><
       log.textContent += type + ':' + e.target.id + ':' + [...e.target.files].map((f) => f.name + '/' + f.size).join(',') + '; ';
     }, true);
   // A drop zone with NO file field anywhere: the Chrome Web Store and Edge dashboards look like this.
+  // A button that makes its file input on click and never attaches it (React/Fluent uploaders).
+  document.getElementById('lazy').addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.addEventListener('change', () => {
+      log.textContent += 'lazy:' + [...input.files].map((f) => f.name + '/' + f.size).join(',') + '; ';
+    });
+    input.click();
+  });
   const zone = document.getElementById('zone');
   zone.addEventListener('dragover', (e) => e.preventDefault());
   zone.addEventListener('drop', async (e) => {
@@ -4146,7 +4212,7 @@ const READ_FIXTURE = `<!doctype html><html><head><title>Read text</title>
 <header><div>Dashboard</div><div>Entwickler</div></header>
 <h2>Produktdetails</h2>
 <div class="gone">display-none-text</div><div class="vh">visibility-hidden-text</div>
-<div hidden>hidden-attr-text</div><div aria-hidden="true">aria-hidden-text</div>
+<div hidden>hidden-attr-text</div><div inert>inert-text</div><div aria-hidden="true">aria-hidden-text</div>
 <noscript>noscript-text</noscript><template>template-text</template>
 <svg width="10" height="10"><text>svg-inner-text</text></svg>
 <div><label for="cat">Kategorie</label><select id="cat"><option>Werkzeuge</option><option selected>Produktivität</option></select></div>
