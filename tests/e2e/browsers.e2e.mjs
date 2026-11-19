@@ -140,6 +140,10 @@ const FIXTURE = `<!doctype html><html><head><title>Beifahrer fixture</title></he
 <div role="checkbox" tabindex="0" id="aria-box" aria-checked="false" aria-label="Aria switch">Aria switch</div>
 <form id="keyform" action="/submitted"><label for="keyform-note">Key form note</label><input id="keyform-note"><button type="submit">Key form apply</button></form>
 <p id="press-output"></p>
+<!-- A mat-select lookalike: role=combobox whose click appends an overlay to the END of body with a
+     role=listbox of role=option. An option commits only when mousedown came before click. -->
+<div id="mat" role="combobox" tabindex="0" aria-haspopup="listbox" aria-expanded="false" aria-label="Region">Pick one</div>
+<p id="mat-output"></p>
 <!-- Issue #35: what page_expect asserts on. Three shapes, and each one is a case the tool would get
      wrong on its own: a control ENABLED by something the page itself listens for, a control that
      HOLDS a value, and a spinner that comes back and goes away on its own — which is what makes
@@ -185,6 +189,36 @@ const FIXTURE = `<!doctype html><html><head><title>Beifahrer fixture</title></he
   document.getElementById('aria-box').addEventListener('click', (e) => {
     const box = e.currentTarget;
     box.setAttribute('aria-checked', box.getAttribute('aria-checked') === 'true' ? 'false' : 'true');
+  });
+  document.getElementById('mat').addEventListener('click', (e) => {
+    const box = e.currentTarget;
+    if (document.getElementById('mat-overlay')) return;
+    box.setAttribute('aria-expanded', 'true');
+    const overlay = document.createElement('div');
+    overlay.id = 'mat-overlay';
+    overlay.className = 'cdk-overlay-container';
+    const list = document.createElement('div');
+    list.setAttribute('role', 'listbox');
+    list.setAttribute('aria-label', 'Region choices');
+    for (const [label, state] of [['Alpha', ''], ['Beta', 'selected'], ['Gamma', 'disabled']]) {
+      const opt = document.createElement('div');
+      opt.setAttribute('role', 'option');
+      opt.setAttribute('aria-selected', state === 'selected' ? 'true' : 'false');
+      if (state === 'disabled') opt.setAttribute('aria-disabled', 'true');
+      opt.textContent = label;
+      let down = false;
+      opt.addEventListener('mousedown', () => { down = true; });
+      opt.addEventListener('click', () => {
+        if (!down) return;
+        box.textContent = label;
+        box.setAttribute('aria-expanded', 'false');
+        document.getElementById('mat-output').textContent = 'mat:' + label;
+        overlay.remove();
+      });
+      list.appendChild(opt);
+    }
+    overlay.appendChild(list);
+    document.body.appendChild(overlay);
   });
   document.getElementById('country').addEventListener('change', (e) => {
     document.getElementById('press-output').textContent = 'country:' + e.target.value;
@@ -1618,6 +1652,48 @@ async function savesScenario(browser) {
  * records what the page actually received, which is the only way to tell a real keypress from a
  * call that returned happily and changed nothing.
  */
+/** An ARIA combobox whose options live in an overlay at the end of body (Angular Material style). */
+async function listboxOptions(browser, client, allowed) {
+  const before = await tool(client, 'page_find', { tabId: allowed.tabId, role: 'option' });
+  check(
+    browser,
+    'no option is listed while the combobox is closed',
+    /"count":\s*0/.test(before.text),
+    before.text.slice(0, 200),
+  );
+  const combo = await tool(client, 'page_find', { tabId: allowed.tabId, role: 'combobox', name: 'Region' });
+  const comboRef = /"ref":\s*"(e\d+)"/.exec(combo.text)?.[1];
+  check(browser, 'page_find sees the ARIA combobox', !!comboRef, combo.text.slice(0, 200));
+  const sel = await tool(client, 'page_select', { tabId: allowed.tabId, ref: comboRef, values: ['Alpha'] });
+  check(
+    browser,
+    'page_select refuses it as not a <select>',
+    sel.error && /not a <select>/.test(sel.text),
+    sel.text.slice(0, 200),
+  );
+  const opened = await tool(client, 'page_click', { tabId: allowed.tabId, ref: comboRef });
+  check(browser, 'clicking the combobox opens the overlay', !opened.error, opened.text.slice(0, 200));
+  const outline = await tool(client, 'page_outline', { tabId: allowed.tabId, maxItems: 400 });
+  check(
+    browser,
+    'the outline lists the overlay options with their state',
+    /option "Alpha"/.test(outline.text) &&
+      /option "Beta" \[selected\]/.test(outline.text) &&
+      /option "Gamma" \[disabled\]/.test(outline.text),
+    outline.text.match(/option[^\n]*/g)?.join(' | ') ?? outline.text.slice(0, 200),
+  );
+  const found = await tool(client, 'page_find', { tabId: allowed.tabId, role: 'option', name: 'Alpha' });
+  const optRef = /"ref":\s*"(e\d+)"/.exec(found.text)?.[1];
+  check(browser, 'page_find finds the option by role and name', !!optRef, found.text.slice(0, 200));
+  const picked = await tool(client, 'page_click', { tabId: allowed.tabId, ref: optRef });
+  check(
+    browser,
+    'page_click on the option commits it (mousedown then click)',
+    !picked.error && /mat:Alpha/.test(await outputOf(client, allowed)),
+    picked.text.slice(0, 200),
+  );
+}
+
 async function keys(browser, client, allowed, ref) {
   const field = ref('Keyboard field');
   check(browser, 'the outline names the keyboard field', !!field, String(field));
@@ -3708,6 +3784,7 @@ async function scenario(browser, gate) {
     await framesAndOrigins(browser, client, allowed);
     await growingRows(browser, client);
     await keys(browser, client, allowed, ref);
+    await listboxOptions(browser, client, allowed);
     await assertions(browser, client, allowed, ref);
     await requests(browser, client, allowed, forbidden, ref);
     await sources(browser, client);

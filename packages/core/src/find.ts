@@ -24,6 +24,8 @@ export const FIND_ROLES = [
   'file',
   'tab',
   'menuitem',
+  'listbox',
+  'option',
 ] as const;
 
 export type FindRole = (typeof FIND_ROLES)[number];
