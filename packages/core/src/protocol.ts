@@ -330,7 +330,13 @@ export interface MethodMap {
    */
   'page.upload': {
     params: { tabId: number; ref: string; files: UploadFile[] };
-    result: { ref: string; files: UploadedFile[]; accepted: boolean };
+    result: {
+      ref: string;
+      /** `input`: a file field was filled. `drop`: no field belonged to the ref, so a drag-and-drop was sent. */
+      via: 'input' | 'drop';
+      files: UploadedFile[];
+      accepted: boolean;
+    };
   };
   /**
    * A key, or text typed one character at a time.

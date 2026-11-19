@@ -1405,7 +1405,28 @@ async function uploadScenario(browser) {
       !viaShadow.error && /"accepted":\s*true/.test(viaShadow.text),
       viaShadow.text.slice(0, 300),
     );
+    const dropZone = ref('button "Drop image here"');
+    const viaDrop = dropZone ? await put(dropZone, ['d.pdf']) : { error: true, text: 'no drop zone' };
+    check(
+      name,
+      'a drop zone with no file field gets the files as a drag-and-drop, and the answer says so',
+      !viaDrop.error && /"via":\s*"drop"/.test(viaDrop.text) && /"accepted":\s*true/.test(viaDrop.text),
+      viaDrop.text.slice(0, 300),
+    );
+    const viaInput = /"via":\s*"input"/.test(viaShadow.text);
+    check(
+      name,
+      'a file field is still filled as "input", not as a drop',
+      viaInput,
+      viaShadow.text.slice(0, 200),
+    );
     const after = await events();
+    check(
+      name,
+      "the page's drop listener saw event.dataTransfer.files",
+      after.includes(`drop:zone:d.pdf/${data['d.pdf'].length}`),
+      after.slice(-400),
+    );
     for (const [field, file, size] of [
       ['single', 'a.bin', 5000],
       ['multi', 'c.bin', 3001],
@@ -1425,9 +1446,9 @@ async function uploadScenario(browser) {
 
     const submitted = await answered(tool(a.client, 'page_click', { tabId, ref: send }), 'allow');
     let got = [];
-    for (let i = 0; i < 20 && got.length < 6; i++) {
+    for (let i = 0; i < 20 && got.length < 7; i++) {
       got = await sunk();
-      if (got.length < 6) await sleep(500);
+      if (got.length < 7) await sleep(500);
     }
     check(
       name,
@@ -1442,6 +1463,7 @@ async function uploadScenario(browser) {
       ['pdf', 'b.pdf'],
       ['hidden', 'd.pdf'],
       ['shadowed', 'd.pdf'],
+      ['dropped', 'd.pdf'],
     ];
     const mismatches = expected.filter(
       ([field, file]) =>
@@ -4050,6 +4072,7 @@ const UPLOAD_FIXTURE = `<!doctype html><html><head><title>Upload</title></head><
 <div id="shadowed-row"><x-browse></x-browse><input type="file" id="shadowed" name="shadowed" hidden></div>
 <button type="submit">Send upload</button>
 </form>
+<div id="zone" role="button" tabindex="0" style="border:1px dashed #888;padding:12px">Drop image here</div>
 <p id="events"></p>
 <p id="result"></p>
 <script>
@@ -4069,6 +4092,17 @@ const UPLOAD_FIXTURE = `<!doctype html><html><head><title>Upload</title></head><
       if (e.target.type !== 'file') return;
       log.textContent += type + ':' + e.target.id + ':' + [...e.target.files].map((f) => f.name + '/' + f.size).join(',') + '; ';
     }, true);
+  // A drop zone with NO file field anywhere: the Chrome Web Store and Edge dashboards look like this.
+  const zone = document.getElementById('zone');
+  zone.addEventListener('dragover', (e) => e.preventDefault());
+  zone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    const files = [...e.dataTransfer.files];
+    log.textContent += 'drop:zone:' + files.map((f) => f.name + '/' + f.size).join(',') + '; ';
+    const body = new FormData();
+    for (const f of files) body.append('dropped', f);
+    await fetch('/api/upload', { method: 'POST', body });
+  });
   document.getElementById('f').addEventListener('submit', async (e) => {
     e.preventDefault();
     const res = await fetch('/api/upload', { method: 'POST', body: new FormData(e.target) });
