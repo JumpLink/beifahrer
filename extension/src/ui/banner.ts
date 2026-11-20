@@ -11,7 +11,11 @@ import type { Adw } from '@gjsify/adwaita-web';
 import { t, type MessageKey } from '../i18n.ts';
 import { BANNERS, type Fix, type UiState } from './status.ts';
 
-const FIX_LABEL: Record<Fix, MessageKey> = { resume: 'action_resume', settings: 'action_settings' };
+const FIX_LABEL: Record<Fix, MessageKey> = {
+  resume: 'action_resume',
+  settings: 'action_settings',
+  app: 'action_get_app',
+};
 
 /**
  * Paint the banner for `state`. `can` is what the calling page can do about the state: the options

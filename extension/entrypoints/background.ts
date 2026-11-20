@@ -13,6 +13,7 @@ import { installSourcesWatch } from '../src/sources.ts';
 import { installAutosave } from '../src/sessions-store.ts';
 import { installToolbar } from '../src/toolbar.ts';
 import { DISCONNECT_MESSAGE } from '../src/ui/sessions.ts';
+import { installWelcome } from '../src/welcome.ts';
 
 // Every listener is registered synchronously, at the top level: an MV3 service worker that wakes
 // for an event only delivers it to listeners that exist before the first await.
@@ -22,6 +23,7 @@ installToolbar();
 installPauseCommand();
 installGrants();
 installE2eHooks();
+installWelcome();
 installFrameCleanup();
 installNetworkCleanup();
 // At LOAD, not when the feature is switched on: a `webRequest` listener added later is not reliably

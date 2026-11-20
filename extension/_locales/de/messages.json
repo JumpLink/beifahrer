@@ -63,16 +63,16 @@
     "message": "Der Agent hat das Token abgelehnt"
   },
   "banner_offline": {
-    "message": "Nicht verbunden. Bridge starten oder Kopplungs-Token in den Einstellungen prüfen."
+    "message": "Nicht verbunden. Ist die Beifahrer-App offen?"
   },
   "banner_protocol": {
     "message": "Erweiterung und Agent haben verschiedene Versionen"
   },
   "onboard_title": {
-    "message": "Mit deinem Agenten koppeln"
+    "message": "Beifahrer braucht seine App"
   },
   "onboard_description": {
-    "message": "Führe beifahrer token aus und füge die Ausgabe ein."
+    "message": "Installiere die kostenlose Beifahrer-App auf deinem Rechner und öffne sie. Dann koppelst du diesen Browser mit dem Token, das die App zeigt."
   },
   "site_title": {
     "message": "Diese Seite"
@@ -410,7 +410,7 @@
     "message": "Verbindung"
   },
   "pairing_info": {
-    "message": "Führe beifahrer token im Terminal aus und füge die Ausgabe ein."
+    "message": "Öffne die Beifahrer-App und füge das Kopplungs-Token ein, das sie zeigt."
   },
   "token_title": {
     "message": "Kopplungs-Token"
@@ -884,7 +884,7 @@
     "message": "Nicht sichtbar"
   },
   "diagram_fix_unpaired": {
-    "message": "Gib das Kopplungs-Token aus dem Beifahrer-Fenster ein."
+    "message": "Installiere und öffne die Beifahrer-App und gib dann das Kopplungs-Token ein, das sie zeigt."
   },
   "diagram_fix_unauthorized": {
     "message": "Gib das aktuelle Token aus dem Beifahrer-Fenster ein."
@@ -949,5 +949,14 @@
   },
   "history_scripts_note": {
     "message": "Der Verlauf behält nie, was getippt wurde oder welches Skript lief. Die Aktivitätsliste im Popup zeigt bis zum Schließen des Browsers eine kurze Vorschau. Um ein Skript vor dem Start zu sehen, lass die Rückfrage an."
+  },
+  "action_get_app": {
+    "message": "App holen"
+  },
+  "app_hint_title": {
+    "message": "Beifahrer-App"
+  },
+  "app_hint_subtitle": {
+    "message": "Kostenlos, läuft auf deinem Rechner"
   }
 }

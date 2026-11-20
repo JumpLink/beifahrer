@@ -64,16 +64,16 @@
     "message": "The agent refused the token"
   },
   "banner_offline": {
-    "message": "Not connected. Start a bridge, or check the pairing token in the settings."
+    "message": "Not connected. Is the Beifahrer app open?"
   },
   "banner_protocol": {
     "message": "Extension and agent versions differ"
   },
   "onboard_title": {
-    "message": "Pair with your agent"
+    "message": "Beifahrer needs its app"
   },
   "onboard_description": {
-    "message": "Run beifahrer token and paste what it prints."
+    "message": "Install the free Beifahrer app on your computer and open it. Then pair this browser with the token the app shows."
   },
   "site_title": {
     "message": "This site"
@@ -411,7 +411,7 @@
     "message": "Connection"
   },
   "pairing_info": {
-    "message": "Run beifahrer token in a terminal and paste what it prints."
+    "message": "Open the Beifahrer app and paste the pairing token it shows."
   },
   "token_title": {
     "message": "Pairing token"
@@ -885,7 +885,7 @@
     "message": "Not visible"
   },
   "diagram_fix_unpaired": {
-    "message": "Enter the pairing token from the Beifahrer window."
+    "message": "Install and open the Beifahrer app, then enter the pairing token it shows."
   },
   "diagram_fix_unauthorized": {
     "message": "Enter the current token from the Beifahrer window."
@@ -950,5 +950,14 @@
   },
   "history_scripts_note": {
     "message": "The history never keeps what was typed or which script ran. The activity list in the popup shows a short preview until the browser closes. To see a script before it runs, leave confirmation on."
+  },
+  "action_get_app": {
+    "message": "Get the app"
+  },
+  "app_hint_title": {
+    "message": "Beifahrer app"
+  },
+  "app_hint_subtitle": {
+    "message": "Free, runs on your computer"
   }
 }

@@ -102,9 +102,10 @@ export default async () => {
     await it('says nothing while nothing is wrong', async () => {
       for (const state of QUIET) expect(BANNERS[state]).toBe(undefined);
     });
-    await it('offers the resume for the pause and the settings for every missing bridge', async () => {
+    await it('offers the resume for the pause, the app for no bridge, the settings otherwise', async () => {
       expect(BANNERS.paused?.fix).toBe('resume');
-      expect(BANNERS.offline?.fix).toBe('settings');
+      // No bridge almost always means the app is not running or not installed yet.
+      expect(BANNERS.offline?.fix).toBe('app');
       expect(BANNERS.unauthorized?.fix).toBe('settings');
       expect(BANNERS.protocol?.fix).toBe('settings');
       // Never paired is the first run: the popup gives it its own page, not a strip above controls

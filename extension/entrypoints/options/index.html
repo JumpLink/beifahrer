@@ -26,6 +26,18 @@
 
       <section class="stack">
         <adw-preferences-group id="pairing" data-i18n-title="pairing_title">
+          <adw-action-row
+            id="app-hint"
+            data-i18n-title="app_hint_title"
+            data-i18n-subtitle="app_hint_subtitle"
+          >
+            <gtk-button
+              id="get-app"
+              slot="suffix"
+              valign="center"
+              data-i18n-label="action_get_app"
+            ></gtk-button>
+          </adw-action-row>
           <adw-password-entry-row id="token" data-i18n-title="token_title"></adw-password-entry-row>
         </adw-preferences-group>
         <div class="actions">
