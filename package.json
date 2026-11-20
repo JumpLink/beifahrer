@@ -116,7 +116,7 @@
           "platform": "chromium",
           "format": "store",
           "component": "extension",
-          "available": false
+          "url": "https://chromewebstore.google.com/detail/beifahrer/kochlkikhogkbpeiiemanlhfmlobinkj"
         },
         {
           "platform": "firefox",
