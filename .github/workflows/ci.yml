@@ -86,6 +86,76 @@ jobs:
           path: safari-native.tar
           if-no-files-found: error
 
+  # BUILDING.md, executed literally. AMO reviewers rebuild the add-on from GitHub's tag zipball,
+  # which holds only tracked files — so this job builds from `git archive`, not from the checkout,
+  # and a file the build needs but git does not track fails here instead of in review.
+  build-from-source-archive:
+    name: Build from source archive
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+    steps:
+      # Exactly the packages BUILDING.md names.
+      - name: Install system prerequisites (BUILDING.md)
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          gjs libsoup3 gdk-pixbuf2 librsvg2 glib2-devel unzip xz
+
+      # Not part of the reviewer's steps: this job needs git to make the archive and tar for the
+      # actions below.
+      - name: Install CI tooling
+        run: dnf install -y --setopt=install_weak_deps=False git tar findutils
+
+      - uses: actions/checkout@v4
+
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Make the source archive
+        run: |
+          set -eu
+          git archive --format=zip --prefix=beifahrer-src/ -o "$RUNNER_TEMP/source.zip" HEAD
+          mkdir "$RUNNER_TEMP/unpacked"
+          unzip -q "$RUNNER_TEMP/source.zip" -d "$RUNNER_TEMP/unpacked"
+
+      - name: Cache gjsify tarball store
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/gjsify/tarballs
+          key: gjsify-tarballs-${{ hashFiles('gjsify-lock.json') }}
+          restore-keys: gjsify-tarballs-
+
+      - name: Install the gjsify CLI (BUILDING.md)
+        working-directory: ${{ runner.temp }}/unpacked/beifahrer-src
+        run: |
+          VERSION=$(node -p "require('./app/package.json').devDependencies['@gjsify/cli']")
+          npm install -g "@gjsify/cli@$VERSION"
+
+      - name: Install dependencies (BUILDING.md)
+        working-directory: ${{ runner.temp }}/unpacked/beifahrer-src
+        run: gjsify install --immutable
+
+      - name: Build the extension zips (BUILDING.md)
+        working-directory: ${{ runner.temp }}/unpacked/beifahrer-src/extension
+        run: gjsify run zip
+
+      - name: Assert the AMO zip arrived
+        working-directory: ${{ runner.temp }}/unpacked/beifahrer-src
+        run: |
+          set -eu
+          ls -la extension/.output
+          version=$(node -p "require('./extension/package.json').version")
+          f="extension/.output/beifahrer-${version}-firefox-amo.zip"
+          if [ ! -s "$f" ]; then
+            echo "::error::missing or empty artifact: $f"
+            exit 1
+          fi
+
   build-and-test:
     needs: macos-safari-native
     runs-on: ubuntu-latest

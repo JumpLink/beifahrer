@@ -447,6 +447,9 @@ gjsify workspace beifahrer-app build:node     # app/dist/node/beifahrer.mjs, run
 gjsify workspace beifahrer-extension build    # extension/.output/<target>/, on GJS
 ```
 
+Building from a source archive (what store reviewers do) with exact versions and packages:
+[BUILDING.md](BUILDING.md).
+
 Every target is a folder and, with `--zip`, its own download: `chrome-mv3`, `edge-mv3`,
 `firefox-mv2`, `safari-mv3`. **Edge gets the `chrome-mv3` manifest unchanged** — one Chromium, one
 manifest — and reports itself as `Microsoft Edge` under the `chromium` family at runtime, so nothing
