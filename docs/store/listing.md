@@ -26,36 +26,16 @@ fields it leaves to a person:
 | Support email | *a person's address* |
 | Support website | <https://jumplink.eu/beifahrer/> is live; a dedicated support page or the issue tracker is a person's decision |
 | License | GNU Affero GPL v3.0 or later (`package.json` → `license`) |
-| "This add-on has a privacy policy" | tick, and paste [privacy.md](privacy.md) into the field. Beifahrer transmits nothing off the device, so the honest answer is the tick **and** the text; a policy that says "nothing" is still the clearest answer to a reviewer |
+| "This add-on has a privacy policy" | tick, and paste `amo/<lang>/privacy.txt` from the generator into the field. Its source is `privacySummary` in `package.json` (German in `po/de.po`); it links [privacy.md](privacy.md) for the full policy |
 | Experimental flag | *a person decides*; the honest answer today is yes. Beifahrer is `0.1.0`, and the flag is AMO's own reduced-visibility marker |
 | Add-on URL | assigned from the name; *a person may change it* |
 
 ### Notes for Reviewers
 
 AMO's form asks for what a reviewer needs, in plain text ([submitting an add-on](https://extensionworkshop.com/documentation/publish/submitting-an-add-on/)).
-A draft, for a person to check before pasting:
-
-> Beifahrer is a WebExtension plus a separate local bridge program. The extension is the add-on;
-> the bridge is not part of it and is not required for the add-on to install.
->
-> The extension has no network code except a WebSocket to `ws://127.0.0.1:<port>`, where `<port>` is
-> a port from a range the user configures in the options page (default 47813–47822). The server side
-> is a program the user runs themselves; it is not shipped with the add-on and there is no hosted
-> service. Firefox users who do not want to run anything get a toolbar button, a per-site policy
-> page, a per-site access level, and an in-page indicator — the extension is inert without the bridge.
->
-> The add-on requests no host permissions at install. `http://*/*`, `https://*/*` and `<all_urls>` are
-> optional host permissions, requested at the moment the user raises a level for a site, turns on
-> screenshots, or uses the temporary "all sites" grant. `webRequest` is an optional permission,
-> requested in the same click as the "See page requests" switch, which is off by default.
->
-> `browser_specific_settings.gecko.data_collection_permissions.required` is `["none"]`, matching
-> Mozilla's taxonomy. The only transmission the add-on makes is to the loopback socket above.
->
-> The add-on is not minified, and its source is the repository linked in the listing: the build is a
-> TypeScript bundle produced by `gjsify`. Build instructions, tested in CI on a source archive:
-> https://github.com/JumpLink/beifahrer/blob/main/BUILDING.md (also `BUILDING.md` in the source zip).
-> The upload is `extension/.output/beifahrer-<version>-firefox-amo.zip`.
+The text comes from `reviewerNotes` in `package.json` (German in [po/de.po](po/de.po)); the generator
+writes it to `amo/<lang>/reviewer-notes.txt` and `edge/<lang>/reviewer-notes.txt`. Change it there,
+not in the form.
 
 **A person must check the source-code answer before submitting.** AMO's policy requires a source
 package for code that is transpiled or minified, with build instructions
@@ -104,10 +84,10 @@ publishing, and the amount is set on the payment page in the dashboard.
 
 ### Edge's questions
 
-- **Certification notes.** The one free-text field Edge offers; the generator marks it `manual`.
-  A person writes it from the data-use answer above.
-- **Privacy statement in the form.** *A person's summary*; [privacy.md](privacy.md) is longer than the
-  field wants.
+- **Certification notes.** The one free-text field Edge offers; the generator fills it from
+  `reviewerNotes` (`edge/<lang>/reviewer-notes.txt`).
+- **Privacy statement in the form.** Paste `privacySummary` (the text in `amo/<lang>/privacy.txt`);
+  [privacy.md](privacy.md) is longer than the field wants.
 - **Support contact.** *A person's address.*
 - **Registration.** Edge states there is no registration fee and that the account needs a Microsoft
   account as its Primary Owner

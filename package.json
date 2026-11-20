@@ -25,8 +25,8 @@
     "test": "gjsify workspace beifahrer-app test"
   },
   "devDependencies": {
-    "@gjsify/cli": "0.64.50",
-    "@gjsify/site": "0.64.50"
+    "@gjsify/cli": "0.64.52",
+    "@gjsify/site": "0.64.52"
   },
   "gjsify": {
     "webext": {
@@ -74,7 +74,10 @@
         },
         "omit": [
           "Works in Firefox and in Chromium-based browsers."
-        ]
+        ],
+        "intro": "Beifahrer needs the free Beifahrer app on your computer: jumplink.eu/beifahrer",
+        "reviewerNotes": "No account is needed. The extension works together with the free Beifahrer desktop app, over a connection that stays on this computer (127.0.0.1). Without the app, the extension installs and its pages open, but it does nothing on websites.\n\nTo test:\n1. Install the app from https://jumplink.eu/beifahrer/ and open it.\n2. The app shows a pairing token. Paste it on the extension's options page.\n3. Open a website, click the Beifahrer toolbar button and choose an access level for that site.\n4. An AI agent connected to the app can now read that site, and act on it if you allowed that.\n\nNothing is sent off the device. The source code is public: https://github.com/JumpLink/beifahrer (build steps in BUILDING.md)",
+        "privacySummary": "Beifahrer collects no data and sends nothing off your device: no telemetry, no analytics, no account. The extension talks only to the Beifahrer app on your own computer (127.0.0.1). Your site rules, settings and pairing token stay in the browser's local storage. Page content goes only to the AI agent you connected yourself, and only from sites you allowed. Full privacy policy: https://jumplink.eu/beifahrer/en/privacy/"
       }
     },
     "site": {
