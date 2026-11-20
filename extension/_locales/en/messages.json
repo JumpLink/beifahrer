@@ -533,6 +533,9 @@
   "sites_title": {
     "message": "Sites"
   },
+  "site_restricted": {
+    "message": "Your browser does not let any extension work on this page."
+  },
   "sites_empty": {
     "message": "No sites yet"
   },

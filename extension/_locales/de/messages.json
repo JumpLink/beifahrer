@@ -532,6 +532,9 @@
   "sites_title": {
     "message": "Seiten"
   },
+  "site_restricted": {
+    "message": "Dein Browser lässt auf dieser Seite keine Erweiterung arbeiten."
+  },
   "sites_empty": {
     "message": "Noch keine Seiten"
   },

@@ -16,6 +16,9 @@ import { browser } from '@wxt-dev/browser';
 import {
   ALWAYS_CONFIRM,
   accessCheck,
+  isRestrictedUrl,
+  restrictedReason,
+  type BrowserFamily,
   MAX_WAIT_MS,
   REQUIRED_LEVEL,
   atLeast,
@@ -67,6 +70,7 @@ import {
   uploadRefusal,
 } from '@beifahrer/core';
 import { askForAccess } from './access-prompt.ts';
+import { browserInfo } from './browser-info.ts';
 import { track } from './activity.ts';
 import { askPerson, type ConfirmAnswer } from './confirm.ts';
 import { fail, MethodError } from './errors.ts';
@@ -184,16 +188,27 @@ export interface CallContext {
    * gate up to three times, and one call is one "once".
    */
   once?: Map<string, Level>;
+  /** The browser family, read once per call, so pages the browser closes to extensions are known. */
+  family?: BrowserFamily;
 }
 
-const accessOf = (ctx: CallContext): AccessContext =>
-  ctx.sessionId ? { now: Date.now(), session: ctx.sessionId } : { now: Date.now() };
+const accessOf = (ctx: CallContext): AccessContext => ({
+  now: Date.now(),
+  ...(ctx.sessionId ? { session: ctx.sessionId } : {}),
+  ...(ctx.family ? { family: ctx.family } : {}),
+});
 
 function refuse(
   method: Method,
-  decision: { origin: string | null; have: Level; need: Level; askable?: boolean },
+  decision: { origin: string | null; have: Level; need: Level; askable?: boolean; restricted?: boolean },
 ): never {
   const where = decision.origin ?? 'this page';
+  if (decision.restricted)
+    return fail('forbidden', restrictedReason(decision.origin, method), {
+      origin: decision.origin,
+      have: decision.have,
+      need: decision.need,
+    });
   return fail(
     'forbidden',
     !decision.origin
@@ -290,9 +305,20 @@ async function page(
 ): Promise<Record<string, unknown>> {
   // The session names itself on the in-page pill.
   const ask = ctx.session ? { ...req, session: ctx.session } : req;
-  const res = await askPage(tabId, ask, frame).catch((err: Error) =>
-    fail('failed', `could not reach the page: ${err.message}`),
-  );
+  const res = await askPage(tabId, ask, frame).catch(async (err: Error) => {
+    // Firefox words a restricted page as a missing host permission, which sends an agent looking
+    // for a permission nobody can give. Only on a host on the browser's list: anywhere else the
+    // same words mean the person's grant is really missing.
+    if (/Missing host permission/i.test(err.message)) {
+      const url = await getTab(tabId).then(
+        (t) => t.url,
+        () => undefined,
+      );
+      if (isRestrictedUrl(ctx.family, url))
+        return fail('forbidden', restrictedReason(originOf(url), req.beifahrer));
+    }
+    return fail('failed', `could not reach the page: ${err.message}`);
+  });
   if (!res)
     return fail('not_found', frame === 0 ? 'the page did not answer' : `frame ${frame} did not answer`);
   if (!res.ok) return fail(res.code, res.message);
@@ -1850,6 +1876,7 @@ export async function runMethod(method: Method, params: unknown, ctx: CallContex
         pre.code === 'feature_disabled' ? { feature: pre.feature } : {},
       );
     }
+    ctx.family ??= (await browserInfo()).family;
     const handler = handlers[method] as Handler<Method>;
     // The temporary grants join the stored policy here, in the background that owns them.
     const withGrants: Policy = { ...policy, grants: await loadGrants() };

@@ -10,6 +10,8 @@ import {
   withRule,
   withRuleQuiet,
   withoutRule,
+  isRestrictedUrl,
+  type BrowserFamily,
   type Level,
   type Method,
   type SavedSession,
@@ -92,6 +94,7 @@ const status = async () => (await browser.runtime.sendMessage({ type: 'status' }
 
 let state: UiState = 'unpaired';
 let browserName = '';
+let family: BrowserFamily | undefined;
 
 // The artwork has its own `#pause` node, so the pause switch is `#pause-row`, never `#pause`.
 // "Pair" here is the token row on this very page; "resume" clears the pause.
@@ -160,8 +163,16 @@ async function renderSites(): Promise<void> {
     row.setAttribute('title', origin);
     row.model = optionList(SITE_CHOICES.map(([value, label]) => ({ value, label: t(label) })));
     group.addRow(row);
+    // The stored level stays (it is not deleted) but is ignored: the row is shown as it is, locked,
+    // with the reason, instead of offering a choice nobody can honour.
+    const restricted = isRestrictedUrl(family, `${origin}/`);
+    if (restricted) row.setAttribute('subtitle', t('site_restricted'));
     row.selectedValue =
       rule.level === 'write' ? (rule.confirmWrites === false ? 'write-silent' : 'write') : rule.level;
+    if (restricted) {
+      row.setAttribute('sensitive', 'false');
+      continue;
+    }
     // `notify::selected` fires for the person's pick only, never for the line above.
     row.addEventListener('notify::selected', async () => {
       const v = row.selectedValue;
@@ -554,10 +565,9 @@ function renderRange(): void {
 }
 
 async function main(): Promise<void> {
-  browserName = await browserInfo().then(
-    (i) => i.name,
-    () => '',
-  );
+  const info = await browserInfo().catch(() => undefined);
+  browserName = info?.name ?? '';
+  family = info?.family;
   const settings = await loadSettings();
   $<Adw.PasswordEntryRow>('token').text = settings.token;
   $<Adw.SpinRow>('port').value = settings.port;
