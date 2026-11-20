@@ -155,24 +155,34 @@ const SITE_CHOICES: [value: string, label: MessageKey][] = [
 async function renderSites(): Promise<void> {
   const { policy, features } = await loadSettings();
   const group = $<Adw.PreferencesGroup>('sites');
-  for (const old of group.querySelectorAll('adw-combo-row, [data-script-quiet]')) old.remove();
+  for (const old of group.querySelectorAll('adw-combo-row, [data-script-quiet], [data-restricted]'))
+    old.remove();
   const entries = Object.entries(policy.origins).sort(([a], [b]) => a.localeCompare(b));
   markEmpty(group, entries.length === 0 ? t('sites_empty') : null);
   for (const [origin, rule] of entries) {
+    // The browser closes this site to every extension, so its stored level is ignored: no level
+    // to pick, only the reason and a way to forget the rule.
+    if (isRestrictedUrl(family, `${origin}/`)) {
+      const closed = document.createElement('adw-action-row') as Adw.ActionRow;
+      closed.setAttribute('data-restricted', origin);
+      closed.setAttribute('title', origin);
+      closed.setAttribute('subtitle', t('site_restricted'));
+      closed.append(
+        button(t('site_level_remove'), async () => {
+          const current = await loadSettings();
+          await saveSettings({ policy: withoutRule(current.policy, origin) });
+          await renderSites();
+        }),
+      );
+      group.addRow(closed);
+      continue;
+    }
     const row = document.createElement('adw-combo-row') as Adw.ComboRow;
     row.setAttribute('title', origin);
     row.model = optionList(SITE_CHOICES.map(([value, label]) => ({ value, label: t(label) })));
     group.addRow(row);
-    // The stored level stays (it is not deleted) but is ignored: the row is shown as it is, locked,
-    // with the reason, instead of offering a choice nobody can honour.
-    const restricted = isRestrictedUrl(family, `${origin}/`);
-    if (restricted) row.setAttribute('subtitle', t('site_restricted'));
     row.selectedValue =
       rule.level === 'write' ? (rule.confirmWrites === false ? 'write-silent' : 'write') : rule.level;
-    if (restricted) {
-      row.setAttribute('sensitive', 'false');
-      continue;
-    }
     // `notify::selected` fires for the person's pick only, never for the line above.
     row.addEventListener('notify::selected', async () => {
       const v = row.selectedValue;
