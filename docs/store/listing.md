@@ -53,13 +53,15 @@ A draft, for a person to check before pasting:
 > Mozilla's taxonomy. The only transmission the add-on makes is to the loopback socket above.
 >
 > The add-on is not minified, and its source is the repository linked in the listing: the build is a
-> TypeScript bundle produced by `gjsify`, with the sources and the build steps in the repository.
+> TypeScript bundle produced by `gjsify`. Build instructions, tested in CI on a source archive:
+> https://github.com/JumpLink/beifahrer/blob/main/BUILDING.md (also `BUILDING.md` in the source zip).
+> The upload is `extension/.output/beifahrer-<version>-firefox-amo.zip`.
 
 **A person must check the source-code answer before submitting.** AMO's policy requires a source
 package for code that is transpiled or minified, with build instructions
 ([add-on policies §3](https://extensionworkshop.com/documentation/publish/add-on-policies/)). The
 `Reviewers may ask you to refactor parts of the code if it is not reviewable` sentence in that
-paragraph is not decorative. Beifahrer's bundle is a real build, and the repository is public (`gh repo view --json visibility`), so the answer is "yes, source in the repository, here is the build".
+paragraph is not decorative. Beifahrer's bundle is a real build, and the repository is public (`gh repo view --json visibility`), so the answer is "yes, source in the repository, here is the build". The steps live in [BUILDING.md](../../BUILDING.md), and the CI job `Build from source archive` runs them on every PR — point reviewers there rather than re-explaining.
 
 ### Two AMO facts worth knowing before the review
 
