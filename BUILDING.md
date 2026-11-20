@@ -54,8 +54,8 @@ cd extension && gjsify run zip    # bundles and packs every target
 | `beifahrer-<version>-edge-mv3.zip` | Microsoft Edge Add-ons |
 | `beifahrer-<version>-safari-mv3.zip` | Safari web-extension sources (the app wrapper needs macOS and Xcode) |
 
-The extension's version is `version` in `extension/package.json`. The add-on is not minified: the
-bundle is TypeScript compiled and joined by `gjsify`.
+The extension's version is `version` in `extension/package.json`. The bundles in the zips are
+minified by `gjsify` (rolldown); the readable sources are the TypeScript files in this archive.
 
 ## Compare with a release asset
 
