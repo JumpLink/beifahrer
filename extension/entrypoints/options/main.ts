@@ -30,6 +30,7 @@ import {
 } from '../../src/sessions-store.ts';
 import { loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
 import { renderBanner } from '../../src/ui/banner.ts';
+import { siteUrl } from '../../src/ui/site-links.ts';
 import {
   hoverText,
   loadActivity,
@@ -46,7 +47,7 @@ import { scriptQuietControl } from '../../src/ui/script-quiet.ts';
 import { Diagram, diagramOf } from '../../src/ui/diagram.ts';
 import { browserInfo } from '../../src/browser-info.ts';
 import { infoButton } from '../../src/ui/info.ts';
-import { stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
+import { BANNERS, stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
 import { optionList } from '../../src/ui/option-list.ts';
 import { showToast } from '../../src/ui/toast.ts';
 import { reportPageScheme } from '../../src/scheme.ts';
@@ -119,7 +120,7 @@ async function renderState(): Promise<void> {
 
   // The shared banner (src/ui/banner.ts). This page is where the token and the versions are, so the
   // only fix it can offer here is the one the pause needs.
-  renderBanner($<Adw.Banner>('banner'), state, (fix) => fix === 'resume');
+  renderBanner($<Adw.Banner>('banner'), state, (fix) => fix === 'resume' || fix === 'app');
   renderActivity($<Adw.PreferencesGroup>('activity'), activity.log);
   markEmpty($<Adw.PreferencesGroup>('activity'), activity.log.length === 0 ? t('activity_empty') : null);
 }
@@ -135,6 +136,7 @@ async function setupPause(): Promise<void> {
     await renderState();
   });
   $('banner').addEventListener('button-clicked', async () => {
+    if (BANNERS[state]?.fix === 'app') return void browser.tabs.create({ url: siteUrl(uiLanguage()) });
     if (state !== 'paused') return;
     await saveSettings({ paused: false });
     await renderState();
@@ -585,6 +587,7 @@ async function main(): Promise<void> {
   renderRange();
   for (const id of ['port', 'port-count']) $(id).addEventListener('notify::value', renderRange);
   $('save').addEventListener('click', () => void connect());
+  $('get-app').addEventListener('click', () => void browser.tabs.create({ url: siteUrl(uiLanguage()) }));
 
   $('pause-row').append(prefixIcon('media-playback-pause-symbolic'));
   $('confirm-close').append(prefixIcon('window-close-symbolic'));
@@ -647,10 +650,8 @@ async function main(): Promise<void> {
 }
 
 function setupLegalLinks(): void {
-  const lang = uiLanguage().toLowerCase().startsWith('de') ? 'de' : 'en';
-  const base = `https://jumplink.eu/beifahrer/${lang}`;
-  (document.getElementById('privacy-link') as HTMLAnchorElement).href = `${base}/privacy/`;
-  (document.getElementById('legal-link') as HTMLAnchorElement).href = `${base}/legal-notice/`;
+  (document.getElementById('privacy-link') as HTMLAnchorElement).href = siteUrl(uiLanguage(), 'privacy/');
+  (document.getElementById('legal-link') as HTMLAnchorElement).href = siteUrl(uiLanguage(), 'legal-notice/');
 }
 
 setupLegalLinks();

@@ -210,6 +210,14 @@ body.popup {
   padding-top: var(--spacing-xs);
 }
 
+/* First run: get the app first, pair second; stacked so both labels fit at popup width. */
+.onboard-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-s);
+}
+
 .site-level {
   display: flex;
   flex-direction: column;

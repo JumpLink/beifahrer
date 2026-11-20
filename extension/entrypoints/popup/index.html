@@ -26,7 +26,10 @@
         data-i18n-description="onboard_description"
         hidden
       >
-        <gtk-button id="pair" pill suggested data-i18n-label="action_pair"></gtk-button>
+        <div class="onboard-actions">
+          <gtk-button id="get-app" pill suggested data-i18n-label="action_get_app"></gtk-button>
+          <gtk-button id="pair" pill data-i18n-label="action_pair"></gtk-button>
+        </div>
       </adw-status-page>
 
       <div id="main" class="stack">

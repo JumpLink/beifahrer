@@ -12,7 +12,7 @@ import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../../src/bridge-client.ts';
 import { GRANTS_MESSAGE, type WideDuration, type WideView } from '../../src/grants-messages.ts';
 import { browserInfo } from '../../src/browser-info.ts';
-import { t, type MessageKey } from '../../src/i18n.ts';
+import { t, uiLanguage, type MessageKey } from '../../src/i18n.ts';
 import { WILDCARD_PATTERNS, loadSettings, originPattern, saveSettings } from '../../src/settings.ts';
 import { reportPageScheme } from '../../src/scheme.ts';
 import { openOptions as openOptionsPage } from '../../src/ui/open-options.ts';
@@ -25,7 +25,8 @@ import {
   type ActivitySnapshot,
 } from '../../src/ui/features.ts';
 import { scriptQuietControl, type ScriptQuietControl } from '../../src/ui/script-quiet.ts';
-import { stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
+import { BANNERS, stateOf, STATE_WORDS, type UiState } from '../../src/ui/status.ts';
+import { siteUrl } from '../../src/ui/site-links.ts';
 import { optionList } from '../../src/ui/option-list.ts';
 import { showToast } from '../../src/ui/toast.ts';
 import { renderSessions } from '../../src/ui/sessions.ts';
@@ -201,6 +202,12 @@ async function main(): Promise<void> {
   if (info.family === 'safari') $('wide').hidden = true;
 
   const openOptions = (hash = '') => void openOptionsPage(browser, hash);
+  // The app's page, with its downloads. The popup closes like it does for the options.
+  const openAppPage = () =>
+    void browser.tabs
+      .create({ url: siteUrl(uiLanguage()) })
+      .catch(() => undefined)
+      .then(() => window.close());
 
   wideLevel.model = optionList([
     { value: 'read', label: t('level_read') },
@@ -329,8 +336,10 @@ async function main(): Promise<void> {
 
   $('options').addEventListener('activated', () => openOptions());
   $('pair').addEventListener('click', () => openOptions());
+  $('get-app').addEventListener('click', openAppPage);
   $('banner').addEventListener('button-clicked', () => {
     if (state === 'paused') void setPaused(false);
+    else if (BANNERS[state]?.fix === 'app') openAppPage();
     else openOptions();
   });
 }

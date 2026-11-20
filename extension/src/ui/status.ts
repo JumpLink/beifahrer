@@ -75,20 +75,20 @@ export function heroIcon(state: UiState, wide = false): ToolbarIcon {
 export type Severity = 'error' | 'warning';
 
 /** The one action that fixes the state; a page offers it only if it has that control. */
-export type Fix = 'resume' | 'settings';
+export type Fix = 'resume' | 'settings' | 'app';
 
 /**
  * The banner speaks only when something is not normal, with the one action that fixes it.
  *
  * `unpaired` is missing on purpose: never paired is the first run, and the popup shows it as a
  * compact status page with one button (ADR 0009) rather than a strip above controls that cannot do
- * anything yet. `offline` is here because an extension with no bridge does nothing at all, which
- * the person has to fix in the options (the token) or in their agent (start the bridge), so it
- * gets the loudest thing there is where ADR 0009's "no agent running" stayed quiet.
+ * anything yet. `offline` is here because an extension with no bridge does nothing at all, so it
+ * gets the loudest thing there is where ADR 0009's "no agent running" stayed quiet. Its fix is the
+ * app: no bridge almost always means the Beifahrer app is not running, or not installed yet.
  */
 export const BANNERS: Partial<Record<UiState, { title: MessageKey; fix: Fix; severity: Severity }>> = {
   paused: { title: 'state_paused', fix: 'resume', severity: 'warning' },
-  offline: { title: 'banner_offline', fix: 'settings', severity: 'error' },
+  offline: { title: 'banner_offline', fix: 'app', severity: 'error' },
   unauthorized: { title: 'banner_unauthorized', fix: 'settings', severity: 'error' },
   protocol: { title: 'banner_protocol', fix: 'settings', severity: 'error' },
 };
