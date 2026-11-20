@@ -215,11 +215,10 @@ async function storedAccent(worker) {
   return res.nothing ?? res.result?.result?.value ?? 'no answer';
 }
 
-/** Chromium: over the DevTools endpoint the e2e already opened. */
-export async function chromiumPages(check, devtoolsPort, shotsDir) {
+/** The beifahrer service worker over DevTools, or null: the one whose manifest has a default_locale. */
+async function findWorker(check, devtoolsPort) {
   const list = () => fetch(`http://127.0.0.1:${devtoolsPort}/json/list`).then((r) => r.json());
-  // The beifahrer worker is the one whose manifest has a default_locale; component extensions
-  // (Chromium ships a few, some with a `background.js` too) have none.
+  // Component extensions (Chromium ships a few, some with a `background.js` too) have no default_locale.
   let worker = null;
   for (const t of (await list()).filter((x) => x.type === 'service_worker')) {
     const c = await rpc(t.webSocketDebuggerUrl);
@@ -231,6 +230,13 @@ export async function chromiumPages(check, devtoolsPort, shotsDir) {
     else c.close();
   }
   check('chromium', 'ui: the extension service worker is reachable', worker !== null);
+  return worker;
+}
+
+/** Chromium: over the DevTools endpoint the e2e already opened. */
+export async function chromiumPages(check, devtoolsPort, shotsDir) {
+  const list = () => fetch(`http://127.0.0.1:${devtoolsPort}/json/list`).then((r) => r.json());
+  const worker = await findWorker(check, devtoolsPort);
   if (!worker) return;
   // Not `new URL(…).origin`: for a non-special scheme like chrome-extension: that is "null".
   const base = /^chrome-extension:\/\/[a-p]{32}/.exec(worker.target.url)?.[0];
@@ -297,7 +303,7 @@ export async function chromiumPages(check, devtoolsPort, shotsDir) {
   worker.c.close();
 }
 
-async function screenshots(c, page, dir) {
+async function screenshots(c, page, dir, { width = WIDTH[page], name = page, clipTo } = {}) {
   for (const scheme of ['light', 'dark']) {
     await c.send('Emulation.setEmulatedMedia', {
       features: [{ name: 'prefers-color-scheme', value: scheme }],
@@ -311,18 +317,163 @@ async function screenshots(c, page, dir) {
       })
     ).result.result.value;
     await c.send('Emulation.setDeviceMetricsOverride', {
-      width: WIDTH[page],
+      width,
       height,
       deviceScaleFactor: SHOT_SCALE,
       mobile: false,
     });
     await sleep(200);
-    const shot = await c.send('Page.captureScreenshot', {
-      format: 'png',
-      clip: { x: 0, y: 0, width: WIDTH[page], height, scale: 1 },
-    });
-    writeFileSync(join(dir, `${page}-${scheme}.png`), Buffer.from(shot.result.data, 'base64'));
+    // A crop is of one element, with a little air around it.
+    let clip = { x: 0, y: 0, width, height, scale: 1 };
+    if (clipTo) {
+      const r = (
+        await c.send('Runtime.evaluate', {
+          returnByValue: true,
+          expression: `(() => { const b = document.querySelector(${JSON.stringify(clipTo)}).getBoundingClientRect(); return { x: b.left, y: b.top, width: b.width, height: b.height }; })()`,
+        })
+      ).result.result.value;
+      clip = {
+        x: Math.max(0, r.x - 12),
+        y: Math.max(0, r.y - 12),
+        width: Math.min(width, r.width + 24),
+        height: r.height + 24,
+        scale: 1,
+      };
+    }
+    const shot = await c.send('Page.captureScreenshot', { format: 'png', clip });
+    writeFileSync(join(dir, `${name}-${scheme}.png`), Buffer.from(shot.result.data, 'base64'));
   }
+}
+
+/**
+ * A page the browser closes to every extension, as the person meets it: the active tab is on the
+ * Chrome Web Store and the policy holds a rule for that origin (the e2e build seeds it). The page
+ * need not load (the e2e has no network); the tab's URL is all the popup reads.
+ *
+ * Proves the popup says so instead of offering a level, and the options page shows the stored
+ * rule as a closed row with Remove, which forgets it.
+ */
+export async function chromiumRestricted(check, devtoolsPort, shotsDir, fixtureOrigin, storeUrl) {
+  const list = () => fetch(`http://127.0.0.1:${devtoolsPort}/json/list`).then((r) => r.json());
+  const worker = await findWorker(check, devtoolsPort);
+  if (!worker) return;
+  const base = /^chrome-extension:\/\/[a-p]{32}/.exec(worker.target.url)?.[0];
+  const inWorker = async (expression) =>
+    (await worker.c.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })).result
+      ?.result?.value;
+  const storeOrigin = new URL(storeUrl).origin;
+
+  await inWorker(
+    `chrome.tabs.query({ url: ${JSON.stringify(`${fixtureOrigin}/*`)} }).then((t) => chrome.tabs.update(t[0].id, { url: ${JSON.stringify(storeUrl)}, active: true })).then(() => 'ok')`,
+  );
+  let active = '';
+  for (let i = 0; i < 40 && !active.startsWith(storeOrigin); i++) {
+    await sleep(250);
+    active =
+      (await inWorker(
+        "chrome.tabs.query({ active: true, lastFocusedWindow: true }).then((t) => t[0]?.url ?? '')",
+      )) ?? '';
+  }
+  check(
+    'chromium',
+    'restricted: the active tab is on the closed site',
+    active.startsWith(storeOrigin),
+    active,
+  );
+
+  const open = async (page) => {
+    const url = `${base}/${page}.html`;
+    await inWorker(`chrome.tabs.create({ url: ${JSON.stringify(url)}, active: false }).then(() => 'ok')`);
+    let target;
+    for (let i = 0; i < 40 && !target; i++) {
+      await sleep(250);
+      target = (await list()).find((t) => t.type === 'page' && t.url === url);
+    }
+    if (!target) return null;
+    const c = await rpc(target.webSocketDebuggerUrl);
+    await c.send('Runtime.enable');
+    await c.send('Page.enable');
+    await c.send('Emulation.setDeviceMetricsOverride', {
+      width: 390,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    const before = contextIds(c);
+    await c.send('Page.reload');
+    await reloaded(c, before);
+    return c;
+  };
+  const ask = async (c, expression, done) => {
+    let last = '';
+    for (let i = 0; i < 40; i++) {
+      last =
+        (await c.send('Runtime.evaluate', { expression, returnByValue: true })).result?.result?.value ?? '';
+      if (done(last)) break;
+      await sleep(250);
+    }
+    return last;
+  };
+  const close = (page) =>
+    inWorker(
+      `chrome.tabs.query({ url: ${JSON.stringify(`${base}/${page}.html*`)} }).then((t) => chrome.tabs.remove(t.map((x) => x.id)))`,
+    );
+
+  const popup = await open('popup');
+  check('chromium', 'restricted: popup.html opens', popup !== null);
+  if (popup) {
+    const raw = await ask(
+      popup,
+      `JSON.stringify({ note: document.getElementById('site-restricted')?.hidden === false, noteText: document.getElementById('site-restricted')?.getAttribute('title') ?? '', levelsHidden: document.getElementById('levels')?.hidden === true })`,
+      (v) => v.includes('"note":true'),
+    );
+    const r = JSON.parse(raw || '{}');
+    check(
+      'chromium',
+      'restricted: popup shows the reason and hides the level choice',
+      r.note === true && r.levelsHidden === true && r.noteText.length > 0,
+      raw,
+    );
+    if (shotsDir) await screenshots(popup, 'popup', shotsDir, { width: 390, name: 'popup-restricted' });
+    popup.close();
+    await close('popup');
+  }
+
+  const options = await open('options');
+  check('chromium', 'restricted: options.html opens', options !== null);
+  if (options) {
+    const rows = `JSON.stringify({ rows: [...document.querySelectorAll('#sites [data-restricted]')].map((e) => e.getAttribute('data-restricted')), subtitle: document.querySelector('#sites [data-restricted]')?.getAttribute('subtitle') ?? '', combos: [...document.querySelectorAll('#sites adw-combo-row')].filter((e) => e.getAttribute('title') === ${JSON.stringify(storeOrigin)}).length })`;
+    const raw = await ask(options, rows, (v) => v.includes(storeOrigin));
+    const r = JSON.parse(raw || '{}');
+    check(
+      'chromium',
+      'restricted: options shows the stored rule as a closed row without a level',
+      r.rows?.length === 1 && r.rows[0] === storeOrigin && r.subtitle.length > 0 && r.combos === 0,
+      raw,
+    );
+    if (shotsDir)
+      await screenshots(options, 'options', shotsDir, {
+        width: 390,
+        name: 'options-restricted',
+        clipTo: '#sites',
+      });
+    await options.send('Runtime.evaluate', {
+      expression: "document.querySelector('#sites [data-restricted] gtk-button').click()",
+    });
+    const after = await ask(options, rows, (v) => !v.includes(storeOrigin));
+    const stored = await inWorker(
+      "chrome.storage.local.get('policy').then((s) => JSON.stringify(s.policy ?? null))",
+    );
+    check(
+      'chromium',
+      'restricted: Remove deletes the rule from the row and from storage',
+      !after.includes(storeOrigin) && !String(stored).includes(storeOrigin),
+      `${after} | ${stored}`,
+    );
+    options.close();
+    await close('options');
+  }
+  worker.c.close();
 }
 
 const FIREFOX_WIDTHS = { popup: [360], options: [1280, 400], confirm: [520] };

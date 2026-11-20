@@ -56,7 +56,7 @@ import { WebSocketServer } from 'ws';
 // properties, which the index would pull in. config-dir.ts has no imports of its own.
 import { configDir } from '../../packages/local/src/config-dir.ts';
 import { chromiumBinary, firefoxBinary, localBin } from '../../extension/scripts/platform.ts';
-import { chromiumPages, firefoxPages } from './ui-pages.mjs';
+import { chromiumPages, chromiumRestricted, firefoxPages } from './ui-pages.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 /** Every port of a run is derived from this, so a parallel run can pick another base. */
@@ -563,7 +563,7 @@ function captureOutput(proc) {
   return { errors: () => [...errors] };
 }
 
-async function launch(browser, profile) {
+async function launch(browser, profile, extraArgs = []) {
   const url = `${ALLOWED}/fixture`;
   // First, before a process of ours exists: the ports this run shares have to be free, or a browser
   // left over from an earlier run answers for the one we are about to start (issue #52 — measured:
@@ -596,6 +596,7 @@ async function launch(browser, profile) {
         // Headless Chromium refuses a second start URL ("Multiple targets are not supported"),
         // so the forbidden-origin tab is opened over the DevTools endpoint once it is up.
         `--remote-debugging-port=${DEVTOOLS_PORT}`,
+        ...extraArgs,
         url,
       ],
       {
@@ -4014,6 +4015,45 @@ async function reconnectScenario(browser) {
   }
 }
 
+/**
+ * BEIFAHRER_E2E_ONLY=restricted: the active tab is on a page the browser closes to every extension
+ * and the policy holds a rule for it (Chromium only: the Chrome Web Store is the closed page there).
+ */
+const RESTRICTED_URL = 'https://chromewebstore.google.com/';
+async function restrictedScenario(browser) {
+  const profile = mkdtempSync(join(tmpdir(), `beifahrer-e2e-restricted-${browser}-`));
+  const tokenFile = join(profile, 'token');
+  writeFileSync(tokenFile, `${TOKEN}\n`, { mode: 0o600 });
+  const { client } = await startMcp(tokenFile, `${browser}-restricted-mcp.log`);
+  // The store must not load: with network it redirects to a consent page, and the tab is no
+  // longer on the closed site. An unresolvable host keeps the tab's URL where it was sent.
+  const proc = await launch(browser, profile, [
+    `--host-resolver-rules=MAP ${new URL(RESTRICTED_URL).hostname} ~NOTFOUND`,
+  ]);
+  captureOutput(proc);
+  try {
+    let paired = [];
+    for (let i = 0; i < 60 && !paired.length; i++) {
+      const r = await tool(client, 'browsers_list');
+      paired = !r.error ? JSON.parse(r.text).browsers : [];
+      if (!paired.length) await sleep(1000);
+    }
+    check(browser, 'restricted: extension connects and pairs', paired.length === 1);
+    if (paired.length !== 1) return;
+    await chromiumRestricted(
+      check,
+      DEVTOOLS_PORT,
+      process.env.BEIFAHRER_E2E_SCREENSHOTS,
+      ALLOWED,
+      RESTRICTED_URL,
+    );
+  } finally {
+    await client.close().catch(() => undefined);
+    await stopBrowser(proc, browser === 'firefox');
+    rmSync(profile, { recursive: true, force: true });
+  }
+}
+
 // ---------------------------------------------------------------------------------------------
 
 const which = process.argv[2] ?? 'all';
@@ -4342,6 +4382,11 @@ const seed = {
 // sessions on) plus screenshots; `paused` is stopped; `confirm` does not silence the person.
 const BUILDS = {
   off: seed,
+  // A rule for a page the browser closes to every extension: what the options page shows for it.
+  restricted: {
+    ...seed,
+    policy: { origins: { ...seed.policy.origins, [new URL(RESTRICTED_URL).origin]: { level: 'read' } } },
+  },
   on: {
     ...seed,
     grants: { manageTabs: true },
@@ -4397,10 +4442,23 @@ const BUILDS = {
   },
 };
 for (const [gate, build] of Object.entries(BUILDS)) {
-  if (ONLY && gate !== (ONLY === 'saves' || ONLY === 'upload' ? ONLY : ONLY === 'sources' ? 'on' : 'off'))
+  if (
+    ONLY &&
+    gate !== (['saves', 'upload', 'restricted'].includes(ONLY) ? ONLY : ONLY === 'sources' ? 'on' : 'off')
+  )
     continue;
   buildExtension(build);
   for (const b of browsers) {
+    if (gate === 'restricted') {
+      if (b !== 'chromium') continue;
+      console.log(`\n${b} (browser-closed site)`);
+      try {
+        await restrictedScenario(b);
+      } catch (err) {
+        check(b, 'restricted scenario ran', false, err.stack ?? String(err));
+      }
+      continue;
+    }
     if (gate === 'access' || gate === 'confirm' || gate === 'saves' || gate === 'upload') {
       console.log(
         `\n${b} (${{ access: 'temporary access', confirm: 'confirmation', saves: 'hidden downloads', upload: 'file upload' }[gate]})`,
