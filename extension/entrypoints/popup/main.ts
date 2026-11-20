@@ -1,5 +1,13 @@
 import { browser } from '@wxt-dev/browser';
-import { originOf, withRule, withRuleQuiet, type Level, type OriginRule } from '@beifahrer/core';
+import {
+  isRestrictedUrl,
+  originOf,
+  withRule,
+  withRuleQuiet,
+  type Level,
+  type OriginRule,
+} from '@beifahrer/core';
+import type { BrowserFamily } from '@beifahrer/core';
 import type { Adw, Gtk } from '@gjsify/adwaita-web';
 import type { Status } from '../../src/bridge-client.ts';
 import { GRANTS_MESSAGE, type WideDuration, type WideView } from '../../src/grants-messages.ts';
@@ -68,6 +76,10 @@ const LEVEL_TIPS: Record<Level, MessageKey> = {
 };
 
 let state: UiState = 'unpaired';
+// The page the popup was opened on and the browser it runs in: a page the browser closes to every
+// extension gets no level to pick, because nobody can honour it (restricted-hosts.ts).
+let tabUrl: string | undefined;
+let family: BrowserFamily | undefined;
 
 function renderState(status: Status | undefined, paused: boolean, activity: ActivitySnapshot): void {
   state = stateOf(status?.state, paused, activity);
@@ -95,13 +107,16 @@ async function renderSite(): Promise<void> {
   $('site').classList.toggle('monospace', origin !== null);
   const rule = origin ? policy.origins[origin] : undefined;
   const level: Level = rule?.level ?? 'none';
-  levels.hidden = !origin;
+  const restricted = isRestrictedUrl(family, tabUrl);
+  $('site-restricted').hidden = !restricted;
+  levels.hidden = !origin || restricted;
   levels.activeName = level;
-  $('confirm-group').hidden = level !== 'write';
+  // A stored level there is ignored, so its switches are not shown either.
+  $('confirm-group').hidden = level !== 'write' || restricted;
   setQuietly(confirmRow, rule?.confirmWrites !== false);
   // A script needs the feature AND the level, so a switch shown without either would promise a
   // thing the call could not do. `preflight` refuses the call itself (ADR 0012).
-  siteScripts.setVisible(origin !== null && level === 'write' && features.script === true);
+  siteScripts.setVisible(origin !== null && !restricted && level === 'write' && features.script === true);
   siteScripts.render(rule?.confirmScripts === false);
 }
 
@@ -176,11 +191,13 @@ function renderWide(view: WideView | null, status: Status | undefined, scriptFea
 async function main(): Promise<void> {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   origin = originOf(tab?.url);
+  tabUrl = tab?.url;
 
   // Safari grants host access per site, through its own prompt, and answers a request for every
   // site with `false` (measured on Safari 27.0.1, 2026-10-04). A button that can only fail is worse
   // than none, so "all sites" is not offered there.
   const info = await browserInfo();
+  family = info.family;
   if (info.family === 'safari') $('wide').hidden = true;
 
   const openOptions = (hash = '') => void openOptionsPage(browser, hash);

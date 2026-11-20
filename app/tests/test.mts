@@ -5,6 +5,7 @@ import { run } from '@gjsify/unit';
 
 import features from './unit/core/features.test.ts';
 import browserFamily from './unit/core/browser-family.test.ts';
+import restrictedHosts from './unit/core/restricted-hosts.test.ts';
 import accessCheck from './unit/core/access-check.test.ts';
 import versions from './unit/core/versions.test.ts';
 import withheld from './unit/core/withheld.test.ts';
@@ -89,6 +90,7 @@ run({
   features,
   browserFamily,
   accessCheck,
+  restrictedHosts,
   versions,
   withheld,
   find,

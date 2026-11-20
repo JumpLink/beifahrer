@@ -54,7 +54,7 @@ export function resolveMethod(value: unknown): Method | null {
 }
 
 /** Which check decides the answer — the check order, read one step at a time. */
-export type AccessStage = 'ok' | 'feature' | 'level' | 'grant' | 'unsupported';
+export type AccessStage = 'ok' | 'feature' | 'browser' | 'level' | 'grant' | 'unsupported';
 
 /**
  * The whole answer, whatever the stage — one shape, so an agent can read a field without first
@@ -86,6 +86,15 @@ export type AccessCheck = {
   /** One sentence an agent can act on: what decides it, and whom to ask. */
   reason: string;
 };
+
+/** The sentence for a page the browser closes to every extension, shared with the page-call error. */
+export function restrictedReason(origin: string | null, method: string): string {
+  return (
+    `blocked by the browser: it does not let any extension work on ${origin ?? 'this page'}, so ` +
+    `${method} is not possible there and no setting in Beifahrer can change that. Do not retry or ` +
+    'ask the person to allow it.'
+  );
+}
 
 export interface AccessCheckInput {
   /** The person's switches. The PAUSE is not here: it is answered before any handler runs. */
@@ -135,7 +144,8 @@ export function accessCheck(input: AccessCheckInput): AccessCheck | string {
   const confirm = decision.allow && decision.confirm;
   // Askable for the same reason `decide` asks it: an origin the person blocked, or none at all, is
   // refused without a prompt, so an agent told "ask" there would be nagging for nothing.
-  const askable = access.origin !== null && access.source !== 'blocked';
+  const restricted = access.source === 'restricted';
+  const askable = access.origin !== null && access.source !== 'blocked' && !restricted;
   // Everything every branch carries, so no branch can forget a level and answer without one. The
   // annotation is what the levels are FOR: an object literal infers `need` as a plain `string`,
   // and a `need` that can be anything is the one field an agent reads to decide on spending a call.
@@ -175,6 +185,16 @@ export function accessCheck(input: AccessCheckInput): AccessCheck | string {
   // Step 3. A method that touches no page (`tabs.list`, and `access.check` itself) needs no level,
   // so it passes here whatever the URL is; one that does needs it, and a URL that is not http(s) has
   // no origin and therefore no level — which is the same refusal, with the reason to match.
+  // Before the level: the person cannot fix this one, so "ask them to raise the level" would send
+  // the agent back for nothing. The browser closes the page to every extension.
+  if (need !== null && restricted) {
+    return {
+      ...checked,
+      allowed: false,
+      stage: 'browser',
+      reason: restrictedReason(access.origin, method),
+    };
+  }
   if (need !== null && !atLeast(have, need)) {
     return {
       ...checked,

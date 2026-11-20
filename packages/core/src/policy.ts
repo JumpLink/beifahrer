@@ -9,6 +9,9 @@
  * origin and therefore no access, and a method this table does not know is refused.
  */
 
+import type { BrowserFamily } from './protocol.ts';
+import { isRestrictedUrl } from './restricted-hosts.ts';
+
 export type Level = 'none' | 'read' | 'write';
 
 const RANK: Record<Level, number> = { none: 0, read: 1, write: 2 };
@@ -69,6 +72,11 @@ export interface AccessContext {
   now: number;
   /** The connection id of the agent session asking, if any. */
   session?: string;
+  /**
+   * The browser family, which decides whether the page is one the browser closes to every
+   * extension (restricted-hosts.ts). Absent means no such list applies.
+   */
+  family?: BrowserFamily;
 }
 
 export interface Policy {
@@ -100,7 +108,7 @@ export function originOf(url: string | undefined | null): string | null {
 }
 
 /** Where an origin's level came from, which decides whether its writes are confirmed. */
-export type AccessSource = 'none' | 'rule' | 'blocked' | 'wildcard' | 'grant';
+export type AccessSource = 'none' | 'rule' | 'blocked' | 'restricted' | 'wildcard' | 'grant';
 
 export interface Access {
   origin: string | null;
@@ -129,6 +137,9 @@ export function grantLive(grant: Grant, ctx: AccessContext): boolean {
 export function accessFor(policy: Policy, url: string | undefined | null, ctx?: AccessContext): Access {
   const origin = originOf(url);
   if (!origin) return { origin, level: 'none', source: 'none' };
+  // Before any rule or grant: the browser refuses the host permission here, so a stored level or a
+  // live "all sites" grant would promise an access that cannot happen. The rule is kept, not read.
+  if (isRestrictedUrl(ctx?.family, url)) return { origin, level: 'none', source: 'restricted' };
   const rule = Object.prototype.hasOwnProperty.call(policy.origins, origin)
     ? policy.origins[origin]
     : undefined;
@@ -282,6 +293,8 @@ export type Decision =
        * block. A browser page, a local file or an explicit `none` is refused without a prompt.
        */
       askable: boolean;
+      /** The browser itself closes this page to every extension: nobody can allow it. */
+      restricted?: true;
     };
 
 /**
@@ -309,7 +322,8 @@ export function decide(
       origin: access.origin,
       have: access.level,
       need,
-      askable: access.origin !== null && access.source !== 'blocked',
+      askable: access.origin !== null && access.source !== 'blocked' && access.source !== 'restricted',
+      ...(access.source === 'restricted' ? { restricted: true as const } : {}),
     };
   }
   // A method with a switch of its own confirms unless THAT switch is off, whatever level it needs;
