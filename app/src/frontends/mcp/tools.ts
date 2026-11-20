@@ -1005,8 +1005,10 @@ export function registerTools(
   const accessCheckAnswer = answer({
     allowed: z.boolean().describe('True only when the call would be served with no window and nobody asked'),
     stage: z
-      .enum(['ok', 'feature', 'level', 'grant', 'unsupported'])
-      .describe('Which check decides it, in the order every call runs: feature, level, grant, confirm'),
+      .enum(['ok', 'feature', 'browser', 'level', 'grant', 'unsupported'])
+      .describe(
+        'Which check decides it, in the order every call runs: feature, browser (the browser closes the page to every extension), level, grant, confirm',
+      ),
     feature: z.enum(FEATURES).optional().describe('The one feature this method belongs to'),
     featureOn: z.boolean().describe("Whether the person's switch for it is on right now"),
     origin: z.string().nullable().describe('The origin decided about; null on a non-web page'),

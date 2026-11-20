@@ -230,5 +230,47 @@ export default async () => {
       expect(mvp.stage).toBe('unsupported');
       expect(mvp.reason).toMatch(/cannot run in this browser at all/);
     });
+
+    await it('stops an agent on a page the browser closes to every extension', async () => {
+      const closed: Policy = { origins: { 'https://addons.mozilla.org': { level: 'write' } } };
+      const answer = check({
+        features: on(),
+        policy: closed,
+        ctx: { now: 1, family: 'firefox' },
+        method: 'page.read',
+        url: 'https://addons.mozilla.org/de/firefox/',
+        hostGranted: true,
+      });
+      expect(answer.allowed).toBe(false);
+      expect(answer.stage).toBe('browser');
+      expect(answer.askable).toBe(false);
+      expect(answer.have).toBe('none');
+      expect(answer.reason).toMatch(/blocked by the browser/);
+    });
+
+    await it('ignores a stored level there, and still answers the same page in another family', async () => {
+      const closed: Policy = { origins: { 'https://addons.mozilla.org': { level: 'write' } } };
+      const chromium = check({
+        features: on(),
+        policy: closed,
+        ctx: { now: 1, family: 'chromium' },
+        method: 'page.read',
+        url: 'https://addons.mozilla.org/',
+        hostGranted: true,
+      });
+      expect(chromium.allowed).toBe(true);
+      expect(chromium.stage).toBe('ok');
+    });
+
+    await it('does not apply the browser step to a method that touches no page', async () => {
+      const list = check({
+        features: on(),
+        policy,
+        ctx: { now: 1, family: 'firefox' },
+        method: 'tabs.list',
+        url: 'https://addons.mozilla.org/',
+      });
+      expect(list.allowed).toBe(true);
+    });
   });
 };
