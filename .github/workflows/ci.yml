@@ -844,10 +844,10 @@ jobs:
           set -euo pipefail
           sudo env "PATH=$PATH" GJSIFY_SNAP_DESTRUCTIVE=1 gjsify ship --from-stage stage --target snap --out out
           sudo chown -R "$(id -u):$(id -g)" out
-          ls -la out
+          ls -la out/out
 
       - name: Read the snap back
-        working-directory: out
+        working-directory: out/out
         run: |
           set -euo pipefail
           version=$(node -p "require('$GITHUB_WORKSPACE/app/package.json').version")
@@ -867,8 +867,8 @@ jobs:
         with:
           name: ship-snap
           path: |
-            out/*.snap
-            out/*.snap.gjsify-release.json
+            out/out/*.snap
+            out/out/*.snap.gjsify-release.json
           compression-level: 0
           if-no-files-found: error
 
