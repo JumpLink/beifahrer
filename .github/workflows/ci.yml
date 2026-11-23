@@ -324,6 +324,22 @@ jobs:
             fi
           done
 
+      # The Snap is packed in two phases (ADR 0149 in gjsify): this Fedora job stages the payload,
+      # and `ship-snap` below packs it on Ubuntu 26.04, the only host where snapcraft's destructive
+      # mode builds `core26`. `stage-snap`, not `ship-*`: the stage is an input, and release.yml
+      # attaches every `ship-*` artifact to the release.
+      - name: Stage the snap payload, pack nothing
+        working-directory: app
+        run: gjsify ship linux --skip-build --stage --target snap --out ship/stage-snap
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage-snap
+          path: app/ship/stage-snap/stage
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
+
       # macOS and Windows runtimes are `optionalDependencies` gated by os/cpu
       # (`@gjsify/node-runtime-{darwin-arm64,darwin-x64,win32-x64}`), which a plain install on this
       # Linux host SKIPS — naming the target installs it instead, and `ship` picks up both that
@@ -772,6 +788,90 @@ jobs:
   # tree, and parse-check the e2e driver. The last one is the point of this job — it is the file
   # that carries every platform assumption the driver makes, and `node --check` is all that stands
   # between a typo there and a suite that cannot even start.
+  # Phase 2 of the Snap: `snapcraft pack` on the host (`GJSIFY_SNAP_DESTRUCTIVE=1`), which packs
+  # `core26` only on Ubuntu 26.04, so the first step refuses any other release instead of failing
+  # deep inside snapcraft. `ubuntu-latest` because actionlint does not know `ubuntu-26.04` yet.
+  # The checks read the snap back: the base, strict confinement, the GjsPrivate typelib path the
+  # packer adds, and the loopback plugs the bridge needs. Installing and starting it is measured in
+  # gjsify's own CI; a real desktop session is checked by hand before the store's `stable` channel.
+  ship-snap:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Install snapcraft and squashfs-tools
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          echo "os: ${PRETTY_NAME:-unknown}"
+          if [ "${VERSION_ID:-}" != "26.04" ]; then
+            echo "::error::destructive mode packs core26 only on Ubuntu 26.04, this runner is ${VERSION_ID:-unknown}."
+            exit 1
+          fi
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends squashfs-tools
+          for attempt in 1 2 3; do
+            sudo snap install snapcraft --classic && break
+            [ "$attempt" -lt 3 ] || exit 1
+            echo "::warning::snap install snapcraft failed (attempt $attempt), retrying"
+            sleep $((attempt * 20))
+          done
+          snapcraft --version
+
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: app/package.json
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Bootstrap the gjsify CLI
+        run: |
+          set -eu
+          VERSION=$(node -p "require('./app/package.json').devDependencies['@gjsify/cli']")
+          npm install -g "@gjsify/cli@$VERSION"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage-snap
+          path: stage
+
+      - name: Pack Beifahrer (.snap) from the stage alone
+        run: |
+          set -euo pipefail
+          sudo env "PATH=$PATH" GJSIFY_SNAP_DESTRUCTIVE=1 gjsify ship --from-stage stage --target snap --out out
+          sudo chown -R "$(id -u):$(id -g)" out
+          ls -la out/out
+
+      - name: Read the snap back
+        working-directory: out/out
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('$GITHUB_WORKSPACE/app/package.json').version")
+          f="beifahrer_${version}_amd64.snap"
+          if [ ! -s "$f" ]; then
+            echo "::error::missing or empty artifact: $f"
+            exit 1
+          fi
+          unsquashfs -cat "$f" meta/snap.yaml | tee snap.yaml
+          grep -q '^base: core26$' snap.yaml
+          grep -q '^confinement: strict$' snap.yaml
+          grep -q 'gnome-platform/usr/lib/x86_64-linux-gnu/gjs/girepository-1.0' snap.yaml
+          grep -q -- '- network-bind$' snap.yaml
+          rm snap.yaml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ship-snap
+          path: |
+            out/out/*.snap
+            out/out/*.snap.gjsify-release.json
+          compression-level: 0
+          if-no-files-found: error
+
   windows-node-checks:
     runs-on: windows-latest
     # A Windows runner's default shell is PowerShell, where `$(…)` is not command substitution — the

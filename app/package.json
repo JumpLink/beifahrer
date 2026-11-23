@@ -99,6 +99,12 @@
       "homepageUrl": "https://jumplink.eu/beifahrer/",
       "bugtrackerUrl": "https://github.com/JumpLink/beifahrer/issues",
       "vcsBrowserUrl": "https://github.com/JumpLink/beifahrer",
+      "snap": {
+        "plugs": [
+          "network",
+          "network-bind"
+        ]
+      },
       "flatpak": {
         "runtimeVersion": "51",
         "finishArgs": [
@@ -151,22 +157,22 @@
   "dependencies": {
     "@beifahrer/core": "*",
     "@beifahrer/local": "*",
-    "@gjsify/adwaita-app": "0.64.52",
-    "@gjsify/adwaita-core": "0.64.52",
-    "@gjsify/distribution": "0.64.52",
-    "@gjsify/mcp": "0.64.52",
-    "@gjsify/node-gi": "0.64.52",
-    "@gjsify/utils": "0.64.52",
-    "@gjsify/ws": "0.64.52",
+    "@gjsify/adwaita-app": "0.64.59",
+    "@gjsify/adwaita-core": "0.64.59",
+    "@gjsify/distribution": "0.64.59",
+    "@gjsify/mcp": "0.64.59",
+    "@gjsify/node-gi": "0.64.59",
+    "@gjsify/utils": "0.64.59",
+    "@gjsify/ws": "0.64.59",
     "@modelcontextprotocol/sdk": "^1.30.1",
     "ws": "^8.21.3",
     "yargs": "^18.2.0",
     "zod": "^4.6.5"
   },
   "optionalDependencies": {
-    "@gjsify/node-runtime-darwin-arm64": "0.64.52",
-    "@gjsify/node-runtime-darwin-x64": "0.64.52",
-    "@gjsify/node-runtime-win32-x64": "0.64.52"
+    "@gjsify/node-runtime-darwin-arm64": "0.64.59",
+    "@gjsify/node-runtime-darwin-x64": "0.64.59",
+    "@gjsify/node-runtime-win32-x64": "0.64.59"
   },
   "devDependencies": {
     "@girs/adw-1": "5.4.0",
@@ -176,11 +182,11 @@
     "@girs/gtk-4.0": "5.4.0",
     "@girs/xdp-1.0": "5.4.0",
     "@girs/xdpgtk4-1.0": "5.4.0",
-    "@gjsify/cli": "0.64.52",
-    "@gjsify/node-globals": "0.64.52",
-    "@gjsify/rolldown-native": "0.64.52",
-    "@gjsify/runtime": "0.64.52",
-    "@gjsify/unit": "0.64.52",
+    "@gjsify/cli": "0.64.59",
+    "@gjsify/node-globals": "0.64.59",
+    "@gjsify/rolldown-native": "0.64.59",
+    "@gjsify/runtime": "0.64.59",
+    "@gjsify/unit": "0.64.59",
     "@types/node": "^26.6.2",
     "@types/ws": "^8.18.1",
     "@types/yargs": "^17.0.35",

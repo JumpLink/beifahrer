@@ -9,7 +9,8 @@ name: Release
 # The installable packages follow the same rule and are built there too, not here: ci.yml ships
 # the app as `ship-deb-rpm` (`.deb`, `.rpm`), `ship-windows` (`windows-dir-zip`, `.msi`),
 # `ship-macos` (`.zip` + `.dmg` per arch, signed and notarised), `ship-flatpak` (`.flatpak`) and
-# `ship-linux-tar` (`-flatpak.tar.gz`, the source a FlatPark package downloads), as uploaded artifacts, each file with its `.gjsify-release.json` record; the `release` job below only
+# `ship-linux-tar` (`-flatpak.tar.gz`, the source a FlatPark package downloads) and `ship-snap`
+# (`.snap`, which `snap-store` also uploads to the Snap Store's `edge` channel), as uploaded artifacts, each file with its `.gjsify-release.json` record; the `release` job below only
 # attaches them. ONE ship project (ADR 0023): the app is `kind: app`, one binary that opens the
 # window without arguments and acts as the MCP/CLI bridge with a subcommand.
 # Everything but macOS assembles on the SAME `fedora:44` container, and macOS is STAGED there too;
@@ -142,6 +143,7 @@ jobs:
             "packages/beifahrer-${version}-1.windows.x64.zip" \
             "packages/beifahrer-${version}-1.x64.msi" \
             "packages/eu.jumplink.beifahrer-${version}-1.x86_64.flatpak" \
+            "packages/beifahrer_${version}_amd64.snap" \
             "packages/beifahrer-${version}-linux-x86_64-flatpak.tar.gz" \
             "packages/beifahrer-${version}-linux-x86_64-flatpak.tar.gz.gjsify-release.json"; do
             if [ ! -s "$f" ]; then
@@ -249,6 +251,48 @@ jobs:
   # Idempotent: AMO refuses to sign one version twice, so a rerun (or a `workflow_dispatch` re-cut)
   # first asks the release for a `.xpi` and stops there if it exists. The key pair is passed to the
   # signing step only.
+  # The Snap Store, channel `edge` only: `stable` waits until the snap has run in a real Ubuntu
+  # desktop session. The token is `SNAPCRAFT_STORE_CREDENTIALS`, scoped to this snap and its
+  # channels (werkstatt `scripts/snap-store-credentials`); gjsify passes it to snapcraft and never
+  # prints it. Like `flatpark`, a store hiccup does not fail a release that is already attached.
+  snap-store:
+    needs: release
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || (inputs.publish && inputs.tag != '') }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          sparse-checkout: app/package.json
+          sparse-checkout-cone-mode: false
+
+      - name: Fetch the snap CI built
+        uses: actions/download-artifact@v4
+        with:
+          name: ship-snap
+          path: snap
+
+      - name: Install snapcraft and the gjsify CLI
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            sudo snap install snapcraft --classic && break
+            [ "$attempt" -lt 3 ] || exit 1
+            sleep $((attempt * 20))
+          done
+          VERSION=$(node -p "require('./app/package.json').devDependencies['@gjsify/cli']")
+          npm install -g "@gjsify/cli@$VERSION"
+
+      - name: Upload to the Snap Store (edge)
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          gjsify snap upload "snap/beifahrer_${TAG#v}_amd64.snap" --release edge
+          gjsify snap status beifahrer
+
   sign-firefox:
     needs: release
     if: ${{ startsWith(github.ref, 'refs/tags/v') || (inputs.publish && inputs.tag != '') }}
