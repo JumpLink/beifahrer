@@ -351,6 +351,8 @@ export interface MethodMap {
       via: 'input' | 'drop';
       files: UploadedFile[];
       accepted: boolean;
+      /** `input` only: the page emptied the field after its change event, i.e. it consumed the files. */
+      cleared?: boolean;
     } & Acted;
   };
   /**

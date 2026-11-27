@@ -718,7 +718,7 @@ export function registerTools(
         'Put files into a page\'s file field ("Choose file"), by ref from page_outline or page_find: the field itself, or the button or label that opens it. ' +
         "paths are files inside the upload directory the PERSON set (the server's --upload-dir / BEIFAHRER_UPLOAD_DIR); a relative path counts from there, and anything outside it or without that setting is refused before the browser is asked. " +
         'Several paths only if the field accepts several. If no file field belongs to the ref (a "drop image here" zone), the files are dropped onto that element as a drag-and-drop; the answer says via "input" or "drop", and for a drop accepted means the page cancelled the drop event, i.e. took it. ' +
-        'The file content never comes back: the answer lists name, size and type per file and whether the page took them. ' +
+        'The file content never comes back: the answer lists name, size and type per file and whether the page took them (accepted: the field held every file when the page was told; cleared: the page emptied the field afterwards, i.e. it consumed them). ' +
         'Needs the switch "Upload files" (off by default), level "read + edit", and the person confirms every time in a browser window, so this may take up to two minutes. ' +
         CHANGE_NOTE +
         POLICY_NOTE,

@@ -50,6 +50,7 @@ import {
 } from '../src/chooser-hook.ts';
 import { MutationProbe, type ProbeDocument } from '../src/act-probe.ts';
 import { fallbackEligible, formState, planClick, pointerClick } from '../src/click-check.ts';
+import { checkUpload } from '../src/upload-check.ts';
 import { deepActive, typeInto, type FillEnv } from '../src/field-fill.ts';
 import { afterRepaint, HOST_TAG, hideNow, keepShown, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
@@ -1173,16 +1174,23 @@ function fillInput(input: HTMLInputElement, ref: string, files: UploadFile[]): P
   const transfer = new DataTransfer();
   for (const f of buildFiles(files)) transfer.items.add(f);
   input.files = transfer.files;
+  // Read BEFORE the page hears of it: its change handler may take the files and clear the field.
+  const held = Array.from(input.files ?? []);
   input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
   input.dispatchEvent(new Event('change', { bubbles: true }));
-  const held = Array.from(input.files ?? []);
+  const check = checkUpload(
+    files.map((f) => f.name),
+    held,
+    Array.from(input.files ?? []),
+  );
   return {
     ok: true,
     data: {
       ref,
       via: 'input',
       files: held.map((f) => ({ name: f.name, mime: f.type, size: f.size })),
-      accepted: held.length === files.length,
+      accepted: check.accepted,
+      cleared: check.cleared,
     },
   };
 }
