@@ -50,6 +50,7 @@ import {
 } from '../src/chooser-hook.ts';
 import { MutationProbe, type ProbeDocument } from '../src/act-probe.ts';
 import { fallbackEligible, formState, planClick, pointerClick } from '../src/click-check.ts';
+import { derivedRole } from '../src/derived-role.ts';
 import { checkUpload } from '../src/upload-check.ts';
 import { deepActive, typeInto, type FillEnv } from '../src/field-fill.ts';
 import { afterRepaint, HOST_TAG, hideNow, keepShown, show } from '../src/page-indicator.ts';
@@ -102,6 +103,10 @@ function rendered(el: Element): boolean {
 function visible(el: Element): boolean {
   if (el.closest('[aria-hidden="true"], [hidden], [inert]')) return false;
   if (rendered(el)) return true;
+  if (el instanceof HTMLOptionElement) {
+    const select = el.closest('select');
+    return select !== null && rendered(select);
+  }
   return (
     el instanceof HTMLInputElement &&
     (el.type === 'radio' || el.type === 'checkbox') &&
@@ -131,6 +136,27 @@ function rootOf(el: Element): Document | ShadowRoot {
   return root && typeof root.querySelectorAll === 'function' ? root : document;
 }
 
+/**
+ * A shadow root that is one button and nothing else interactive: the host IS the button. A card
+ * with a form and a button in it is a container, and calling it a button would list it next to the
+ * real one.
+ */
+function wrapsOneButton(root: ShadowRoot | null): boolean {
+  if (!root) return false;
+  if (root.querySelectorAll('button, [role="button"]').length !== 1) return false;
+  return !root.querySelector('input, select, textarea, a[href], [contenteditable], [tabindex]');
+}
+
+/** What a component's open shadow root says; the host's own `textContent` does not include it. */
+function shadowText(el: Element): string {
+  const root = el.shadowRoot;
+  if (!root) return '';
+  const parts: string[] = [];
+  for (const child of Array.from(root.children))
+    if (!SKIP.has(child.tagName)) parts.push(child.textContent?.trim() ?? '');
+  return parts.filter(Boolean).join(' ');
+}
+
 function labelFor(el: Element): string {
   const aria = el.getAttribute('aria-label');
   if (aria) return aria;
@@ -157,7 +183,7 @@ function labelFor(el: Element): string {
   // An icon button: the words live in a visually-hidden span (`innerText` can come back empty for
   // clipped text), an <img alt>, an SVG <title> or a child's aria-label. Fluent UI toolbars are
   // built like this, and the result was `button ""`.
-  const inner = el.textContent?.trim();
+  const inner = el.textContent?.trim() || shadowText(el);
   if (inner) return inner;
   const hint = el.querySelector('[aria-label], img[alt], svg title, [title]');
   const hinted =
@@ -185,6 +211,8 @@ type Kind =
         | 'menuitem'
         | 'listbox'
         | 'option';
+      /** The role was worked out from behaviour (derived-role.ts), not declared by the page. */
+      derived?: true;
     };
 
 function kindOf(el: Element): Kind | null {
@@ -217,6 +245,20 @@ function kindOf(el: Element): Kind | null {
   if (role === 'listbox') return { role: 'listbox' };
   if (role === 'option') return { role: 'option' };
   if (role === 'link') return { role: 'link' };
+  // Native <option>: kept out of the outline (a country list is 250 lines), found by role.
+  if (tag === 'OPTION') return { role: 'option' };
+  if (tag.includes('-') && !role) {
+    const tabindex = el.getAttribute('tabindex');
+    const derived = derivedRole({
+      tag: tag.toLowerCase(),
+      role,
+      tabindex: tabindex === null || tabindex.trim() === '' ? null : Number(tabindex),
+      shadowButton: wrapsOneButton(el.shadowRoot),
+      pointer: getComputedStyle(el).cursor === 'pointer',
+      name: labelFor(el),
+    });
+    if (derived) return { role: derived, derived: true };
+  }
   return null;
 }
 
@@ -338,8 +380,9 @@ function describe(el: Element, kind: Kind): string {
       return `combobox "${name}"${selected ? ` = "${clip(selected, 60)}"` : ''}${open}`;
     }
     case 'option': {
-      const selected = el.getAttribute('aria-selected') === 'true' ? ' [selected]' : '';
-      const disabled = el.getAttribute('aria-disabled') === 'true' ? ' [disabled]' : '';
+      const native = el instanceof HTMLOptionElement ? el : null;
+      const selected = native?.selected || el.getAttribute('aria-selected') === 'true' ? ' [selected]' : '';
+      const disabled = native?.disabled || el.getAttribute('aria-disabled') === 'true' ? ' [disabled]' : '';
       return `option "${name}"${selected}${disabled}`;
     }
     case 'file': {
@@ -464,6 +507,7 @@ function outline(maxItems: number): PageResponse {
   // by side there is nothing in the text that says which content belongs to which — so every ref in
   // the outline is attributable to a document by looking up from it.
   for (const { el, kind } of elementsByDocument()) {
+    if (el instanceof HTMLOptionElement) continue;
     if (lines.length >= maxItems) {
       truncated = true;
       break;
@@ -638,9 +682,13 @@ function focusMark(el: Element): string {
  * focus is, so an agent that cannot SEE the focus cannot use that form of the call at all — it would
  * be pressing keys into a field it cannot name.
  */
-function found(el: Element): { ref: string; description: string } {
+function found(el: Element): { ref: string; description: string; derived?: true } {
   const kind = kindOf(el)!;
-  return { ref: refOf(el), description: `${describe(el, kind)}${focusMark(el)}` };
+  return {
+    ref: refOf(el),
+    description: `${describe(el, kind)}${focusMark(el)}`,
+    ...('derived' in kind && kind.derived ? { derived: true as const } : {}),
+  };
 }
 
 function find(query: ElementQuery, maxResults: number): PageResponse {

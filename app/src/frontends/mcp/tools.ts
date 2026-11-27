@@ -177,6 +177,12 @@ export const tabInfo = loose({
 export const foundElement = loose({
   ref: z.string().describe('Element ref for page_fill / page_click / page_expect, e.g. e12 or b2e12'),
   description: z.string().describe('The outline line for it'),
+  derived: z
+    .boolean()
+    .optional()
+    .describe(
+      'True when the role is a guess from behaviour (a custom element that acts like a button), not declared',
+    ),
 });
 
 export function failure(err: unknown): CallToolResult {

@@ -162,6 +162,8 @@ const FIXTURE = `<!doctype html><html><head><title>Beifahrer fixture</title></he
 <p>indicator:<span id="ind"></span>.</p>
 <beifahrer-open-card>slotted text</beifahrer-open-card>
 <beifahrer-closed-card></beifahrer-closed-card>
+<beifahrer-pill></beifahrer-pill>
+<beifahrer-tabbable tabindex="0">Tabbable action</beifahrer-tabbable>
 <!-- Issue #30: one frame on the page's own origin (127.0.0.1, like the page) and one on another
      (localhost — the same server, a different origin). The second is the negative case:
      contentDocument is null for it, so it must stay invisible and the walk must not even name it. -->
@@ -277,6 +279,11 @@ const FIXTURE = `<!doctype html><html><head><title>Beifahrer fixture</title></he
         const count = root.getElementById('shadow-clicks');
         count.textContent = 'shadow-clicks:' + (Number(count.textContent.split(':')[1]) + 1);
       });
+    }
+  });
+  customElements.define('beifahrer-pill', class extends HTMLElement {
+    connectedCallback() {
+      this.attachShadow({ mode: 'open' }).innerHTML = '<button>Pill action</button>';
     }
   });
   customElements.define('beifahrer-closed-card', class extends HTMLElement {
@@ -2931,6 +2938,51 @@ async function shadowDom(browser, client, allowed) {
     'a label inside a shadow root names the field it labels',
     !named.error && JSON.parse(named.text).count === 1,
     named.text.slice(0, 200),
+  );
+
+  // Derived roles: custom elements without ARIA that act like a button, marked so; and options by role.
+  const derived = await tool(client, 'page_find', {
+    tabId: allowed.tabId,
+    role: 'button',
+    name: 'Pill action',
+  });
+  const derivedHits = derived.error ? [] : JSON.parse(derived.text).matches;
+  check(
+    browser,
+    'page_find returns a custom element that wraps one shadow button as a derived button',
+    derivedHits.some((m) => m.derived === true) && derivedHits.some((m) => !m.derived),
+    derived.text.slice(0, 300),
+  );
+  const tabbable = await tool(client, 'page_find', {
+    tabId: allowed.tabId,
+    role: 'button',
+    name: 'Tabbable action',
+  });
+  check(
+    browser,
+    'page_find returns a focusable custom element as a derived button',
+    !tabbable.error && JSON.parse(tabbable.text).matches[0]?.derived === true,
+    tabbable.text.slice(0, 300),
+  );
+  const card = await tool(client, 'page_find', { tabId: allowed.tabId, role: 'button', name: 'Shadow save' });
+  check(
+    browser,
+    'a component with a form in its shadow root is not itself a derived button',
+    !card.error && JSON.parse(card.text).matches.every((m) => !m.derived),
+    card.text.slice(0, 300),
+  );
+  const option = await tool(client, 'page_find', {
+    tabId: allowed.tabId,
+    role: 'option',
+    name: 'Netherlands',
+  });
+  check(
+    browser,
+    'page_find finds a native <option> by role',
+    !option.error &&
+      JSON.parse(option.text).count === 1 &&
+      !!JSON.parse(option.text).matches[0].derived === false,
+    option.text.slice(0, 300),
   );
 
   const closed = await tool(client, 'page_find', { tabId: allowed.tabId, name: 'Secret in a closed root' });

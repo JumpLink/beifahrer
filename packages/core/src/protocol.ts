@@ -155,6 +155,8 @@ export interface TabInfo {
 export interface FoundElement {
   ref: string;
   description: string;
+  /** The role was worked out from behaviour (a custom element that acts like a button), not declared. */
+  derived?: true;
 }
 
 /** One row of a list, as the page shows it. The text is the row's own, clipped. */
