@@ -74,7 +74,7 @@ function fakeExtension(opts: { url?: string; fail?: Record<string, BridgeError>;
       }
       case 'page.fill':
         page.editor = params.text as string;
-        return { ref: params.ref, value: page.editor };
+        return { ref: params.ref, stuck: true, retried: false, length: page.editor.length };
       case 'page.wait': {
         const q = params.for as ElementQuery;
         const m = found(q)[0];

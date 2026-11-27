@@ -659,6 +659,8 @@ export function registerTools(
         'as="html" pastes formatted text into rich editors (headings, lists, bold survive); plain fields get the text. ' +
         'Needs level "read + edit"; the person is asked to confirm in a browser window unless they switched that off for the site, so this may take up to two minutes. ' +
         'Password fields are never filled. ' +
+        'Text goes in the way typing does (native setter, beforeinput/input/change, the last character as a key press), so React and Fluent UI fields keep it. ' +
+        'The field is read back: "stuck" is true when the page kept the text, "retried" when a second write was needed; the text itself is not echoed, only its "length". If stuck is false, the page rejected it: look at the field with page_outline. ' +
         CHANGE_NOTE +
         POLICY_NOTE,
       inputSchema: {

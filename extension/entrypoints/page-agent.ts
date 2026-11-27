@@ -50,6 +50,7 @@ import {
 } from '../src/chooser-hook.ts';
 import { MutationProbe, type ProbeDocument } from '../src/act-probe.ts';
 import { fallbackEligible, formState, planClick, pointerClick } from '../src/click-check.ts';
+import { deepActive, typeInto, type FillEnv } from '../src/field-fill.ts';
 import { afterRepaint, HOST_TAG, hideNow, keepShown, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
@@ -873,12 +874,16 @@ function notFound(ref: string): PageResponse {
  * both, because the call ends there. A single keystroke fires only `input` — firing `change` per
  * character would run a form's change handler once per letter, which is not what typing does.
  */
-function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string, change = true): void {
+function nativeSetValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
   const proto =
     el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
   if (setter) setter.call(el, value);
   else el.value = value;
+}
+
+function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string, change = true): void {
+  nativeSetValue(el, value);
   el.dispatchEvent(new Event('input', { bubbles: true }));
   if (change) el.dispatchEvent(new Event('change', { bubbles: true }));
 }
@@ -906,7 +911,7 @@ function setNativeChecked(el: HTMLInputElement, checked: boolean): void {
  * 2. `execCommand` insertHTML / insertText — fires beforeinput/input, which editors handle.
  * 3. Plain DOM text, the last resort for a bare contenteditable nothing else reached.
  */
-function fillRich(el: HTMLElement, text: string, as: 'text' | 'html', mode: 'replace' | 'append'): void {
+function fillRich(el: HTMLElement, text: string, as: 'text' | 'html', mode: 'replace' | 'append'): boolean {
   const plain = as === 'html' ? htmlToText(text) : text;
   const probe = plain.replace(/\s+/g, ' ').trim().slice(0, 40);
   const landed = () => !probe || (el.innerText ?? '').replace(/\s+/g, ' ').includes(probe);
@@ -925,15 +930,54 @@ function fillRich(el: HTMLElement, text: string, as: 'text' | 'html', mode: 'rep
   if (!firefox) {
     select();
     el.dispatchEvent(pasteEvent(as === 'html' ? text : null, plain));
-    if (landed()) return;
+    if (landed()) return true;
   }
   select();
   document.execCommand(as === 'html' ? 'insertHTML' : 'insertText', false, text);
-  if (landed()) return;
+  if (landed()) return true;
+  // The same events a typed insertion sends, so an editor listening for `beforeinput` still hears it.
+  el.dispatchEvent(
+    new InputEvent('beforeinput', {
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      inputType: 'insertText',
+      data: plain,
+    }),
+  );
   if (mode === 'replace') el.textContent = '';
   el.append(plain);
-  el.dispatchEvent(new InputEvent('input', { bubbles: true }));
+  el.dispatchEvent(
+    new InputEvent('input', { bubbles: true, composed: true, inputType: 'insertText', data: plain }),
+  );
+  return landed();
 }
+
+/**
+ * The browser calls `typeInto` needs (field-fill.ts). The read-back asks the field, and the element
+ * with the keyboard when the field is gone: a framework that re-renders swaps the input for a new one
+ * and gives it the focus, and the old node then holds nothing.
+ */
+const fieldEnv: FillEnv<HTMLInputElement | HTMLTextAreaElement> = {
+  setValue: nativeSetValue,
+  read: (el) => {
+    if (el.isConnected) return el.value;
+    const active = deepActive(document);
+    return active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement
+      ? active.value
+      : el.value;
+  },
+  input: (type, inputType, data) =>
+    new InputEvent(type, {
+      bubbles: true,
+      composed: true,
+      cancelable: type === 'beforeinput',
+      inputType,
+      data,
+    }),
+  key: (type, key) => new KeyboardEvent(type, { key, bubbles: true, composed: true, cancelable: true }),
+  change: () => new Event('change', { bubbles: true }),
+};
 
 function pasteEvent(html: string | null, plain: string): ClipboardEvent {
   const data = new DataTransfer();
@@ -959,14 +1003,19 @@ function fill(ref: string, text: string, as: 'text' | 'html', mode: 'replace' | 
     };
   }
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-    el.focus();
     const plain = as === 'html' ? htmlToText(text) : text;
-    setNativeValue(el, mode === 'append' ? el.value + plain : plain);
-    return { ok: true, data: { ref, value: clip(el.value, 2000) } };
+    // What comes back is `stuck`/`length`, never the value: it may be a secret.
+    return {
+      ok: true,
+      data: { ref, ...typeInto(el, mode === 'append' ? el.value + plain : plain, fieldEnv) },
+    };
   }
   if (kind?.role === 'richtext' || (el as HTMLElement).isContentEditable) {
-    fillRich(el as HTMLElement, text, as, mode);
-    return { ok: true, data: { ref, value: clip((el as HTMLElement).innerText ?? '', 2000) } };
+    const stuck = fillRich(el as HTMLElement, text, as, mode);
+    return {
+      ok: true,
+      data: { ref, stuck, retried: false, length: ((el as HTMLElement).innerText ?? '').length },
+    };
   }
   return {
     ok: false,

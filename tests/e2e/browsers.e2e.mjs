@@ -3803,8 +3803,8 @@ async function scenario(browser, gate) {
     });
     check(
       browser,
-      'page_fill sets a textarea',
-      !fill1.error && fill1.text.includes('Kommentar vom Agenten'),
+      'page_fill sets a textarea, reads it back as stuck and does not echo the text',
+      !fill1.error && /"stuck":\s*true/.test(fill1.text) && !fill1.text.includes('Kommentar vom Agenten'),
       fill1.text,
     );
 
@@ -3834,7 +3834,7 @@ async function scenario(browser, gate) {
     check(
       browser,
       'page_fill falls back to execCommand in a bare contenteditable',
-      !fill3.error && fill3.text.includes('plain rich text'),
+      !fill3.error && /"stuck":\s*true/.test(fill3.text),
       fill3.text,
     );
 
