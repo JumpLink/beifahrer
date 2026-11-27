@@ -147,7 +147,7 @@ export default async () => {
       return {
         attempt: async (fallback: boolean) => {
           if (fallback) pressed = true;
-          return { change: pressed ? 'changed' : 'none' };
+          return { change: pressed ? 'changed' : 'none', fallbackOk: true };
         },
         pressed: () => pressed,
       };
@@ -170,7 +170,7 @@ export default async () => {
 
     await it('retries only once, and reports a fallback that did nothing as none', async () => {
       let calls = 0;
-      const out = await clickWithFallback(async () => (calls++, { change: 'none' }));
+      const out = await clickWithFallback(async () => (calls++, { change: 'none', fallbackOk: true }));
       expect(calls).toBe(2);
       expect(out.change).toBe('none');
       expect(out.fallback).toBe('element.click');
@@ -181,7 +181,7 @@ export default async () => {
       const out = await clickWithFallback(async (fallback) => {
         calls++;
         if (fallback) throw new Error('gone');
-        return { change: 'none' };
+        return { change: 'none', fallbackOk: true };
       });
       expect(calls).toBe(2);
       expect(out.change).toBe('none');

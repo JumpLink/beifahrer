@@ -72,14 +72,17 @@ async function whereIs(tabId: number, frame: number): Promise<string | undefined
 export async function lookAt(
   scope: Scope,
   frame: number,
+  ref?: string,
 ): Promise<{ probe?: Probe; url?: string; blocked: boolean }> {
   const url = await whereIs(scope.tabId, frame);
   if (!scope.allows(url)) return { blocked: true };
-  const res = await askPage(scope.tabId, { beifahrer: 'probe' }, frame).catch(() => undefined);
+  const res = await askPage(scope.tabId, { beifahrer: 'probe', ...(ref ? { ref } : {}) }, frame).catch(
+    () => undefined,
+  );
   const p = res?.ok ? res.data : undefined;
   const probe =
     p && typeof p.doc === 'string' && typeof p.url === 'string' && typeof p.n === 'number'
-      ? { doc: p.doc, url: p.url, n: p.n }
+      ? { doc: p.doc, url: p.url, n: p.n, ...(typeof p.f === 'string' ? { f: p.f } : {}) }
       : undefined;
   return { ...(probe ? { probe } : {}), ...(url ? { url } : {}), blocked: false };
 }
@@ -93,9 +96,10 @@ export async function judge(
   scope: Scope,
   frame: number,
   before: Probe | undefined,
+  ref?: string,
 ): Promise<Verdict & { settled: 'quiet' | 'cap'; ms: number }> {
   const out = await settleTab(scope, frame === 0 && before ? { doc: before.doc } : {});
-  const after = await lookAt(scope, frame);
+  const after = await lookAt(scope, frame, ref);
   const verdict: Verdict = after.blocked
     ? { change: 'navigated' }
     : verdictOf(before, after.probe, after.url);

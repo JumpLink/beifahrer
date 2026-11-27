@@ -49,7 +49,7 @@ import {
   type HookWindow,
 } from '../src/chooser-hook.ts';
 import { MutationProbe, type ProbeDocument } from '../src/act-probe.ts';
-import { planClick, pointerClick } from '../src/click-check.ts';
+import { fallbackEligible, formState, planClick, pointerClick } from '../src/click-check.ts';
 import { afterRepaint, HOST_TAG, hideNow, keepShown, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
@@ -1238,7 +1238,8 @@ function click(ref: string, fallback = false): PageResponse {
       ? new PointerEvent(type, { ...init, ...down })
       : new MouseEvent(type, { ...init, ...down });
   });
-  return { ok: true, data: { ref } };
+  // Whether a retry with `click()` is allowed is decided here, where the element is known.
+  return { ok: true, data: { ref, fallbackOk: fallbackEligible(target, plan.hit) } };
 }
 
 /**
@@ -2454,7 +2455,10 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
       // gated on the origin it used to have.
       return { ok: true, data: { url: location.href } };
     case 'probe':
-      return { ok: true, data: { ...probeOf().snapshot() } };
+      return {
+        ok: true,
+        data: { ...probeOf().snapshot(), f: formState(req.ref ? (byRef(req.ref) as never) : null) },
+      };
     case 'quiet':
       return probeOf()
         .quiet(req.quietMs, req.maxMs)

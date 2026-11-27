@@ -12,10 +12,20 @@ const STALE_MS = 60_000;
 
 export class InflightTracker {
   private readonly open = new Map<string, { tabId: number; at: number }>();
+  /** Every start of the last minute, ended or not: "did the page send anything since my click". */
+  private starts: { tabId: number; at: number }[] = [];
 
   start(requestId: string, tabId: number, at: number): void {
     // A redirect keeps its request id: the first start stands, the chain counts as one request.
-    if (!this.open.has(requestId)) this.open.set(requestId, { tabId, at });
+    if (this.open.has(requestId)) return;
+    this.open.set(requestId, { tabId, at });
+    this.starts = this.starts.filter((s) => at - s.at <= STALE_MS);
+    this.starts.push({ tabId, at });
+  }
+
+  /** Did any counted request of the tab start at or after `since`? */
+  startedSince(tabId: number, since: number): boolean {
+    return this.starts.some((s) => s.tabId === tabId && s.at >= since);
   }
 
   end(requestId: string): void {
@@ -36,4 +46,15 @@ export class InflightTracker {
     }
     return n;
   }
+}
+
+interface GrantEvents {
+  onAdded?: { addListener(fn: (granted: { permissions?: string[] }) => void): void };
+}
+
+/** Run `install` when `webRequest` is granted after the background started (the grant is optional). */
+export function watchGrant(permissions: GrantEvents | undefined, install: () => void): void {
+  permissions?.onAdded?.addListener((granted) => {
+    if (granted?.permissions?.includes('webRequest')) install();
+  });
 }

@@ -70,6 +70,7 @@ import {
   uploadRefusal,
 } from '@beifahrer/core';
 import { judge, lookAt, settleTab, type Scope } from './act.ts';
+import { requestsStartedSince } from './inflight.ts';
 import { askForAccess } from './access-prompt.ts';
 import { browserInfo } from './browser-info.ts';
 import { track } from './activity.ts';
@@ -755,11 +756,12 @@ async function acted(
   ctx: CallContext,
   frame: number,
   run: () => Promise<Record<string, unknown>>,
+  ref?: string,
 ): Promise<Record<string, unknown>> {
   const scope = scopeOf(tabId, policy, ctx);
-  const before = (await lookAt(scope, frame)).probe;
+  const before = (await lookAt(scope, frame, ref)).probe;
   const data = await run();
-  return { ...data, ...(await judge(scope, frame, before)) };
+  return { ...data, ...(await judge(scope, frame, before, ref)) };
 }
 
 /**
@@ -1520,16 +1522,26 @@ const handlers: { [M in Method]: Handler<M> } = {
     if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'click', route.ref, undefined);
     // The pointer sequence first; when the page did not change at all, `element.click()` once —
     // custom elements often answer only to that (click-flow.ts).
-    return (await clickWithFallback((fallback) =>
-      acted(tabId, policy, ctx, route.frame, () =>
-        page(
+    const since = Date.now();
+    return (await clickWithFallback(
+      (fallback) =>
+        acted(
           tabId,
+          policy,
           ctx,
-          { beifahrer: 'click', ref: route.ref, ...(fallback ? { fallback } : {}) },
           route.frame,
-          route.index,
-        ),
-      ).then((r) => r as { change: string }),
+          () =>
+            page(
+              tabId,
+              ctx,
+              { beifahrer: 'click', ref: route.ref, ...(fallback ? { fallback } : {}) },
+              route.frame,
+              route.index,
+            ),
+          route.ref,
+        ).then((r) => r as { change: string; fallbackOk?: boolean }),
+      // A request the click started means it did something the DOM has not shown yet.
+      () => requestsStartedSince(tabId, since),
     )) as unknown as Result<'page.click'>;
   },
 

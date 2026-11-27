@@ -17,10 +17,16 @@
 import { browser } from '@wxt-dev/browser';
 import { isTabId } from '@beifahrer/core';
 
-import { COUNTED, InflightTracker } from './inflight-tracker.ts';
+import { COUNTED, InflightTracker, watchGrant } from './inflight-tracker.ts';
 
 const tracker = new InflightTracker();
 let installed = false;
+let grantWatched = false;
+
+/** Did a request of `tabId` start since `since`? Always false without the `webRequest` grant. */
+export function requestsStartedSince(tabId: number, since: number): boolean {
+  return tracker.startedSince(tabId, since);
+}
 
 /** Requests of `tabId` that are open now and young enough to count. */
 export function pendingRequests(tabId: number): number {
@@ -36,6 +42,14 @@ interface Event {
  * listener added later is not reliably delivered, and an MV3 worker that wakes has to find them.
  */
 export function installInflightWatch(): void {
+  if (!grantWatched) {
+    grantWatched = true;
+    // webRequest is optional: when the person grants it later, the listeners are attached then.
+    watchGrant(
+      (browser as unknown as { permissions?: Parameters<typeof watchGrant>[0] }).permissions,
+      installInflightWatch,
+    );
+  }
   if (installed) return;
   const api = (
     browser as unknown as {

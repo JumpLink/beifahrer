@@ -65,7 +65,7 @@ export type PageRequest = PageTarget &
      */
     | { beifahrer: 'where' }
     /** Which document this is and how many real mutations it has had (settle.ts). Reads no content. */
-    | { beifahrer: 'probe' }
+    | { beifahrer: 'probe'; ref?: string }
     /** Answer once the document has been still for `quietMs`, or after `maxMs`. Reads no content. */
     | { beifahrer: 'quiet'; quietMs: number; maxMs: number }
     | { beifahrer: 'hide' }

@@ -12,6 +12,8 @@ export type Probe = {
   doc: string;
   url: string;
   n: number;
+  /** Form-control state of the clicked element (a checkbox's `checked` is a property, not a mutation). */
+  f?: string;
 };
 
 export type Change = 'navigated' | 'changed' | 'none';
@@ -27,5 +29,5 @@ export function verdictOf(before: Probe | undefined, after: Probe | undefined, l
   if (!after) return { change: 'navigated', ...(landed ? { url: landed } : {}) };
   if (!before) return { change: 'changed' };
   if (after.doc !== before.doc || after.url !== before.url) return { change: 'navigated', url: after.url };
-  return { change: after.n !== before.n ? 'changed' : 'none' };
+  return { change: after.n !== before.n || after.f !== before.f ? 'changed' : 'none' };
 }
