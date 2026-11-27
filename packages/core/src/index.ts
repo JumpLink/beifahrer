@@ -37,3 +37,4 @@ export * from './wait.ts';
 export * from './config-edit.ts';
 export * from './versions.ts';
 export * from './withheld.ts';
+export * from './settle.ts';

@@ -69,6 +69,7 @@ import {
   type TabInfo,
   uploadRefusal,
 } from '@beifahrer/core';
+import { settleTab, type Scope } from './act.ts';
 import { askForAccess } from './access-prompt.ts';
 import { browserInfo } from './browser-info.ts';
 import { track } from './activity.ts';
@@ -738,6 +739,26 @@ function findQueryOf(params: Record<string, unknown>): ElementQuery {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Settling looks at a tab at `read`, the level of `page.wait` — and asks the policy again every time. */
+function scopeOf(tabId: number, policy: Policy, ctx: CallContext): Scope {
+  return { tabId, allows: (url) => decide(policy, 'page.wait', url, accessOf(ctx)).allow };
+}
+
+/**
+ * Run a write, then wait for the page to be quiet and say how that went (`settled`, `ms`). A write
+ * that failed throws before the wait: there is nothing to settle.
+ */
+async function acted(
+  tabId: number,
+  policy: Policy,
+  ctx: CallContext,
+  run: () => Promise<Record<string, unknown>>,
+): Promise<Record<string, unknown>> {
+  const data = await run();
+  const out = await settleTab(scopeOf(tabId, policy, ctx));
+  return { ...data, settled: out.settled, ms: out.ms };
+}
+
 /**
  * Wait until the tab's document has loaded. Polls `tabs.get`: Epiphany fires no
  * `tabs.onUpdated`, so polling is the one path that works everywhere (issue #2).
@@ -1210,7 +1231,10 @@ const handlers: { [M in Method]: Handler<M> } = {
     if (!blank) await gate('page.wait', tab.url || tab.pendingUrl, policy, ctx);
     await waitForLoad(tabId, deadline);
     if (blank) await gate('page.wait', (await getTab(tabId)).url, policy, ctx);
-    if (!query) return { waitedMs: Date.now() - started };
+    if (!query) {
+      const quiet = await settleTab(scopeOf(tabId, policy, ctx), { navigation: true });
+      return { waitedMs: Date.now() - started, settled: quiet.settled, ms: quiet.ms };
+    }
     // The document may have navigated while it loaded: the gate is asked again for where it is NOW.
     const loaded = await getTab(tabId);
     await gate('page.wait', loaded.url, policy, ctx);
@@ -1248,7 +1272,13 @@ const handlers: { [M in Method]: Handler<M> } = {
       sleep(left).then(() => null),
     ]);
     const data = answers ?? (await Promise.all(attempts)).find((a) => a.match) ?? {};
-    return { waitedMs: Date.now() - started, match: data.match as Result<'page.wait'>['match'] };
+    const quiet = await settleTab(scopeOf(tabId, policy, ctx));
+    return {
+      waitedMs: Date.now() - started,
+      match: data.match as Result<'page.wait'>['match'],
+      settled: quiet.settled,
+      ms: quiet.ms,
+    };
   },
 
   async 'page.expect'(params, policy, ctx) {
@@ -1425,12 +1455,14 @@ const handlers: { [M in Method]: Handler<M> } = {
     // site, and the confirm window shows it (issue #32).
     const route = await routeFor('page.fill', tabId, ref, policy, ctx);
     if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'fill', route.ref, params.text);
-    return (await page(
-      tabId,
-      ctx,
-      { beifahrer: 'fill', ref: route.ref, text: params.text, as, mode },
-      route.frame,
-      route.index,
+    return (await acted(tabId, policy, ctx, () =>
+      page(
+        tabId,
+        ctx,
+        { beifahrer: 'fill', ref: route.ref, text: params.text, as, mode },
+        route.frame,
+        route.index,
+      ),
     )) as unknown as Result<'page.fill'>;
   },
 
@@ -1473,12 +1505,8 @@ const handlers: { [M in Method]: Handler<M> } = {
       await confirmWrite(ctx, tabId, route.origin, 'upload', route.ref, list);
     }
     await installChooserHookInPage(tabId, route.frame);
-    return (await page(
-      tabId,
-      ctx,
-      { beifahrer: 'upload', ref: route.ref, files },
-      route.frame,
-      route.index,
+    return (await acted(tabId, policy, ctx, () =>
+      page(tabId, ctx, { beifahrer: 'upload', ref: route.ref, files }, route.frame, route.index),
     )) as unknown as Result<'page.upload'>;
   },
 
@@ -1487,12 +1515,8 @@ const handlers: { [M in Method]: Handler<M> } = {
     const ref = refOf(params);
     const route = await routeFor('page.click', tabId, ref, policy, ctx);
     if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'click', route.ref, undefined);
-    return (await page(
-      tabId,
-      ctx,
-      { beifahrer: 'click', ref: route.ref },
-      route.frame,
-      route.index,
+    return (await acted(tabId, policy, ctx, () =>
+      page(tabId, ctx, { beifahrer: 'click', ref: route.ref }, route.frame, route.index),
     )) as unknown as Result<'page.click'>;
   },
 
@@ -1593,12 +1617,16 @@ const handlers: { [M in Method]: Handler<M> } = {
         { origin: after.origin, have: after.have, need: after.need },
       );
     }
+    // A load event is not "the page is ready": a single-page app is still fetching. 3 s at most.
+    const quiet = await settleTab(scopeOf(tabId, policy, ctx), { navigation: true });
     return {
       url: loaded.url ?? null,
       title: loaded.title ?? '',
       navigation: req.navigation as Navigation,
       moved,
       waitedMs: moved ? Date.now() - started : 0,
+      settled: quiet.settled,
+      ms: quiet.ms,
     };
   },
 
@@ -1733,18 +1761,20 @@ const handlers: { [M in Method]: Handler<M> } = {
       if (answer.remember) await rememberWrites(origin);
       await stillTheSameOrigin(tabId, origin, 'page.press');
     }
-    return (await page(
-      tabId,
-      ctx,
-      {
-        beifahrer: 'press',
-        ...(ref ? { ref: route.ref } : {}),
-        ...(key !== undefined ? { key } : {}),
-        ...(text !== undefined ? { text } : {}),
-        times,
-      },
-      route.frame,
-      route.index,
+    return (await acted(tabId, policy, ctx, () =>
+      page(
+        tabId,
+        ctx,
+        {
+          beifahrer: 'press',
+          ...(ref ? { ref: route.ref } : {}),
+          ...(key !== undefined ? { key } : {}),
+          ...(text !== undefined ? { text } : {}),
+          times,
+        },
+        route.frame,
+        route.index,
+      ),
     )) as unknown as Result<'page.press'>;
   },
 
@@ -1763,12 +1793,8 @@ const handlers: { [M in Method]: Handler<M> } = {
     const add = params.add === true;
     const route = await routeFor('page.select', tabId, ref, policy, ctx);
     if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'select', route.ref, values.join(', '));
-    return (await page(
-      tabId,
-      ctx,
-      { beifahrer: 'select', ref: route.ref, values, add },
-      route.frame,
-      route.index,
+    return (await acted(tabId, policy, ctx, () =>
+      page(tabId, ctx, { beifahrer: 'select', ref: route.ref, values, add }, route.frame, route.index),
     )) as unknown as Result<'page.select'>;
   },
 
@@ -1780,12 +1806,8 @@ const handlers: { [M in Method]: Handler<M> } = {
     const checked = params.checked !== false;
     const route = await routeFor('page.check', tabId, ref, policy, ctx);
     if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'check', route.ref, String(checked));
-    return (await page(
-      tabId,
-      ctx,
-      { beifahrer: 'check', ref: route.ref, checked },
-      route.frame,
-      route.index,
+    return (await acted(tabId, policy, ctx, () =>
+      page(tabId, ctx, { beifahrer: 'check', ref: route.ref, checked }, route.frame, route.index),
     )) as unknown as Result<'page.check'>;
   },
 

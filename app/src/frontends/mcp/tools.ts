@@ -809,7 +809,7 @@ export function registerTools(
       title: 'Move a tab',
       description:
         'Move the person\'s own tab: navigation="url" with a url, or "back", "forward" or "reload". ' +
-        'It waits for the new page to finish loading, so a page_read right after it sees the new page and not the one on its way out. ' +
+        'It waits for the new page to finish loading, so a page_read right after it sees the new page and not the one on its way out, and then for it to be quiet (no real DOM change for 80 ms, no page request in flight, at most 3 s): "settled" is "quiet", or "cap" when the page never went still. ' +
         'The answer carries "moved": false when the tab did not move at all, which for back/forward means there is no history entry — ' +
         'use a url then, and do not read the page as if you had left it. ' +
         'A url needs level "read" on the site it names, exactly like tab_open — a site the person blocked refuses here too. ' +

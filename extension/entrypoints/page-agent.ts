@@ -48,7 +48,8 @@ import {
   installChooserHook,
   type HookWindow,
 } from '../src/chooser-hook.ts';
-import { afterRepaint, hideNow, keepShown, show } from '../src/page-indicator.ts';
+import { MutationProbe, type ProbeDocument } from '../src/act-probe.ts';
+import { afterRepaint, HOST_TAG, hideNow, keepShown, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
 interface AgentState {
@@ -2390,6 +2391,25 @@ function frameCount(): number {
   return document.querySelectorAll('iframe, frame').length;
 }
 
+/**
+ * The document's mutation counter, created by the first `probe` or `quiet` request and never before:
+ * a page nobody acts on pays nothing for it.
+ */
+let actProbe: MutationProbe | undefined;
+function probeOf(): MutationProbe {
+  actProbe ??= new MutationProbe({
+    doc: document as unknown as ProbeDocument,
+    Observer: MutationObserver,
+    now: () => Date.now(),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    id: crypto.randomUUID(),
+    url: () => location.href,
+    // The pill is ours, not the page's doing.
+    ignore: (node) => node.nodeName.toLowerCase() === HOST_TAG,
+  });
+  return actProbe;
+}
+
 function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
   const verb = VERB[req.beifahrer];
   session = req.session;
@@ -2439,6 +2459,12 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
       // come from a value remembered at injection time — a frame that navigated since then would be
       // gated on the origin it used to have.
       return { ok: true, data: { url: location.href } };
+    case 'probe':
+      return { ok: true, data: { ...probeOf().snapshot() } };
+    case 'quiet':
+      return probeOf()
+        .quiet(req.quietMs, req.maxMs)
+        .then((q) => ({ ok: true as const, data: { ...q } }));
     case 'click':
       return click(req.ref);
     case 'press':

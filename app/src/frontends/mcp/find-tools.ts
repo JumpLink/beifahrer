@@ -116,6 +116,7 @@ export function registerFindTools(server: McpServer, call: Call): void {
       description:
         'Wait until a tab has finished loading (for="load", e.g. right after tab_open), or until an element matching role/name/text is there ' +
         "(e.g. the editor that appears after clicking a comment box). Returns the element's ref. " +
+        'It then waits for the page to be quiet (no real DOM change for 80 ms, no page request in flight) and reports "settled": "quiet", or "cap" if the page never went still within 800 ms (3 s after a load). ' +
         `Gives up after timeoutMs (default 10000, at most ${MAX_WAIT_MS}) with a "timeout" error. ` +
         POLICY_NOTE,
       inputSchema: {
