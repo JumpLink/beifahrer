@@ -55,6 +55,9 @@ import extensionSaves from './unit/extension/saves.test.ts';
 import extensionChooserHook from './unit/extension/chooser-hook.test.ts';
 import extensionClickCheck from './unit/extension/click-check.test.ts';
 import extensionClickSafety from './unit/extension/click-safety.test.ts';
+import extensionUploadCheck from './unit/extension/upload-check.test.ts';
+import extensionDerivedRole from './unit/extension/derived-role.test.ts';
+import extensionFieldFill from './unit/extension/field-fill.test.ts';
 import extensionActProbe from './unit/extension/act-probe.test.ts';
 import extensionInflight from './unit/extension/inflight-tracker.test.ts';
 import updatesJson from './unit/extension/updates-json.test.ts';
@@ -145,6 +148,9 @@ run({
   extensionSaves,
   extensionChooserHook,
   extensionActProbe,
+  extensionFieldFill,
+  extensionDerivedRole,
+  extensionUploadCheck,
   extensionClickSafety,
   extensionClickCheck,
   extensionInflight,

@@ -177,6 +177,12 @@ export const tabInfo = loose({
 export const foundElement = loose({
   ref: z.string().describe('Element ref for page_fill / page_click / page_expect, e.g. e12 or b2e12'),
   description: z.string().describe('The outline line for it'),
+  derived: z
+    .boolean()
+    .optional()
+    .describe(
+      'True when the role is a guess from behaviour (a custom element that acts like a button), not declared',
+    ),
 });
 
 export function failure(err: unknown): CallToolResult {
@@ -659,6 +665,8 @@ export function registerTools(
         'as="html" pastes formatted text into rich editors (headings, lists, bold survive); plain fields get the text. ' +
         'Needs level "read + edit"; the person is asked to confirm in a browser window unless they switched that off for the site, so this may take up to two minutes. ' +
         'Password fields are never filled. ' +
+        'Text goes in the way typing does (native setter, beforeinput/input/change, the last character as a key press), so React and Fluent UI fields keep it. ' +
+        'The field is read back: "stuck" is true when the page kept the text, "retried" when a second write was needed; the text itself is not echoed, only its "length". If stuck is false, the page rejected it: look at the field with page_outline. ' +
         CHANGE_NOTE +
         POLICY_NOTE,
       inputSchema: {
@@ -716,7 +724,7 @@ export function registerTools(
         'Put files into a page\'s file field ("Choose file"), by ref from page_outline or page_find: the field itself, or the button or label that opens it. ' +
         "paths are files inside the upload directory the PERSON set (the server's --upload-dir / BEIFAHRER_UPLOAD_DIR); a relative path counts from there, and anything outside it or without that setting is refused before the browser is asked. " +
         'Several paths only if the field accepts several. If no file field belongs to the ref (a "drop image here" zone), the files are dropped onto that element as a drag-and-drop; the answer says via "input" or "drop", and for a drop accepted means the page cancelled the drop event, i.e. took it. ' +
-        'The file content never comes back: the answer lists name, size and type per file and whether the page took them. ' +
+        'The file content never comes back: the answer lists name, size and type per file and whether the page took them (accepted: the field held every file when the page was told; cleared: the page emptied the field afterwards, i.e. it consumed them). ' +
         'Needs the switch "Upload files" (off by default), level "read + edit", and the person confirms every time in a browser window, so this may take up to two minutes. ' +
         CHANGE_NOTE +
         POLICY_NOTE,

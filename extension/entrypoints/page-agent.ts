@@ -50,6 +50,9 @@ import {
 } from '../src/chooser-hook.ts';
 import { MutationProbe, type ProbeDocument } from '../src/act-probe.ts';
 import { fallbackEligible, formState, planClick, pointerClick } from '../src/click-check.ts';
+import { derivedRole } from '../src/derived-role.ts';
+import { checkUpload } from '../src/upload-check.ts';
+import { deepActive, typeInto, type FillEnv } from '../src/field-fill.ts';
 import { afterRepaint, HOST_TAG, hideNow, keepShown, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
@@ -100,6 +103,10 @@ function rendered(el: Element): boolean {
 function visible(el: Element): boolean {
   if (el.closest('[aria-hidden="true"], [hidden], [inert]')) return false;
   if (rendered(el)) return true;
+  if (el instanceof HTMLOptionElement) {
+    const select = el.closest('select');
+    return select !== null && rendered(select);
+  }
   return (
     el instanceof HTMLInputElement &&
     (el.type === 'radio' || el.type === 'checkbox') &&
@@ -129,6 +136,27 @@ function rootOf(el: Element): Document | ShadowRoot {
   return root && typeof root.querySelectorAll === 'function' ? root : document;
 }
 
+/**
+ * A shadow root that is one button and nothing else interactive: the host IS the button. A card
+ * with a form and a button in it is a container, and calling it a button would list it next to the
+ * real one.
+ */
+function wrapsOneButton(root: ShadowRoot | null): boolean {
+  if (!root) return false;
+  if (root.querySelectorAll('button, [role="button"]').length !== 1) return false;
+  return !root.querySelector('input, select, textarea, a[href], [contenteditable], [tabindex]');
+}
+
+/** What a component's open shadow root says; the host's own `textContent` does not include it. */
+function shadowText(el: Element): string {
+  const root = el.shadowRoot;
+  if (!root) return '';
+  const parts: string[] = [];
+  for (const child of Array.from(root.children))
+    if (!SKIP.has(child.tagName)) parts.push(child.textContent?.trim() ?? '');
+  return parts.filter(Boolean).join(' ');
+}
+
 function labelFor(el: Element): string {
   const aria = el.getAttribute('aria-label');
   if (aria) return aria;
@@ -155,7 +183,7 @@ function labelFor(el: Element): string {
   // An icon button: the words live in a visually-hidden span (`innerText` can come back empty for
   // clipped text), an <img alt>, an SVG <title> or a child's aria-label. Fluent UI toolbars are
   // built like this, and the result was `button ""`.
-  const inner = el.textContent?.trim();
+  const inner = el.textContent?.trim() || shadowText(el);
   if (inner) return inner;
   const hint = el.querySelector('[aria-label], img[alt], svg title, [title]');
   const hinted =
@@ -183,6 +211,8 @@ type Kind =
         | 'menuitem'
         | 'listbox'
         | 'option';
+      /** The role was worked out from behaviour (derived-role.ts), not declared by the page. */
+      derived?: true;
     };
 
 function kindOf(el: Element): Kind | null {
@@ -215,6 +245,20 @@ function kindOf(el: Element): Kind | null {
   if (role === 'listbox') return { role: 'listbox' };
   if (role === 'option') return { role: 'option' };
   if (role === 'link') return { role: 'link' };
+  // Native <option>: kept out of the outline (a country list is 250 lines), found by role.
+  if (tag === 'OPTION') return { role: 'option' };
+  if (tag.includes('-') && !role) {
+    const tabindex = el.getAttribute('tabindex');
+    const derived = derivedRole({
+      tag: tag.toLowerCase(),
+      role,
+      tabindex: tabindex === null || tabindex.trim() === '' ? null : Number(tabindex),
+      shadowButton: wrapsOneButton(el.shadowRoot),
+      pointer: getComputedStyle(el).cursor === 'pointer',
+      name: labelFor(el),
+    });
+    if (derived) return { role: derived, derived: true };
+  }
   return null;
 }
 
@@ -336,8 +380,9 @@ function describe(el: Element, kind: Kind): string {
       return `combobox "${name}"${selected ? ` = "${clip(selected, 60)}"` : ''}${open}`;
     }
     case 'option': {
-      const selected = el.getAttribute('aria-selected') === 'true' ? ' [selected]' : '';
-      const disabled = el.getAttribute('aria-disabled') === 'true' ? ' [disabled]' : '';
+      const native = el instanceof HTMLOptionElement ? el : null;
+      const selected = native?.selected || el.getAttribute('aria-selected') === 'true' ? ' [selected]' : '';
+      const disabled = native?.disabled || el.getAttribute('aria-disabled') === 'true' ? ' [disabled]' : '';
       return `option "${name}"${selected}${disabled}`;
     }
     case 'file': {
@@ -462,6 +507,7 @@ function outline(maxItems: number): PageResponse {
   // by side there is nothing in the text that says which content belongs to which — so every ref in
   // the outline is attributable to a document by looking up from it.
   for (const { el, kind } of elementsByDocument()) {
+    if (el instanceof HTMLOptionElement) continue;
     if (lines.length >= maxItems) {
       truncated = true;
       break;
@@ -636,9 +682,13 @@ function focusMark(el: Element): string {
  * focus is, so an agent that cannot SEE the focus cannot use that form of the call at all — it would
  * be pressing keys into a field it cannot name.
  */
-function found(el: Element): { ref: string; description: string } {
+function found(el: Element): { ref: string; description: string; derived?: true } {
   const kind = kindOf(el)!;
-  return { ref: refOf(el), description: `${describe(el, kind)}${focusMark(el)}` };
+  return {
+    ref: refOf(el),
+    description: `${describe(el, kind)}${focusMark(el)}`,
+    ...('derived' in kind && kind.derived ? { derived: true as const } : {}),
+  };
 }
 
 function find(query: ElementQuery, maxResults: number): PageResponse {
@@ -873,12 +923,16 @@ function notFound(ref: string): PageResponse {
  * both, because the call ends there. A single keystroke fires only `input` — firing `change` per
  * character would run a form's change handler once per letter, which is not what typing does.
  */
-function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string, change = true): void {
+function nativeSetValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
   const proto =
     el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
   if (setter) setter.call(el, value);
   else el.value = value;
+}
+
+function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string, change = true): void {
+  nativeSetValue(el, value);
   el.dispatchEvent(new Event('input', { bubbles: true }));
   if (change) el.dispatchEvent(new Event('change', { bubbles: true }));
 }
@@ -906,7 +960,7 @@ function setNativeChecked(el: HTMLInputElement, checked: boolean): void {
  * 2. `execCommand` insertHTML / insertText — fires beforeinput/input, which editors handle.
  * 3. Plain DOM text, the last resort for a bare contenteditable nothing else reached.
  */
-function fillRich(el: HTMLElement, text: string, as: 'text' | 'html', mode: 'replace' | 'append'): void {
+function fillRich(el: HTMLElement, text: string, as: 'text' | 'html', mode: 'replace' | 'append'): boolean {
   const plain = as === 'html' ? htmlToText(text) : text;
   const probe = plain.replace(/\s+/g, ' ').trim().slice(0, 40);
   const landed = () => !probe || (el.innerText ?? '').replace(/\s+/g, ' ').includes(probe);
@@ -925,15 +979,54 @@ function fillRich(el: HTMLElement, text: string, as: 'text' | 'html', mode: 'rep
   if (!firefox) {
     select();
     el.dispatchEvent(pasteEvent(as === 'html' ? text : null, plain));
-    if (landed()) return;
+    if (landed()) return true;
   }
   select();
   document.execCommand(as === 'html' ? 'insertHTML' : 'insertText', false, text);
-  if (landed()) return;
+  if (landed()) return true;
+  // The same events a typed insertion sends, so an editor listening for `beforeinput` still hears it.
+  el.dispatchEvent(
+    new InputEvent('beforeinput', {
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+      inputType: 'insertText',
+      data: plain,
+    }),
+  );
   if (mode === 'replace') el.textContent = '';
   el.append(plain);
-  el.dispatchEvent(new InputEvent('input', { bubbles: true }));
+  el.dispatchEvent(
+    new InputEvent('input', { bubbles: true, composed: true, inputType: 'insertText', data: plain }),
+  );
+  return landed();
 }
+
+/**
+ * The browser calls `typeInto` needs (field-fill.ts). The read-back asks the field, and the element
+ * with the keyboard when the field is gone: a framework that re-renders swaps the input for a new one
+ * and gives it the focus, and the old node then holds nothing.
+ */
+const fieldEnv: FillEnv<HTMLInputElement | HTMLTextAreaElement> = {
+  setValue: nativeSetValue,
+  read: (el) => {
+    if (el.isConnected) return el.value;
+    const active = deepActive(document);
+    return active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement
+      ? active.value
+      : el.value;
+  },
+  input: (type, inputType, data) =>
+    new InputEvent(type, {
+      bubbles: true,
+      composed: true,
+      cancelable: type === 'beforeinput',
+      inputType,
+      data,
+    }),
+  key: (type, key) => new KeyboardEvent(type, { key, bubbles: true, composed: true, cancelable: true }),
+  change: () => new Event('change', { bubbles: true }),
+};
 
 function pasteEvent(html: string | null, plain: string): ClipboardEvent {
   const data = new DataTransfer();
@@ -959,14 +1052,19 @@ function fill(ref: string, text: string, as: 'text' | 'html', mode: 'replace' | 
     };
   }
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-    el.focus();
     const plain = as === 'html' ? htmlToText(text) : text;
-    setNativeValue(el, mode === 'append' ? el.value + plain : plain);
-    return { ok: true, data: { ref, value: clip(el.value, 2000) } };
+    // What comes back is `stuck`/`length`, never the value: it may be a secret.
+    return {
+      ok: true,
+      data: { ref, ...typeInto(el, mode === 'append' ? el.value + plain : plain, fieldEnv) },
+    };
   }
   if (kind?.role === 'richtext' || (el as HTMLElement).isContentEditable) {
-    fillRich(el as HTMLElement, text, as, mode);
-    return { ok: true, data: { ref, value: clip((el as HTMLElement).innerText ?? '', 2000) } };
+    const stuck = fillRich(el as HTMLElement, text, as, mode);
+    return {
+      ok: true,
+      data: { ref, stuck, retried: false, length: ((el as HTMLElement).innerText ?? '').length },
+    };
   }
   return {
     ok: false,
@@ -1124,16 +1222,23 @@ function fillInput(input: HTMLInputElement, ref: string, files: UploadFile[]): P
   const transfer = new DataTransfer();
   for (const f of buildFiles(files)) transfer.items.add(f);
   input.files = transfer.files;
+  // Read BEFORE the page hears of it: its change handler may take the files and clear the field.
+  const held = Array.from(input.files ?? []);
   input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
   input.dispatchEvent(new Event('change', { bubbles: true }));
-  const held = Array.from(input.files ?? []);
+  const check = checkUpload(
+    files.map((f) => f.name),
+    held,
+    Array.from(input.files ?? []),
+  );
   return {
     ok: true,
     data: {
       ref,
       via: 'input',
       files: held.map((f) => ({ name: f.name, mime: f.type, size: f.size })),
-      accepted: held.length === files.length,
+      accepted: check.accepted,
+      cleared: check.cleared,
     },
   };
 }

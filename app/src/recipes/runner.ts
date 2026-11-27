@@ -354,7 +354,8 @@ export async function runRecipe(call: Call, recipe: Recipe, opts: RunOptions): P
           }
           const ref = await resolve(step.target);
           const r = await call('page.fill', { tabId, ref, text, as: step.as, mode: step.mode }, browser);
-          entry.result = r.value;
+          // The text is not logged: a fill may carry a secret. Whether the page kept it is the news.
+          entry.result = { stuck: r.stuck, length: r.length };
           break;
         }
         case 'wait': {

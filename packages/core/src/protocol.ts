@@ -155,6 +155,8 @@ export interface TabInfo {
 export interface FoundElement {
   ref: string;
   description: string;
+  /** The role was worked out from behaviour (a custom element that acts like a button), not declared. */
+  derived?: true;
 }
 
 /** One row of a list, as the page shows it. The text is the row's own, clipped. */
@@ -311,7 +313,11 @@ export interface MethodMap {
   };
   'page.fill': {
     params: { tabId: number; ref: string; text: string; as?: 'text' | 'html'; mode?: 'replace' | 'append' };
-    result: { ref: string; value: string } & Acted;
+    /**
+     * `stuck`: the field held the text when read back (`retried`: only after a second write).
+     * The value itself is never in the answer, only its length.
+     */
+    result: { ref: string; stuck: boolean; retried: boolean; length: number } & Acted;
   };
   /**
    * Type a one-time code the person sent into a one-time-code field (ADR 0020). The result carries
@@ -347,6 +353,8 @@ export interface MethodMap {
       via: 'input' | 'drop';
       files: UploadedFile[];
       accepted: boolean;
+      /** `input` only: the page emptied the field after its change event, i.e. it consumed the files. */
+      cleared?: boolean;
     } & Acted;
   };
   /**

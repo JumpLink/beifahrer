@@ -74,6 +74,7 @@ export function registerFindTools(server: McpServer, call: Call): void {
         'Elements of a tab that match a role and/or part of their accessible name or text, each with a ref for page_fill / page_click — ' +
         'the same refs page_outline gives. Cheaper than a full outline when you know what you are looking for ("the button named Submit comment"). ' +
         'No CSS selectors: role + name is the query. ' +
+        'Open shadow roots are searched. Where a page declares no ARIA, a custom element that is focusable, wraps a single button in its shadow root, or shows a pointer cursor with a command-like name is returned as role button with derived: true; native <option> and [role=option] match role option (page_outline leaves native options out, a long list would drown it; set them with page_select). ' +
         POLICY_NOTE,
       inputSchema: {
         tabId: z.number().int().describe('Tab id from tabs_list or tab_active'),
