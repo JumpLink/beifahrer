@@ -28,6 +28,14 @@ import type { DownloadOutcome } from './download-state.ts';
 import type { ExpectState } from './expect.ts';
 import type { ScriptWorld } from './evaluate.ts';
 import type { Navigation } from './navigate.ts';
+import type { Settled } from './settle.ts';
+import type { Verdict } from './verdict.ts';
+
+/** What a call that waited for the page to be quiet adds to its answer (settle.ts). */
+type Quiet = Settled;
+
+/** What a write adds: the page was settled, and the change it made (verdict.ts). */
+type Acted = Settled & Verdict;
 import type { UploadFile, UploadedFile } from './upload.ts';
 import type { NetworkRow } from './network.ts';
 import type { SourceAction, SourceHit, SourceRow } from './sources.ts';
@@ -206,7 +214,7 @@ export interface MethodMap {
   'page.wait': {
     /** Until the document has loaded, or until an element matching the query is there. */
     params: { tabId: number; for: 'load' | ElementQuery; timeoutMs?: number };
-    result: { waitedMs: number; match?: FoundElement };
+    result: { waitedMs: number; match?: FoundElement } & Quiet;
   };
   'page.expect': {
     /**
@@ -303,7 +311,7 @@ export interface MethodMap {
   };
   'page.fill': {
     params: { tabId: number; ref: string; text: string; as?: 'text' | 'html'; mode?: 'replace' | 'append' };
-    result: { ref: string; value: string };
+    result: { ref: string; value: string } & Acted;
   };
   /**
    * Type a one-time code the person sent into a one-time-code field (ADR 0020). The result carries
@@ -322,7 +330,10 @@ export interface MethodMap {
     params: { tabId: number; name?: string[] };
     result: { text: string };
   };
-  'page.click': { params: { tabId: number; ref: string }; result: { ref: string } };
+  'page.click': {
+    params: { tabId: number; ref: string };
+    result: { ref: string; fallback?: 'element.click' } & Acted;
+  };
   /**
    * Put local files into a file field (ADR 0027). The agent names paths; the bridge checks them
    * against the person's upload folder and sends the bytes here as `files`. The result carries names,
@@ -336,7 +347,7 @@ export interface MethodMap {
       via: 'input' | 'drop';
       files: UploadedFile[];
       accepted: boolean;
-    };
+    } & Acted;
   };
   /**
    * A key, or text typed one character at a time.
@@ -423,21 +434,21 @@ export interface MethodMap {
       truncated: boolean;
       slice?: { url: string; offset: number; text: string; total: number; more: boolean };
       note?: string;
-    };
+    } & Quiet;
   };
   'page.press': {
     params: { tabId: number; ref?: string; key?: string; text?: string; times?: number };
-    result: { ref: string | null; key?: string; text?: string; times: number };
+    result: { ref: string | null; key?: string; text?: string; times: number } & Acted;
   };
   /** Choose options in a `<select>`, by value or by the text a person reads. `add` keeps the rest. */
   'page.select': {
     params: { tabId: number; ref: string; values: string[]; add?: boolean };
-    result: { ref: string; selected: string[] };
+    result: { ref: string; selected: string[] } & Acted;
   };
   /** Set a checkbox, a radio or a `role=checkbox` widget. Absent `checked` means checked. */
   'page.check': {
     params: { tabId: number; ref: string; checked?: boolean };
-    result: { ref: string; checked?: boolean; changed?: boolean; clicked?: boolean };
+    result: { ref: string; checked?: boolean; changed?: boolean; clicked?: boolean } & Acted;
   };
   'page.evaluate': {
     /**

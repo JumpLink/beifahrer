@@ -48,7 +48,9 @@ import {
   installChooserHook,
   type HookWindow,
 } from '../src/chooser-hook.ts';
-import { afterRepaint, hideNow, keepShown, show } from '../src/page-indicator.ts';
+import { MutationProbe, type ProbeDocument } from '../src/act-probe.ts';
+import { fallbackEligible, formState, planClick, pointerClick } from '../src/click-check.ts';
+import { afterRepaint, HOST_TAG, hideNow, keepShown, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
 interface AgentState {
@@ -1136,27 +1138,6 @@ function fillInput(input: HTMLInputElement, ref: string, files: UploadFile[]): P
   };
 }
 
-/**
- * The press a pointer produces before the click. An option of a dropdown built from divs often acts
- * on pointerdown/mousedown (Angular Material selects on mousedown, then click), so `click()` alone
- * leaves it untouched.
- */
-function pressLikePointer(el: Element): void {
-  const rect = el.getBoundingClientRect();
-  const at = {
-    bubbles: true,
-    cancelable: true,
-    composed: true,
-    clientX: rect.x + rect.width / 2,
-    clientY: rect.y + rect.height / 2,
-    button: 0,
-  };
-  el.dispatchEvent(new PointerEvent('pointerdown', { ...at, buttons: 1 }));
-  el.dispatchEvent(new MouseEvent('mousedown', { ...at, buttons: 1 }));
-  el.dispatchEvent(new PointerEvent('pointerup', at));
-  el.dispatchEvent(new MouseEvent('mouseup', at));
-}
-
 function buildFiles(files: UploadFile[]): File[] {
   return files.map((f) => {
     const binary = atob(f.base64);
@@ -1236,14 +1217,29 @@ function dropFiles(el: Element, ref: string, files: UploadFile[]): PageResponse 
   };
 }
 
-function click(ref: string): PageResponse {
+function click(ref: string, fallback = false): PageResponse {
   const el = byRef(ref);
   if (!el) return notFound(ref);
-  (el as HTMLElement).scrollIntoView({ block: 'center', inline: 'center' });
-  (el as HTMLElement).focus?.();
-  if (el.getAttribute('role') === 'option') pressLikePointer(el);
-  (el as HTMLElement).click();
-  return { ok: true, data: { ref } };
+  const target = el as HTMLElement;
+  if (fallback) {
+    // The retry for a custom element that ignored the pointer events: only its own `click()` works.
+    if (!target.isConnected) return { ok: false, code: 'failed', message: `${ref} is no longer in the page` };
+    target.click();
+    return { ok: true, data: { ref } };
+  }
+  const plan = planClick(target, { width: window.innerWidth, height: window.innerHeight });
+  if (!plan.ok) return { ok: false, code: 'failed', message: `${ref}: ${plan.message}` };
+  target.focus?.();
+  pointerClick(target, plan, (type, at) => {
+    const init = { bubbles: true, cancelable: true, composed: true, button: 0, ...at };
+    const down = type === 'pointerdown' || type === 'mousedown' ? { buttons: 1 } : {};
+    if (type === 'click') return new MouseEvent('click', init);
+    return type.startsWith('pointer')
+      ? new PointerEvent(type, { ...init, ...down })
+      : new MouseEvent(type, { ...init, ...down });
+  });
+  // Whether a retry with `click()` is allowed is decided here, where the element is known.
+  return { ok: true, data: { ref, fallbackOk: fallbackEligible(target, plan.hit) } };
 }
 
 /**
@@ -2390,6 +2386,25 @@ function frameCount(): number {
   return document.querySelectorAll('iframe, frame').length;
 }
 
+/**
+ * The document's mutation counter, created by the first `probe` or `quiet` request and never before:
+ * a page nobody acts on pays nothing for it.
+ */
+let actProbe: MutationProbe | undefined;
+function probeOf(): MutationProbe {
+  actProbe ??= new MutationProbe({
+    doc: document as unknown as ProbeDocument,
+    Observer: MutationObserver,
+    now: () => Date.now(),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    id: crypto.randomUUID(),
+    url: () => location.href,
+    // The pill is ours, not the page's doing.
+    ignore: (node) => node.nodeName.toLowerCase() === HOST_TAG,
+  });
+  return actProbe;
+}
+
 function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
   const verb = VERB[req.beifahrer];
   session = req.session;
@@ -2439,8 +2454,17 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
       // come from a value remembered at injection time — a frame that navigated since then would be
       // gated on the origin it used to have.
       return { ok: true, data: { url: location.href } };
+    case 'probe':
+      return {
+        ok: true,
+        data: { ...probeOf().snapshot(), f: formState(req.ref ? (byRef(req.ref) as never) : null) },
+      };
+    case 'quiet':
+      return probeOf()
+        .quiet(req.quietMs, req.maxMs)
+        .then((q) => ({ ok: true as const, data: { ...q } }));
     case 'click':
-      return click(req.ref);
+      return click(req.ref, req.fallback === true);
     case 'press':
       return press(req.ref, req.key, req.text, req.times);
     case 'select':

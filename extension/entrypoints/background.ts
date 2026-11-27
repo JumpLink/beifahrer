@@ -8,6 +8,7 @@ import { STOP_MESSAGE, installPauseCommand, setPaused } from '../src/indicator.t
 import { GRANTS_MESSAGE, handleGrantsMessage } from '../src/grants-messages.ts';
 import { installGrants } from '../src/grants.ts';
 import { installFrameCleanup, noteFrame } from '../src/frames.ts';
+import { installInflightWatch } from '../src/inflight.ts';
 import { installNetworkCleanup, installNetworkWatch } from '../src/network.ts';
 import { installSourcesWatch } from '../src/sources.ts';
 import { installAutosave } from '../src/sessions-store.ts';
@@ -29,6 +30,8 @@ installNetworkCleanup();
 // At LOAD, not when the feature is switched on: a `webRequest` listener added later is not reliably
 // delivered, and an MV3 worker that sleeps and wakes has to find its listeners again (network.ts).
 installNetworkWatch();
+// The in-flight count for "is the page quiet": numbers only, no rows (inflight.ts).
+installInflightWatch();
 installSourcesWatch();
 browser.windows.onRemoved.addListener(onWindowRemoved);
 browser.runtime.onMessage.addListener((message: unknown, sender) => {

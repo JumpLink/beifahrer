@@ -17,7 +17,8 @@ export type PageRequest = PageTarget &
     | { beifahrer: 'outline'; maxItems: number }
     | { beifahrer: 'describe'; ref: string }
     | { beifahrer: 'fill'; ref: string; text: string; as: 'text' | 'html'; mode: 'replace' | 'append' }
-    | { beifahrer: 'click'; ref: string }
+    /** `fallback` skips the pointer sequence and calls `element.click()`: the retry for a page that ignored the first. */
+    | { beifahrer: 'click'; ref: string; fallback?: boolean }
     /** A one-time code the person relayed (ADR 0020). Only ever into a field marked as one. */
     | { beifahrer: 'enterCode'; ref: string; code: string }
     /** Files for a file field (ADR 0027); the bridge read them, the confirm window listed them. */
@@ -63,6 +64,10 @@ export type PageRequest = PageTarget &
      * It carries nothing the caller could not already know: the extension chose where it injected.
      */
     | { beifahrer: 'where' }
+    /** Which document this is and how many real mutations it has had (settle.ts). Reads no content. */
+    | { beifahrer: 'probe'; ref?: string }
+    /** Answer once the document has been still for `quietMs`, or after `maxMs`. Reads no content. */
+    | { beifahrer: 'quiet'; quietMs: number; maxMs: number }
     | { beifahrer: 'hide' }
     | { beifahrer: 'find'; query: ElementQuery; maxResults: number }
     | { beifahrer: 'meta'; meta: MetaQuery }

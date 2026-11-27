@@ -29,6 +29,8 @@ import networkRules from './unit/core/network.test.ts';
 import sourcesRules from './unit/core/sources.test.ts';
 import navigate from './unit/core/navigate.test.ts';
 import wait from './unit/core/wait.test.ts';
+import settle from './unit/core/settle.test.ts';
+import verdict from './unit/core/verdict.test.ts';
 import refs from './unit/core/refs.test.ts';
 import toolbar from './unit/core/toolbar.test.ts';
 import shortcut from './unit/core/shortcut.test.ts';
@@ -51,6 +53,10 @@ import extensionOpenOptions from './unit/extension/open-options.test.ts';
 import extensionSiteLinks from './unit/extension/site-links.test.ts';
 import extensionSaves from './unit/extension/saves.test.ts';
 import extensionChooserHook from './unit/extension/chooser-hook.test.ts';
+import extensionClickCheck from './unit/extension/click-check.test.ts';
+import extensionClickSafety from './unit/extension/click-safety.test.ts';
+import extensionActProbe from './unit/extension/act-probe.test.ts';
+import extensionInflight from './unit/extension/inflight-tracker.test.ts';
 import updatesJson from './unit/extension/updates-json.test.ts';
 import mcpGate from './unit/mcp/gate.test.ts';
 import mcpTools from './unit/mcp/tools.test.ts';
@@ -114,6 +120,8 @@ run({
   sourcesRules,
   navigate,
   wait,
+  settle,
+  verdict,
   refs,
   toolbar,
   shortcut,
@@ -136,6 +144,10 @@ run({
   extensionSiteLinks,
   extensionSaves,
   extensionChooserHook,
+  extensionActProbe,
+  extensionClickSafety,
+  extensionClickCheck,
+  extensionInflight,
   updatesJson,
   mcpGate,
   mcpTools,
