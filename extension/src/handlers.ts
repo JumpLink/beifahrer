@@ -69,7 +69,7 @@ import {
   type TabInfo,
   uploadRefusal,
 } from '@beifahrer/core';
-import { settleTab, type Scope } from './act.ts';
+import { judge, lookAt, settleTab, type Scope } from './act.ts';
 import { askForAccess } from './access-prompt.ts';
 import { browserInfo } from './browser-info.ts';
 import { track } from './activity.ts';
@@ -745,18 +745,20 @@ function scopeOf(tabId: number, policy: Policy, ctx: CallContext): Scope {
 }
 
 /**
- * Run a write, then wait for the page to be quiet and say how that went (`settled`, `ms`). A write
- * that failed throws before the wait: there is nothing to settle.
+ * Run a write and say what it did: look at the document before, run it, wait for the page to be
+ * quiet, look again (`change`, `settled`, `ms`). A write that failed throws before the wait.
  */
 async function acted(
   tabId: number,
   policy: Policy,
   ctx: CallContext,
+  frame: number,
   run: () => Promise<Record<string, unknown>>,
 ): Promise<Record<string, unknown>> {
+  const scope = scopeOf(tabId, policy, ctx);
+  const before = (await lookAt(scope, frame)).probe;
   const data = await run();
-  const out = await settleTab(scopeOf(tabId, policy, ctx));
-  return { ...data, settled: out.settled, ms: out.ms };
+  return { ...data, ...(await judge(scope, frame, before)) };
 }
 
 /**
@@ -1455,7 +1457,7 @@ const handlers: { [M in Method]: Handler<M> } = {
     // site, and the confirm window shows it (issue #32).
     const route = await routeFor('page.fill', tabId, ref, policy, ctx);
     if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'fill', route.ref, params.text);
-    return (await acted(tabId, policy, ctx, () =>
+    return (await acted(tabId, policy, ctx, route.frame, () =>
       page(
         tabId,
         ctx,
@@ -1505,7 +1507,7 @@ const handlers: { [M in Method]: Handler<M> } = {
       await confirmWrite(ctx, tabId, route.origin, 'upload', route.ref, list);
     }
     await installChooserHookInPage(tabId, route.frame);
-    return (await acted(tabId, policy, ctx, () =>
+    return (await acted(tabId, policy, ctx, route.frame, () =>
       page(tabId, ctx, { beifahrer: 'upload', ref: route.ref, files }, route.frame, route.index),
     )) as unknown as Result<'page.upload'>;
   },
@@ -1515,7 +1517,7 @@ const handlers: { [M in Method]: Handler<M> } = {
     const ref = refOf(params);
     const route = await routeFor('page.click', tabId, ref, policy, ctx);
     if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'click', route.ref, undefined);
-    return (await acted(tabId, policy, ctx, () =>
+    return (await acted(tabId, policy, ctx, route.frame, () =>
       page(tabId, ctx, { beifahrer: 'click', ref: route.ref }, route.frame, route.index),
     )) as unknown as Result<'page.click'>;
   },
@@ -1761,7 +1763,7 @@ const handlers: { [M in Method]: Handler<M> } = {
       if (answer.remember) await rememberWrites(origin);
       await stillTheSameOrigin(tabId, origin, 'page.press');
     }
-    return (await acted(tabId, policy, ctx, () =>
+    return (await acted(tabId, policy, ctx, route.frame, () =>
       page(
         tabId,
         ctx,
@@ -1793,7 +1795,7 @@ const handlers: { [M in Method]: Handler<M> } = {
     const add = params.add === true;
     const route = await routeFor('page.select', tabId, ref, policy, ctx);
     if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'select', route.ref, values.join(', '));
-    return (await acted(tabId, policy, ctx, () =>
+    return (await acted(tabId, policy, ctx, route.frame, () =>
       page(tabId, ctx, { beifahrer: 'select', ref: route.ref, values, add }, route.frame, route.index),
     )) as unknown as Result<'page.select'>;
   },
@@ -1806,7 +1808,7 @@ const handlers: { [M in Method]: Handler<M> } = {
     const checked = params.checked !== false;
     const route = await routeFor('page.check', tabId, ref, policy, ctx);
     if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'check', route.ref, String(checked));
-    return (await acted(tabId, policy, ctx, () =>
+    return (await acted(tabId, policy, ctx, route.frame, () =>
       page(tabId, ctx, { beifahrer: 'check', ref: route.ref, checked }, route.frame, route.index),
     )) as unknown as Result<'page.check'>;
   },

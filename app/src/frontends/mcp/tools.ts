@@ -78,6 +78,15 @@ const POLICY_NOTE =
   'A "forbidden" error is their decision, not a malfunction: tell them which site and which level it needs, and let them decide. ' +
   'They can also switch single features off ("feature_disabled") or pause Beifahrer altogether ("paused"): then ask them, and do not retry until they say so.';
 
+/**
+ * What every write answers beyond its own fields. `none` is the one an agent must not skip: a click on
+ * a custom element can succeed and reach nothing (browser-use's lesson, `browser_use/ax.py`).
+ */
+const CHANGE_NOTE =
+  'The answer says what the action did to the page: "change" is "navigated" (the document was replaced or moved; "url" is the new address when it is a site you may read), ' +
+  '"changed" (the page really changed), or "none" — which means the action probably did nothing, so check with page_outline or page_expect before going on. ' +
+  'It also waits for the page to be quiet and reports "settled" ("quiet", or "cap" if the page never went still) and "ms". ';
+
 export function text(value: unknown): CallToolResult {
   return {
     content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 2) }],
@@ -650,6 +659,7 @@ export function registerTools(
         'as="html" pastes formatted text into rich editors (headings, lists, bold survive); plain fields get the text. ' +
         'Needs level "read + edit"; the person is asked to confirm in a browser window unless they switched that off for the site, so this may take up to two minutes. ' +
         'Password fields are never filled. ' +
+        CHANGE_NOTE +
         POLICY_NOTE,
       inputSchema: {
         tabId: tabIdParam,
@@ -708,6 +718,7 @@ export function registerTools(
         'Several paths only if the field accepts several. If no file field belongs to the ref (a "drop image here" zone), the files are dropped onto that element as a drag-and-drop; the answer says via "input" or "drop", and for a drop accepted means the page cancelled the drop event, i.e. took it. ' +
         'The file content never comes back: the answer lists name, size and type per file and whether the page took them. ' +
         'Needs the switch "Upload files" (off by default), level "read + edit", and the person confirms every time in a browser window, so this may take up to two minutes. ' +
+        CHANGE_NOTE +
         POLICY_NOTE,
       inputSchema: {
         tabId: tabIdParam,
@@ -733,6 +744,7 @@ export function registerTools(
       title: 'Click an element',
       description:
         'Click a button or link by ref from page_outline. Needs level "read + edit" and, unless switched off, the person\'s confirmation. ' +
+        CHANGE_NOTE +
         POLICY_NOTE,
       inputSchema: {
         tabId: tabIdParam,
@@ -858,6 +870,7 @@ export function registerTools(
         'A page that checks event.isTrusted sees false; that is the honest limit, and page_evaluate is the way around it on Firefox. ' +
         'Password fields are never typed into. ' +
         'Needs level "read + edit"; the person is asked to confirm unless they switched that off for the site. ' +
+        CHANGE_NOTE +
         POLICY_NOTE,
       inputSchema: {
         tabId: tabIdParam,
@@ -890,6 +903,7 @@ export function registerTools(
         'Several values set a multiple-select at once; add=true keeps the options already chosen. ' +
         'A dropdown built from divs has no options to set — Beifahrer says so and names the choices, then you page_click the one you want. ' +
         'Needs level "read + edit"; the person is asked to confirm unless they switched that off for the site. ' +
+        CHANGE_NOTE +
         POLICY_NOTE,
       inputSchema: {
         tabId: tabIdParam,
@@ -919,6 +933,7 @@ export function registerTools(
         'because setting its aria-checked by hand would make it look ticked while the page never heard of it. ' +
         'Setting it to the state it already has does nothing and says so. A radio can be checked but not unchecked. ' +
         'Needs level "read + edit"; the person is asked to confirm unless they switched that off for the site. ' +
+        CHANGE_NOTE +
         POLICY_NOTE,
       inputSchema: {
         tabId: tabIdParam,

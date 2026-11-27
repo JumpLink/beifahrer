@@ -30,6 +30,7 @@ import sourcesRules from './unit/core/sources.test.ts';
 import navigate from './unit/core/navigate.test.ts';
 import wait from './unit/core/wait.test.ts';
 import settle from './unit/core/settle.test.ts';
+import verdict from './unit/core/verdict.test.ts';
 import refs from './unit/core/refs.test.ts';
 import toolbar from './unit/core/toolbar.test.ts';
 import shortcut from './unit/core/shortcut.test.ts';
@@ -118,6 +119,7 @@ run({
   navigate,
   wait,
   settle,
+  verdict,
   refs,
   toolbar,
   shortcut,

@@ -1,5 +1,7 @@
 import { describe, expect, it } from '@gjsify/unit';
 
+import { verdictOf } from '@beifahrer/core';
+
 import { MutationProbe } from '../../../../extension/src/act-probe.ts';
 
 // Mutation noise against real change. The observer is a fake that hands the probe whatever records the
@@ -106,6 +108,16 @@ export default async () => {
       const res = await w.probe.quiet(80, 300);
       expect(res.quiet).toBe(false);
       expect(w.time() >= 300).toBe(true);
+    });
+
+    await it('turns noise into verdict none and a real change into verdict changed', async () => {
+      const w = setup();
+      const before = w.probe.snapshot();
+      w.push({ type: 'attributes', attributeName: 'class', oldValue: 'a', target: el({ class: 'a' }) });
+      w.push({ type: 'characterData', oldValue: 't', target: { data: 't' } });
+      expect(verdictOf(before, w.probe.snapshot()).change).toBe('none');
+      w.push({ type: 'childList', target: {}, addedNodes: [{}], removedNodes: [] });
+      expect(verdictOf(before, w.probe.snapshot()).change).toBe('changed');
     });
 
     await it('is not quiet while the document is loading', async () => {
