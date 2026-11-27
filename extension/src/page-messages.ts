@@ -17,7 +17,8 @@ export type PageRequest = PageTarget &
     | { beifahrer: 'outline'; maxItems: number }
     | { beifahrer: 'describe'; ref: string }
     | { beifahrer: 'fill'; ref: string; text: string; as: 'text' | 'html'; mode: 'replace' | 'append' }
-    | { beifahrer: 'click'; ref: string }
+    /** `fallback` skips the pointer sequence and calls `element.click()`: the retry for a page that ignored the first. */
+    | { beifahrer: 'click'; ref: string; fallback?: boolean }
     /** A one-time code the person relayed (ADR 0020). Only ever into a field marked as one. */
     | { beifahrer: 'enterCode'; ref: string; code: string }
     /** Files for a file field (ADR 0027); the bridge read them, the confirm window listed them. */

@@ -74,6 +74,7 @@ import { askForAccess } from './access-prompt.ts';
 import { browserInfo } from './browser-info.ts';
 import { track } from './activity.ts';
 import { askPerson, type ConfirmAnswer } from './confirm.ts';
+import { clickWithFallback } from './click-flow.ts';
 import { fail, MethodError } from './errors.ts';
 import { hideIndicator } from './indicator.ts';
 import { correctFrame, frameByIndex, framesOf, isWebUrl, type FrameRow } from './frames.ts';
@@ -1517,8 +1518,18 @@ const handlers: { [M in Method]: Handler<M> } = {
     const ref = refOf(params);
     const route = await routeFor('page.click', tabId, ref, policy, ctx);
     if (route.confirm) await confirmWrite(ctx, tabId, route.origin, 'click', route.ref, undefined);
-    return (await acted(tabId, policy, ctx, route.frame, () =>
-      page(tabId, ctx, { beifahrer: 'click', ref: route.ref }, route.frame, route.index),
+    // The pointer sequence first; when the page did not change at all, `element.click()` once —
+    // custom elements often answer only to that (click-flow.ts).
+    return (await clickWithFallback((fallback) =>
+      acted(tabId, policy, ctx, route.frame, () =>
+        page(
+          tabId,
+          ctx,
+          { beifahrer: 'click', ref: route.ref, ...(fallback ? { fallback } : {}) },
+          route.frame,
+          route.index,
+        ),
+      ).then((r) => r as { change: string }),
     )) as unknown as Result<'page.click'>;
   },
 

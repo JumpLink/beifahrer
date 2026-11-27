@@ -744,6 +744,8 @@ export function registerTools(
       title: 'Click an element',
       description:
         'Click a button or link by ref from page_outline. Needs level "read + edit" and, unless switched off, the person\'s confirmation. ' +
+        'The element is checked first (attached, enabled, visible, scrolled into view, not covered): a click that cannot land fails and names what covers it. ' +
+        'If the page did not change at all, element.click() is tried once and the answer says "fallback": "element.click". ' +
         CHANGE_NOTE +
         POLICY_NOTE,
       inputSchema: {

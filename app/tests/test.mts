@@ -53,6 +53,7 @@ import extensionOpenOptions from './unit/extension/open-options.test.ts';
 import extensionSiteLinks from './unit/extension/site-links.test.ts';
 import extensionSaves from './unit/extension/saves.test.ts';
 import extensionChooserHook from './unit/extension/chooser-hook.test.ts';
+import extensionClickCheck from './unit/extension/click-check.test.ts';
 import extensionActProbe from './unit/extension/act-probe.test.ts';
 import extensionInflight from './unit/extension/inflight-tracker.test.ts';
 import updatesJson from './unit/extension/updates-json.test.ts';
@@ -143,6 +144,7 @@ run({
   extensionSaves,
   extensionChooserHook,
   extensionActProbe,
+  extensionClickCheck,
   extensionInflight,
   updatesJson,
   mcpGate,

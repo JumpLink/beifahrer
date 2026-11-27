@@ -49,6 +49,7 @@ import {
   type HookWindow,
 } from '../src/chooser-hook.ts';
 import { MutationProbe, type ProbeDocument } from '../src/act-probe.ts';
+import { planClick, pointerClick } from '../src/click-check.ts';
 import { afterRepaint, HOST_TAG, hideNow, keepShown, show } from '../src/page-indicator.ts';
 import type { PageRequest, PageResponse } from '../src/page-messages.ts';
 
@@ -1137,27 +1138,6 @@ function fillInput(input: HTMLInputElement, ref: string, files: UploadFile[]): P
   };
 }
 
-/**
- * The press a pointer produces before the click. An option of a dropdown built from divs often acts
- * on pointerdown/mousedown (Angular Material selects on mousedown, then click), so `click()` alone
- * leaves it untouched.
- */
-function pressLikePointer(el: Element): void {
-  const rect = el.getBoundingClientRect();
-  const at = {
-    bubbles: true,
-    cancelable: true,
-    composed: true,
-    clientX: rect.x + rect.width / 2,
-    clientY: rect.y + rect.height / 2,
-    button: 0,
-  };
-  el.dispatchEvent(new PointerEvent('pointerdown', { ...at, buttons: 1 }));
-  el.dispatchEvent(new MouseEvent('mousedown', { ...at, buttons: 1 }));
-  el.dispatchEvent(new PointerEvent('pointerup', at));
-  el.dispatchEvent(new MouseEvent('mouseup', at));
-}
-
 function buildFiles(files: UploadFile[]): File[] {
   return files.map((f) => {
     const binary = atob(f.base64);
@@ -1237,13 +1217,27 @@ function dropFiles(el: Element, ref: string, files: UploadFile[]): PageResponse 
   };
 }
 
-function click(ref: string): PageResponse {
+function click(ref: string, fallback = false): PageResponse {
   const el = byRef(ref);
   if (!el) return notFound(ref);
-  (el as HTMLElement).scrollIntoView({ block: 'center', inline: 'center' });
-  (el as HTMLElement).focus?.();
-  if (el.getAttribute('role') === 'option') pressLikePointer(el);
-  (el as HTMLElement).click();
+  const target = el as HTMLElement;
+  if (fallback) {
+    // The retry for a custom element that ignored the pointer events: only its own `click()` works.
+    if (!target.isConnected) return { ok: false, code: 'failed', message: `${ref} is no longer in the page` };
+    target.click();
+    return { ok: true, data: { ref } };
+  }
+  const plan = planClick(target, { width: window.innerWidth, height: window.innerHeight });
+  if (!plan.ok) return { ok: false, code: 'failed', message: `${ref}: ${plan.message}` };
+  target.focus?.();
+  pointerClick(target, plan, (type, at) => {
+    const init = { bubbles: true, cancelable: true, composed: true, button: 0, ...at };
+    const down = type === 'pointerdown' || type === 'mousedown' ? { buttons: 1 } : {};
+    if (type === 'click') return new MouseEvent('click', init);
+    return type.startsWith('pointer')
+      ? new PointerEvent(type, { ...init, ...down })
+      : new MouseEvent(type, { ...init, ...down });
+  });
   return { ok: true, data: { ref } };
 }
 
@@ -2466,7 +2460,7 @@ function handle(req: PageRequest): PageResponse | Promise<PageResponse> {
         .quiet(req.quietMs, req.maxMs)
         .then((q) => ({ ok: true as const, data: { ...q } }));
     case 'click':
-      return click(req.ref);
+      return click(req.ref, req.fallback === true);
     case 'press':
       return press(req.ref, req.key, req.text, req.times);
     case 'select':
