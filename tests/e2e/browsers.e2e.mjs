@@ -1729,7 +1729,8 @@ async function savesScenario(browser) {
  */
 /** An ARIA combobox whose options live in an overlay at the end of body (Angular Material style). */
 async function listboxOptions(browser, client, allowed) {
-  const before = await tool(client, 'page_find', { tabId: allowed.tabId, role: 'option' });
+  // Native <option>s of a real <select> match by role too; the ARIA overlay's options must not exist yet.
+  const before = await tool(client, 'page_find', { tabId: allowed.tabId, role: 'option', name: 'Alpha' });
   check(
     browser,
     'no option is listed while the combobox is closed',
