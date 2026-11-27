@@ -21,7 +21,13 @@ import { SETTLE_STYLE_THROTTLE_MS, type PageQuiet } from '@beifahrer/core';
 /** The slice of a document the probe reads. A real `Document` satisfies it. */
 export interface ProbeDocument {
   readyState: string;
-  querySelectorAll(selector: string): ArrayLike<{ contentDocument?: ProbeDocument | null }>;
+  querySelectorAll(selector: string): ArrayLike<ProbeNode>;
+}
+
+/** An element as far as the probe looks: an iframe's document, an open shadow root. */
+export interface ProbeNode {
+  contentDocument?: ProbeDocument | null;
+  shadowRoot?: ProbeDocument | null;
 }
 
 export interface ProbeDeps {
@@ -64,23 +70,27 @@ export class MutationProbe {
     return this.deps.id;
   }
 
-  /** Observe a document once, and the same-origin frames inside it. */
+  /**
+   * Observe a document once, and what hides mutations from it: same-origin frames and OPEN shadow
+   * roots (a component's own state lives there, and an observer on the document never sees it —
+   * without this a click that changed only a component would read as "did nothing").
+   */
   private watch(doc: ProbeDocument): void {
     if (!this.watched.has(doc)) {
       this.watched.add(doc);
       this.observer.observe(doc as unknown as Node, OBSERVED);
     }
-    let frames: ArrayLike<{ contentDocument?: ProbeDocument | null }>;
+    let nodes: ArrayLike<ProbeNode>;
     try {
-      frames = doc.querySelectorAll('iframe, frame');
+      nodes = doc.querySelectorAll('*');
     } catch {
       return;
     }
-    for (let i = 0; i < frames.length; i++) {
+    for (let i = 0; i < nodes.length; i++) {
       let inner: ProbeDocument | null | undefined;
       try {
         // A cross-origin frame throws or answers null: its own agent counts its own document.
-        inner = frames[i]?.contentDocument;
+        inner = nodes[i]?.contentDocument ?? nodes[i]?.shadowRoot;
       } catch {
         inner = null;
       }

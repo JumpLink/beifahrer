@@ -120,6 +120,29 @@ export default async () => {
       expect(verdictOf(before, w.probe.snapshot()).change).toBe('changed');
     });
 
+    await it('observes an open shadow root, so a component-only change is not read as none', async () => {
+      const observed: unknown[] = [];
+      const root = { readyState: 'complete', querySelectorAll: () => [] as never[] };
+      const doc = { readyState: 'complete', querySelectorAll: () => [{ shadowRoot: root }] };
+      class Obs {
+        observe(n: unknown) {
+          observed.push(n);
+        }
+        takeRecords() {
+          return [];
+        }
+      }
+      new MutationProbe({
+        doc,
+        Observer: Obs as unknown as never,
+        now: () => 0,
+        sleep: async () => {},
+        id: 'd',
+        url: () => 'https://x.test/',
+      });
+      expect(observed).toStrictEqual([doc, root]);
+    });
+
     await it('is not quiet while the document is loading', async () => {
       const w = setup();
       w.doc.readyState = 'loading';
