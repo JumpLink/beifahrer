@@ -50,7 +50,7 @@ import {
 } from '../src/chooser-hook.ts';
 import { MutationProbe, type ProbeDocument } from '../src/act-probe.ts';
 import { fallbackEligible, formState, planClick, pointerClick } from '../src/click-check.ts';
-import { derivedRole } from '../src/derived-role.ts';
+import { derivedRole, wrappedButton } from '../src/derived-role.ts';
 import { checkUpload } from '../src/upload-check.ts';
 import { deepActive, typeInto, type FillEnv } from '../src/field-fill.ts';
 import { afterRepaint, HOST_TAG, hideNow, keepShown, show } from '../src/page-indicator.ts';
@@ -134,17 +134,6 @@ function visible(el: Element): boolean {
 function rootOf(el: Element): Document | ShadowRoot {
   const root = el.getRootNode() as Document | ShadowRoot | null;
   return root && typeof root.querySelectorAll === 'function' ? root : document;
-}
-
-/**
- * A shadow root that is one button and nothing else interactive: the host IS the button. A card
- * with a form and a button in it is a container, and calling it a button would list it next to the
- * real one.
- */
-function wrapsOneButton(root: ShadowRoot | null): boolean {
-  if (!root) return false;
-  if (root.querySelectorAll('button, [role="button"]').length !== 1) return false;
-  return !root.querySelector('input, select, textarea, a[href], [contenteditable], [tabindex]');
 }
 
 /** What a component's open shadow root says; the host's own `textContent` does not include it. */
@@ -253,7 +242,7 @@ function kindOf(el: Element): Kind | null {
       tag: tag.toLowerCase(),
       role,
       tabindex: tabindex === null || tabindex.trim() === '' ? null : Number(tabindex),
-      shadowButton: wrapsOneButton(el.shadowRoot),
+      shadowButton: wrappedButton(el.shadowRoot) !== null,
       pointer: getComputedStyle(el).cursor === 'pointer',
       name: labelFor(el),
     });
@@ -347,6 +336,12 @@ function byRef(ref: string): Element | null {
   return el && el.isConnected ? el : null;
 }
 
+function isDisabled(el: Element): boolean {
+  return (
+    el.matches(':disabled') || el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true'
+  );
+}
+
 function describe(el: Element, kind: Kind): string {
   const name = clip(labelFor(el), 80);
   switch (kind.role) {
@@ -395,6 +390,8 @@ function describe(el: Element, kind: Kind): string {
         .join(', ');
       return `file "${name}"${traits ? ` (${traits})` : ''}`;
     }
+    case 'button':
+      return `button "${name}"${isDisabled(el) ? ' [disabled]' : ''}`;
     default:
       return `${kind.role} "${name}"`;
   }

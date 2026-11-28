@@ -80,3 +80,32 @@ export function derivedRole(f: RoleFacts): 'button' | null {
   if (f.pointer && clickishName(f.name)) return 'button';
   return null;
 }
+
+export interface ButtonLike {
+  contains(other: unknown): boolean;
+}
+
+export interface ShadowLike {
+  querySelectorAll(selector: string): ArrayLike<ButtonLike>;
+  querySelector(selector: string): unknown;
+}
+
+/**
+ * The one button a shadow root is made of, or null: the host IS that button. A card with a form and
+ * a button in it is a container, and calling it a button would list it next to the real one.
+ * The button's own `tabindex` (a design system's focus target) is not "something else interactive";
+ * a second focusable element beside it, or any field or link, is.
+ */
+export function wrappedButton(root: ShadowLike | null): ButtonLike | null {
+  if (!root) return null;
+  const buttons = root.querySelectorAll('button, [role="button"]');
+  if (buttons.length !== 1) return null;
+  const button = buttons[0];
+  if (root.querySelector('input, select, textarea, a[href], [contenteditable]')) return null;
+  const focusable = root.querySelectorAll('[tabindex]');
+  for (let i = 0; i < focusable.length; i++)
+    if (focusable[i] !== button && !button.contains(focusable[i])) return null;
+  return button;
+}
+
+export const wrapsOneButton = (root: ShadowLike | null): boolean => wrappedButton(root) !== null;
