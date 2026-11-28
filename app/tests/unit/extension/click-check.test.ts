@@ -1,6 +1,11 @@
 import { describe, expect, it } from '@gjsify/unit';
 
-import { planClick, pointerClick, type ClickElement } from '../../../../extension/src/click-check.ts';
+import {
+  planClick,
+  pointerClick,
+  type ClickElement,
+  type Hit,
+} from '../../../../extension/src/click-check.ts';
 import { clickWithFallback } from '../../../../extension/src/click-flow.ts';
 
 // A page's elements as plain objects: the checks read a handful of members, so a fake with those
@@ -64,7 +69,91 @@ function fake(o: FakeOpts = {}) {
   return el;
 }
 
+// A shell page: `he-shell` has an open shadow root, the page's own content is slotted into it.
+// `elementFromPoint` on the document stops at the shell; the shell's root knows the deeper answer.
+function shellPage(deeper: (target: Hit, shell: Hit) => Hit | null, targetShadow?: (target: Hit) => Hit) {
+  const body: Hit = { tagName: 'BODY', contains: () => true };
+  let inner: Hit | null = null;
+  const shell: Hit = {
+    tagName: 'HE-SHELL',
+    parentElement: body,
+    contains: (n) => n === shell,
+    shadowRoot: { elementFromPoint: () => inner },
+  };
+  const target = fake();
+  const t = target as unknown as Hit;
+  t.parentElement = shell;
+  t.assignedSlot = { tagName: 'SLOT', contains: () => false, parentElement: shell };
+  target.getRootNode = () => ({ elementFromPoint: () => shell });
+  if (targetShadow) {
+    const own = targetShadow(t);
+    t.shadowRoot = { elementFromPoint: () => own };
+  }
+  inner = deeper(t, shell);
+  return target;
+}
+
 export default async () => {
+  await describe('planClick across shadow trees', async () => {
+    await it('is not covered when the document hit is a shell and the target is slotted into it', async () => {
+      const plan = planClick(
+        shellPage((t) => t),
+        VIEW,
+      );
+      expect(plan.ok).toBe(true);
+    });
+
+    await it('is not covered by a node rendered inside the slotted target', async () => {
+      const plan = planClick(
+        shellPage((t) => ({ tagName: 'SPAN', contains: () => false, parentElement: t })),
+        VIEW,
+      );
+      expect(plan.ok).toBe(true);
+    });
+
+    await it('is not covered by the native button in its own shadow root, and clicks the host', async () => {
+      const el = shellPage(
+        (t) => t,
+        (t) => ({
+          tagName: 'BUTTON',
+          contains: () => false,
+          parentElement: null,
+          getRootNode: () => ({ host: t }),
+        }),
+      );
+      const plan = planClick(el, VIEW);
+      expect(plan.ok).toBe(true);
+      if (plan.ok) expect(plan.hit === (el as unknown as Hit)).toBe(true);
+    });
+
+    await it('still names a real overlay, also one drawn inside the shell', async () => {
+      const inShell = planClick(
+        shellPage((_t, shell) => ({
+          tagName: 'DIV',
+          id: 'backdrop',
+          textContent: 'Dialog',
+          contains: () => false,
+          parentElement: null,
+          getRootNode: () => ({ host: shell }),
+        })),
+        VIEW,
+      );
+      expect(inShell.ok).toBe(false);
+      if (!inShell.ok) expect(inShell.message.includes('<div#backdrop> "Dialog"')).toBe(true);
+      const sibling = planClick(
+        shellPage(() => ({
+          tagName: 'DIALOG',
+          textContent: 'Sure?',
+          contains: () => false,
+          parentElement: { tagName: 'BODY', contains: () => true },
+        })),
+        VIEW,
+      );
+      expect(sibling.ok).toBe(false);
+      if (!sibling.ok) expect(sibling.message.includes('<dialog> "Sure?"')).toBe(true);
+    });
+  });
+
   await describe('planClick', async () => {
     await it('plans a click at the centre of a visible, uncovered element', async () => {
       const plan = planClick(fake(), VIEW);

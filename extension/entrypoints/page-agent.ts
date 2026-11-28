@@ -50,7 +50,7 @@ import {
 } from '../src/chooser-hook.ts';
 import { MutationProbe, type ProbeDocument } from '../src/act-probe.ts';
 import { fallbackEligible, formState, planClick, pointerClick } from '../src/click-check.ts';
-import { derivedRole } from '../src/derived-role.ts';
+import { derivedRole, wrappedButton } from '../src/derived-role.ts';
 import { checkUpload } from '../src/upload-check.ts';
 import { deepActive, typeInto, type FillEnv } from '../src/field-fill.ts';
 import { afterRepaint, HOST_TAG, hideNow, keepShown, show } from '../src/page-indicator.ts';
@@ -136,17 +136,6 @@ function rootOf(el: Element): Document | ShadowRoot {
   return root && typeof root.querySelectorAll === 'function' ? root : document;
 }
 
-/**
- * A shadow root that is one button and nothing else interactive: the host IS the button. A card
- * with a form and a button in it is a container, and calling it a button would list it next to the
- * real one.
- */
-function wrapsOneButton(root: ShadowRoot | null): boolean {
-  if (!root) return false;
-  if (root.querySelectorAll('button, [role="button"]').length !== 1) return false;
-  return !root.querySelector('input, select, textarea, a[href], [contenteditable], [tabindex]');
-}
-
 /** What a component's open shadow root says; the host's own `textContent` does not include it. */
 function shadowText(el: Element): string {
   const root = el.shadowRoot;
@@ -154,6 +143,14 @@ function shadowText(el: Element): string {
   const parts: string[] = [];
   for (const child of Array.from(root.children))
     if (!SKIP.has(child.tagName)) parts.push(child.textContent?.trim() ?? '');
+  return parts.filter(Boolean).join(' ');
+}
+
+/** Text of what the slots inside `el` show, flattened through nested slots. */
+function slottedText(el: Element): string {
+  const parts: string[] = [];
+  for (const slot of Array.from(el.querySelectorAll('slot')))
+    for (const node of slot.assignedNodes({ flatten: true })) parts.push(node.textContent?.trim() ?? '');
   return parts.filter(Boolean).join(' ');
 }
 
@@ -180,6 +177,18 @@ function labelFor(el: Element): string {
   if (text?.trim()) return text;
   const title = el.getAttribute('title');
   if (title?.trim()) return title;
+  // Inside a shadow tree the words arrive through a <slot> that `innerText` and `textContent` do not
+  // follow; and when the slot sits beside the control, the host's own name is the control's name.
+  const slotted = slottedText(el);
+  if (slotted) return slotted;
+  const host =
+    (el.getRootNode() as ShadowRoot | Document).nodeType === 11
+      ? (el.getRootNode() as ShadowRoot).host
+      : null;
+  if (host && (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button')) {
+    const hostName = labelFor(host);
+    if (hostName.trim()) return hostName;
+  }
   // An icon button: the words live in a visually-hidden span (`innerText` can come back empty for
   // clipped text), an <img alt>, an SVG <title> or a child's aria-label. Fluent UI toolbars are
   // built like this, and the result was `button ""`.
@@ -253,7 +262,7 @@ function kindOf(el: Element): Kind | null {
       tag: tag.toLowerCase(),
       role,
       tabindex: tabindex === null || tabindex.trim() === '' ? null : Number(tabindex),
-      shadowButton: wrapsOneButton(el.shadowRoot),
+      shadowButton: wrappedButton(el.shadowRoot) !== null,
       pointer: getComputedStyle(el).cursor === 'pointer',
       name: labelFor(el),
     });
@@ -347,6 +356,12 @@ function byRef(ref: string): Element | null {
   return el && el.isConnected ? el : null;
 }
 
+function isDisabled(el: Element): boolean {
+  return (
+    el.matches(':disabled') || el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true'
+  );
+}
+
 function describe(el: Element, kind: Kind): string {
   const name = clip(labelFor(el), 80);
   switch (kind.role) {
@@ -395,6 +410,8 @@ function describe(el: Element, kind: Kind): string {
         .join(', ');
       return `file "${name}"${traits ? ` (${traits})` : ''}`;
     }
+    case 'button':
+      return `button "${name}"${isDisabled(el) ? ' [disabled]' : ''}`;
     default:
       return `${kind.role} "${name}"`;
   }
@@ -484,6 +501,9 @@ function* elementsByDocument(): Generator<{ entry: Doc; el: Element; kind: Kind 
   }
 }
 
+/** Native buttons already represented by their derived-button host in this walk. */
+const wrapped = new WeakSet<Element>();
+
 function* inTree(root: ParentNode, doc: Document, depth: number): Generator<{ el: Element; kind: Kind }> {
   const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
     acceptNode: (node) =>
@@ -492,7 +512,16 @@ function* inTree(root: ParentNode, doc: Document, depth: number): Generator<{ el
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const el = node as Element;
     const kind = kindOf(el);
-    if (kind && visible(el)) yield { el, kind };
+    const listed = kind !== null && !wrapped.delete(el) && visible(el);
+    if (kind && listed) {
+      yield { el, kind };
+      // One entry per control: a derived-button host stands for the native button it wraps, and the
+      // host is the ref that works when clicked.
+      if ('derived' in kind && kind.derived && kind.role === 'button') {
+        const inner = wrappedButton(el.shadowRoot);
+        if (inner) wrapped.add(inner as Element);
+      }
+    }
     if (depth < MAX_SHADOW_DEPTH && el.shadowRoot) yield* inTree(el.shadowRoot, doc, depth + 1);
   }
 }

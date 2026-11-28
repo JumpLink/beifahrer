@@ -16,6 +16,11 @@ export interface Hit {
   className?: unknown;
   textContent?: string | null;
   contains(other: unknown): boolean;
+  /** Present on real elements; the unit tests' plain objects leave them out. */
+  shadowRoot?: { elementFromPoint?(x: number, y: number): Hit | null } | null;
+  assignedSlot?: Hit | null;
+  parentElement?: Hit | null;
+  getRootNode?(): unknown;
 }
 
 export interface Rect {
@@ -56,6 +61,38 @@ const inside = (view: { width: number; height: number }, r: Rect): boolean => {
   return cx >= 0 && cy >= 0 && cx <= view.width && cy <= view.height;
 };
 
+const MAX_DEPTH = 32;
+
+/**
+ * What a pointer really lands on. `elementFromPoint` on a document stops at the OUTERMOST open shadow
+ * host the point lies in (a page shell that slots the page's own content), so descend into each open
+ * root until it has nothing deeper to say.
+ */
+function deepHit(root: { elementFromPoint?(x: number, y: number): Hit | null }, x: number, y: number) {
+  let hit = root.elementFromPoint?.(x, y) ?? null;
+  for (let depth = 0; hit && depth < MAX_DEPTH; depth++) {
+    const next = hit.shadowRoot?.elementFromPoint?.(x, y) ?? null;
+    if (!next || next === hit) break;
+    hit = next;
+  }
+  return hit;
+}
+
+/**
+ * Is `target` the hit or a composed ancestor of it? The walk follows what the browser renders: the
+ * slot a node is assigned to, else its parent, else the host of the shadow root it sits in. So a
+ * target slotted into a shell, and the inner button of the target's own shadow root, both count.
+ */
+function reachesTarget(hit: Hit, target: Hit): boolean {
+  let node: Hit | null = hit;
+  for (let depth = 0; node && depth < 256; depth++) {
+    if (node === target) return true;
+    const host: unknown = (node.getRootNode?.() as { host?: Hit } | undefined)?.host;
+    node = node.assignedSlot ?? node.parentElement ?? (host as Hit | undefined) ?? null;
+  }
+  return false;
+}
+
 export function planClick(el: ClickElement, view: { width: number; height: number }): ClickPlan {
   if (!el.isConnected)
     return { ok: false, message: 'the element is no longer in the page — outline the page again' };
@@ -76,12 +113,17 @@ export function planClick(el: ClickElement, view: { width: number; height: numbe
   const x = rect.x + rect.width / 2;
   const y = rect.y + rect.height / 2;
   const root = el.getRootNode() as { elementFromPoint?(x: number, y: number): Hit | null };
-  const hit = root.elementFromPoint?.(x, y) ?? null;
-  // The target itself, something inside it, or the label that owns it is what a person would hit.
-  const covered = hit !== null && !el.contains(hit) && !(hit.tagName === 'LABEL' && hit.contains(el));
+  const hit = deepHit(root, x, y);
+  // The target itself, something inside it (also inside its own shadow root, or slotted into a shell),
+  // or the label that owns it is what a person would hit.
+  const composed = hit !== null && reachesTarget(hit, el);
+  const covered =
+    hit !== null && !composed && !el.contains(hit) && !(hit.tagName === 'LABEL' && hit.contains(el));
   if (covered)
     return { ok: false, message: `the element is covered by ${nameOf(hit)} — close or dismiss that first` };
-  return { ok: true, x, y, hit };
+  // A hit inside the target's own shadow root is the target as far as the caller is concerned: events
+  // go to the host, and its fallback test looks at the host, not at the native button it wraps.
+  return { ok: true, x, y, hit: composed && hit && !el.contains(hit) ? el : hit };
 }
 
 /** The events a pointer sends before and for a click, as plain descriptions the caller turns into events. */
