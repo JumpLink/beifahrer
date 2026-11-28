@@ -146,6 +146,14 @@ function shadowText(el: Element): string {
   return parts.filter(Boolean).join(' ');
 }
 
+/** Text of what the slots inside `el` show, flattened through nested slots. */
+function slottedText(el: Element): string {
+  const parts: string[] = [];
+  for (const slot of Array.from(el.querySelectorAll('slot')))
+    for (const node of slot.assignedNodes({ flatten: true })) parts.push(node.textContent?.trim() ?? '');
+  return parts.filter(Boolean).join(' ');
+}
+
 function labelFor(el: Element): string {
   const aria = el.getAttribute('aria-label');
   if (aria) return aria;
@@ -169,6 +177,18 @@ function labelFor(el: Element): string {
   if (text?.trim()) return text;
   const title = el.getAttribute('title');
   if (title?.trim()) return title;
+  // Inside a shadow tree the words arrive through a <slot> that `innerText` and `textContent` do not
+  // follow; and when the slot sits beside the control, the host's own name is the control's name.
+  const slotted = slottedText(el);
+  if (slotted) return slotted;
+  const host =
+    (el.getRootNode() as ShadowRoot | Document).nodeType === 11
+      ? (el.getRootNode() as ShadowRoot).host
+      : null;
+  if (host && (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button')) {
+    const hostName = labelFor(host);
+    if (hostName.trim()) return hostName;
+  }
   // An icon button: the words live in a visually-hidden span (`innerText` can come back empty for
   // clipped text), an <img alt>, an SVG <title> or a child's aria-label. Fluent UI toolbars are
   // built like this, and the result was `button ""`.
@@ -481,6 +501,9 @@ function* elementsByDocument(): Generator<{ entry: Doc; el: Element; kind: Kind 
   }
 }
 
+/** Native buttons already represented by their derived-button host in this walk. */
+const wrapped = new WeakSet<Element>();
+
 function* inTree(root: ParentNode, doc: Document, depth: number): Generator<{ el: Element; kind: Kind }> {
   const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
     acceptNode: (node) =>
@@ -489,7 +512,16 @@ function* inTree(root: ParentNode, doc: Document, depth: number): Generator<{ el
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const el = node as Element;
     const kind = kindOf(el);
-    if (kind && visible(el)) yield { el, kind };
+    const listed = kind !== null && !wrapped.delete(el) && visible(el);
+    if (kind && listed) {
+      yield { el, kind };
+      // One entry per control: a derived-button host stands for the native button it wraps, and the
+      // host is the ref that works when clicked.
+      if ('derived' in kind && kind.derived && kind.role === 'button') {
+        const inner = wrappedButton(el.shadowRoot);
+        if (inner) wrapped.add(inner as Element);
+      }
+    }
     if (depth < MAX_SHADOW_DEPTH && el.shadowRoot) yield* inTree(el.shadowRoot, doc, depth + 1);
   }
 }

@@ -164,6 +164,9 @@ const FIXTURE = `<!doctype html><html><head><title>Beifahrer fixture</title></he
 <beifahrer-closed-card></beifahrer-closed-card>
 <beifahrer-pill></beifahrer-pill>
 <beifahrer-tabbable tabindex="0">Tabbable action</beifahrer-tabbable>
+<!-- A page shell with an open root that slots the page's content, and a button host whose label
+     reaches its one native <button tabindex=0> through a slot (a design-system layout). -->
+<beifahrer-shell><beifahrer-slot-button id="slot-save">Save draft</beifahrer-slot-button><beifahrer-slot-button disabled aria-disabled="true">Publish now</beifahrer-slot-button><span id="slot-clicks">slot-clicks:0</span></beifahrer-shell>
 <!-- Issue #30: one frame on the page's own origin (127.0.0.1, like the page) and one on another
      (localhost — the same server, a different origin). The second is the negative case:
      contentDocument is null for it, so it must stay invisible and the walk must not even name it. -->
@@ -278,6 +281,21 @@ const FIXTURE = `<!doctype html><html><head><title>Beifahrer fixture</title></he
       root.getElementById('shadow-save').addEventListener('click', () => {
         const count = root.getElementById('shadow-clicks');
         count.textContent = 'shadow-clicks:' + (Number(count.textContent.split(':')[1]) + 1);
+      });
+    }
+  });
+  customElements.define('beifahrer-shell', class extends HTMLElement {
+    connectedCallback() {
+      this.attachShadow({ mode: 'open' }).innerHTML = '<header>Shell chrome</header><main><slot></slot></main>';
+    }
+  });
+  customElements.define('beifahrer-slot-button', class extends HTMLElement {
+    connectedCallback() {
+      this.attachShadow({ mode: 'open' }).innerHTML = '<button tabindex="0"><span><slot></slot></span></button>';
+      this.addEventListener('click', () => {
+        if (this.hasAttribute('disabled')) return;
+        const count = document.getElementById('slot-clicks');
+        count.textContent = 'slot-clicks:' + (Number(count.textContent.split(':')[1]) + 1);
       });
     }
   });
@@ -2950,8 +2968,8 @@ async function shadowDom(browser, client, allowed) {
   const derivedHits = derived.error ? [] : JSON.parse(derived.text).matches;
   check(
     browser,
-    'page_find returns a custom element that wraps one shadow button as a derived button',
-    derivedHits.some((m) => m.derived === true) && derivedHits.some((m) => !m.derived),
+    'page_find returns a custom element that wraps one shadow button as ONE derived button, not twice',
+    derivedHits.length === 1 && derivedHits[0].derived === true,
     derived.text.slice(0, 300),
   );
   const tabbable = await tool(client, 'page_find', {
@@ -2964,6 +2982,41 @@ async function shadowDom(browser, client, allowed) {
     'page_find returns a focusable custom element as a derived button',
     !tabbable.error && JSON.parse(tabbable.text).matches[0]?.derived === true,
     tabbable.text.slice(0, 300),
+  );
+  // A host in a slotting shell: one entry named by its slotted text, clickable (not "covered by the shell").
+  const slotted = await tool(client, 'page_find', {
+    tabId: allowed.tabId,
+    role: 'button',
+    name: 'Save draft',
+  });
+  const slottedHits = slotted.error ? [] : JSON.parse(slotted.text).matches;
+  check(
+    browser,
+    'a button host slotted into a shell is listed once, named by its slotted text',
+    slottedHits.length === 1 && slottedHits[0].derived === true,
+    slotted.text.slice(0, 300),
+  );
+  const slotClick = slottedHits[0]
+    ? await tool(client, 'page_click', { tabId: allowed.tabId, ref: slottedHits[0].ref })
+    : { error: true, text: 'no ref' };
+  check(
+    browser,
+    'page_click on it is not reported as covered by the shell and reaches the page',
+    !slotClick.error &&
+      !/covered/.test(slotClick.text) &&
+      /slot-clicks:1/.test(await outputOf(client, allowed)),
+    slotClick.text.slice(0, 300),
+  );
+  const disabledHost = await tool(client, 'page_find', {
+    tabId: allowed.tabId,
+    role: 'button',
+    name: 'Publish now',
+  });
+  check(
+    browser,
+    'a disabled button host is still listed, marked disabled',
+    !disabledHost.error && /\[disabled\]/.test(disabledHost.text),
+    disabledHost.text.slice(0, 300),
   );
   const card = await tool(client, 'page_find', { tabId: allowed.tabId, role: 'button', name: 'Shadow save' });
   check(
